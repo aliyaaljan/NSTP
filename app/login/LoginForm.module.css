@@ -1,0 +1,377 @@
+.page {
+  display: flex;
+  min-height: 100vh;
+  font-family: 'Cormorant', Georgia, serif;
+}
+
+/* ── Left panel ───────────────────────────────────── */
+.leftPanel {
+  width: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #EDE8E0;
+  padding: 48px 40px;
+}
+
+.formWrap {
+  width: 100%;
+  max-width: 380px;
+}
+
+/* ── Card header — centered ───────────────────────── */
+.cardTop {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.cardLabel {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #BBBBBB;
+  margin-bottom: 10px;
+  font-family: 'Cormorant', Georgia, serif;
+}
+
+.cardTitle {
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: #2C2C2A;
+  line-height: 1.2;
+}
+
+/* ── Role badge ───────────────────────────────────── */
+.roleBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(45, 106, 79, 0.05);
+  border: 1px solid currentColor;
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 16px;
+  margin-bottom: 18px;
+  animation: fadeIn 0.2s ease;
+}
+
+.roleBadge i { font-size: 17px; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Form ─────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 15px;
+  font-weight: 500;
+  color: #888888;
+  font-family: 'Cormorant', Georgia, serif;
+}
+
+/* ── Input ────────────────────────────────────────── */
+.inputWrap {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  border: 1px solid #CCCCCC;
+  border-radius: 8px;
+  background: #ffffff;
+  gap: 8px;
+  padding: 0 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.inputWrap i {
+  font-size: 18px;
+  color: #888888;
+  flex-shrink: 0;
+}
+
+.inputWrap:focus-within {
+  border-color: #7B1021;
+  box-shadow: 0 0 0 3px rgba(123, 16, 33, 0.1);
+}
+
+.inputWrap.stateError { border-color: #C0392B; }
+.inputWrap.stateValid { border-color: #1B6B3A; }
+
+.input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 16px;
+  color: #2C2C2A;
+}
+
+.input::placeholder {
+  color: #DDDDDD;
+  font-size: 16px;
+}
+
+.input:disabled { cursor: not-allowed; }
+
+.validIcon {
+  color: #1B6B3A;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.eyeBtn {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #CCCCCC;
+  font-size: 18px;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.eyeBtn:hover { color: #7B1113; }
+
+/* ── Hint ─────────────────────────────────────────── */
+.hint {
+  font-size: 14px;
+  color: #888888;
+  font-family: 'Cormorant', Georgia, serif;
+}
+
+.hintError { color: #C0392B; }
+.hintValid { color: #1B6B3A; }
+
+/* ── Error banner ─────────────────────────────────── */
+.errorBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #FEE2E2;
+  border: 1px solid #C0392B;
+  color: #991B1B;
+  font-size: 16px;
+  font-family: 'Cormorant', Georgia, serif;
+}
+
+.errorBanner i {
+  font-size: 17px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Forgot ───────────────────────────────────────── */
+.forgotRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+.forgotLink {
+  font-size: 14px;
+  color: #7B1113;
+  text-decoration: none;
+  font-family: 'Cormorant', Georgia, serif;
+  transition: color 0.15s;
+}
+
+.forgotLink:hover {
+  color: #A01428;
+  text-decoration: underline;
+}
+
+/* ── Submit ───────────────────────────────────────── */
+.submitBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+  border: none;
+  border-radius: 8px;
+  background: #7B1113;
+  color: #ffffff;
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 4px;
+}
+
+.submitBtn:hover:not(:disabled) { background: #A01428; }
+.submitBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.submitBtn i { font-size: 18px; }
+
+/* ── Gmail button ─────────────────────────────────── */
+.gmailBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+  border: 1px solid #CCCCCC;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #2C2C2A;
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.gmailBtn:hover:not(:disabled) { background: #F5F0EB; border-color: #AAAAAA; }
+.gmailBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.gmailBtn i { font-size: 18px; }
+
+/* ── Divider ──────────────────────────────────────── */
+.orDivider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 15px;
+  color: #888888;
+}
+
+.orDivider::before,
+.orDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #888888;
+}
+
+/* ── Spinner ──────────────────────────────────────── */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Card footer ──────────────────────────────────── */
+.cardFooter {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 0.5px solid #DDDDDD;
+  text-align: center;
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 16px;
+  color: #666666;
+}
+
+.footerLink {
+  color: #7B1113;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.footerLink:hover { text-decoration: underline; }
+
+/* ── Right panel (brand) — solid, no gradient/circles ── */
+.rightPanel {
+  width: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #5C0B18;
+  padding: 48px 40px;
+}
+
+.brandInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+}
+
+/* ── Logo ─────────────────────────────────────────── */
+.logoWrap {
+  margin-bottom: 28px;
+}
+
+.logo {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.brandTitle {
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 38px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.15;
+  margin-bottom: 10px;
+}
+
+.brandTitle em {
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.brandSub {
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.5px;
+  margin-bottom: 28px;
+}
+
+.brandDivider {
+  width: 36px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  margin-bottom: 24px;
+}
+
+.brandCaption {
+  font-family: 'Cormorant', Georgia, serif;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.75;
+  max-width: 280px;
+}
+
+/* ── Responsive ───────────────────────────────────── */
+@media (max-width: 768px) {
+  .page       { flex-direction: column; }
+  .leftPanel  { width: 100%; padding: 40px 24px; }
+  .rightPanel { width: 100%; padding: 40px 24px; min-height: 320px; }
+  .brandTitle { font-size: 28px; }
+  .logo       { width: 140px; height: 140px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner   { animation: none; opacity: 0.6; }
+  .roleBadge { animation: none; }
+}
