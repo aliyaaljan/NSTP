@@ -57,11 +57,3 @@ The page will auto-update as you edit and save files inside the `app/` folder.
 
 - Next.js Documentation: https://nextjs.org/docs
 - Interactive Tutorial: https://nextjs.org/learn
-
----
-
-## Deployment
-
-The easiest way to deploy is through Vercel: https://vercel.com/new
-
-For more details: https://nextjs.org/docs/deployment
