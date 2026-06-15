@@ -1,9 +1,9 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from "next"
+import "./globals.css"
 
 export const metadata: Metadata = {
-  title: 'UP Community Extension | Login',
-  description: 'University of the Philippines — Community Extension Program',
+  title: "UP Community Extension | Login",
+  description: "University of the Philippines — Community Extension Program",
 }
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link
           rel="stylesheet"
