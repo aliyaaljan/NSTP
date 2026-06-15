@@ -56,9 +56,7 @@ export default function LoginForm() {
   // read google oauth errors
   useEffect(() => {
     const urlError = searchParams.get("error")
-    if (urlError  === "Database error saving new user") {
-      setError("Only UP mail (@up.edu.ph) accounts are allowed.");
-    } else {
+    if (urlError) {
       setError(urlError)
     }
   }, [searchParams])
