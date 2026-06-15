@@ -14,7 +14,7 @@ export default function AuthCallback() {
     const errorDescription =
       searchParams.get("error_description") || searchParams.get("error")
     if (errorDescription) {
-      router.push(`/login?error=${encodeURIComponent(errorDescription)}`)
+      router.push(`/?error=${encodeURIComponent(errorDescription)}`)
       return
     }
 
@@ -32,7 +32,7 @@ export default function AuthCallback() {
       if (!user.email?.endsWith("@up.edu.ph")) {
         await supabase.auth.signOut()
         router.push(
-          "/login?error=Only+UP+email+accounts+(@up.edu.ph)+are+allowed."
+          "/?error=Only+UP+email+accounts+(@up.edu.ph)+are+allowed."
         )
         return
       }
