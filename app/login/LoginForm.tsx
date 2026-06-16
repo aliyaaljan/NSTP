@@ -58,6 +58,13 @@ export default function LoginForm() {
     const urlError = searchParams.get("error")
     if (urlError) {
       setError(urlError)
+
+      window.history.replaceState({}, "", "/")
+    }
+
+    // remove OAuth trail
+    if (window.location.hash) {
+      window.history.replaceState({}, "", window.location.pathname)
     }
   }, [searchParams])
 
@@ -98,15 +105,14 @@ export default function LoginForm() {
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
-          prompt: 'select_account'
-        }
+          prompt: "select_account",
+        },
       },
     })
     if (error) {
       setError(error.message)
       setLoading(false)
     } else {
-      
     }
   }
 
@@ -335,7 +341,10 @@ export default function LoginForm() {
           <div className={styles.cardFooter}>
             <p>
               Unable to access account?{" "}
-              <a href="mailto:nstp.upbaguio@up.edu.ph?subject=Access to UPB NSTP website&body=I am unable to access the NSTP website..." className={styles.footerLink}>
+              <a
+                href="mailto:nstp.upbaguio@up.edu.ph?subject=Access to UPB NSTP website&body=I am unable to access the NSTP website..."
+                className={styles.footerLink}
+              >
                 Contact the NSTP Office
               </a>
             </p>
