@@ -1,5 +1,5 @@
 "use client"
-import { createClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/client"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
@@ -97,11 +97,16 @@ export default function LoginForm() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          prompt: 'select_account'
+        }
       },
     })
     if (error) {
       setError(error.message)
       setLoading(false)
+    } else {
+      
     }
   }
 
@@ -166,9 +171,9 @@ export default function LoginForm() {
     }
   }
 
-  const usernameError = username.touched && !username.valid
-  const passwordError = password.touched && !password.valid
-  const roleInfo = detectedRole ? ROLE_META[detectedRole] : null
+  // const usernameError = username.touched && !username.valid
+  // const passwordError = password.touched && !password.valid
+  // const roleInfo = detectedRole ? ROLE_META[detectedRole] : null
 
   return (
     <div className={styles.page}>
@@ -176,21 +181,21 @@ export default function LoginForm() {
       <div className={styles.leftPanel}>
         <div className={styles.formWrap}>
           <div className={styles.cardTop}>
-            <div className={styles.cardLabel}>SIGN IN</div>
+            <div className={styles.cardLabel}>LOG IN</div>
             <h2 className={styles.cardTitle}>Access your account</h2>
           </div>
 
-          {roleInfo && (
+          {/* {roleInfo && (
             <div className={styles.roleBadge} style={{ color: roleInfo.color }}>
               <i className={`ti ${roleInfo.icon}`} />
               <span>
                 Detected as <strong>{roleInfo.label}</strong>
               </span>
             </div>
-          )}
+          )} */}
 
           <form onSubmit={handleSubmit} noValidate className={styles.form}>
-            <div className={styles.field}>
+            {/* <div className={styles.field}>
               <label className={styles.label} htmlFor="username">
                 Username or student number
               </label>
@@ -283,7 +288,7 @@ export default function LoginForm() {
                   ? "Verified"
                   : "Your CRS or system-assigned password."}
               </span>
-            </div>
+            </div> */}
 
             {error && (
               <div className={styles.errorBanner} role="alert">
@@ -292,7 +297,7 @@ export default function LoginForm() {
               </div>
             )}
 
-            <div className={styles.forgotRow}>
+            {/* <div className={styles.forgotRow}>
               <a href="/forgot-password" className={styles.forgotLink}>
                 Forgot password?
               </a>
@@ -312,9 +317,9 @@ export default function LoginForm() {
                   <i className="ti ti-login" /> Sign in
                 </>
               )}
-            </button>
+            </button> */}
 
-            <div className={styles.orDivider}>or</div>
+            {/* <div className={styles.orDivider}>or</div> */}
 
             <button
               type="button"
@@ -323,14 +328,14 @@ export default function LoginForm() {
               disabled={loading}
             >
               <i className="ti ti-brand-gmail" />
-              Continue with Google Account
+              Log-in with UP Mail
             </button>
           </form>
 
           <div className={styles.cardFooter}>
             <p>
-              Need access?{" "}
-              <a href="/request-access" className={styles.footerLink}>
+              Unable to access account?{" "}
+              <a href="mailto:nstp.upbaguio@up.edu.ph?subject=Access to UPB NSTP website&body=I am unable to access the NSTP website..." className={styles.footerLink}>
                 Contact the NSTP Office
               </a>
             </p>
