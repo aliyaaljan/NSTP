@@ -62,13 +62,31 @@ export default function LoginForm() {
   }, [searchParams])
 
   const handleUsernameChange = (val: string) => {
-    setDetectedRole(val.trim() ? detectRole(val) : null)
-    setUsername({ value: val, touched: true, valid: val.trim().length >= 3 })
+    const cleanVal = val.trim()
+    setDetectedRole(cleanVal ? detectRole(cleanVal) : null)
+
+    // regex checking rules
+    const is9DigitStudentNumber = /^\d{9}$/.test(cleanVal)
+    const isValidEmailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanVal)
+    const isValidSystemUsername =
+      cleanVal.length >= 3 && !cleanVal.includes("@")
+
+    const isValid =
+      is9DigitStudentNumber || isValidEmailFormat || isValidSystemUsername
+
+    setUsername((prev) => ({
+      ...prev,
+      value: val,
+      valid: isValid,
+    }))
     setError(null)
   }
-
   const handlePasswordChange = (val: string) => {
-    setPassword({ value: val, touched: true, valid: val.length >= 8 })
+    setPassword((prev) => ({
+      ...prev,
+      value: val,
+      valid: val.length >= 8,
+    }))
     setError(null)
   }
 
@@ -100,12 +118,29 @@ export default function LoginForm() {
     try {
       const email = username.value.trim()
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: password.value,
-      })
-      if (error) {
-        setError("Incorrect email or password.")
+      const { data, error: authError } = await supabase.auth.signInWithPassword(
+        {
+          email,
+          password: password.value,
+        }
+      )
+      if (authError) {
+        let friendlyMessage = "Incorrect email or password."
+
+        if (authError.message.includes("Invalid login credentials")) {
+          friendlyMessage = "Incorrect email or password. Please try again."
+        } else if (authError.message.toLowerCase().includes("rate limit")) {
+          friendlyMessage =
+            "Too many failed login attempts. Please wait a moment before trying again."
+        } else if (authError.message.includes("Email not confirmed")) {
+          friendlyMessage =
+            "Your account email verification is still pending. Please confirm your inbox link."
+        } else if (authError.message.includes("Network")) {
+          friendlyMessage =
+            "Database connectivity issue detected. Check your connection."
+        }
+
+        setError(friendlyMessage)
         setLoading(false)
         return
       }
@@ -174,6 +209,9 @@ export default function LoginForm() {
                   placeholder="e.g. 202312345 or username"
                   value={username.value}
                   onChange={(e) => handleUsernameChange(e.target.value)}
+                  onBlur={() =>
+                    setUsername((prev) => ({ ...prev, touched: true }))
+                  }
                   autoComplete="username"
                   disabled={loading}
                 />
@@ -215,6 +253,9 @@ export default function LoginForm() {
                   placeholder="Minimum 8 characters"
                   value={password.value}
                   onChange={(e) => handlePasswordChange(e.target.value)}
+                  onBlur={() =>
+                    setPassword((prev) => ({ ...prev, touched: true }))
+                  }
                   autoComplete="current-password"
                   disabled={loading}
                 />
