@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
@@ -66,14 +66,19 @@ export async function GET(request: NextRequest) {
 
   if (!roleCode) {
     return NextResponse.redirect(
-      new URL("/?error=Only+UP+email+accounts+(@up.edu.ph)+are+allowed.", origin)
+      new URL(
+        "/?error=Only+UP+email+accounts+(@up.edu.ph)+are+allowed.",
+        origin
+      )
     )
   }
 
   const dest =
-    roleCode === "admin" ? "/admin/dashboard" :
-      roleCode === "adviser" ? "/facilitator/dashboard" :
-        "/student/dashboard"
+    roleCode === "admin"
+      ? "/admin/dashboard"
+      : roleCode === "adviser"
+      ? "/facilitator/dashboard"
+      : "/student/dashboard"
 
   const response = NextResponse.redirect(new URL(dest, origin))
 
@@ -83,7 +88,11 @@ export async function GET(request: NextRequest) {
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       request.headers.get("x-real-ip") ??
       null
-    const sessionId = await createLoginSession({ userId: user.id, userAgent, ipAddress })
+    const sessionId = await createLoginSession({
+      userId: user.id,
+      userAgent,
+      ipAddress,
+    })
     if (sessionId) {
       response.cookies.set("nstp_login_session", sessionId, {
         httpOnly: true,
