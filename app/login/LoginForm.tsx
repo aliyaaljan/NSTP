@@ -1,101 +1,27 @@
 "use client"
 import { createClient } from "@/lib/client"
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import styles from "./LoginForm.module.css"
-import { upsertAppUser } from "@/lib/auth-actions"
-
-type Role = "student" | "facilitator" | "admin" | null
-
-interface FieldState {
-  value: string
-  touched: boolean
-  valid: boolean
-}
-
-function detectRole(username: string): Role {
-  const lower = username.toLowerCase()
-  if (lower.startsWith("admin")) return "admin"
-  if (lower.startsWith("fac") || lower.includes("@faculty"))
-    return "facilitator"
-  if (lower.match(/^\d{9}$/)) return "student"
-  if (lower.includes("@up.edu.ph")) return "student"
-  return null
-}
-
-const ROLE_META: Record<
-  NonNullable<Role>,
-  { label: string; icon: string; color: string }
-> = {
-  student: { label: "Student", icon: "ti-user", color: "#2D6A4F" },
-  facilitator: { label: "Facilitator", icon: "ti-users", color: "#7B1113" },
-  admin: { label: "Administrator", icon: "ti-settings", color: "#5C0B18" },
-}
 
 export default function LoginForm() {
   const supabase = createClient()
-  const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [username, setUsername] = useState<FieldState>({
-    value: "",
-    touched: false,
-    valid: false,
-  })
-  const [password, setPassword] = useState<FieldState>({
-    value: "",
-    touched: false,
-    valid: false,
-  })
-  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [detectedRole, setDetectedRole] = useState<Role>(null)
 
-  // read google oauth errors
   useEffect(() => {
     const urlError = searchParams.get("error")
     if (urlError) {
       setError(urlError)
-
       window.history.replaceState({}, "", "/")
     }
-
-    // remove OAuth trail
     if (window.location.hash) {
       window.history.replaceState({}, "", window.location.pathname)
     }
   }, [searchParams])
-
-  const handleUsernameChange = (val: string) => {
-    const cleanVal = val.trim()
-    setDetectedRole(cleanVal ? detectRole(cleanVal) : null)
-
-    // regex checking rules
-    const is9DigitStudentNumber = /^\d{9}$/.test(cleanVal)
-    const isValidEmailFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanVal)
-    const isValidSystemUsername =
-      cleanVal.length >= 3 && !cleanVal.includes("@")
-
-    const isValid =
-      is9DigitStudentNumber || isValidEmailFormat || isValidSystemUsername
-
-    setUsername((prev) => ({
-      ...prev,
-      value: val,
-      valid: isValid,
-    }))
-    setError(null)
-  }
-  const handlePasswordChange = (val: string) => {
-    setPassword((prev) => ({
-      ...prev,
-      value: val,
-      valid: val.length >= 8,
-    }))
-    setError(null)
-  }
 
   const handleGoogleLogin = async () => {
     setLoading(true)
@@ -104,82 +30,14 @@ export default function LoginForm() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          prompt: "select_account",
-        },
+        queryParams: { prompt: "select_account" },
       },
     })
     if (error) {
       setError(error.message)
       setLoading(false)
-    } else {
     }
   }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!username.valid || !password.valid) {
-      setUsername((prev) => ({ ...prev, touched: true }))
-      setPassword((prev) => ({ ...prev, touched: true }))
-      return
-    }
-    setLoading(true)
-    setError(null)
-
-    try {
-      const email = username.value.trim()
-
-      const { data, error: authError } = await supabase.auth.signInWithPassword(
-        {
-          email,
-          password: password.value,
-        }
-      )
-      if (authError) {
-        let friendlyMessage = "Incorrect email or password."
-
-        if (authError.message.includes("Invalid login credentials")) {
-          friendlyMessage = "Incorrect email or password. Please try again."
-        } else if (authError.message.toLowerCase().includes("rate limit")) {
-          friendlyMessage =
-            "Too many failed login attempts. Please wait a moment before trying again."
-        } else if (authError.message.includes("Email not confirmed")) {
-          friendlyMessage =
-            "Your account email verification is still pending. Please confirm your inbox link."
-        } else if (authError.message.includes("Network")) {
-          friendlyMessage =
-            "Database connectivity issue detected. Check your connection."
-        }
-
-        setError(friendlyMessage)
-        setLoading(false)
-        return
-      }
-
-      // check domain
-      if (!data.user?.email?.endsWith("@up.edu.ph")) {
-        await supabase.auth.signOut()
-        setError("Only UP email accounts are allowed.")
-        setLoading(false)
-        return
-      }
-
-      await upsertAppUser()
-
-      if (detectedRole === "admin") router.push("/admin/dashboard")
-      else if (detectedRole === "facilitator")
-        router.push("/facilitator/dashboard")
-      else router.push("/student/dashboard")
-    } catch {
-      setError("Unable to connect. Please try again.")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // const usernameError = username.touched && !username.valid
-  // const passwordError = password.touched && !password.valid
-  // const roleInfo = detectedRole ? ROLE_META[detectedRole] : null
 
   return (
     <div className={styles.page}>
@@ -191,141 +49,13 @@ export default function LoginForm() {
             <h2 className={styles.cardTitle}>Access your account</h2>
           </div>
 
-          {/* {roleInfo && (
-            <div className={styles.roleBadge} style={{ color: roleInfo.color }}>
-              <i className={`ti ${roleInfo.icon}`} />
-              <span>
-                Detected as <strong>{roleInfo.label}</strong>
-              </span>
-            </div>
-          )} */}
-
-          <form onSubmit={handleSubmit} noValidate className={styles.form}>
-            {/* <div className={styles.field}>
-              <label className={styles.label} htmlFor="username">
-                Username or student number
-              </label>
-              <div
-                className={[
-                  styles.inputWrap,
-                  usernameError ? styles.stateError : "",
-                  username.touched && username.valid ? styles.stateValid : "",
-                ].join(" ")}
-              >
-                <i className="ti ti-user-circle" />
-                <input
-                  id="username"
-                  type="text"
-                  className={styles.input}
-                  placeholder="e.g. 202312345 or username"
-                  value={username.value}
-                  onChange={(e) => handleUsernameChange(e.target.value)}
-                  onBlur={() =>
-                    setUsername((prev) => ({ ...prev, touched: true }))
-                  }
-                  autoComplete="username"
-                  disabled={loading}
-                />
-                {username.touched && username.valid && (
-                  <i className={`ti ti-circle-check ${styles.validIcon}`} />
-                )}
-              </div>
-              <span
-                className={[
-                  styles.hint,
-                  usernameError ? styles.hintError : "",
-                  username.touched && username.valid ? styles.hintValid : "",
-                ].join(" ")}
-              >
-                {usernameError
-                  ? "Must be at least 3 characters."
-                  : username.touched && username.valid
-                  ? "Verified"
-                  : "UP student number, email, or system username."}
-              </span>
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="password">
-                Password
-              </label>
-              <div
-                className={[
-                  styles.inputWrap,
-                  passwordError ? styles.stateError : "",
-                  password.touched && password.valid ? styles.stateValid : "",
-                ].join(" ")}
-              >
-                <i className="ti ti-lock" />
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  className={styles.input}
-                  placeholder="Minimum 8 characters"
-                  value={password.value}
-                  onChange={(e) => handlePasswordChange(e.target.value)}
-                  onBlur={() =>
-                    setPassword((prev) => ({ ...prev, touched: true }))
-                  }
-                  autoComplete="current-password"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  className={styles.eyeBtn}
-                  onClick={() => setShowPassword((p) => !p)}
-                  tabIndex={-1}
-                >
-                  <i
-                    className={`ti ${showPassword ? "ti-eye-off" : "ti-eye"}`}
-                  />
-                </button>
-              </div>
-              <span
-                className={[
-                  styles.hint,
-                  passwordError ? styles.hintError : "",
-                  password.touched && password.valid ? styles.hintValid : "",
-                ].join(" ")}
-              >
-                {passwordError
-                  ? "Password must be at least 8 characters."
-                  : password.touched && password.valid
-                  ? "Verified"
-                  : "Your CRS or system-assigned password."}
-              </span>
-            </div> */}
-
+          <form noValidate className={styles.form}>
             {error && (
               <div className={styles.errorBanner} role="alert">
                 <i className="ti ti-alert-circle" />
                 <span>{error}</span>
               </div>
             )}
-
-            {/* <div className={styles.forgotRow}>
-              <a href="/forgot-password" className={styles.forgotLink}>
-                Forgot password?
-              </a>
-            </div>
-
-            <button
-              type="submit"
-              className={styles.submitBtn}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <span className={styles.spinner} /> Signing in…
-                </>
-              ) : (
-                <>
-                  <i className="ti ti-login" /> Sign in
-                </>
-              )}
-            </button> */}
-
-            {/* <div className={styles.orDivider}>or</div> */}
 
             <button
               type="button"
@@ -334,7 +64,7 @@ export default function LoginForm() {
               disabled={loading}
             >
               <i className="ti ti-brand-gmail" />
-              Log-in with UP Mail
+              {loading ? "Redirecting…" : "Log in with UP Mail"}
             </button>
           </form>
 

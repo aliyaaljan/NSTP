@@ -8,4 +8,7 @@ node_modules/
 
 # misc
 .DS_Store
+tsconfig.tsbuildinfo
 
+# md
+*.md

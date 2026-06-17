@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { signOutWithAudit } from '@/lib/auth-actions'
 
 interface NavItem {
   label: string
@@ -23,7 +24,14 @@ const ROLE_META = {
 
 export default function SidebarLayout({ role, navItems, children }: SidebarLayoutProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const meta = ROLE_META[role]
+
+  async function handleSignOut() {
+    await signOutWithAudit()
+    router.push('/')
+    router.refresh()
+  }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Cormorant', Georgia, serif" }}>
@@ -73,17 +81,24 @@ export default function SidebarLayout({ role, navItems, children }: SidebarLayou
 
         {/* Sign out */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-          <Link href="/" style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: 'rgba(255,255,255,0.7)',
-            textDecoration: 'none',
-            fontSize: '14px',
-          }}>
+          <button
+            onClick={handleSignOut}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: 'rgba(255,255,255,0.7)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              padding: 0,
+              fontFamily: 'inherit',
+            }}
+          >
             <i className="ti ti-logout" />
             Sign out
-          </Link>
+          </button>
         </div>
       </aside>
 
