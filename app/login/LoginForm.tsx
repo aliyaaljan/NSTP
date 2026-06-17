@@ -4,6 +4,9 @@ import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import styles from "./LoginForm.module.css"
+import { signInWithDevPassword } from "@/lib/auth/dev-login"
+
+const DEV_ENABLED = process.env.NEXT_PUBLIC_DEV_AUTH_ENABLED === "true"
 
 export default function LoginForm() {
   const supabase = createClient()
@@ -67,6 +70,34 @@ export default function LoginForm() {
               {loading ? "Redirecting…" : "Log in with UP Mail"}
             </button>
           </form>
+
+          {DEV_ENABLED && (
+            <div style={{ marginTop: 24 }}>
+              <div className={styles.orDivider} style={{ marginBottom: 16, fontSize: 12, letterSpacing: 2, color: "#BBBBBB" }}>
+                DEV ONLY
+              </div>
+              <form action={signInWithDevPassword} className={styles.form}>
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="dev-email">Email</label>
+                  <div className={styles.inputWrap}>
+                    <i className="ti ti-mail" />
+                    <input id="dev-email" name="email" type="email" className={styles.input} placeholder="role.test@up.edu.ph" />
+                  </div>
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="dev-password">Password</label>
+                  <div className={styles.inputWrap}>
+                    <i className="ti ti-lock" />
+                    <input id="dev-password" name="password" type="password" className={styles.input} placeholder="Dev password" />
+                  </div>
+                </div>
+                <button type="submit" className={styles.submitBtn}>
+                  <i className="ti ti-login" />
+                  Dev Sign In
+                </button>
+              </form>
+            </div>
+          )}
 
           <div className={styles.cardFooter}>
             <p>

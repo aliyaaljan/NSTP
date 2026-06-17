@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { ensureAppUser } from "@/lib/auth-actions"
 import { createLoginSession } from "@/lib/auth/session"
+import { roleToDashboard } from "@/lib/auth/routes"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
@@ -70,12 +71,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const dest =
-    roleCode === "admin" ? "/admin/dashboard" :
-      roleCode === "adviser" ? "/facilitator/dashboard" :
-        "/student/dashboard"
-
-  const response = NextResponse.redirect(new URL(dest, origin))
+  const response = NextResponse.redirect(new URL(roleToDashboard(roleCode), origin))
 
   try {
     const userAgent = request.headers.get("user-agent")
