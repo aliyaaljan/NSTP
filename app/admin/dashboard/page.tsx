@@ -201,6 +201,82 @@ export default async function AdminDashboard() {
       ? ((uniqueScansThisWeek / totalActiveEnrollments) * 100).toFixed(1)
       : "0.0"
 
+  // for storing metrics
+  const rawEnrollments = sectionsProgressRes.data || []
+
+  const sectionMap: Record<
+    string,
+    {
+      name: string
+      totalHoursCompleted: number
+      totalHoursRequired: number
+      studentCount: number
+    }
+  > = {}
+
+  // counters for each donut/pie chart group or category
+  let onTrackCount = 0
+  let inProgressCount = 0
+  let atRiskCount = 0
+
+  // loop through rawEnrollments
+
+  rawEnrollments.forEach((en: any) => {
+    const sectId = en.section?.section_id
+    if (!sectId) return
+    // calculate hours and progress percentages
+    const target = en.section?.required_hour_total || 60
+    const minutesSum =
+      en.attendance_session?.reduce(
+        (sum: number, s: any) => sum + (s.duration_minute || 0),
+        0
+      ) || 0
+    const hoursCompleted = minutesSum / 60
+    const progressPercent = (hoursCompleted / target) * 100
+
+    // classify studnet groups for donut/pie chart legend
+    if (progressPercent >= 60) onTrackCount++
+    else if (progressPercent >= 45) inProgressCount++
+    else atRiskCount++
+
+    // tracking data for section progress bars
+    if (!sectionMap[sectId]) {
+      sectionMap[sectId] = {
+        name: en.section.name,
+        totalHoursCompleted: 0,
+        totalHoursRequired: 0,
+        studentCount: 0,
+      }
+    }
+    sectionMap[sectId].totalHoursCompleted += hoursCompleted
+    sectionMap[sectId].totalHoursRequired += target
+    sectionMap[sectId].studentCount++
+  })
+
+  // hours completion by section list
+  const sectionCompletionList = Object.values(sectionMap)
+    .map((sect: any) => ({
+      name: sect.name,
+      progress:
+        sect.studentCount > 0
+          ? Math.min(
+              100,
+              Math.round(
+                (sect.totalHoursCompleted / sect.totalHoursRequired) * 100
+              )
+            )
+          : 0,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  // cohort percentages for completion status on donut / pie
+  const totalCohort = rawEnrollments.length || 1
+  const donutLegend = {
+    onTrack: Math.round((onTrackCount / totalCohort) * 100),
+    inProgress: Math.round((inProgressCount / totalCohort) * 100),
+    atRisk: Math.round((atRiskCount / totalCohort) * 100),
+  }
+
   // calculating at risk students
   const enrollmentsData = atRiskRes.data || []
   const atRiskStudentsList = enrollmentsData
@@ -229,6 +305,24 @@ export default async function AdminDashboard() {
       }
     })
     .filter((st: any) => parseFloat(st.progress) < 45.0)
+
+  // calculate adviser workload list
+  const rawAdvisers = adviserWorkloadRes.data || []
+  const adviserWorkloadList = rawAdvisers
+    .map((adv: any) => {
+      const totalStudentsManaged =
+        adv.section?.reduce((sum: number, sect: any) => {
+          return sum + (sect.enrollment?.length || 0)
+        }, 0) || 0
+      const mainSectionName = adv.section?.[0]?.name || "Unassigned"
+
+      return {
+        name: adv.full_name,
+        section: mainSectionName,
+        studentCount: totalStudentsManaged,
+      }
+    })
+    .sort((a, b) => b.studentCount - a.studentCount)
 
   // dashboard data objects
   const metricsData = [
