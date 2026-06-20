@@ -66,7 +66,7 @@ export default async function AdminDashboard() {
     atRiskRes,
     sectionsProgressRes,
     adviserWorkloadRes,
-    recentActivityRes,
+    //recentActivityRes,
   ] = await Promise.all([
     // fetching total students count
     supabase
@@ -333,59 +333,88 @@ export default async function AdminDashboard() {
       color: "#2D6A4F",
     },
     {
-      label: "Facilitators",
+      label: "Total Facilitators/Advisers",
       value: advisersRes.count || 0,
       icon: "ti-users",
       color: "#7B1113",
+      subtext: `avg ${(activeStudentsCount / (advisersRes.count || 1)).toFixed(
+        0
+      )} students each`,
     },
     {
-      label: "Avg. Hours Rendered",
+      label: "Average Hours Rendered",
       value: `${averageHoursRendered} hrs`,
       icon: "ti-clock",
       color: "#5C0B18",
     },
     {
-      label: "Weekly Attendance",
+      label: "Average attendance rate",
       value: `${attendanceRateThisWeek}%`,
       icon: "ti-calendar",
       color: "#B5451B",
+      subtext: `this current week`,
+    },
+    {
+      label: "At-risk Students",
+      value: atRiskStudentsList.length,
+      icon: "ti-alert-triangle",
+      color: "#7B1113",
+      subtext: `${donutLegend.atRisk}% of total active students`,
     },
     {
       label: "Submitted Files",
       value: filesRes.count || 0,
       icon: "ti-file-description",
       color: "2C2C2A",
+      subtext: `throughout the semester`,
     },
     {
       label: "Pending Approvals",
       value: appealsRes.count || 0,
       icon: "ti-alert-circle",
       color: "#7B1113",
+      subtext: `pending approvals`,
     },
   ]
 
   return (
-    <div>
-      <h1
+    <div
+      style={{
+        backgroundColor: "#F7F6F3",
+        minHeight: "100vh",
+        padding: "12px 0",
+      }}
+    >
+      <div
         style={{
-          fontFamily: "'Cormorant', Georgia, serif",
-          fontSize: "28px",
-          fontWeight: 700,
-          color: "#2C2C2A",
-          marginBottom: "8px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "32px",
         }}
       >
-        Admin Dashboard
-      </h1>
-
-      <p style={{ color: "#888", marginBottom: "32px", fontSize: "15px" }}>
-        System overview — manage users, review reports, and configure settings.
-      </p>
+        <div>
+          <h1
+            style={{
+              fontFamily: "'Cormorant', Georgia, serif",
+              fontSize: "32px",
+              fontWeight: 700,
+              color: "#2C2C2A",
+              marginBottom: "4px",
+            }}
+          >
+            Dashboard
+          </h1>
+          <p style={{ color: "#888", fontSize: "15px" }}>
+            Academic Year 2025-2026 | 2nd Semester
+          </p>
+        </div>
+      </div>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: "repeat(4, 1fr)",
           gap: "20px",
           marginBottom: "32px",
         }}
@@ -395,99 +424,451 @@ export default async function AdminDashboard() {
             key={card.label}
             style={{
               background: "#fff",
-              borderRadius: "12px",
+              borderRadius: "16px",
               padding: "24px",
               display: "flex",
               flexDirection: "column",
-              gap: "10px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+              gap: "8px",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+              border: "1px solid #EDE8E0",
             }}
           >
-            <i
-              className={`ti ${card.icon}`}
-              style={{ fontSize: "24px", color: card.color }}
-            />
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <i
+                className={`ti ${card.icon}`}
+                style={{ fontSize: "18px", color: card.color, opacity: 0.8 }}
+              />
+              <div style={{ fontSize: "13px", color: "#888", fontWeight: 500 }}>
+                {card.label}
+              </div>
+            </div>
             <div
-              style={{ fontSize: "28px", fontWeight: 700, color: "#2C2C2A" }}
+              style={{
+                fontSize: "36px",
+                fontWeight: 700,
+                color: "#2C2C2A",
+                margin: "4px 0",
+              }}
             >
               {card.value}
             </div>
-            <div style={{ fontSize: "13px", color: "#888" }}>{card.label}</div>
+            <div style={{ fontSize: "12px", color: "#AAA" }}>
+              {card.subtext}
+            </div>
           </div>
         ))}
       </div>
+
       <div
         style={{
-          background: "#fff",
-          borderRadius: "12px",
-          padding: "32px",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          display: "grid",
+          gridTemplateColumns: "2fr 1fr",
+          gap: "24px",
+          marginBottom: "32px",
         }}
       >
-        <h2
+        <div
           style={{
-            fontFamily: "'Cormorant', Georgia, serif",
-            fontSize: "20px",
-            fontWeight: 600,
-            color: "#2C2C2A",
-            marginBottom: "16px",
+            background: "#fff",
+            borderRadius: "16px",
+            padding: "28px",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+            border: "1px solid #EDE8E0",
           }}
         >
-          At-Risk Students (Below 45% Attendance & Hours Progress)
-        </h2>
-        {atRiskStudentsList.length === 0 ? (
-          <p style={{ color: "#888", fontSize: "15px" }}></p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
+          <h3
+            style={{
+              fontFamily: "'Cormorant', Georgia, serif",
+              fontSize: "18px",
+              fontWeight: 600,
+              color: "#2C2C2A",
+              marginBottom: "20px",
+            }}
+          >
+            Hours completion by section
+          </h3>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "18px" }}
+          >
+            {sectionCompletionList.map((sect) => (
+              <div
+                key={sect.name}
+                style={{ display: "flex", alignItems: "center", gap: "16px" }}
+              >
+                <div
+                  style={{
+                    width: "80px",
+                    fontWeight: 600,
+                    color: "#555",
+                    fontSize: "14px",
+                  }}
+                >
+                  Section {sect.name}
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#F0EFEA",
+                    borderRadius: "99px",
+                    height: "10px",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${sect.progress}%`,
+                      backgroundColor:
+                        sect.progress > 60
+                          ? "#2D6A4F"
+                          : sect.progress > 40
+                          ? "#B5451B"
+                          : "#7B1113",
+                      height: "100%",
+                      borderRadius: "99px",
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    width: "40px",
+                    textAlign: "right",
+                    fontSize: "13px",
+                    color: "#666",
+                    fontWeight: 600,
+                  }}
+                >
+                  {sect.progress}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: "16px",
+            padding: "28px",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+            border: "1px solid #EDE8E0",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <h3
+            style={{
+              fontFamily: "'Cormorant', Georgia, serif",
+              fontSize: "18px",
+              fontWeight: 600,
+              color: "#2C2C2A",
+              marginBottom: "20px",
+            }}
+          >
+            Completion Status
+          </h3>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "24px",
+            }}
+          >
+            <div
               style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                textAlign: "left",
-                fontSize: "15px",
+                width: "120px",
+                height: "120px",
+                borderRadius: "50%",
+                background: `conic-gradient(#2D6A4F 0% ${
+                  donutLegend.onTrack
+                }%, #B5451B ${donutLegend.onTrack}% ${
+                  donutLegend.onTrack + donutLegend.inProgress
+                }%, #7B1113 ${
+                  donutLegend.onTrack + donutLegend.inProgress
+                }% 100%)`,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
               }}
             >
-              <thead>
-                <tr
-                  style={{ borderBottom: "2px solid #EDE8E0", color: "#888" }}
+              <div
+                style={{
+                  width: "80px",
+                  height: "80px",
+                  backgroundColor: "#fff",
+                  borderRadius: "50%",
+                }}
+              />
+            </div>
+
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                fontSize: "13px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
                 >
-                  <th style={{ padding: "12px 8px" }}>Name</th>
-                  <th style={{ padding: "12px 8px" }}>Student Number</th>
-                  <th style={{ padding: "12px 8px" }}>Section</th>
-                  <th style={{ padding: "12px 8px" }}>Hours Completed</th>
-                  <th style={{ padding: "12px 8px" }}>Target</th>
-                  <th style={{ padding: "12px 8px" }}>Progress</th>
-                </tr>
-              </thead>
-              <tbody>
-                {atRiskStudentsList.map((st: any, idx: number) => (
-                  <tr key={idx} style={{ borderBottom: "1px solid #EDE8E0" }}>
-                    <td style={{ padding: "12px 8px", fontWeight: 600 }}>
-                      {st.name}
-                    </td>
-                    <td style={{ padding: "12px 8px" }}>{st.studentNumber}</td>
-                    <td style={{ padding: "12px 8px" }}>{st.section}</td>
-                    <td style={{ padding: "12px 8px" }}>
-                      {st.hoursCompleted} hrs
-                    </td>
-                    <td style={{ padding: "12px 8px" }}>
-                      {st.targetHours} hrs
-                    </td>
-                    <td
+                  <div
+                    style={{
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "50%",
+                      backgroundColor: "#2D6A4F",
+                    }}
+                  />
+                  <span style={{ color: "#666" }}>On track</span>
+                </div>
+                <span style={{ fontWeight: 700, color: "#2C2C2A" }}>
+                  {donutLegend.onTrack}%
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <div
+                    style={{
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "50%",
+                      backgroundColor: "#B5451B",
+                    }}
+                  />
+                  <span style={{ color: "#666" }}>In progress</span>
+                </div>
+                <span style={{ fontWeight: 700, color: "#2C2C2A" }}>
+                  {donutLegend.inProgress}%
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <div
+                    style={{
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "50%",
+                      backgroundColor: "#7B1113",
+                    }}
+                  />
+                  <span style={{ color: "#666" }}>At risk</span>
+                </div>
+                <span style={{ fontWeight: 700, color: "#2C2C2A" }}>
+                  {donutLegend.atRisk}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}
+      >
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: "16px",
+            padding: "28px",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+            border: "1px solid #EDE8E0",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "20px",
+            }}
+          >
+            <h3
+              style={{
+                fontFamily: "'Cormorant', Georgia, serif",
+                fontSize: "18px",
+                fontWeight: 600,
+                color: "#2C2C2A",
+              }}
+            >
+              At risk students
+            </h3>
+            <span
+              style={{
+                fontSize: "12px",
+                color: "#888",
+                backgroundColor: "#F5F5F5",
+                padding: "4px 8px",
+                borderRadius: "4px",
+              }}
+            >
+              Below 45% Hours
+            </span>
+          </div>
+
+          <div
+            style={{
+              maxHeight: "320px",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            {atRiskStudentsList.length === 0 ? (
+              <p
+                style={{
+                  color: "#888",
+                  fontSize: "14px",
+                  textAlign: "center",
+                  padding: "20px",
+                }}
+              >
+                🎉 No active students fall below the metrics threshold.
+              </p>
+            ) : (
+              atRiskStudentsList.map((st: any, idx: number) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px",
+                    border: "1px solid #F0EFEA",
+                    borderRadius: "10px",
+                  }}
+                >
+                  <div>
+                    <div
                       style={{
-                        padding: "12px 8px",
-                        color: "#7B1113",
-                        fontWeight: 700,
+                        fontWeight: 600,
+                        fontSize: "14px",
+                        color: "#2C2C2A",
                       }}
                     >
-                      {st.progress}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      {st.name}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#888" }}>
+                      Section {st.section} | {st.studentNumber}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      backgroundColor: "#FCE8E6",
+                      color: "#A8241A",
+                      fontWeight: 700,
+                      fontSize: "13px",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                    }}
+                  >
+                    {st.progress}%
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-        )}
+        </div>
+
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: "16px",
+            padding: "28px",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+            border: "1px solid #EDE8E0",
+          }}
+        >
+          <h3
+            style={{
+              fontFamily: "'Cormorant', Georgia, serif",
+              fontSize: "18px",
+              fontWeight: 600,
+              color: "#2C2C2A",
+              marginBottom: "20px",
+            }}
+          >
+            Adviser Workload
+          </h3>
+
+          <div
+            style={{
+              maxHeight: "320px",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            {adviserWorkloadList.map((adv: any, idx: number) => (
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "12px",
+                  border: "1px solid #F0EFEA",
+                  borderRadius: "10px",
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: "14px",
+                      color: "#2C2C2A",
+                    }}
+                  >
+                    {adv.name}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#888" }}>
+                    Primary Section: {adv.section}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    backgroundColor: "#E8F5E9",
+                    color: "#2D6A4F",
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    padding: "6px 12px",
+                    borderRadius: "6px",
+                  }}
+                >
+                  {adv.studentCount} students
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
