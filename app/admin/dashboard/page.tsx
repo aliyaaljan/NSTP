@@ -15,7 +15,46 @@ export default async function AdminDashboard() {
   mondayThisWeek.setHours(0, 0, 0, 0)
   const mondayISO = mondayThisWeek.toISOString()
 
-  // multiple queries get all database metrics concurrently for faster fetch
+  // fetch all staus and role IDs first
+  const [
+    roleStudentRes,
+    roleAdviserRes,
+    statusActiveRes,
+    statusOpenRes,
+    statusReviewRes,
+    typeTimeInRes,
+  ] = await Promise.all([
+    supabase.from("role").select("role_id").eq("code", "student").maybeSingle(),
+    supabase.from("role").select("role_id").eq("code", "adviser").maybeSingle(),
+    supabase
+      .from("enrollment_status")
+      .select("enrollment_status_id")
+      .eq("code", "active")
+      .maybeSingle(),
+    supabase
+      .from("appeal_status")
+      .select("appeal_status_id")
+      .eq("code", "open")
+      .maybeSingle(),
+    supabase
+      .from("appeal_status")
+      .select("appeal_status_id")
+      .eq("code", "under_review")
+      .maybeSingle(),
+    supabase
+      .from("attendance_event_type")
+      .select("attendance_event_type_id")
+      .eq("code", "time_in")
+      .maybeSingle(),
+  ])
+
+  // reusable variables
+  const studentRoleId = roleStudentRes.data?.role_id
+  const adviserRoleId = roleAdviserRes.data?.role_id
+  const activeStatusId = statusActiveRes.data?.enrollment_status_id
+  const openStatusId = statusOpenRes.data?.appeal_status_id
+  const underReviewStatusId = statusReviewRes.data?.appeal_status_id
+  const timeInTypeId = typeTimeInRes.data?.attendance_event_type_id
 
   const [
     studentsRes,
@@ -25,137 +64,118 @@ export default async function AdminDashboard() {
     appealsRes,
     attendanceRateRes,
     atRiskRes,
+    sectionsProgressRes,
+    adviserWorkloadRes,
+    recentActivityRes,
   ] = await Promise.all([
-    // total students
-    // selecting number only for faster load
+    // fetching total students count
     supabase
       .from("app_user")
       .select("app_user_id", { count: "exact", head: true })
-      .eq(
-        "role_id",
-        (
-          await supabase
-            .from("role")
-            .select("role_id")
-            .eq("code", "student")
-            .maybeSingle()
-        ).data?.role_id
-      ),
-    // total advisers
-    supabase
-      .from("app_user")
-      .select("app_user_id", { count: "exact", head: true })
-      .eq(
-        "role_id",
-        (
-          await supabase
-            .from("role")
-            .select("role_id")
-            .eq("code", "adviser")
-            .maybeSingle()
-        ).data?.role_id
-      ),
+      .eq("role_id", studentRoleId),
 
-    //average hours rendered
+    // fetching total advisers / facilitators count
+    supabase
+      .from("app_user")
+      .select("app_user_id", { count: "exact", head: true })
+      .eq("role_id", adviserRoleId),
+
+    // fetching data for average hours rendered
     supabase
       .from("attendance_session")
       .select(
         `
-      duration_minute,
-      enrollment!inner(enrollment_status_id)
-      `
+        duration_minute,
+        enrollment!inner(enrollment_status_id)
+        `
       )
-      .eq(
-        "enrollment.enrollment_status_id",
-        (
-          await supabase
-            .from("enrollment_status")
-            .select("enrollment_status_id")
-            .eq("code", "active")
-            .maybeSingle()
-        ).data?.enrollment_status_id
-      ),
+      .eq("enrollment!inner.enrollment_status_id", activeStatusId),
 
-    // total files during semester
+    // fetching total number of files during semester
+
     supabase
       .from("form")
       .select("form_id", { count: "exact", head: true })
       .eq("is_active", true)
       .not("section_id", "is", null),
 
-    // total pending requests/appeals
+    // fetching total pending requests / appeals
     supabase
       .from("appeal")
       .select("appeal_id", { count: "exact", head: true })
-      .in("appeal_status_id", [
-        (
-          await supabase
-            .from("appeal_status")
-            .select("appeal_status_id")
-            .eq("code", "open")
-            .maybeSingle()
-        ).data?.appeal_status_id,
-        (
-          await supabase
-            .from("appeal_status")
-            .select("appeal_status_id")
-            .eq("code", "under_review")
-            .maybeSingle()
-        ).data?.appeal_status_id,
-      ]),
-    // weekly logs
+      .in("appeal_status_id", [openStatusId, underReviewStatusId]),
+
+    // fetching array for weekly logs
     Promise.all([
       supabase
         .from("enrollment")
         .select("student_user_id", { count: "exact", head: true })
-        .eq(
-          "enrollment_status_id",
-          (
-            await supabase
-              .from("enrollment_status")
-              .select("enrollment_status_id")
-              .eq("code", "active")
-              .maybeSingle()
-          ).data?.enrollment_status_id
-        ),
+        .eq("enrollment_status_id", activeStatusId),
 
       supabase
         .from("attendance_event")
         .select("enrollment_id")
-        .eq(
-          "attendance_event_type_id",
-          (
-            await supabase
-              .from("attendance_event_type")
-              .select("attendance_event_type_id")
-              .eq("code", "time_in")
-              .maybeSingle()
-          ).data?.attendance_event_type_id
-        )
+        .eq("attendance_event_type_id", timeInTypeId)
         .gte("effective_at", mondayISO),
     ]),
 
-    // fetching data for at-risk students (less than 45% of hours)
+    // fetching data for at-risk students
     supabase
       .from("enrollment")
       .select(
         `
-      student_user_id,
-      app_user(full_name, student_number),
-      section(name, required_hour_total),
-      attendance_session(duration_minute)
+        student_user_id,
+        app_user(full_name, student_number),
+        section(name, required_hour_total),
+        attendance_session(duration_minute)
       `
       )
-      .eq(
-        "enrollment_status_id",
-        (
-          await supabase
-            .from("enrollment_status")
-            .select("enrollment_status_id")
-            .eq("code", "active")
-            .maybeSingle()
-        ).data?.enrollment_status_id
-      ),
+      .eq("enrollment_status_id", activeStatusId),
+
+    // fetching hours completion by section
+    supabase
+      .from("enrollment")
+      .select(
+        `
+        enrollment_id,
+        section(section_id, name, required_hour_total),
+        attendance_session(duration_minute)
+  `
+      )
+      .eq("enrollment_status_id", activeStatusId),
+
+    // fetching data for adviser workload
+    supabase
+      .from("app_user")
+      .select(
+        `
+        app_user_id,
+        full_name,
+        role!inner(code),
+        section!section_adviser_user_id_fkey(
+          section_id,
+          name,
+          enrollment(enrollment_id)
+        )
+        `
+      )
+      .eq("role.code", "adviser"),
+
+    /* fetching recent activity log TBD 
+    supabase
+      .from("audit_log")
+      .select(
+        `
+      audit_log_id,
+      activity_type,
+      description,
+      created_at,
+      executor:app_user!executor_id(full_name)
+    `
+      )
+      .order("created_at", { ascending: false })
+      .limit(5),
+      */
   ])
 
   // server-side calculations
