@@ -556,6 +556,10 @@ export default async function AdminDashboardPage() {
   const timeInTypeId = typeTimeInRes.data?.attendance_event_type_id
 
   // fetch array of data
+  // Replace your old sessionsRes variable inside Promise.all with this:
+  const avgHoursRes = await supabase.rpc("get_active_students_average_hours", {
+    active_status_id: activeStatusId,
+  })
   const [
     studentsRes,
     advisersRes,
@@ -640,6 +644,7 @@ export default async function AdminDashboardPage() {
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
 
   // calculating average hours rendered
+
   const totalStudentsCount = studentsRes.count || 0
   const activeStudentsDivisor = totalStudentsCount || 1
   const rawSessions = sessionsRes.data || []
@@ -647,10 +652,12 @@ export default async function AdminDashboardPage() {
     (sum, item) => sum + (item.duration_minute || 0),
     0
   )
+  /*
   const calculatedAvgHours = Math.round(
     totalMinutesRendered / 60 / activeStudentsDivisor
   )
-
+*/
+  const calculatedAvgHours = avgHoursRes.data || 0
   // calculating weekly attendance rate
   const totalActiveEnrollments = attendanceRateRes[0].count || 0
   const uniqueScansThisWeek = new Set(
