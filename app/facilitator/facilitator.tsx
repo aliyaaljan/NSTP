@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 // app/facilitator/facilitator.tsx
 
@@ -10,105 +10,184 @@ import {
   IconLogout2,
   IconX,
   IconCamera,
-} from "@tabler/icons-react";
-import { useState, useEffect, useRef } from "react";
+} from "@tabler/icons-react"
+import { useState, useEffect, useRef } from "react"
 
 // ── Types ─────────────────────────────────────────────────────────────
 export interface NavItem {
-  label: string;
-  Icon: React.ElementType;
+  label: string
+  Icon: React.ElementType
 }
 
 // ── Nav (shared across all facilitator pages) ─────────────────────────
 export const navItems: NavItem[] = [
-  { label: "Dashboard",     Icon: IconLayoutGrid    },
-  { label: "My Students",   Icon: IconUsersGroup    },
-  { label: "Forms",         Icon: IconClipboardText },
-  { label: "Group Summary", Icon: IconChartBar      },
-];
+  { label: "Dashboard", Icon: IconLayoutGrid },
+  { label: "My Students", Icon: IconUsersGroup },
+  { label: "Forms", Icon: IconClipboardText },
+  { label: "Group Summary", Icon: IconChartBar },
+]
 
 // ── Utils ─────────────────────────────────────────────────────────────
 export function progressColor(pct: number): string {
-  if (pct >= 75) return "#1B4332";
-  if (pct >= 40) return "#D97706";
-  return "#7B1D1D";
+  if (pct >= 75) return "#1B4332"
+  if (pct >= 40) return "#D97706"
+  return "#7B1D1D"
 }
 
 export function getInitials(name: string): string {
-  return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
 }
 
 // ── Components ────────────────────────────────────────────────────────
-export function StudentAvatar({ name, size = 36 }: { name: string; size?: number }) {
+export function StudentAvatar({
+  name,
+  size = 36,
+}: {
+  name: string
+  size?: number
+}) {
   return (
     <div
       aria-label={name}
       style={{
-        width: size, height: size, borderRadius: "50%",
-        background: "#D1D5DB", display: "flex", alignItems: "center",
-        justifyContent: "center", fontSize: size * 0.34, fontWeight: 700,
-        color: "#4B5563", flexShrink: 0, letterSpacing: "0.3px",
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: "#D1D5DB",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: size * 0.34,
+        fontWeight: 700,
+        color: "#4B5563",
+        flexShrink: 0,
+        letterSpacing: "0.3px",
       }}
     >
       {getInitials(name)}
     </div>
-  );
+  )
 }
 
 export function ProgressBar({ pct }: { pct: number }) {
   return (
     <div
-      role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
-      style={{ flex: 1, height: 10, background: "#E5E7EB", borderRadius: 5, overflow: "hidden" }}
+      role="progressbar"
+      aria-valuenow={pct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      style={{
+        flex: 1,
+        height: 10,
+        background: "#E5E7EB",
+        borderRadius: 5,
+        overflow: "hidden",
+      }}
     >
-      <div style={{
-        height: "100%", width: `${pct}%`,
-        background: progressColor(pct), borderRadius: 5, transition: "width 0.35s ease",
-      }} />
+      <div
+        style={{
+          height: "100%",
+          width: `${pct}%`,
+          background: progressColor(pct),
+          borderRadius: 5,
+          transition: "width 0.35s ease",
+        }}
+      />
     </div>
-  );
+  )
 }
 
 export function DonutChart({ pct = 60 }: { pct?: number }) {
-  const r = 36;
-  const circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
+  const r = 36
+  const circ = 2 * Math.PI * r
+  const dash = (pct / 100) * circ
   return (
-    <svg width="88" height="88" viewBox="0 0 88 88" aria-label={`${pct}% completion rate`} style={{ flexShrink: 0 }}>
-      <circle cx="44" cy="44" r={r} fill="none" stroke="#E5E7EB" strokeWidth="10" />
-      <circle cx="44" cy="44" r={r} fill="none" stroke="#7B1D1D" strokeWidth="10"
-        strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.25} strokeLinecap="round" />
-      <text x="44" y="48" textAnchor="middle" fill="#111827" fontSize="13" fontWeight="700" fontFamily="sans-serif">
+    <svg
+      width="88"
+      height="88"
+      viewBox="0 0 88 88"
+      aria-label={`${pct}% completion rate`}
+      style={{ flexShrink: 0 }}
+    >
+      <circle
+        cx="44"
+        cy="44"
+        r={r}
+        fill="none"
+        stroke="#E5E7EB"
+        strokeWidth="10"
+      />
+      <circle
+        cx="44"
+        cy="44"
+        r={r}
+        fill="none"
+        stroke="#7B1D1D"
+        strokeWidth="10"
+        strokeDasharray={`${dash} ${circ}`}
+        strokeDashoffset={circ * 0.25}
+        strokeLinecap="round"
+      />
+      <text
+        x="44"
+        y="48"
+        textAnchor="middle"
+        fill="#111827"
+        fontSize="13"
+        fontWeight="700"
+        fontFamily="sans-serif"
+      >
         {pct}%
       </text>
     </svg>
-  );
+  )
 }
 
 interface SidebarProps {
-  open: boolean;
-  activeNav: string;
-  onToggle: () => void;
-  onNavClick: (label: string) => void;
+  open: boolean
+  activeNav: string
+  onToggle: () => void
+  onNavClick: (label: string) => void
+  onSignOut?: () => void | Promise<void>
 }
 
-export function Sidebar({ open, activeNav, onToggle, onNavClick }: SidebarProps) {
+export function Sidebar({
+  open,
+  activeNav,
+  onToggle,
+  onNavClick,
+  onSignOut,
+}: SidebarProps) {
   return (
     <div className="sb-wrap">
       <aside
         className={`sb${open ? "" : " sb-closed"}`}
-        onClick={() => { if (!open) onToggle(); }}
+        onClick={() => {
+          if (!open) onToggle()
+        }}
         style={{ cursor: open ? "default" : "pointer" }}
       >
         <div className="sb-logo">
           <img
-            src="/icon.jpg" alt="NSTP Logo" className="sb-logo-img"
-            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            src="/icon.jpg"
+            alt="NSTP Logo"
+            className="sb-logo-img"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggle()
+            }}
             title={open ? "Collapse sidebar" : "Expand sidebar"}
           />
           <div className="sb-logo-text">
             <div className="sb-logo-name">NSTP</div>
-            <div className="sb-logo-sub">University of the Philippines Baguio</div>
+            <div className="sb-logo-sub">
+              University of the Philippines Baguio
+            </div>
           </div>
         </div>
 
@@ -119,12 +198,18 @@ export function Sidebar({ open, activeNav, onToggle, onNavClick }: SidebarProps)
               className={`sb-nav-btn${activeNav === label ? " sb-active" : ""}`}
               title={!open ? label : undefined}
               onClick={(e) => {
-                e.stopPropagation();
-                if (open) { onNavClick(label); } else { onToggle(); }
+                e.stopPropagation()
+                if (open) {
+                  onNavClick(label)
+                } else {
+                  onToggle()
+                }
               }}
             >
               <span className="sb-nav-pill">
-                <span className="sb-nav-icon"><Icon size={20} stroke={1.75} /></span>
+                <span className="sb-nav-icon">
+                  <Icon size={20} stroke={1.75} />
+                </span>
                 <span className="sb-nav-label">{label}</span>
               </span>
             </button>
@@ -132,45 +217,57 @@ export function Sidebar({ open, activeNav, onToggle, onNavClick }: SidebarProps)
         </nav>
 
         <div className="sb-footer">
-          <button className="sb-logout" title={!open ? "Log Out" : undefined}
-            onClick={(e) => e.stopPropagation()}>
+          <button
+            className="sb-logout"
+            title={!open ? "Log Out" : undefined}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (onSignOut) onSignOut()
+            }}
+          >
             <IconLogout2 size={16} stroke={1.75} />
             <span className="sb-logout-label">Log Out</span>
           </button>
         </div>
       </aside>
     </div>
-  );
+  )
 }
 
 export function QrScanner({ onClose }: { onClose: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [scanning, setScanning] = useState(false)
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
+    let stream: MediaStream | null = null
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        })
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          setScanning(true);
+          videoRef.current.srcObject = stream
+          setScanning(true)
         }
       } catch {
-        setError("Unable to access camera. Please allow camera permissions.");
+        setError("Unable to access camera. Please allow camera permissions.")
       }
     }
-    startCamera();
-    return () => stream?.getTracks().forEach((t) => t.stop());
-  }, []);
+    startCamera()
+    return () => stream?.getTracks().forEach((t) => t.stop())
+  }, [])
 
   return (
     <div className="scanner-backdrop" onClick={onClose}>
       <div className="scanner-modal" onClick={(e) => e.stopPropagation()}>
         <div className="scanner-header">
           <span className="scanner-title">Scan QR Code</span>
-          <button className="scanner-close" onClick={onClose} aria-label="Close">
+          <button
+            className="scanner-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
             <IconX size={20} stroke={1.75} />
           </button>
         </div>
@@ -182,7 +279,13 @@ export function QrScanner({ onClose }: { onClose: () => void }) {
             </div>
           ) : (
             <>
-              <video ref={videoRef} autoPlay playsInline muted className="scanner-video" />
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="scanner-video"
+              />
               <div className="scanner-frame">
                 <div className="scanner-corner tl" />
                 <div className="scanner-corner tr" />
@@ -196,7 +299,7 @@ export function QrScanner({ onClose }: { onClose: () => void }) {
         <p className="scanner-hint">Point your camera at a QR code</p>
       </div>
     </div>
-  );
+  )
 }
 
 // ── Styles ────────────────────────────────────────────────────────────
@@ -312,4 +415,4 @@ export const dashboardStyles = `
   .scanner-error { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--muted); padding: 20px; text-align: center; font-size: 13px; }
   .scanner-hint { text-align: center; font-size: 12px; color: var(--muted); padding: 12px 20px 16px; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-`;
+`
