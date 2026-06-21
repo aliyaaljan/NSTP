@@ -200,7 +200,7 @@ function progressColor(pct: number) {
 
 const SECTION_PROGRESS_GRID = {
   display: "grid",
-  gridTemplateColumns: "20px 1fr auto",
+  gridTemplateColumns: "150px 1fr auto",
   columnGap: 14,
   alignItems: "center",
 } as const
@@ -573,8 +573,6 @@ export default async function AdminDashboardPage({
   const underReviewStatusId = statusReviewRes.data?.appeal_status_id
   const timeInTypeId = typeTimeInRes.data?.attendance_event_type_id
 
-  // fetch array of data
-
   // compute average hours using supabase RPC, outside of Promise block
   const avgHoursRes = await supabase.rpc("get_active_students_average_hours", {
     active_status_id: activeStatusId,
@@ -582,124 +580,131 @@ export default async function AdminDashboardPage({
     filter_adviser_name: selectedAdviser || null,
   })
 
-  // dynamic students count query filter
+  // --- dynamic select strings for inner join ---
+  const studentCountSelect =
+    selectedSection || selectedAdviser
+      ? "app_user_id, enrollment!inner(section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name)))"
+      : "app_user_id, enrollment(enrollment_status_id)"
+
+  const adviserCountSelect = selectedSection
+    ? "app_user_id, section!inner(name)"
+    : "app_user_id"
+
+  const activeCountSelect =
+    selectedSection || selectedAdviser
+      ? "student_user_id, section!inner(name, app_user!inner(full_name))"
+      : "student_user_id"
+
+  const timeInLogsSelect =
+    selectedSection || selectedAdviser
+      ? "enrollment_id, enrollment!inner(enrollment_status_id, section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name)))"
+      : "enrollment_id, enrollment!inner(section_id, enrollment_status_id)"
+
+  const filesSelect =
+    selectedSection || selectedAdviser
+      ? "form_id, section!inner(name, app_user!inner(full_name))"
+      : "form_id"
+
+  const appealsSelect =
+    selectedSection || selectedAdviser
+      ? "appeal_id, enrollment!inner(section!inner(name, app_user!inner(full_name)))"
+      : "appeal_id, enrollment!inner(section_id)"
+
+  const workloadSelect = selectedSection
+    ? `full_name, section!section_adviser_user_id_fkey!inner(name, enrollment(enrollment_id))`
+    : `full_name, section!section_adviser_user_id_fkey(name, enrollment(enrollment_id))`
+
+  const enrollmentSelect =
+    selectedSection || selectedAdviser
+      ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, name, required_hour_total, app_user!inner(full_name)), attendance_session(duration_minute)`
+      : `student_user_id, app_user(full_name, student_number), section(section_id, name, required_hour_total, app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
+
+  // ---  Base Queries ---
   let studentsQuery = supabase
     .from("app_user")
-    .select("app_user_id", { count: "exact", head: true })
+    .select(studentCountSelect, { count: "exact", head: true })
     .eq("role_id", studentRoleId)
+    .eq("enrollment.enrollment_status_id", activeStatusId)
 
-  // dynamic total advisers query filter
   let advisersQuery = supabase
     .from("app_user")
-    .select("app_user_id", { count: "exact", head: true })
+    .select(adviserCountSelect, { count: "exact", head: true })
     .eq("role_id", adviserRoleId)
 
-  //dynamic average attendance rate queries
   let weeklyActiveCountQuery = supabase
     .from("enrollment")
-    .select("student_user_id", { count: "exact", head: true })
+    .select(activeCountSelect, { count: "exact", head: true })
     .eq("enrollment_status_id", activeStatusId)
 
   let weeklyTimeInLogsQuery = supabase
     .from("attendance_event")
-    .select("enrollment_id, enrollment!inner(section_id, enrollment_status_id)")
+    .select(timeInLogsSelect)
     .eq("attendance_event_type_id", timeInTypeId)
-    .eq("enrollment!inner.enrollment_status_id", activeStatusId)
+    .eq("enrollment.enrollment_status_id", activeStatusId)
     .gte("effective_at", mondayISO)
 
-  //dynamic files submitted query filter
   let filesQuery = supabase
     .from("form")
-    .select("form_id", { count: "exact", head: true })
+    .select(filesSelect, { count: "exact", head: true })
     .eq("is_active", true)
     .not("section_id", "is", null)
 
-  // dynamic edit requests query filter
   let appealsQuery = supabase
     .from("appeal")
-    .select("appeal_id, enrollment!inner(section_id)")
+    .select(appealsSelect, { count: "exact", head: true })
     .in("appeal_status_id", [openStatusId, underReviewStatusId])
 
-  // dynamic adviser workload roster filter
   let adviserWorkloadQuery = supabase
     .from("app_user")
-    .select(
-      `
-      full_name,
-      section!section_adviser_user_id_fkey(
-        name,
-        enrollment(enrollment_id)
-      )
-    `
-    )
+    .select(workloadSelect)
     .eq("role_id", adviserRoleId)
 
-  // enrollment query
-  //mapping for section progress and at-risk lists
   let enrollmentQuery = supabase
     .from("enrollment")
-    .select(
-      `
-  student_user_id,
-  app_user(full_name, student_number),
-  section(section_id, name, required_hour_total, app_user(full_name)),
-  attendance_session(duration_minute)
-  `
-    )
+    .select(enrollmentSelect)
     .eq("enrollment_status_id", activeStatusId)
 
-  // conditional filters
-  // matching specific section to selected section via filter
+  // ---  Conditional Filters ---
   if (selectedSection) {
     studentsQuery = studentsQuery.eq("enrollment.section.name", selectedSection)
     advisersQuery = advisersQuery.eq("section.name", selectedSection)
-
     weeklyActiveCountQuery = weeklyActiveCountQuery.eq(
       "section.name",
       selectedSection
     )
     weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
-      "enrollment!inner.section.name",
+      "enrollment.section.name",
       selectedSection
     )
-
     filesQuery = filesQuery.eq("section.name", selectedSection)
-    appealsQuery = appealsQuery.eq(
-      "enrollment!inner.section.name",
-      selectedSection
-    )
+    appealsQuery = appealsQuery.eq("enrollment.section.name", selectedSection)
     adviserWorkloadQuery = adviserWorkloadQuery.eq(
       "section.name",
       selectedSection
     )
-
-    enrollmentQuery = enrollmentQuery.eq("section_name", selectedSection)
+    enrollmentQuery = enrollmentQuery.eq("section.name", selectedSection)
   }
 
-  // matching specific adviser to selected adviser via filter
   if (selectedAdviser) {
     studentsQuery = studentsQuery.eq(
       "enrollment.section.app_user.full_name",
       selectedAdviser
     )
-    advisersQuery = advisersQuery.eq("full_name", selectedAdviser) // Directly matches adviser's profile row
-
+    advisersQuery = advisersQuery.eq("full_name", selectedAdviser)
     weeklyActiveCountQuery = weeklyActiveCountQuery.eq(
       "section.app_user.full_name",
       selectedAdviser
     )
     weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
-      "enrollment!inner.section.app_user.full_name",
+      "enrollment.section.app_user.full_name",
       selectedAdviser
     )
-
     filesQuery = filesQuery.eq("section.app_user.full_name", selectedAdviser)
     appealsQuery = appealsQuery.eq(
-      "enrollment!inner.section.app_user.full_name",
+      "enrollment.section.app_user.full_name",
       selectedAdviser
     )
     adviserWorkloadQuery = adviserWorkloadQuery.eq("full_name", selectedAdviser)
-
     enrollmentQuery = enrollmentQuery.eq(
       "section.app_user.full_name",
       selectedAdviser
@@ -722,7 +727,6 @@ export default async function AdminDashboardPage({
   const [
     studentsRes,
     advisersRes,
-    sessionsRes,
     filesRes,
     appealsRes,
     attendanceRateRes,
@@ -737,10 +741,6 @@ export default async function AdminDashboardPage({
     advisersQuery,
 
     // sessions
-    supabase
-      .from("attendance_session")
-      .select("duration_minute, enrollment!inner(enrollment_status_id)")
-      .eq("enrollment!inner.enrollment_status_id", activeStatusId),
 
     // files submitted query call
     filesQuery,
@@ -772,11 +772,7 @@ export default async function AdminDashboardPage({
 
   const totalStudentsCount = studentsRes.count || 0
   const activeStudentsDivisor = totalStudentsCount || 1
-  const rawSessions = sessionsRes.data || []
-  const totalMinutesRendered = rawSessions.reduce(
-    (sum, item) => sum + (item.duration_minute || 0),
-    0
-  )
+
   /*
   const calculatedAvgHours = Math.round(
     totalMinutesRendered / 60 / activeStudentsDivisor
@@ -989,7 +985,7 @@ export default async function AdminDashboardPage({
       value: calculatedAvgHours,
       valueSuffix: `/500`,
       badge: {
-        text: `${Math.min(100, Math.round((calculatedAvgHours / 500) * 100))}%`,
+        text: `${Math.min(100, Math.round((calculatedAvgHours / 60) * 100))}%`,
         bg: COLORS.amberBgLight,
         color: COLORS.amber,
       },
@@ -1004,7 +1000,7 @@ export default async function AdminDashboardPage({
     {
       icon: "ti-alert-triangle",
       label: "At-risk Students",
-      value: processedAtRiskList.length,
+      value: atRiskCount,
       valueColor: COLORS.maroonDark,
       badge: {
         text: `${processedCompletionStatus.atRiskPct}%`,
@@ -1213,7 +1209,7 @@ export default async function AdminDashboardPage({
                 padding: "20px 0",
               }}
             >
-              🎉 No students are currently flagged as at-risk
+              No students are currently flagged as at-risk
             </div>
           ) : (
             processedAtRiskList.map((s, i) => (
