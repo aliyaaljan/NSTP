@@ -1,6 +1,7 @@
 import { Montserrat } from "next/font/google"
 import { FONT_BODY, FONT_HEADING, TYPE } from "@/lib/admin-typography"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import DashboardFilters from "@/components/shared/DashboardFilters"
 
 export const revalidate = 0
 
@@ -506,11 +507,20 @@ function ProfilePill({ user }: { user: CurrentUser }) {
 export default async function AdminDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ section?: string; adviser?: string }>
+  searchParams: Promise<{ filter?: string }>
 }) {
   const resolvedParams = await searchParams
-  const selectedSection = resolvedParams.section || ""
-  const selectedAdviser = resolvedParams.adviser || ""
+  const currentFilter = resolvedParams.filter || ""
+
+  // for filtering either by section or by adviser
+  let selectedSection = ""
+  let selectedAdviser = ""
+
+  if (currentFilter.startsWith("section:")) {
+    selectedSection = currentFilter.replace("section:", "")
+  } else if (currentFilter.startsWith("adviser:")) {
+    selectedAdviser = currentFilter.replace("adviser:", "")
+  }
   const supabase = await createSupabaseServerClient()
 
   const today = new Date()
@@ -564,11 +574,64 @@ export default async function AdminDashboardPage({
 
   // fetch array of data
 
+  // compute average hours using supabase RPC, outside of Promise block
   const avgHoursRes = await supabase.rpc("get_active_students_average_hours", {
     active_status_id: activeStatusId,
     filter_section_name: selectedSection || null,
     filter_adviser_name: selectedAdviser || null,
   })
+
+  // dynamic students count query filter
+  let studentsQuery = supabase
+    .from("app_user")
+    .select("app_user_id", { count: "exact", head: true })
+    .eq("role_id", studentRoleId)
+
+  // dynamic total advisers query filter
+  let advisersQuery = supabase
+    .from("app_user")
+    .select("app_user_id", { count: "exact", head: true })
+    .eq("role_id", adviserRoleId)
+
+  //dynamic average attendance rate queries
+  let weeklyActiveCountQuery = supabase
+    .from("enrollment")
+    .select("student_user_id", { count: "exact", head: true })
+    .eq("enrollment_status_id", activeStatusId)
+
+  let weeklyTimeInLogsQuery = supabase
+    .from("attendance_event")
+    .select("enrollment_id, enrollment!inner(section_id, enrollment_status_id)")
+    .eq("attendance_event_type_id", timeInTypeId)
+    .eq("enrollment!inner.enrollment_status_id", activeStatusId)
+    .gte("effective_at", mondayISO)
+
+  //dynamic files submitted query filter
+  let filesQuery = supabase
+    .from("form")
+    .select("form_id", { count: "exact", head: true })
+    .eq("is_active", true)
+    .not("section_id", "is", null)
+
+  // dynamic edit requests query filter
+  let appealsQuery = supabase
+    .from("appeal")
+    .select("appeal_id, enrollment!inner(section_id)")
+    .in("appeal_status_id", [openStatusId, underReviewStatusId])
+
+  // dynamic adviser workload roster filter
+  let adviserWorkloadQuery = supabase
+    .from("app_user")
+    .select(
+      `
+      full_name,
+      section!section_adviser_user_id_fkey(
+        name,
+        enrollment(enrollment_id)
+      )
+    `
+    )
+    .eq("role_id", adviserRoleId)
 
   // enrollment query
   //mapping for section progress and at-risk lists
@@ -583,14 +646,71 @@ export default async function AdminDashboardPage({
   `
     )
     .eq("enrollment_status_id", activeStatusId)
-  if (selectedSection)
-    enrollmentQuery = enrollmentQuery.eq("section.name", selectedSection)
-  if (selectedAdviser)
-    enrollmentQuery = enrollmentQuery.eq(
+
+  // conditional filters
+  // matching specific section to selected section via filter
+  if (selectedSection) {
+    studentsQuery = studentsQuery.eq("enrollment.section.name", selectedSection)
+    advisersQuery = advisersQuery.eq("section.name", selectedSection)
+
+    weeklyActiveCountQuery = weeklyActiveCountQuery.eq(
+      "section.name",
+      selectedSection
+    )
+    weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
+      "enrollment!inner.section.name",
+      selectedSection
+    )
+
+    filesQuery = filesQuery.eq("section.name", selectedSection)
+    appealsQuery = appealsQuery.eq(
+      "enrollment!inner.section.name",
+      selectedSection
+    )
+    adviserWorkloadQuery = adviserWorkloadQuery.eq(
+      "section.name",
+      selectedSection
+    )
+  }
+
+  // matching specific adviser to selected adviser via filter
+  if (selectedAdviser) {
+    studentsQuery = studentsQuery.eq(
+      "enrollment.section.app_user.full_name",
+      selectedAdviser
+    )
+    advisersQuery = advisersQuery.eq("full_name", selectedAdviser) // Directly matches adviser's profile row
+
+    weeklyActiveCountQuery = weeklyActiveCountQuery.eq(
       "section.app_user.full_name",
       selectedAdviser
     )
+    weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
+      "enrollment!inner.section.app_user.full_name",
+      selectedAdviser
+    )
 
+    filesQuery = filesQuery.eq("section.app_user.full_name", selectedAdviser)
+    appealsQuery = appealsQuery.eq(
+      "enrollment!inner.section.app_user.full_name",
+      selectedAdviser
+    )
+    adviserWorkloadQuery = adviserWorkloadQuery.eq("full_name", selectedAdviser)
+  }
+
+  // Fetching distinct options for filtering dropdown selectors
+  const [sectionsFilterRes, advisersFilterRes] = await Promise.all([
+    supabase.from("section").select("name").order("name"),
+    supabase
+      .from("app_user")
+      .select("full_name")
+      .eq("role_id", adviserRoleId)
+      .order("full_name"),
+  ])
+
+  const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
+  const availableAdvisers =
+    advisersFilterRes.data?.map((a) => a.full_name) || []
   const [
     studentsRes,
     advisersRes,
@@ -602,63 +722,40 @@ export default async function AdminDashboardPage({
     adviserWorkloadRes,
     //  recentActivityRes,
   ] = await Promise.all([
-    supabase
-      .from("app_user")
-      .select("app_user_id", { count: "exact", head: true })
-      .eq("role_id", studentRoleId),
-    supabase
-      .from("app_user")
-      .select("app_user_id", { count: "exact", head: true })
-      .eq("role_id", adviserRoleId),
+    // student counter call
+    studentsQuery,
+
+    // adviser/facilitator count call
+    advisersQuery,
+
+    // sessions
     supabase
       .from("attendance_session")
       .select("duration_minute, enrollment!inner(enrollment_status_id)")
       .eq("enrollment!inner.enrollment_status_id", activeStatusId),
-    supabase
-      .from("form")
-      .select("form_id", { count: "exact", head: true })
-      .eq("is_active", true)
-      .not("section_id", "is", null),
-    supabase
-      .from("appeal")
-      .select("appeal_id", { count: "exact", head: true })
-      .in("appeal_status_id", [openStatusId, underReviewStatusId]),
 
-    // weekly logs
-    Promise.all([
-      supabase
-        .from("enrollment")
-        .select("student_user_id", { count: "exact", head: true })
-        .eq("enrollment_status_id", activeStatusId),
-      supabase
-        .from("attendance_event")
-        .select("enrollment_id")
-        .eq("attendance_event_type_id", timeInTypeId)
-        .gte("effective_at", mondayISO),
-    ]),
+    // files submitted query call
+    filesQuery,
 
-    // fetching enrollments
+    // appeals query call
+    appealsQuery,
+
+    //attendance rate query call
+    Promise.all([weeklyActiveCountQuery, weeklyTimeInLogsQuery]),
+
+    //enrollment query call
     enrollmentQuery,
-    // adviser workload roster
-    supabase
-      .from("app_user")
-      .select(
-        `
-        full_name,
-        section!section_adviser_user_id_fkey(
-          name,
-          enrollment(enrollment_id)
-        )
-      `
-      )
-      .eq("role_id", adviserRoleId),
 
-    // recent activity
+    // adviser workload query call
+    adviserWorkloadQuery,
+
+    /* recent activity
     supabase
       .from("audit_log")
       .select("activity_type, description, created_at, app_user(full_name)")
       .order("created_at", { ascending: false })
       .limit(5),
+      */
   ])
 
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
@@ -679,9 +776,9 @@ export default async function AdminDashboardPage({
 */
   const calculatedAvgHours = avgHoursRes.data || 0
   // calculating weekly attendance rate
-  const totalActiveEnrollments = attendanceRateRes[0].count || 0
+  const totalActiveEnrollments = attendanceRateRes[0]?.count || 0
   const uniqueScansThisWeek = new Set(
-    attendanceRateRes[1].data?.map((e: any) => e.enrollment_id)
+    attendanceRateRes[1]?.data?.map((e: any) => e.enrollment_id)
   ).size
   const computedAttendanceRate =
     totalActiveEnrollments > 0
@@ -945,6 +1042,11 @@ export default async function AdminDashboardPage({
         </div>
 
         <div style={{ display: "flex", gap: 12 }}>
+          <DashboardFilters
+            currentFilter={currentFilter}
+            sections={availableSections}
+            advisers={availableAdvisers}
+          />
           <button
             style={{
               ...TYPE.bodyBold,
@@ -960,25 +1062,7 @@ export default async function AdminDashboardPage({
               cursor: "pointer",
             }}
           >
-            All Sections
-            <i className="ti ti-chevron-down" style={{ fontSize: 14 }} />
-          </button>
-          <button
-            style={{
-              ...TYPE.bodyBold,
-              fontFamily: FONT_HEADING,
-              color: "#fff",
-              background: COLORS.maroon,
-              border: "none",
-              borderRadius: 24,
-              padding: "11px 22px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              cursor: "pointer",
-            }}
-          >
-            <i className="ti ti-download" style={{ fontSize: 14 }} />
+            <i className="ti ti-upload" style={{ fontSize: 14 }} />
             Export
           </button>
         </div>
@@ -1144,7 +1228,7 @@ export default async function AdminDashboardPage({
           )}
         </ListCard>
 
-        {/* Recent activity trace timeline panel */}
+        {/* Recent activity trace timeline panel ------------------------*/}
         {/* 
 
         <ListCard title="Recent Activity" colLeft="Activity" colRight="">
