@@ -1,37 +1,186 @@
-export default function FacilitatorDashboard() {
+// app/facilitator/dashboard/page.tsx
+"use client";
+
+import { useState } from "react";
+import {
+  IconSearch, IconQrcode, IconAlertTriangle, IconInfoCircle,
+  IconChevronDown, IconEye, IconAlertCircle,
+  IconUsers, IconClock, IconCircleCheck,
+} from "@tabler/icons-react";
+import {
+  navItems, dashboardStyles,
+  Sidebar, QrScanner, StudentAvatar, ProgressBar, DonutChart,
+} from "../facilitator";
+
+// ── Dashboard-specific data ───────────────────────────────────────────
+const students = [
+  { name: "Rhona Shayne Lopez",      pct: 72  },
+  { name: "Jaerish Kyle Rabang",     pct: 48  },
+  { name: "Saffi Limbaro",           pct: 90  },
+  { name: "Aliya Aljan Mendoza",     pct: 70  },
+  { name: "Charles Ansbert Joaquin", pct: 100 },
+  { name: "Axel Xandrei Valido",     pct: 50  },
+  { name: "Janine Irish Tulic",      pct: 0   },
+];
+
+const statCards = [
+  { label: "Total Students", value: 40, Icon: IconUsers       },
+  { label: "Pending Review", value: 10, Icon: IconClock       },
+  { label: "Completed",      value: 3,  Icon: IconCircleCheck },
+];
+
+export default function DashboardPage() {
+  const [activeNav, setActiveNav]     = useState("Dashboard");
+  const [searchVal, setSearchVal]     = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+
+  const filtered = searchVal.trim()
+    ? students.filter((s) => s.name.toLowerCase().includes(searchVal.toLowerCase()))
+    : students;
+
   return (
-    <div>
-      <h1 style={{ fontFamily: "'Cormorant', Georgia, serif", fontSize: '28px', fontWeight: 700, color: '#2C2C2A', marginBottom: '8px' }}>
-        Facilitator Dashboard
-      </h1>
-      <p style={{ color: '#888', marginBottom: '32px', fontSize: '15px' }}>
-        Manage your student groups, review hours, and track community outreach.
-      </p>
+    <>
+      <style>{dashboardStyles}</style>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '32px' }}>
-        {[
-          { label: 'Assigned Students', value: '—', icon: 'ti-users', color: '#7B1113' },
-          { label: 'Pending Reviews', value: '—', icon: 'ti-clipboard-check', color: '#2D6A4F' },
-          { label: 'Sessions This Month', value: '—', icon: 'ti-calendar', color: '#5C0B18' },
-        ].map(card => (
-          <div key={card.label} style={{
-            background: '#fff', borderRadius: '12px', padding: '24px',
-            display: 'flex', flexDirection: 'column', gap: '10px',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-          }}>
-            <i className={`ti ${card.icon}`} style={{ fontSize: '24px', color: card.color }} />
-            <div style={{ fontSize: '28px', fontWeight: 700, color: '#2C2C2A' }}>{card.value}</div>
-            <div style={{ fontSize: '13px', color: '#888' }}>{card.label}</div>
-          </div>
-        ))}
-      </div>
+      <div className="db-root">
 
-      <div style={{ background: '#fff', borderRadius: '12px', padding: '32px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', textAlign: 'center', color: '#BBB' }}>
-        <i className="ti ti-hammer" style={{ fontSize: '32px' }} />
-        <p style={{ marginTop: '12px', fontFamily: "'Cormorant', Georgia, serif", fontSize: '16px' }}>
-          Student activity and pending hour approvals will appear here.
-        </p>
+        <Sidebar
+          open={sidebarOpen}
+          activeNav={activeNav}
+          onToggle={() => setSidebarOpen((o) => !o)}
+          onNavClick={(label) => { setActiveNav(label); setSidebarOpen(false); }}
+        />
+
+        {sidebarOpen && (
+          <div className="sb-overlay" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
+        )}
+
+        <div className="main-wrapper">
+          <main className="main">
+
+            <header className="header">
+              <h1 className="header-greeting">Hello, Mingyu!</h1>
+              <div className="search-bar">
+                <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
+                <input
+                  className="search-input" value={searchVal}
+                  onChange={(e) => setSearchVal(e.target.value)}
+                  placeholder="Search..." aria-label="Search students"
+                />
+              </div>
+              <div className="profile-pill">
+                <div className="profile-avatar">KM</div>
+                <div>
+                  <div className="profile-name">Kim, Mingyu</div>
+                  <div className="profile-sec">NSTP – H</div>
+                </div>
+              </div>
+            </header>
+
+            <div className="body">
+
+              {/* Alert + QR */}
+              <div className="top-row">
+                <div className="alert-banner" role="alert">
+                  <span className="alert-icon"><IconAlertTriangle size={24} stroke={1.75} /></span>
+                  <div className="alert-text">
+                    <div className="alert-title">Action Needed</div>
+                    <div className="alert-sub">7 pending requests</div>
+                  </div>
+                  <button className="alert-btn">
+                    <IconEye size={13} stroke={1.75} /> Review
+                  </button>
+                </div>
+                <div className="qr-card" role="button" tabIndex={0}
+                  aria-label="Open QR code scanner" onClick={() => setScannerOpen(true)}>
+                  <div className="qr-icon-box"><IconQrcode size={24} stroke={1.5} /></div>
+                  <div>
+                    <div className="qr-title">Scan QR Code</div>
+                    <div className="qr-sub">Tap to open scanner</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Overview + Completion */}
+              <div className="overview-row">
+                <div className="overview-left">
+                  <div className="overview-header">
+                    <div className="overview-label">Class Overview</div>
+                    <button className="sections-btn">
+                      All Sections <IconChevronDown size={13} stroke={2} />
+                    </button>
+                  </div>
+                  <div className="stat-cards">
+                    {statCards.map(({ label, value, Icon }) => (
+                      <div key={label} className="stat-card">
+                        <div className="stat-card-label">{label}</div>
+                        <div className="stat-card-row">
+                          <span className="stat-card-icon"><Icon size={22} stroke={1.5} /></span>
+                          <div className="stat-card-value">{value}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="completion-card">
+                  <div className="card-title">Section Completion Rate</div>
+                  <div className="completion-inner">
+                    <DonutChart pct={60} />
+                    <div className="completion-meta">
+                      <div className="completion-name">NSTP-H Overall</div>
+                      <div className="completion-sub">24 out of 40 students on track</div>
+                      <div className="completion-warn">
+                        <IconAlertCircle size={13} stroke={1.75} /> 7 students below 50%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress + Activity */}
+              <div className="bottom-row">
+                <div className="progress-card">
+                  <div className="progress-card-header">
+                    <div className="card-title" style={{ marginBottom: 0 }}>Student Progress</div>
+                    <button className="view-all-btn">View All</button>
+                  </div>
+                  <div className="student-list">
+                    {filtered.length === 0 ? (
+                      <div className="no-results">No students match your search.</div>
+                    ) : filtered.map(({ name, pct }) => (
+                      <div key={name} className="student-row">
+                        <StudentAvatar name={name} />
+                        <div className="student-info">
+                          <div className="student-name" title={name}>{name}</div>
+                          <ProgressBar pct={pct} />
+                        </div>
+                        <div className="student-pct">{pct}%</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="activity-card">
+                  <div className="card-title">Recent Activity</div>
+                  <div className="activity-empty">
+                    <div className="activity-empty-icon">
+                      <IconInfoCircle size={18} stroke={1.5} />
+                    </div>
+                    <div className="activity-empty-text">
+                      No activity yet.<br />Actions you take will appear here.
+                    </div>
+                    <button className="activity-empty-cta">Go to Forms</button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </main>
+        </div>
+
+        {scannerOpen && <QrScanner onClose={() => setScannerOpen(false)} />}
+
       </div>
-    </div>
-  )
+    </>
+  );
 }
