@@ -70,6 +70,7 @@ export interface DashboardStats {
 }
 
 export interface SectionProgress {
+  id: string
   section: string
   pct: number
 }
@@ -671,6 +672,8 @@ export default async function AdminDashboardPage({
       "section.name",
       selectedSection
     )
+
+    enrollmentQuery = enrollmentQuery.eq("section_name", selectedSection)
   }
 
   // matching specific adviser to selected adviser via filter
@@ -696,6 +699,11 @@ export default async function AdminDashboardPage({
       selectedAdviser
     )
     adviserWorkloadQuery = adviserWorkloadQuery.eq("full_name", selectedAdviser)
+
+    enrollmentQuery = enrollmentQuery.eq(
+      "section.app_user.full_name",
+      selectedAdviser
+    )
   }
 
   // Fetching distinct options for filtering dropdown selectors
@@ -821,12 +829,21 @@ export default async function AdminDashboardPage({
     else if (studentCompletionPct >= 45) inProgressCount++
     else {
       atRiskCount++
-      // push record to ar-risk list
+
+      let refinedSubtitle = `Section ${sectionData.name} under ${
+        sectionData.app_user?.full_name || "No Adviser"
+      }`
+      if (selectedAdviser) {
+        refinedSubtitle = `Section ${sectionData.name}`
+      } else if (selectedSection) {
+        refinedSubtitle = `Assigned to: ${
+          sectionData.app_user?.full_name || "Unassigned"
+        }`
+      }
+
       processedAtRiskList.push({
         name: en.app_user?.full_name || "Unknown Identity",
-        sectionInfo: `Section ${sectionData.name} under ${
-          sectionData.app_user?.full_name || "No Adviser"
-        }`,
+        sectionInfo: refinedSubtitle,
         completionPct: Math.min(100, studentCompletionPct),
       })
     }
@@ -846,23 +863,42 @@ export default async function AdminDashboardPage({
   })
 
   //  section progress layout sorting (alphabetical)
-  const processedSectionProgress: SectionProgress[] = Object.values(
-    sectionAggregationMap
-  )
-    .map((sect: any) => ({
-      section: sect.name,
-      pct:
-        sect.studentCount > 0
-          ? Math.min(
-              100,
-              Math.round(
-                (sect.totalHoursCompleted / sect.totalHoursRequired) * 100
+  let processedSectionProgress: SectionProgress[] = []
+  if (selectedSection || selectedAdviser) {
+    // iff a filter is applied, convert rows to individual student bars instead of single section groupings
+    processedSectionProgress = rawEnrollments
+      .map((en: any) => {
+        const targetHours = en.section?.required_hour_total || 60
+        const studentMinutes =
+          en.attendance_session?.reduce(
+            (sum: number, s: any) => sum + (s.duration_minute || 0),
+            0
+          ) || 0
+        const studentHours = studentMinutes / 60
+        return {
+          id: en.student_user_id,
+          section: en.app_user?.full_name || "Unknown Student",
+          pct: Math.min(100, Math.round((studentHours / targetHours) * 100)),
+        }
+      })
+      .sort((a, b) => b.pct - a.pct)
+  } else {
+    processedSectionProgress = Object.values(sectionAggregationMap)
+      .map((sect: any) => ({
+        id: sect.name,
+        section: sect.name,
+        pct:
+          sect.studentCount > 0
+            ? Math.min(
+                100,
+                Math.round(
+                  (sect.totalHoursCompleted / sect.totalHoursRequired) * 100
+                )
               )
-            )
-          : 0,
-    }))
-    .sort((a, b) => a.section.localeCompare(b.section))
-
+            : 0,
+      }))
+      .sort((a, b) => a.section.localeCompare(b.section))
+  }
   //
   const absoluteCohortCount = rawEnrollments.length || 1
   const processedCompletionStatus: CompletionStatus = {
@@ -890,6 +926,10 @@ export default async function AdminDashboardPage({
         studentCount: totalStudentsCount,
       }
     })
+    // remove inactive advisers (0 students)
+    .filter((adviser) =>
+      selectedSection || selectedAdviser ? adviser.studentCount > 0 : true
+    )
     .sort((a, b) => b.studentCount - a.studentCount)
 
   // format recent activities
@@ -1100,12 +1140,16 @@ export default async function AdminDashboardPage({
           }}
         >
           <div style={{ ...TYPE.h2, color: COLORS.textDark, marginBottom: 20 }}>
-            Hours completion by section
+            {selectedSection
+              ? `Student progress within Section ${selectedSection}`
+              : selectedAdviser
+              ? `Student progress under ${selectedAdviser}`
+              : "Hours completion by section"}
           </div>
           <SectionProgressHeader />
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {processedSectionProgress.map((row) => (
-              <SectionProgressRow key={row.section} {...row} />
+            {processedSectionProgress.map((row, i) => (
+              <SectionProgressRow key={i} {...row} />
             ))}
           </div>
         </div>
