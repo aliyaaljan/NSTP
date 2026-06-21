@@ -503,7 +503,14 @@ function ProfilePill({ user }: { user: CurrentUser }) {
 
 // ── Main Page Component ───────────────────────────────────────────────────
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ section?: string; adviser?: string }>
+}) {
+  const resolvedParams = await searchParams
+  const selectedSection = resolvedParams.section || ""
+  const selectedAdviser = resolvedParams.adviser || ""
   const supabase = await createSupabaseServerClient()
 
   const today = new Date()
@@ -556,10 +563,34 @@ export default async function AdminDashboardPage() {
   const timeInTypeId = typeTimeInRes.data?.attendance_event_type_id
 
   // fetch array of data
-  // Replace your old sessionsRes variable inside Promise.all with this:
+
   const avgHoursRes = await supabase.rpc("get_active_students_average_hours", {
     active_status_id: activeStatusId,
+    filter_section_name: selectedSection || null,
+    filter_adviser_name: selectedAdviser || null,
   })
+
+  // enrollment query
+  //mapping for section progress and at-risk lists
+  let enrollmentQuery = supabase
+    .from("enrollment")
+    .select(
+      `
+  student_user_id,
+  app_user(full_name, student_number),
+  section(section_id, name, required_hour_total, app_user(full_name)),
+  attendance_session(duration_minute)
+  `
+    )
+    .eq("enrollment_status_id", activeStatusId)
+  if (selectedSection)
+    enrollmentQuery = enrollmentQuery.eq("section.name", selectedSection)
+  if (selectedAdviser)
+    enrollmentQuery = enrollmentQuery.eq(
+      "section.app_user.full_name",
+      selectedAdviser
+    )
+
   const [
     studentsRes,
     advisersRes,
@@ -569,7 +600,7 @@ export default async function AdminDashboardPage() {
     attendanceRateRes,
     enrollmentsRes,
     adviserWorkloadRes,
-    recentActivityRes,
+    //  recentActivityRes,
   ] = await Promise.all([
     supabase
       .from("app_user")
@@ -606,19 +637,8 @@ export default async function AdminDashboardPage() {
         .gte("effective_at", mondayISO),
     ]),
 
-    // mapping for section progress and at-risk lists
-    supabase
-      .from("enrollment")
-      .select(
-        `
-        student_user_id,
-        app_user(full_name, student_number),
-        section(section_id, name, required_hour_total, app_user(full_name)),
-        attendance_session(duration_minute)
-      `
-      )
-      .eq("enrollment_status_id", activeStatusId),
-
+    // fetching enrollments
+    enrollmentQuery,
     // adviser workload roster
     supabase
       .from("app_user")
@@ -775,7 +795,8 @@ export default async function AdminDashboardPage() {
     })
     .sort((a, b) => b.studentCount - a.studentCount)
 
-  // format recent alteration
+  // format recent activities
+  /*
   const rawActivities = recentActivityRes.data || []
   const processedRecentActivity: RecentActivityItem[] = rawActivities.map(
     (act: any) => {
@@ -798,6 +819,7 @@ export default async function AdminDashboardPage() {
       }
     }
   )
+    */
 
   const currentSemesterMeta = {
     academicYear: "2025-2026",
@@ -1123,6 +1145,8 @@ export default async function AdminDashboardPage() {
         </ListCard>
 
         {/* Recent activity trace timeline panel */}
+        {/* 
+
         <ListCard title="Recent Activity" colLeft="Activity" colRight="">
           {processedRecentActivity.length === 0 ? (
             <div
@@ -1158,6 +1182,7 @@ export default async function AdminDashboardPage() {
             ))
           )}
         </ListCard>
+            */}
       </div>
     </div>
   )
