@@ -592,7 +592,7 @@ export default async function AdminDashboardPage({
 
   const activeCountSelect =
     selectedSection || selectedAdviser
-      ? "student_user_id, section!inner(name, app_user!inner(full_name))"
+      ? "student_user_id, section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name))"
       : "student_user_id"
 
   const timeInLogsSelect =
@@ -602,17 +602,35 @@ export default async function AdminDashboardPage({
 
   const filesSelect =
     selectedSection || selectedAdviser
-      ? "form_id, section!inner(name, app_user!inner(full_name))"
+      ? "form_id, section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name))"
       : "form_id"
 
   const appealsSelect =
     selectedSection || selectedAdviser
-      ? "appeal_id, enrollment!inner(section!inner(name, app_user!inner(full_name)))"
+      ? "appeal_id, enrollment!inner(section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name)))"
       : "appeal_id, enrollment!inner(section_id)"
 
   const workloadSelect = selectedSection
-    ? `full_name, section!section_adviser_user_id_fkey!inner(name, enrollment(enrollment_id))`
-    : `full_name, section!section_adviser_user_id_fkey(name, enrollment(enrollment_id))`
+    ? `
+          full_name,
+          section!section_adviser_user_id_fkey!inner(
+            name,
+            enrollment(
+              enrollment_id,
+              enrollment_status_id
+            )
+          )
+        `
+    : `
+          full_name,
+          section!section_adviser_user_id_fkey(
+            name,
+            enrollment(
+              enrollment_id,
+              enrollment_status_id
+            )
+          )
+        `
 
   const enrollmentSelect =
     selectedSection || selectedAdviser
@@ -687,26 +705,33 @@ export default async function AdminDashboardPage({
 
   if (selectedAdviser) {
     studentsQuery = studentsQuery.eq(
-      "enrollment.section.app_user.full_name",
+      "enrollment.section.app_user!section_adviser_user_id_fkey.full_name",
       selectedAdviser
     )
     advisersQuery = advisersQuery.eq("full_name", selectedAdviser)
+
     weeklyActiveCountQuery = weeklyActiveCountQuery.eq(
-      "section.app_user.full_name",
+      "section.app_user!section_adviser_user_id_fkey.full_name",
       selectedAdviser
     )
     weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
-      "enrollment.section.app_user.full_name",
+      "enrollment.section.app_user!section_adviser_user_id_fkey.full_name",
       selectedAdviser
     )
-    filesQuery = filesQuery.eq("section.app_user.full_name", selectedAdviser)
+
+    filesQuery = filesQuery.eq(
+      "section.app_user!section_adviser_user_id_fkey.full_name",
+      selectedAdviser
+    )
     appealsQuery = appealsQuery.eq(
-      "enrollment.section.app_user.full_name",
+      "enrollment.section.app_user!section_adviser_user_id_fkey.full_name",
       selectedAdviser
     )
+
     adviserWorkloadQuery = adviserWorkloadQuery.eq("full_name", selectedAdviser)
+
     enrollmentQuery = enrollmentQuery.eq(
-      "section.app_user.full_name",
+      "section.app_user!section_adviser_user_id_fkey.full_name",
       selectedAdviser
     )
   }
@@ -908,11 +933,16 @@ export default async function AdminDashboardPage({
   const processedAdviserWorkload: AdviserWorkloadRow[] = rawAdvisers
     .map((adv: any) => {
       const sectionRosters = adv.section || []
-      const totalStudentsCount =
-        sectionRosters.reduce(
-          (sum: number, s: any) => sum + (s.enrollment?.length || 0),
-          0
-        ) || 0
+      const totalStudentsCount = sectionRosters.reduce(
+        (sum: number, section: any) => {
+          const activeStudents =
+            section.enrollment?.filter(
+              (e: any) => e.enrollment_status_id === activeStatusId
+            ) || []
+          return sum + activeStudents.length
+        },
+        0
+      )
       const primarySectionLabel = sectionRosters[0]?.name
         ? `Section ${sectionRosters[0].name}`
         : "Floating"
