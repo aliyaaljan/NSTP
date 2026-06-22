@@ -196,7 +196,7 @@ export default function DashboardPage() {
                       pending requests
                     </div>
                   </div>
-                  <button className="alert-btn">
+                  <button className="alert-btn" onClick={() => router.push(`${navRoutes["My Students"]}?tab=pending`)}>
                     <IconEye size={13} stroke={1.75} /> Review
                   </button>
                 </div>
@@ -226,50 +226,53 @@ export default function DashboardPage() {
                     <div className="overview-header">
                       <div className="overview-label">Class Overview</div>
                       <div style={{ position: "relative" }}>
-                        <button
-                          className="sections-btn"
-                          onClick={() => setSectionDropdownOpen((o) => !o)}
-                        >
-                          {selectedSection} <IconChevronDown size={13} stroke={2} />
-                        </button>
-                        {sectionDropdownOpen && (
-                          <>
-                            <div
-                              className="sections-dropdown"
-                              onClick={() => setSectionDropdownOpen(false)}
-                            />
+                        <div onMouseLeave={() => setSectionDropdownOpen(false)}>
+                          <button
+                            className="sections-btn"
+                            onClick={() => setSectionDropdownOpen((o) => !o)}
+                          >
+                            {selectedSection} <IconChevronDown size={13} stroke={2} />
+                          </button>
+
+                          {sectionDropdownOpen && (
                             <div
                               style={{
                                 position: "absolute",
-                                top: "calc(100% + 6px)",
+                                top: "100%",
                                 right: 0,
-                                background: "var(--white)",
-                                border: "1px solid var(--border)",
-                                borderRadius: 10,
-                                boxShadow: "var(--shadow)",
+                                paddingTop: 6,
                                 zIndex: 10,
-                                minWidth: 160,
-                                overflow: "hidden",
                               }}
                             >
-                              {sections.map((s) => (
-                                <div
-                                  key={s.id}
-                                  onClick={() => {
-                                    setSelectedSection(s.name)
-                                    setSectionDropdownOpen(false)
-                                    setCurrentPage(1)
-                                  }}
-                                  className={`block w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
-                                    s.name === selectedSection ? "font-semibold bg-green text-white" : "font-normal text-text"
-                                  }`}
-                                >
-                                  {s.name}
-                                </div>
-                              ))}
+                              <div
+                                style={{
+                                  background: "var(--white)",
+                                  border: "1px solid var(--border)",
+                                  borderRadius: 10,
+                                  boxShadow: "var(--shadow)",
+                                  minWidth: 160,
+                                  overflow: "hidden",
+                                }}
+                              >
+                                {sections.map((s) => (
+                                  <div
+                                    key={s.id}
+                                    onClick={() => {
+                                      setSelectedSection(s.name)
+                                      setSectionDropdownOpen(false)
+                                      setCurrentPage(1)
+                                    }}
+                                    className={`block w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
+                                      s.name === selectedSection ? "font-semibold bg-green text-white" : "font-normal text-text"
+                                    }`}
+                                  >
+                                    {s.name}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="stat-cards">
@@ -448,7 +451,8 @@ export default function DashboardPage() {
                   {/* Calendar */}
                   <Calendar />
                   {/* Recent Activity */}
-<div className="activity-card overflow-y-auto" style={{ width: "100%", maxHeight: "300px" }}>                    <div className="card-title">Recent Activity</div>
+                  <div className="activity-card overflow-y-auto" style={{ width: "100%", maxHeight: "310px" }}>                    
+                    <div className="card-title">Recent Activity</div>
                     {recentActivity.length > 0 ? (
                       recentActivity.map((item, index) => {
                         const date = new Date(item.created_at)

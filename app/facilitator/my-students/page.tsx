@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation";
 import {
   IconSearch, IconQrcode, IconChevronDown,
@@ -8,6 +8,8 @@ import {
   IconAlertCircle, IconEye, IconX, IconClipboardText, IconPaperclip,
 } from "@tabler/icons-react";
 import { Sidebar, QrScanner, dashboardStyles, navRoutes } from "../facilitator";
+import { signOutWithAudit } from "@/lib/auth-actions"
+import { useSearchParams } from "next/navigation";
 
 // ── Data ──────────────────────────────────────────────────────────────
 type Status = "Completed" | "Near Completion" | "In Progress" | "Not Started";
@@ -313,6 +315,8 @@ const myStudentsStyles = `
 
 export default function MyStudentsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [activeNav, setActiveNav] = useState("Dashboard")
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [activeTab, setActiveTab]     = useState<Tab>("list");
@@ -327,6 +331,14 @@ export default function MyStudentsPage() {
   const [requestTypeFilter, setRequestTypeFilter] = useState<"All Types" | RequestType>("All Types");
   const [showTypeFilter, setShowTypeFilter] = useState(false);
   const PAGE_SIZE = 5;
+
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    console.log(tab)
+    if (tab === "pending" || tab === "list") {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   const filtered = allStudents.filter((s) => {
     const matchSearch = tableSearch.trim() === "" ||
@@ -347,6 +359,19 @@ export default function MyStudentsPage() {
 
   const statusOptions: StatusFilter[] = ["All Status", "Completed", "Near Completion", "In Progress", "Not Started"];
 
+  async function handleSignOut() {
+      await signOutWithAudit()
+      router.push("/")
+      router.refresh()
+    }
+  
+    function handleNavClick(label: string) {
+      setActiveNav(label)
+      setSidebarOpen(false)
+      if (navRoutes?.[label]) {
+        router.push(navRoutes[label])
+      }
+    }
   function requestTypeStyle(type: RequestType): { bg: string; color: string } {
     const map: Record<RequestType, { bg: string; color: string }> = {
       "Absence Excuse":  { bg: "#FEF3C7", color: "#92400E" },
@@ -366,6 +391,7 @@ export default function MyStudentsPage() {
           activeNav="My Students"
           onToggle={() => { setSidebarOpen((o) => !o); setShowFilter(false); setShowTypeFilter(false); }}
           onNavClick={(label) => { setSidebarOpen(false); router.push(navRoutes[label]); }}
+          onSignOut={handleSignOut}
         />
 
         {sidebarOpen && (
