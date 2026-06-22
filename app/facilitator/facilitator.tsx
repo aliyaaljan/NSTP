@@ -370,6 +370,7 @@ export const dashboardStyles = `
   .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600; }
   .no-results { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 0; }
   .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
+  .activity-card-scroll {overflow-y: auto; max-height: 250px; padding-right: 8px;}
   .activity-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 0 12px; gap: 8px; }
   .activity-empty-icon { width: 36px; height: 36px; border-radius: 50%; background: #F3F4F6; display: flex; align-items: center; justify-content: center; color: var(--light); }
   .activity-empty-text { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.5; }

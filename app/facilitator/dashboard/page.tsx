@@ -451,38 +451,40 @@ export default function DashboardPage() {
                   {/* Calendar */}
                   <Calendar />
                   {/* Recent Activity */}
-                  <div className="activity-card overflow-y-auto" style={{ width: "100%", maxHeight: "310px" }}>                    
+                  <div className="activity-card" style={{ width: "100%"}}>
                     <div className="card-title">Recent Activity</div>
-                    {recentActivity.length > 0 ? (
-                      recentActivity.map((item, index) => {
-                        const date = new Date(item.created_at)
-                        const formatted = date.toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                          hour12: true,
+                    <div className="activity-card-scroll">
+                      {recentActivity.length > 0 ? (
+                        recentActivity.map((item, index) => {
+                          const date = new Date(item.created_at)
+                          const formatted = date.toLocaleString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true,
+                          })
+                          return (
+                            <div key={index} className="text-xs bg-white border border-gray-300 rounded-(--radius) px-4 py-3 mt-2 shadow-(--shadow)">
+                              <div>{item.summary}</div>
+                              <div className="text-muted mt-1 text-[10px]">{formatted}</div>
+                            </div>
+                          )
                         })
-                        return (
-                          <div key={index} className="text-xs bg-white border border-gray-300 rounded-(--radius) px-4 py-3 mt-2 shadow-(--shadow)">
-                            <div className="text-justify">{item.summary}</div>
-                            <div className="text-muted mt-1 text-[10px]">{formatted}</div>
+                      ) : (
+                        <div className="activity-empty">
+                          <div className="activity-empty-icon">
+                            <IconInfoCircle size={18} stroke={1.5} />
                           </div>
-                        )
-                      })
-                    ) : (
-                      <div className="activity-empty">
-                        <div className="activity-empty-icon">
-                          <IconInfoCircle size={18} stroke={1.5} />
+                          <div className="activity-empty-text">
+                            No activity for the past 30 days.
+                            <br />
+                            Actions you take will appear here.
+                          </div>
                         </div>
-                        <div className="activity-empty-text">
-                          No activity for the past 30 days.
-                          <br />
-                          Actions you take will appear here.
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
