@@ -1,6 +1,4 @@
-"use client"
-
-// app/facilitator/facilitator.tsx
+"use client";
 
 import {
   IconLayoutGrid,
@@ -10,184 +8,180 @@ import {
   IconLogout2,
   IconX,
   IconCamera,
-} from "@tabler/icons-react"
-import { useState, useEffect, useRef } from "react"
+  IconUsers,
+  IconClock,
+  IconCircleCheck,
+  IconChevronLeft,
+  IconChevronRight,
+} from "@tabler/icons-react";
+import { useState, useEffect, useRef } from "react";
 
 // ── Types ─────────────────────────────────────────────────────────────
 export interface NavItem {
-  label: string
-  Icon: React.ElementType
+  label: string;
+  Icon: React.ElementType;
 }
 
-// ── Nav (shared across all facilitator pages) ─────────────────────────
+// ── Nav ───────────────────────────────────────────────────────────────
 export const navItems: NavItem[] = [
-  { label: "Dashboard", Icon: IconLayoutGrid },
-  { label: "My Students", Icon: IconUsersGroup },
-  { label: "Forms", Icon: IconClipboardText },
-  { label: "Group Summary", Icon: IconChartBar },
-]
+  { label: "Dashboard",     Icon: IconLayoutGrid    },
+  { label: "My Students",   Icon: IconUsersGroup    },
+  { label: "Forms",         Icon: IconClipboardText },
+  { label: "Group Summary", Icon: IconChartBar      },
+];
+
+// ── Routes ────────────────────────────────────────────────────────────
+export const navRoutes: Record<string, string> = {
+  "Dashboard":     "/facilitator/dashboard",
+  "My Students":   "/facilitator/my-students",
+  "Forms":         "/facilitator/forms",
+  "Group Summary": "/facilitator/group-summary",
+};
+
+// ── Dashboard data ────────────────────────────────────────────────────
+export const dashboardStudents = [
+  { name: "Rhona Shayne Lopez",      pct: 72  },
+  { name: "Jaerish Kyle Rabang",     pct: 48  },
+  { name: "Saffi Limbaro",           pct: 90  },
+  { name: "Aliya Aljan Mendoza",     pct: 70  },
+  { name: "Charles Ansbert Joaquin", pct: 100 },
+  { name: "Axel Xandrei Valido",     pct: 50  },
+  { name: "Janine Irish Tulic",      pct: 0   },
+];
+
+export const dashboardStatCards = [
+  { label: "Total Students", value: 40, Icon: IconUsers       },
+  { label: "Pending Review", value: 10, Icon: IconClock       },
+  { label: "Completed",      value: 3,  Icon: IconCircleCheck },
+];
+
+const DAYS   = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const MONTHS = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
 
 // ── Utils ─────────────────────────────────────────────────────────────
 export function progressColor(pct: number): string {
-  if (pct >= 75) return "#1B4332"
-  if (pct >= 40) return "#D97706"
-  return "#7B1D1D"
+  if (pct >= 75) return "#1B4332";
+  if (pct >= 40) return "#D97706";
+  return "#7B1D1D";
 }
 
 export function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
+  return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
 // ── Components ────────────────────────────────────────────────────────
-export function StudentAvatar({
-  name,
-  size = 36,
-}: {
-  name: string
-  size?: number
-}) {
+export function StudentAvatar({ name, size = 36 }: { name: string; size?: number }) {
   return (
     <div
       aria-label={name}
       style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: "#D1D5DB",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size * 0.34,
-        fontWeight: 700,
-        color: "#4B5563",
-        flexShrink: 0,
-        letterSpacing: "0.3px",
+        width: size, height: size, borderRadius: "50%",
+        background: "#D1D5DB", display: "flex", alignItems: "center",
+        justifyContent: "center", fontSize: size * 0.34, fontWeight: 700,
+        color: "#4B5563", flexShrink: 0, letterSpacing: "0.3px",
       }}
     >
       {getInitials(name)}
     </div>
-  )
+  );
 }
 
 export function ProgressBar({ pct }: { pct: number }) {
   return (
     <div
-      role="progressbar"
-      aria-valuenow={pct}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      style={{
-        flex: 1,
-        height: 10,
-        background: "#E5E7EB",
-        borderRadius: 5,
-        overflow: "hidden",
-      }}
+      role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
+      style={{ flex: 1, height: 10, background: "#E5E7EB", borderRadius: 5, overflow: "hidden" }}
     >
-      <div
-        style={{
-          height: "100%",
-          width: `${pct}%`,
-          background: progressColor(pct),
-          borderRadius: 5,
-          transition: "width 0.35s ease",
-        }}
-      />
+      <div style={{
+        height: "100%", width: `${pct}%`,
+        background: progressColor(pct), borderRadius: 5, transition: "width 0.35s ease",
+      }} />
     </div>
-  )
+  );
 }
 
 export function DonutChart({ pct = 60 }: { pct?: number }) {
-  const r = 36
-  const circ = 2 * Math.PI * r
-  const dash = (pct / 100) * circ
+  const r = 46;
+  const circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
   return (
-    <svg
-      width="88"
-      height="88"
-      viewBox="0 0 88 88"
-      aria-label={`${pct}% completion rate`}
-      style={{ flexShrink: 0 }}
-    >
-      <circle
-        cx="44"
-        cy="44"
-        r={r}
-        fill="none"
-        stroke="#E5E7EB"
-        strokeWidth="10"
-      />
-      <circle
-        cx="44"
-        cy="44"
-        r={r}
-        fill="none"
-        stroke="#7B1D1D"
-        strokeWidth="10"
-        strokeDasharray={`${dash} ${circ}`}
-        strokeDashoffset={circ * 0.25}
-        strokeLinecap="round"
-      />
-      <text
-        x="44"
-        y="48"
-        textAnchor="middle"
-        fill="#111827"
-        fontSize="13"
-        fontWeight="700"
-        fontFamily="sans-serif"
-      >
+    <svg width="110" height="110" viewBox="0 0 110 110" aria-label={`${pct}% completion rate`} style={{ flexShrink: 0 }}>
+      <circle cx="55" cy="55" r={r} fill="none" stroke="#E5E7EB" strokeWidth="11" />
+      <circle cx="55" cy="55" r={r} fill="none" stroke="#7B1D1D" strokeWidth="11"
+        strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.25} strokeLinecap="round" />
+      <text x="55" y="60" textAnchor="middle" fill="#111827" fontSize="15" fontWeight="700" fontFamily="sans-serif">
         {pct}%
       </text>
     </svg>
-  )
+  );
+}
+
+export function Calendar() {
+  const today = new Date();
+  const [current, setCurrent] = useState({ year: today.getFullYear(), month: today.getMonth() });
+
+  const firstDay    = new Date(current.year, current.month, 1).getDay();
+  const daysInMonth = new Date(current.year, current.month + 1, 0).getDate();
+  const cells       = Array.from({ length: firstDay + daysInMonth }, (_, i) =>
+    i < firstDay ? null : i - firstDay + 1
+  );
+
+  const isToday = (d: number) =>
+    d === today.getDate() && current.month === today.getMonth() && current.year === today.getFullYear();
+
+  const prev = () => setCurrent(c => c.month === 0 ? { year: c.year - 1, month: 11 } : { year: c.year, month: c.month - 1 });
+  const next = () => setCurrent(c => c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 });
+
+  return (
+    <div className="cal-wrap">
+      <div className="cal-header">
+        <button className="cal-nav-btn" onClick={prev}><IconChevronLeft size={15} stroke={2} /></button>
+        <span className="cal-month-label">{MONTHS[current.month]} {current.year}</span>
+        <button className="cal-nav-btn" onClick={next}><IconChevronRight size={15} stroke={2} /></button>
+      </div>
+      <div className="cal-grid">
+        {DAYS.map(d => <div key={d} className="cal-day-label">{d}</div>)}
+        {cells.map((d, i) => (
+          <div key={i} className={[
+            "cal-cell",
+            d === null ? "cal-empty" : "",
+            d && isToday(d) ? "cal-today" : "",
+          ].join(" ").trim()}>
+            {d ?? ""}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 interface SidebarProps {
-  open: boolean
-  activeNav: string
-  onToggle: () => void
-  onNavClick: (label: string) => void
-  onSignOut?: () => void | Promise<void>
+  open: boolean;
+  activeNav: string;
+  onToggle: () => void;
+  onNavClick: (label: string) => void;
 }
 
-export function Sidebar({
-  open,
-  activeNav,
-  onToggle,
-  onNavClick,
-  onSignOut,
-}: SidebarProps) {
+export function Sidebar({ open, activeNav, onToggle, onNavClick }: SidebarProps) {
   return (
     <div className="sb-wrap">
       <aside
         className={`sb${open ? "" : " sb-closed"}`}
-        onClick={() => {
-          if (!open) onToggle()
-        }}
+        onClick={() => { if (!open) onToggle(); }}
         style={{ cursor: open ? "default" : "pointer" }}
       >
         <div className="sb-logo">
           <img
-            src="/icon.jpg"
-            alt="NSTP Logo"
-            className="sb-logo-img"
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggle()
-            }}
+            src="/icon.jpg" alt="NSTP Logo" className="sb-logo-img"
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
             title={open ? "Collapse sidebar" : "Expand sidebar"}
           />
           <div className="sb-logo-text">
             <div className="sb-logo-name">NSTP</div>
-            <div className="sb-logo-sub">
-              University of the Philippines Baguio
-            </div>
+            <div className="sb-logo-sub">University of the Philippines Baguio</div>
           </div>
         </div>
 
@@ -198,18 +192,12 @@ export function Sidebar({
               className={`sb-nav-btn${activeNav === label ? " sb-active" : ""}`}
               title={!open ? label : undefined}
               onClick={(e) => {
-                e.stopPropagation()
-                if (open) {
-                  onNavClick(label)
-                } else {
-                  onToggle()
-                }
+                e.stopPropagation();
+                if (open) { onNavClick(label); } else { onToggle(); }
               }}
             >
               <span className="sb-nav-pill">
-                <span className="sb-nav-icon">
-                  <Icon size={20} stroke={1.75} />
-                </span>
+                <span className="sb-nav-icon"><Icon size={20} stroke={1.75} /></span>
                 <span className="sb-nav-label">{label}</span>
               </span>
             </button>
@@ -217,57 +205,42 @@ export function Sidebar({
         </nav>
 
         <div className="sb-footer">
-          <button
-            className="sb-logout"
-            title={!open ? "Log Out" : undefined}
-            onClick={(e) => {
-              e.stopPropagation()
-              if (onSignOut) onSignOut()
-            }}
-          >
+          <button className="sb-logout" title={!open ? "Log Out" : undefined}
+            onClick={(e) => e.stopPropagation()}>
             <IconLogout2 size={16} stroke={1.75} />
             <span className="sb-logout-label">Log Out</span>
           </button>
         </div>
       </aside>
     </div>
-  )
+  );
 }
 
 export function QrScanner({ onClose }: { onClose: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [scanning, setScanning] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
-    let stream: MediaStream | null = null
+    let stream: MediaStream | null = null;
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        })
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          setScanning(true)
-        }
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (videoRef.current) { videoRef.current.srcObject = stream; setScanning(true); }
       } catch {
-        setError("Unable to access camera. Please allow camera permissions.")
+        setError("Unable to access camera. Please allow camera permissions.");
       }
     }
-    startCamera()
-    return () => stream?.getTracks().forEach((t) => t.stop())
-  }, [])
+    startCamera();
+    return () => stream?.getTracks().forEach((t) => t.stop());
+  }, []);
 
   return (
     <div className="scanner-backdrop" onClick={onClose}>
       <div className="scanner-modal" onClick={(e) => e.stopPropagation()}>
         <div className="scanner-header">
           <span className="scanner-title">Scan QR Code</span>
-          <button
-            className="scanner-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
+          <button className="scanner-close" onClick={onClose} aria-label="Close">
             <IconX size={20} stroke={1.75} />
           </button>
         </div>
@@ -279,13 +252,7 @@ export function QrScanner({ onClose }: { onClose: () => void }) {
             </div>
           ) : (
             <>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="scanner-video"
-              />
+              <video ref={videoRef} autoPlay playsInline muted className="scanner-video" />
               <div className="scanner-frame">
                 <div className="scanner-corner tl" />
                 <div className="scanner-corner tr" />
@@ -299,7 +266,7 @@ export function QrScanner({ onClose }: { onClose: () => void }) {
         <p className="scanner-hint">Point your camera at a QR code</p>
       </div>
     </div>
-  )
+  );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────
@@ -348,7 +315,7 @@ export const dashboardStyles = `
   .profile-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
   .profile-name { font-weight: 700; font-size: 13px; }
   .profile-sec { font-size: 11px; opacity: 0.75; margin-top: 1px; }
-  .body { flex: 1; overflow: auto; padding: 0 28px 28px; display: flex; flex-direction: column; gap: 16px; }
+  .body { flex: 1; overflow: auto; padding: 0 28px 28px; display: flex; flex-direction: column; gap: 8px; }
   .top-row { display: flex; gap: 14px; }
   .alert-banner { flex: 1; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius); padding: 13px 16px; display: flex; align-items: center; gap: 12px; }
   .alert-icon { display: flex; align-items: center; color: #D97706; flex-shrink: 0; }
@@ -357,12 +324,12 @@ export const dashboardStyles = `
   .alert-sub { font-size: 12.5px; color: #15803D; margin-top: 2px; }
   .alert-btn { display: flex; align-items: center; gap: 6px; background: rgba(22,101,52,0.12); border: 1.5px solid #86EFAC; border-radius: 20px; padding: 6px 14px; cursor: pointer; color: #166534; font-weight: 700; font-size: 12.5px; font-family: var(--font); transition: background 0.13s; flex-shrink: 0; }
   .alert-btn:hover { background: rgba(22,101,52,0.2); }
-  .qr-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 18px; display: flex; align-items: center; gap: 12px; min-width: 200px; box-shadow: var(--shadow); cursor: pointer; transition: border-color 0.13s; }
+  .qr-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 18px; display: flex; align-items: center; gap: 12px; width: 260px; flex-shrink: 0; box-shadow: var(--shadow); cursor: pointer; transition: border-color 0.13s; }
   .qr-card:hover { border-color: #9CA3AF; }
   .qr-icon-box { width: 46px; height: 46px; background: var(--text); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
   .qr-title { font-weight: 700; font-size: 14px; }
   .qr-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-  .overview-row { display: flex; gap: 14px; align-items: flex-start; }
+  .overview-row { display: flex; gap: 14px; align-items: stretch; }
   .overview-left { flex: 1; }
   .overview-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
   .overview-label { font-weight: 700; font-size: 11px; letter-spacing: 1.2px; color: var(--muted); text-transform: uppercase; }
@@ -374,7 +341,7 @@ export const dashboardStyles = `
   .stat-card-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
   .stat-card-icon { color: var(--muted); display: flex; }
   .stat-card-value { font-size: 30px; font-weight: 800; color: var(--text); line-height: 1; }
-  .completion-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); flex-shrink: 0; }
+  .completion-card { width: 260px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); flex-shrink: 0; }
   .card-title { font-weight: 700; font-size: 14px; margin-bottom: 14px; color: var(--text); }
   .completion-inner { display: flex; align-items: center; gap: 12px; }
   .completion-meta { flex: 1; }
@@ -414,5 +381,23 @@ export const dashboardStyles = `
   @keyframes scan { 0% { top: 44px; opacity: 1; } 90% { top: calc(100% - 44px); opacity: 1; } 100% { top: calc(100% - 44px); opacity: 0; } }
   .scanner-error { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--muted); padding: 20px; text-align: center; font-size: 13px; }
   .scanner-hint { text-align: center; font-size: 12px; color: var(--muted); padding: 12px 20px 16px; }
+
+  /* ── Calendar ── */
+  .right-panel { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
+  .cal-wrap { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; flex-shrink: 0; }
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-month-label { font-size: 13px; font-weight: 700; color: var(--text); }
+  .cal-nav-btn { background: none; border: none; cursor: pointer; color: var(--muted); display: flex; align-items: center; padding: 3px; border-radius: 6px; transition: background 0.12s; }
+  .cal-nav-btn:hover { background: var(--border); color: var(--text); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-day-label { text-align: center; font-size: 10px; font-weight: 700; color: var(--muted); padding: 3px 0; text-transform: uppercase; letter-spacing: 0.4px; }
+  .cal-cell { position: relative; text-align: center; font-size: 12px; padding: 5px 2px; border-radius: 6px; color: var(--text); cursor: default; line-height: 1; }
+  .cal-cell.cal-empty { color: transparent; }
+  .cal-cell.cal-today { background: var(--maroon); color: #fff; font-weight: 700; border-radius: 50%; }
+
+  /* ── Dashboard layout ── */
+  .dashboard-layout { display: flex; gap: 16px; align-items: flex-start; flex: 1; }
+  .dashboard-left   { flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-`
+`;
