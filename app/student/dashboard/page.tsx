@@ -1,5 +1,8 @@
 "use client"
 
+import CalendarOverview from "@/components/student/Calendar";
+import Documents from "@/components/student/Documents";
+
 import Image from "next/image"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -37,7 +40,6 @@ const C = {
 }
 
 const COLLAPSED_W  = 88
-const EXPANDED_W   = 256
 const RAIL_MARGIN  = 16
 
 interface StudentDashboardProps {
@@ -54,22 +56,61 @@ interface StudentDashboardProps {
 function HoursCard({ rendered, target }: { rendered: number; target: number }) {
   const percent = Math.min(100, Math.round((rendered / target) * 100)) 
   return (
-    <div style={{ background: C.hoursBg, borderRadius: 14, padding: "18px 22px", border: `1.5px solid ${C.hoursBorder}` }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: C.textDark, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+    <div style={{ 
+      background: C.hoursBg, 
+      borderRadius: 14, 
+      padding: "18px 22px", 
+      border: `1.5px solid ${C.hoursBorder}`,
+      transition: "all 0.3s ease",
+    }}>
+      <div style={{ 
+        fontSize: "clamp(13px, 1.2vw, 15px)", 
+        fontWeight: 700, 
+        color: C.textDark, 
+        marginBottom: 8, 
+        textTransform: "uppercase", 
+        letterSpacing: "0.03em",
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "4px",
+      }}>
         Hours Accomplished:&nbsp;
         <span style={{ fontWeight: 800 }}>{rendered} / {target} hours</span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: C.textDark, minWidth: 36 }}>{percent}%</span>
-        <div style={{ flex: 1, height: 22, background: C.track, borderRadius: 4, overflow: "hidden" }}>
-          <div style={{ width: `${percent}%`, height: "100%", background: C.gold, borderRadius: 4, transition: "width 0.4s ease" }} />
+      <div style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        gap: 12,
+        flexWrap: "wrap",
+      }}>
+        <span style={{ 
+          fontSize: "clamp(13px, 1.1vw, 14px)", 
+          fontWeight: 700, 
+          color: C.textDark, 
+          minWidth: 36 
+        }}>
+          {percent}%
+        </span>
+        <div style={{ 
+          flex: 1, 
+          minWidth: "60px",
+          height: "clamp(18px, 2vw, 22px)", 
+          background: C.track, 
+          borderRadius: 4, 
+          overflow: "hidden" 
+        }}>
+          <div style={{ 
+            width: `${percent}%`, 
+            height: "100%", 
+            background: C.gold, 
+            borderRadius: 4, 
+            transition: "width 0.4s ease" 
+          }} />
         </div>
       </div>
     </div>
   )
 }
-
-//INSERT CALENDAR ANF DOCUMENTS FUNCTIONS
 
 // MAIN PAGE -------------------------------
 
@@ -83,11 +124,29 @@ export default function StudentDashboardPage({
 
 }: Partial<StudentDashboardProps>) {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-  const accepted = localStorage.getItem("privacyAccepted")
-  setShowPrivacyModal(accepted !== "true")
-}, [])
+    const accepted = localStorage.getItem("privacyAccepted")
+    setShowPrivacyModal(accepted !== "true")
+
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Calculate left padding
+  const getLeftPadding = () => {
+    if (isMobile) {
+      // On mobile:
+      return `${COLLAPSED_W + RAIL_MARGIN * 2 + 12}px`
+    }
+    // On desktop:
+    return `${COLLAPSED_W + RAIL_MARGIN * 2}px`
+  }
 
   return (
     <div
@@ -104,34 +163,75 @@ export default function StudentDashboardPage({
       <main
         style={{
           flex: 1,
-          marginLeft: COLLAPSED_W + RAIL_MARGIN * 2,
-          padding: "28px 32px",
+          paddingLeft: getLeftPadding(),
+          paddingRight: isMobile ? "20px" : "32px",
+          paddingTop: isMobile ? "20px" : "28px",
+          paddingBottom: isMobile ? "20px" : "28px",
           display: "flex",
           flexDirection: "column",
-          gap: 20,
+          gap: isMobile ? "20px" : "20px",
           minWidth: 0,
+          width: "100%",
+          maxWidth: "100%",
+          transition: "padding 0.3s ease",
         }}
       >
-        {/* header ?? */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h1 style={{ fontSize: 30, fontWeight: 800, color: C.maroon, margin: 0 }}>
+        {/* header */}
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "12px",
+        }}>
+          <h1 style={{ 
+            fontSize: isMobile ? "clamp(22px, 5vw, 30px)" : "clamp(24px, 2.5vw, 30px)", 
+            fontWeight: 800, 
+            color: C.maroon, 
+            margin: 0 
+          }}>
             Hello, {studentFirstName}!
           </h1>
-          <ProfilePill name={`${studentLastName}, ${studentFirstName}`} initials={studentInitials} section={section} />
+          <ProfilePill 
+            name={`${studentLastName}, ${studentFirstName}`} 
+            initials={studentInitials} 
+            section={section} 
+          />
         </div>
 
         <HoursCard rendered={hoursRendered} target={hoursTarget} />
 
-        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-          {/* INSERT CALENDAR */}
-
-          {/* INSERT DOCUMENTS */}
+        {/* Calendar and Documents */}
+        <div style={{ 
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "3fr 2fr",
+          gap: isMobile ? "20px" : "20px",
+          flex: 1,
+          alignItems: "stretch",
+        }}>
+          <div style={{ 
+            minWidth: 0,
+            display: "flex",       
+            flexDirection: "column",
+            minHeight: isMobile ? "450px" : "500px",
+            maxHeight: isMobile ? "500px" : "550px",
+          }}>
+            <CalendarOverview />
+          </div>
+          <div style={{ 
+            minWidth: 0,
+            display: "flex",       
+            flexDirection: "column",
+            minHeight: isMobile ? "400px" : "500px",
+            maxHeight: isMobile ? "500px" : "550px",
+          }}>
+            <Documents />
+          </div>
         </div>
 
         {/* MODAL */}
         {showPrivacyModal && (
           <>
-            {/* blurred background */}
             <div
               style={{
                 position: "fixed",
@@ -142,7 +242,6 @@ export default function StudentDashboardPage({
               }}
             />
 
-            {/* modal proper */}
             <div
               style={{
                 position: "fixed",
@@ -151,14 +250,16 @@ export default function StudentDashboardPage({
                 alignItems: "center",
                 justifyContent: "center",
                 zIndex: 1000,
+                padding: "16px",
               }}
             >
               <div
                 style={{
-                  width: 600,
+                  width: isMobile ? "95%" : 600,
+                  maxWidth: "100%",
                   background: C.maroon,
                   borderRadius: 28,
-                  padding: "18px 22px 20px",
+                  padding: isMobile ? "16px" : "18px 22px 20px",
                   boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
                 }}
               >
@@ -166,7 +267,7 @@ export default function StudentDashboardPage({
                   style={{
                     textAlign: "center",
                     color: "#fff",
-                    fontSize: 18,
+                    fontSize: isMobile ? "16px" : "18px",
                     fontWeight: 800,
                     marginBottom: 16,
                   }}
@@ -174,21 +275,28 @@ export default function StudentDashboardPage({
                   DATA PRIVACY AGREEMENT
                 </div>
 
-                {/* contents */}
                 <div
                   style={{
                     background: "#fff",
                     borderRadius: 26,
-                    padding: 20,
-                    minHeight: 220,
+                    padding: isMobile ? "16px" : "20px",
+                    minHeight: "auto",
+                    maxHeight: "60vh",
                     overflowY: "auto",
                   }}
                 >
-                  <p style={{ fontSize: 15, lineHeight: 2, marginBottom: 20, }}>
+                  <p style={{ 
+                    fontSize: isMobile ? "14px" : "15px", 
+                    lineHeight: isMobile ? 1.8 : 2, 
+                    marginBottom: 20 
+                  }}>
                     By continuing to use this system, you acknowledge and consent to the collection, processing, and storage of your personal information in accordance with the Data Privacy Act of 2012.
                   </p>
 
-                  <p style={{ fontSize: 15, lineHeight: 1.7 }}>
+                  <p style={{ 
+                    fontSize: isMobile ? "14px" : "15px", 
+                    lineHeight: isMobile ? 1.6 : 1.7 
+                  }}>
                     Your information will only be used for NSTP-related transactions and academic requirements.
                   </p>
                 </div>
@@ -210,10 +318,19 @@ export default function StudentDashboardPage({
                       color: "#fff",
                       border: "1px solid #C6C6C6",
                       borderRadius: 999,
-                      padding: "6px 18px",
-                      fontSize: 15,
+                      padding: isMobile ? "8px 20px" : "6px 18px",
+                      fontSize: isMobile ? "14px" : "15px",
                       fontWeight: 700,
                       cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "scale(1.02)"
+                      e.currentTarget.style.opacity = "0.9"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)"
+                      e.currentTarget.style.opacity = "1"
                     }}
                   >
                     I agree
