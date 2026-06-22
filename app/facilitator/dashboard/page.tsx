@@ -1,7 +1,7 @@
-// app/facilitator/dashboard/page.tsx
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   IconSearch,
   IconQrcode,
@@ -15,52 +15,117 @@ import {
   IconCircleCheck,
 } from "@tabler/icons-react"
 import {
-  navItems,
+  navRoutes,
   dashboardStyles,
   Sidebar,
   QrScanner,
   StudentAvatar,
   ProgressBar,
   DonutChart,
+  Calendar,
 } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
-import { usePathname, useRouter } from "next/navigation"
+import { createClient } from "@/lib/client"
 
-// ── Dashboard-specific data ───────────────────────────────────────────
-const students = [
-  { name: "Rhona Shayne Lopez", pct: 72 },
-  { name: "Jaerish Kyle Rabang", pct: 48 },
-  { name: "Saffi Limbaro", pct: 90 },
-  { name: "Aliya Aljan Mendoza", pct: 70 },
-  { name: "Charles Ansbert Joaquin", pct: 100 },
-  { name: "Axel Xandrei Valido", pct: 50 },
-  { name: "Janine Irish Tulic", pct: 0 },
-]
+type DashboardRow = {
+  section_id: string | null
+  section_name: string
+  total: number
+  pending: number
+  completed: number
+  completion_pct: number
+  on_track: number
+  at_risk: number
+  students: { name: string; pct: number }[]
+}
 
-const statCards = [
-  { label: "Total Students", value: 40, Icon: IconUsers },
-  { label: "Pending Review", value: 10, Icon: IconClock },
-  { label: "Completed", value: 3, Icon: IconCircleCheck },
-]
+const PAGE_SIZE = 10
 
 export default function DashboardPage() {
+  const router = useRouter()
+
   const [activeNav, setActiveNav] = useState("Dashboard")
   const [searchVal, setSearchVal] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
+  const [selectedSection, setSelectedSection] = useState("All Sections")
+  const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false)
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [initials, setInitials] = useState("")
+  const [sections, setSections] = useState<{ id: string; name: string }[]>([])
+  const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
 
-  const router = useRouter()
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      // Get first name & last name
+      const full: string = user?.user_metadata?.full_name ?? ""
+      const parts = full.trim().split(" ")
+      const fName = parts[0] ?? ""
+      const lName = parts.at(-1) ?? ""
+      setFirstName(fName)
+      setLastName(lName)
+      setInitials((fName[0] ?? "") + (lName[0] ?? ""))
+
+      // Get dashboard data
+      const { data: dashboardData, error: dashboardError } = await supabase.rpc("get_adviser_dashboard_data", { p_adviser_user_id: user?.id})
+      if (dashboardError) console.error(dashboardError)
+      if (dashboardData) setDashboardData(dashboardData)
+
+      // Get sections
+      const { data: sectionData, error: sectionError } = await supabase.rpc("get_sections",{p_adviser_user_id: user?.id})
+      if (sectionError) console.error(sectionError)
+      if (sectionData && dashboardData) {
+        const mappedSection = dashboardData.map((r: DashboardRow) => ({
+          id: r.section_id ?? "all",
+          name: r.section_name,
+        }))
+        const sortedSection = [...mappedSection].sort((a, b) => {
+          if (a.name === "All Sections") return -1 // all sections on top
+          if (b.name === "All Sections") return 1
+          return a.name.localeCompare(b.name)
+        })
+        setSections(sortedSection)
+      }
+    })
+  }, [])
+
   async function handleSignOut() {
     await signOutWithAudit()
     router.push("/")
     router.refresh()
   }
 
+  function handleNavClick(label: string) {
+    setActiveNav(label)
+    setSidebarOpen(false)
+    if (navRoutes?.[label]) {
+      router.push(navRoutes[label])
+    }
+  }
+
+  const currentData = dashboardData.find((r) => r.section_name === selectedSection)
+  if (!currentData) return null
+
+  const statCards = [
+    { label: "Total Students", value: currentData.total, Icon: IconUsers },
+    { label: "Pending Review", value: currentData.pending, Icon: IconClock },
+    { label: "Completed", value: currentData.completed, Icon: IconCircleCheck },
+  ]
+
   const filtered = searchVal.trim()
-    ? students.filter((s) =>
+    ? currentData.students.filter((s) =>
         s.name.toLowerCase().includes(searchVal.toLowerCase())
       )
-    : students
+    : currentData.students
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  )
 
   return (
     <>
@@ -71,10 +136,7 @@ export default function DashboardPage() {
           open={sidebarOpen}
           activeNav={activeNav}
           onToggle={() => setSidebarOpen((o) => !o)}
-          onNavClick={(label) => {
-            setActiveNav(label)
-            setSidebarOpen(false)
-          }}
+          onNavClick={handleNavClick}
           onSignOut={handleSignOut}
         />
 
@@ -89,7 +151,7 @@ export default function DashboardPage() {
         <div className="main-wrapper">
           <main className="main">
             <header className="header">
-              <h1 className="header-greeting">Hello, Mingyu!</h1>
+              <h1 className="header-greeting">Hello, {firstName}!</h1>
               <div className="search-bar">
                 <span className="search-icon">
                   <IconSearch size={14} stroke={1.75} />
@@ -97,16 +159,20 @@ export default function DashboardPage() {
                 <input
                   className="search-input"
                   value={searchVal}
-                  onChange={(e) => setSearchVal(e.target.value)}
+                  onChange={(e) => {
+                    setSearchVal(e.target.value)
+                    setCurrentPage(1)
+                  }}
                   placeholder="Search..."
                   aria-label="Search students"
                 />
               </div>
               <div className="profile-pill">
-                <div className="profile-avatar">KM</div>
+                <div className="profile-avatar">{initials}</div>
                 <div>
-                  <div className="profile-name">Kim, Mingyu</div>
-                  <div className="profile-sec">NSTP – H</div>
+                  <div className="profile-name">
+                    {lastName}, {firstName}
+                  </div>
                 </div>
               </div>
             </header>
@@ -120,7 +186,11 @@ export default function DashboardPage() {
                   </span>
                   <div className="alert-text">
                     <div className="alert-title">Action Needed</div>
-                    <div className="alert-sub">7 pending requests</div>
+                    <div className="alert-sub">
+                      {dashboardData.find((r) => r.section_name === "All Sections")
+                        ?.pending ?? 0}{" "}
+                      pending requests
+                    </div>
                   </div>
                   <button className="alert-btn">
                     <IconEye size={13} stroke={1.75} /> Review
@@ -143,89 +213,259 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Overview + Completion */}
-              <div className="overview-row">
-                <div className="overview-left">
-                  <div className="overview-header">
-                    <div className="overview-label">Class Overview</div>
-                    <button className="sections-btn">
-                      All Sections <IconChevronDown size={13} stroke={2} />
-                    </button>
-                  </div>
-                  <div className="stat-cards">
-                    {statCards.map(({ label, value, Icon }) => (
-                      <div key={label} className="stat-card">
-                        <div className="stat-card-label">{label}</div>
-                        <div className="stat-card-row">
-                          <span className="stat-card-icon">
-                            <Icon size={22} stroke={1.5} />
-                          </span>
-                          <div className="stat-card-value">{value}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="completion-card">
-                  <div className="card-title">Section Completion Rate</div>
-                  <div className="completion-inner">
-                    <DonutChart pct={60} />
-                    <div className="completion-meta">
-                      <div className="completion-name">NSTP-H Overall</div>
-                      <div className="completion-sub">
-                        24 out of 40 students on track
-                      </div>
-                      <div className="completion-warn">
-                        <IconAlertCircle size={13} stroke={1.75} /> 7 students
-                        below 50%
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Progress + Activity */}
-              <div className="bottom-row">
-                <div className="progress-card">
-                  <div className="progress-card-header">
-                    <div className="card-title" style={{ marginBottom: 0 }}>
-                      Student Progress
-                    </div>
-                    <button className="view-all-btn">View All</button>
-                  </div>
-                  <div className="student-list">
-                    {filtered.length === 0 ? (
-                      <div className="no-results">
-                        No students match your search.
-                      </div>
-                    ) : (
-                      filtered.map(({ name, pct }) => (
-                        <div key={name} className="student-row">
-                          <StudentAvatar name={name} />
-                          <div className="student-info">
-                            <div className="student-name" title={name}>
-                              {name}
+              {/* Main layout: Left (overview + progress) | Right (completion + calendar + activity) */}
+              <div className="dashboard-layout">
+                {/* Left */}
+                <div className="dashboard-left">
+                  {/* Class Overview */}
+                  <div>
+                    <div className="overview-header">
+                      <div className="overview-label">Class Overview</div>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          className="sections-btn"
+                          onClick={() => setSectionDropdownOpen((o) => !o)}
+                        >
+                          {selectedSection} <IconChevronDown size={13} stroke={2} />
+                        </button>
+                        {sectionDropdownOpen && (
+                          <>
+                            <div
+                              style={{ position: "fixed", inset: 0, zIndex: 9 }}
+                              onClick={() => setSectionDropdownOpen(false)}
+                            />
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "calc(100% + 6px)",
+                                right: 0,
+                                zIndex: 10,
+                                background: "var(--color-background-primary)",
+                                border: "0.5px solid var(--color-border-secondary)",
+                                borderRadius: "var(--border-radius-md)",
+                                minWidth: 160,
+                                overflow: "hidden",
+                              }}
+                            >
+                              {sections.map((s) => (
+                                <div
+                                  key={s.id}
+                                  onClick={() => {
+                                    setSelectedSection(s.name)
+                                    setSectionDropdownOpen(false)
+                                    setCurrentPage(1)
+                                  }}
+                                  style={{
+                                    padding: "8px 14px",
+                                    fontSize: 13,
+                                    cursor: "pointer",
+                                    background:
+                                      s.name === selectedSection
+                                        ? "var(--color-background-secondary)"
+                                        : undefined,
+                                    color: "var(--color-text-primary)",
+                                  }}
+                                >
+                                  {s.name}
+                                </div>
+                              ))}
                             </div>
-                            <ProgressBar pct={pct} />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="stat-cards">
+                      {statCards.map(({ label, value, Icon }) => (
+                        <div key={label} className="stat-card">
+                          <div className="stat-card-label">{label}</div>
+                          <div className="stat-card-row">
+                            <span className="stat-card-icon">
+                              <Icon size={22} stroke={1.5} />
+                            </span>
+                            <div className="stat-card-value">{value}</div>
                           </div>
-                          <div className="student-pct">{pct}%</div>
                         </div>
-                      ))
-                    )}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Student Progress */}
+                  <div className="progress-card">
+                    <div className="progress-card-header">
+                      <div className="card-title" style={{ marginBottom: 0 }}>
+                        Student Progress
+                      </div>
+                      <button className="view-all-btn">View All</button>
+                    </div>
+                    <div className="student-list">
+                      {filtered.length === 0 ? (
+                        <div className="no-results">
+                          No students match your search.
+                        </div>
+                      ) : (
+                        paginated.map(({ name, pct }) => (
+                          <div key={name} className="student-row">
+                            <StudentAvatar name={name} />
+                            <div className="student-info">
+                              <div className="student-name" title={name}>
+                                {name}
+                              </div>
+                              <ProgressBar pct={pct} />
+                            </div>
+                            <div className="student-pct">{pct}%</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Pagination */}
+                    <div
+                      style={{
+                        position: "relative",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 0 0",
+                        borderTop: "1px solid var(--border)",
+                        marginTop: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                        Showing{" "}
+                        {filtered.length === 0
+                          ? 0
+                          : (currentPage - 1) * PAGE_SIZE + 1}
+                        –{Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
+                        {filtered.length}
+                      </span>
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          transform: "translateX(-50%)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <button
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 6,
+                            border: "1px solid var(--border)",
+                            background: "var(--white)",
+                            cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                            opacity: currentPage === 1 ? 0.35 : 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 14,
+                            color: "var(--text)",
+                          }}
+                        >
+                          &#8249;
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                          (p) => (
+                            <button
+                              key={p}
+                              onClick={() => setCurrentPage(p)}
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 6,
+                                border: "1px solid var(--border)",
+                                background:
+                                  p === currentPage
+                                    ? "var(--maroon)"
+                                    : "var(--white)",
+                                color: p === currentPage ? "#fff" : "var(--text)",
+                                fontWeight: p === currentPage ? 700 : 500,
+                                cursor: "pointer",
+                                fontSize: 12,
+                                fontFamily: "var(--font)",
+                              }}
+                            >
+                              {p}
+                            </button>
+                          )
+                        )}
+                        <button
+                          onClick={() =>
+                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                          }
+                          disabled={currentPage === totalPages}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 6,
+                            border: "1px solid var(--border)",
+                            background: "var(--white)",
+                            cursor:
+                              currentPage === totalPages
+                                ? "not-allowed"
+                                : "pointer",
+                            opacity: currentPage === totalPages ? 0.35 : 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 14,
+                            color: "var(--text)",
+                          }}
+                        >
+                          &#8250;
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="activity-card">
-                  <div className="card-title">Recent Activity</div>
-                  <div className="activity-empty">
-                    <div className="activity-empty-icon">
-                      <IconInfoCircle size={18} stroke={1.5} />
+
+                {/* Right */}
+                <div className="right-panel">
+                  {/* Section Completion Rate */}
+                  <div className="completion-card" style={{ width: "100%" }}>
+                    <div className="card-title">Section Completion Rate</div>
+                    <div className="completion-inner">
+                      <DonutChart pct={currentData.completion_pct} />
+                      <div className="completion-meta">
+                        <div className="completion-name">
+                          {selectedSection === "All Sections"
+                            ? "NSTP Overall"
+                            : selectedSection}
+                        </div>
+                        <div className="completion-sub">
+                          {currentData.on_track} out of {currentData.total}{" "}
+                          students on track
+                        </div>
+                        <div className="completion-warn">
+                          <IconAlertCircle size={13} stroke={1.75} />{" "}
+                          {currentData.at_risk} students behind expected
+                          semester pace
+                        </div>
+                      </div>
                     </div>
-                    <div className="activity-empty-text">
-                      No activity yet.
-                      <br />
-                      Actions you take will appear here.
+                  </div>
+
+                  {/* Calendar */}
+                  <Calendar />
+
+                  {/* Recent Activity */}
+                  <div className="activity-card" style={{ width: "100%" }}>
+                    <div className="card-title">Recent Activity</div>
+                    <div className="activity-empty">
+                      <div className="activity-empty-icon">
+                        <IconInfoCircle size={18} stroke={1.5} />
+                      </div>
+                      <div className="activity-empty-text">
+                        No activity yet.
+                        <br />
+                        Actions you take will appear here.
+                      </div>
+                      <button className="activity-empty-cta">Go to Forms</button>
                     </div>
-                    <button className="activity-empty-cta">Go to Forms</button>
                   </div>
                 </div>
               </div>
