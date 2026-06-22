@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import EditAdviserModal from "@/components/admin/EditAdviserModal"
 import ImportAdvisersModal from "@/components/admin/ImportAdvisersModal"
 import { deleteAdviser } from "@/lib/admin/adviser-list-actions"
@@ -123,7 +124,7 @@ function AdviserCard({
 }: {
   adviser: AdviserListRow
   onEdit: (adviser: AdviserListRow) => void
-  onDelete: (id: string) => void
+  onDelete: (adviser: AdviserListRow) => void
   isDeleting: boolean
 }) {
   const sectionsLabel =
@@ -171,7 +172,7 @@ function AdviserCard({
           aria-label={`Delete ${adviser.fullName}`}
           title="Delete adviser"
           disabled={isDeleting}
-          onClick={() => onDelete(adviser.adviserUserId)}
+          onClick={() => onDelete(adviser)}
           style={{
             background: "none",
             border: "none",
@@ -364,6 +365,10 @@ export default function AdviserListClient({
   const searchParams = useSearchParams()
   const [importOpen, setImportOpen] = useState(false)
   const [editAdviser, setEditAdviser] = useState<AdviserListRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -411,19 +416,31 @@ export default function AdviserListClient({
       ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
       : "All Sections"
 
-  function handleDelete(adviserUserId: string) {
-    if (!window.confirm("Remove this adviser? This action cannot be undone.")) return
+  function openDeleteConfirm(adviser: AdviserListRow) {
+    setDeleteError(null)
+    setDeleteTarget({ id: adviser.adviserUserId, name: adviser.fullName })
+  }
+
+  function closeDeleteConfirm() {
+    if (isDeleting) return
+    setDeleteTarget(null)
+    setDeleteError(null)
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return
 
     setDeleteError(null)
-    setDeletingId(adviserUserId)
+    setDeletingId(deleteTarget.id)
 
     startDeleteTransition(async () => {
-      const result = await deleteAdviser(adviserUserId)
+      const result = await deleteAdviser(deleteTarget.id)
       setDeletingId(null)
       if (!result.ok) {
         setDeleteError(result.error)
         return
       }
+      setDeleteTarget(null)
       window.location.reload()
     })
   }
@@ -517,12 +534,6 @@ export default function AdviserListClient({
         </FilterDropdown>
       </div>
 
-      {deleteError && (
-        <p style={{ ...TYPE.body, color: COLORS.maroon, margin: "0 0 16px" }}>
-          {deleteError}
-        </p>
-      )}
-
       {pageAdvisers.length === 0 ? (
         <div
           style={{
@@ -549,7 +560,7 @@ export default function AdviserListClient({
               key={adviser.adviserUserId}
               adviser={adviser}
               onEdit={setEditAdviser}
-              onDelete={handleDelete}
+              onDelete={openDeleteConfirm}
               isDeleting={isDeleting && deletingId === adviser.adviserUserId}
             />
           ))}
@@ -568,6 +579,16 @@ export default function AdviserListClient({
         adviser={editAdviser}
         sections={sections}
         onClose={() => setEditAdviser(null)}
+      />
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title="Remove Adviser"
+        subjectName={deleteTarget?.name}
+        message="Remove this adviser? This action cannot be undone."
+        isPending={isDeleting}
+        error={deleteError}
+        onClose={closeDeleteConfirm}
+        onConfirm={confirmDelete}
       />
     </>
   )

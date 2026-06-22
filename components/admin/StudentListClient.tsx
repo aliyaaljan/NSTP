@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import EditStudentModal from "@/components/admin/EditStudentModal"
 import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
 import { deleteStudent } from "@/lib/admin/student-list-actions"
@@ -256,6 +257,10 @@ export default function StudentListClient({
   const searchParams = useSearchParams()
   const [importOpen, setImportOpen] = useState(false)
   const [editStudent, setEditStudent] = useState<StudentListRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -312,21 +317,31 @@ export default function StudentListClient({
     PROGRESS_STATUS_FILTER_OPTIONS.find((o) => o.value === query.progressStatus)
       ?.label ?? "All Status"
 
-  function handleDelete(enrollmentId: string) {
-    if (!window.confirm("Remove this student from the list? This action cannot be undone.")) {
-      return
-    }
+  function openDeleteConfirm(enrollmentId: string, name: string) {
+    setDeleteError(null)
+    setDeleteTarget({ id: enrollmentId, name })
+  }
+
+  function closeDeleteConfirm() {
+    if (isDeleting) return
+    setDeleteTarget(null)
+    setDeleteError(null)
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return
 
     setDeleteError(null)
-    setDeletingId(enrollmentId)
+    setDeletingId(deleteTarget.id)
 
     startDeleteTransition(async () => {
-      const result = await deleteStudent(enrollmentId)
+      const result = await deleteStudent(deleteTarget.id)
       setDeletingId(null)
       if (!result.ok) {
         setDeleteError(result.error)
         return
       }
+      setDeleteTarget(null)
       window.location.reload()
     })
   }
@@ -440,12 +455,6 @@ export default function StudentListClient({
           ))}
         </FilterDropdown>
       </div>
-
-      {deleteError && (
-        <p style={{ ...TYPE.body, color: COLORS.maroon, margin: "0 0 16px" }}>
-          {deleteError}
-        </p>
-      )}
 
       <div
         style={{
@@ -619,7 +628,9 @@ export default function StudentListClient({
                             aria-label={`Delete ${student.fullName}`}
                             title="Delete student"
                             disabled={isDeleting && deletingId === student.enrollmentId}
-                            onClick={() => handleDelete(student.enrollmentId)}
+                            onClick={() =>
+                              openDeleteConfirm(student.enrollmentId, student.fullName)
+                            }
                             style={{
                               background: "none",
                               border: "none",
@@ -652,6 +663,16 @@ export default function StudentListClient({
         student={editStudent}
         sections={sections}
         onClose={() => setEditStudent(null)}
+      />
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title="Remove Student"
+        subjectName={deleteTarget?.name}
+        message="Remove this student from the list? This action cannot be undone."
+        isPending={isDeleting}
+        error={deleteError}
+        onClose={closeDeleteConfirm}
+        onConfirm={confirmDelete}
       />
     </>
   )
