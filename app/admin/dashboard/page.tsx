@@ -2,6 +2,7 @@ import { Montserrat } from "next/font/google"
 import { FONT_BODY, FONT_HEADING, TYPE } from "@/lib/admin-typography"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardFilters from "@/components/shared/DashboardFilters"
+import DashboardExportButton from "@/components/admin/DashboardExportButton"
 import { DATABASE_IDS } from "@/lib/constants"
 
 export const revalidate = 0
@@ -715,51 +716,48 @@ export default async function AdminDashboardPage({
     adviserWorkloadRes,
     sectionsFilterRes,
     advisersFilterRes,
+    recentActivityRes,
     //  recentActivityRes,
   ] = await Promise.all([
     // student counter call
     studentsQuery,
-
     // adviser/facilitator count call
     advisersQuery,
-
-    // sessions
-
     // files submitted query call
     filesQuery,
-
     // appeals query call
     appealsQuery,
-
     //attendance rate query call
     Promise.all([weeklyActiveCountQuery, weeklyTimeInLogsQuery]),
-
     //enrollment query call
     enrollmentQuery,
-
     // adviser workload query call
     adviserWorkloadQuery,
-
     //Filter Dropdown for section list lookup
-    supabase.from("section").select("name").order("name"),
-
+    supabase.from("section").select("section_id, name").order("name"),
     // Filter dropdown for advisers list lookup
     supabase
       .from("app_user")
       .select("full_name")
       .eq("role_id", adviserRoleId)
       .order("full_name"),
-
-    /* recent activity
+    // recent activity
     supabase
       .from("audit_log")
-      .select("activity_type, description, created_at, app_user(full_name)")
+      .select(
+        "activity_type, description, created_at, app_user:user_id(full_name)"
+      )
       .order("created_at", { ascending: false })
       .limit(5),
-      */
   ])
 
   const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
+
+  const exportSections =
+    sectionsFilterRes.data?.map((s) => ({
+      sectionId: s.section_id,
+      name: s.name,
+    })) || []
 
   const availableAdvisers =
     advisersFilterRes.data?.map((a) => a.full_name) || []
@@ -933,31 +931,44 @@ export default async function AdminDashboardPage({
     )
     .sort((a, b) => b.studentCount - a.studentCount)
 
-  // format recent activities
-  /*
+  // FORMAT FOR LOGGED RECENT ACTIVITIES
   const rawActivities = recentActivityRes.data || []
   const processedRecentActivity: RecentActivityItem[] = rawActivities.map(
     (act: any) => {
-      const actorName = act.app_user?.full_name || "System"
+      const actorName = act.app_user?.full_name || "System Automated"
       const recordTime = new Date(act.created_at)
       const minutesDelta = Math.floor(
-        (new Date().getTime() - recordTime.getTime()) / 60000
+        (new Date().getTime() - recordTime.getTime()) / 60000 // convert to minutes
       )
 
+      // compute relative time badges
       let timeLabel = "Just now"
-      if (minutesDelta >= 60 * 24) timeLabel = recordTime.toLocaleDateString()
-      else if (minutesDelta >= 60)
+      if (minutesDelta >= 1440) {
+        timeLabel = recordTime.toLocaleDateString()
+      } else if (minutesDelta >= 60) {
         timeLabel = `${Math.floor(minutesDelta / 60)} hrs ago`
-      else if (minutesDelta > 0) timeLabel = `${minutesDelta} mins ago`
+      } else if (minutesDelta > 0) {
+        timeLabel = `${minutesDelta} mins. ago`
+      }
+      // formatting actions
+      let actionLabel = "Modified"
+      if (act.action === "INSERT") actionLabel = "Created new"
+      if (act.action === "DELETE") actionLabel = "Removed a"
+      // format table contexts
+      let contextLabel = act.table_name
+      if (act.table_name === "attendance_session")
+        contextLabel = "attendance record"
+      if (act.table_name === "appeal") contextLabel = "edit request/appeal"
+      if (act.table_name === "form") contextLabel = "document file submission"
+      if (act.table_name === "enrollment") contextLabel = "student entry"
 
       return {
-        title: act.activity_type || "System Event",
-        actor: actorName,
+        title: `${actionLabel} ${contextLabel}`,
+        actor: `Executed by: ${actorName}`,
         timeAgo: timeLabel,
       }
     }
   )
-    */
 
   const currentSemesterMeta = {
     academicYear: "2025-2026",
@@ -1088,24 +1099,7 @@ export default async function AdminDashboardPage({
             sections={availableSections}
             advisers={availableAdvisers}
           />
-          <button
-            style={{
-              ...TYPE.bodyBold,
-              fontFamily: FONT_HEADING,
-              color: "#fff",
-              background: COLORS.maroon,
-              border: "none",
-              borderRadius: 24,
-              padding: "11px 22px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              cursor: "pointer",
-            }}
-          >
-            <i className="ti ti-upload" style={{ fontSize: 14 }} />
-            Export
-          </button>
+          <DashboardExportButton sections={exportSections} />
         </div>
       </div>
 
@@ -1274,7 +1268,6 @@ export default async function AdminDashboardPage({
         </ListCard>
 
         {/* Recent activity trace timeline panel ------------------------*/}
-        {/* 
 
         <ListCard title="Recent Activity" colLeft="Activity" colRight="">
           {processedRecentActivity.length === 0 ? (
@@ -1311,7 +1304,6 @@ export default async function AdminDashboardPage({
             ))
           )}
         </ListCard>
-            */}
       </div>
     </div>
   )

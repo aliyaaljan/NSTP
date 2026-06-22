@@ -1,0 +1,220 @@
+/**
+ * Student List — shared contract for the admin student list page.
+ *
+ * Backend devs: implement data fetching in `getStudentListData()` inside
+ * `lib/admin/student-list-actions.ts`. The UI reads `StudentListPageData` only.
+ * Replace `filterStudentListRows()` with SQL filters when ready.
+ */
+
+import {
+  completionPct,
+  progressStatusFromPct,
+  type StudentProgressStatus,
+} from "@/lib/admin/student-progress"
+
+export interface StudentListRow {
+  /** `enrollment.enrollment_id` */
+  enrollmentId: string
+  /** `enrollment.student_user_id` → `app_user.app_user_id` */
+  studentUserId: string
+  /** `enrollment.section_id` → `section.section_id` */
+  sectionId: string
+  /** `section.adviser_user_id` */
+  adviserUserId: string | null
+  fullName: string
+  email: string
+  studentNumber: string | null
+  sectionName: string
+  adviserName: string
+  hoursCompleted: number
+  hoursRequired: number
+  completionPct: number
+  progressStatus: StudentProgressStatus
+}
+
+export interface StudentListSectionOption {
+  /** `section.section_id` */
+  sectionId: string
+  name: string
+}
+
+export type StudentListSortKey = "name" | "adviser"
+
+export type StudentListStatusFilter = StudentProgressStatus | "all"
+
+/** Sentinel for "all sections" in filters / query strings. */
+export const STUDENT_LIST_ALL_SECTIONS = "all"
+
+export interface StudentListQuery {
+  /** `section.section_id`, or STUDENT_LIST_ALL_SECTIONS for all. */
+  sectionId: string
+  progressStatus: StudentListStatusFilter
+  search: string
+  sort: StudentListSortKey
+  dir: "asc" | "desc"
+}
+
+export interface StudentListMeta {
+  academicYear: string
+  semester: string
+}
+
+export interface AdminCurrentUser {
+  name: string
+  role: string
+  avatarUrl?: string
+}
+
+/** Payload returned by `getStudentListData()` — the only shape the UI needs. */
+export interface StudentListPageData {
+  students: StudentListRow[]
+  sections: StudentListSectionOption[]
+  meta: StudentListMeta
+  currentUser: AdminCurrentUser
+  query: StudentListQuery
+}
+
+/**
+ * Supabase select used for the student list.
+ * Tables: enrollment → app_user (student), section, app_user (adviser), attendance_session
+ */
+export const ENROLLMENT_LIST_SELECT = `
+  enrollment_id,
+  student_user_id,
+  section_id,
+  app_user(full_name, email, student_number),
+  section:section_id(
+    section_id,
+    name,
+    required_hour_total,
+    adviser_user_id,
+    app_user:adviser_user_id(full_name)
+  ),
+  attendance_session(duration_minute)
+` as const
+
+/** Raw row shape returned by `ENROLLMENT_LIST_SELECT`. */
+export interface EnrollmentListDbRow {
+  enrollment_id: string
+  student_user_id: string
+  section_id: string
+  app_user: {
+    full_name: string
+    email: string
+    student_number: string | null
+  } | null
+  section: {
+    section_id: string
+    name: string
+    required_hour_total: number | null
+    adviser_user_id: string
+    app_user: { full_name: string } | null
+  } | null
+  attendance_session: Array<{ duration_minute: number | null }> | null
+}
+
+export function mapEnrollmentToStudentListRow(
+  row: EnrollmentListDbRow
+): StudentListRow | null {
+  const student = row.app_user
+  const section = row.section
+  if (!student || !section) return null
+
+  const hoursRequired = section.required_hour_total ?? 60
+  const studentMinutes =
+    row.attendance_session?.reduce(
+      (sum, session) => sum + (session.duration_minute ?? 0),
+      0
+    ) ?? 0
+  const hoursCompleted = Math.round(studentMinutes / 60)
+  const pct = completionPct(hoursCompleted, hoursRequired)
+
+  return {
+    enrollmentId: row.enrollment_id,
+    studentUserId: row.student_user_id,
+    sectionId: section.section_id,
+    adviserUserId: section.adviser_user_id ?? null,
+    fullName: student.full_name ?? "Unknown",
+    email: student.email ?? "",
+    studentNumber: student.student_number ?? null,
+    sectionName: section.name,
+    adviserName: section.app_user?.full_name ?? "Unassigned",
+    hoursCompleted,
+    hoursRequired,
+    completionPct: pct,
+    progressStatus: progressStatusFromPct(pct),
+  }
+}
+
+const VALID_STATUS: StudentListStatusFilter[] = [
+  "all",
+  "on_track",
+  "in_progress",
+  "at_risk",
+]
+
+export function parseStudentListQuery(params: {
+  sectionId?: string
+  status?: string
+  q?: string
+  sort?: string
+  dir?: string
+}): StudentListQuery {
+  return {
+    sectionId: params.sectionId ?? STUDENT_LIST_ALL_SECTIONS,
+    progressStatus: VALID_STATUS.includes(
+      params.status as StudentListStatusFilter
+    )
+      ? (params.status as StudentListStatusFilter)
+      : "all",
+    search: params.q ?? "",
+    sort: params.sort === "adviser" ? "adviser" : "name",
+    dir: params.dir === "desc" ? "desc" : "asc",
+  }
+}
+
+/**
+ * Client/server-safe row filtering & sorting.
+ * Backend can delete this and push equivalent logic into the SQL query.
+ */
+export function filterStudentListRows(
+  rows: StudentListRow[],
+  query: StudentListQuery
+): StudentListRow[] {
+  const q = query.search.trim().toLowerCase()
+
+  let filtered = rows.filter((student) => {
+    if (
+      query.sectionId !== STUDENT_LIST_ALL_SECTIONS &&
+      student.sectionId !== query.sectionId
+    ) {
+      return false
+    }
+    if (
+      query.progressStatus !== "all" &&
+      student.progressStatus !== query.progressStatus
+    ) {
+      return false
+    }
+    if (!q) return true
+    return (
+      student.fullName.toLowerCase().includes(q) ||
+      student.email.toLowerCase().includes(q) ||
+      (student.studentNumber ?? "").toLowerCase().includes(q) ||
+      student.sectionName.toLowerCase().includes(q) ||
+      student.adviserName.toLowerCase().includes(q)
+    )
+  })
+
+  const factor = query.dir === "asc" ? 1 : -1
+  filtered = [...filtered].sort((a, b) => {
+    if (query.sort === "name") {
+      return a.fullName.localeCompare(b.fullName) * factor
+    }
+    const aKey = `${a.sectionName}-${a.adviserName}`
+    const bKey = `${b.sectionName}-${b.adviserName}`
+    return aKey.localeCompare(bKey) * factor
+  })
+
+  return filtered
+}

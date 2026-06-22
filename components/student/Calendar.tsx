@@ -394,83 +394,101 @@ export default function CalendarOverview({
 
       {showMonthPicker && (
         <div style={styles.overlay} onClick={() => setShowMonthPicker(false)}>
-          <div style={{
+            <div style={{
             ...styles.popup,
             width: isVerySmall ? "95%" : isMobile ? "90%" : "280px",
             padding: isVerySmall ? "16px" : "24px",
-          }} onClick={(e) => e.stopPropagation()}>
+            paddingTop: isVerySmall ? "47px" : "55px",
+            position: 'relative' as const,
+            }} onClick={(e) => e.stopPropagation()}>
+            <button 
+                onClick={() => setShowMonthPicker(false)}
+                style={{
+                position: 'absolute' as const,
+                top: '12px',
+                right: '12px',
+                background: 'none',
+                border: 'none',
+                fontSize: isVerySmall ? "16px" : "20px",
+                cursor: 'pointer',
+                color: COLORS.muted,
+                padding: isVerySmall ? "4px 8px" : "6px 10px",
+                borderRadius: '8px',
+                transition: 'color 0.15s',
+                lineHeight: 1,
+                zIndex: 10,
+                }}
+                onMouseEnter={(e) => {
+                e.currentTarget.style.color = COLORS.maroon
+                }}
+                onMouseLeave={(e) => {
+                e.currentTarget.style.color = COLORS.muted
+                }}
+            >
+                ✕
+            </button>
+            
             <div style={styles.popupHeader}>
-              <button 
+                <button 
                 onClick={() => setCurrentYear(y => y - 1)} 
                 style={styles.popupNav}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = COLORS.hover
+                    e.currentTarget.style.background = COLORS.hover
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = COLORS.white
+                    e.currentTarget.style.background = COLORS.white
                 }}
-              >
+                >
                 ‹
-              </button>
-              <span style={styles.popupYear}>{currentYear}</span>
-              <button 
+                </button>
+                <span style={styles.popupYear}>{currentYear}</span>
+                <button 
                 onClick={() => setCurrentYear(y => y + 1)} 
                 style={styles.popupNav}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = COLORS.hover
+                    e.currentTarget.style.background = COLORS.hover
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = COLORS.white
+                    e.currentTarget.style.background = COLORS.white
                 }}
-              >
+                >
                 ›
-              </button>
+                </button>
             </div>
             <div style={{
-              ...styles.popupGrid,
-              gap: isVerySmall ? "4px" : "8px",
+                ...styles.popupGrid,
+                gap: isVerySmall ? "4px" : "8px",
+                marginTop: '8px',
             }}>
-              {MONTHS.map((name, idx) => (
+                {MONTHS.map((name, idx) => (
                 <button
-                  key={idx}
-                  onClick={() => goToMonth(idx, currentYear)}
-                  style={{
+                    key={idx}
+                    onClick={() => goToMonth(idx, currentYear)}
+                    style={{
                     ...styles.monthOption,
                     padding: isVerySmall ? "6px" : "10px",
                     fontSize: isVerySmall ? "11px" : "13px",
                     background: idx === currentMonth ? COLORS.gold : 'transparent',
                     color: idx === currentMonth ? COLORS.white : COLORS.text,
-                  }}
-                  onMouseEnter={(e) => {
+                    }}
+                    onMouseEnter={(e) => {
                     if (idx !== currentMonth) {
-                      e.currentTarget.style.background = COLORS.hover
+                        e.currentTarget.style.background = COLORS.hover
                     }
-                  }}
-                  onMouseLeave={(e) => {
+                    }}
+                    onMouseLeave={(e) => {
                     if (idx !== currentMonth) {
-                      e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.background = 'transparent'
                     }
-                  }}
+                    }}
                 >
-                  {name.slice(0, 3)}
+                    {name.slice(0, 3)}
                 </button>
-              ))}
+                ))}
             </div>
-            <button 
-              onClick={() => setShowMonthPicker(false)}
-              style={styles.closePopupBtn}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = COLORS.hover
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-              }}
-            >
-              ✕ Close
-            </button>
-          </div>
+            </div>
         </div>
-      )}
+        )}
 
       {/* Event Popup */}
       {selectedEvent && (
