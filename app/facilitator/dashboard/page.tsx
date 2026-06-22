@@ -323,6 +323,7 @@ export default function DashboardPage() {
                         borderTop: "1px solid var(--border)",
                         marginTop: "auto",
                       }}
+                      className="w-auto"
                     >
                       <span style={{ fontSize: 12, color: "var(--muted)" }}>
                         Showing{" "}
