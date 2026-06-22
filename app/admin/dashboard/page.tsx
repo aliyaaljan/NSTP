@@ -2,6 +2,7 @@ import { Montserrat } from "next/font/google"
 import { FONT_BODY, FONT_HEADING, TYPE } from "@/lib/admin-typography"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardFilters from "@/components/shared/DashboardFilters"
+import DashboardExportButton from "@/components/admin/DashboardExportButton"
 import { DATABASE_IDS } from "@/lib/constants"
 
 export const revalidate = 0
@@ -733,7 +734,7 @@ export default async function AdminDashboardPage({
     // adviser workload query call
     adviserWorkloadQuery,
     //Filter Dropdown for section list lookup
-    supabase.from("section").select("name").order("name"),
+    supabase.from("section").select("section_id, name").order("name"),
     // Filter dropdown for advisers list lookup
     supabase
       .from("app_user")
@@ -751,6 +752,12 @@ export default async function AdminDashboardPage({
   ])
 
   const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
+
+  const exportSections =
+    sectionsFilterRes.data?.map((s) => ({
+      sectionId: s.section_id,
+      name: s.name,
+    })) || []
 
   const availableAdvisers =
     advisersFilterRes.data?.map((a) => a.full_name) || []
@@ -1092,24 +1099,7 @@ export default async function AdminDashboardPage({
             sections={availableSections}
             advisers={availableAdvisers}
           />
-          <button
-            style={{
-              ...TYPE.bodyBold,
-              fontFamily: FONT_HEADING,
-              color: "#fff",
-              background: COLORS.maroon,
-              border: "none",
-              borderRadius: 24,
-              padding: "11px 22px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              cursor: "pointer",
-            }}
-          >
-            <i className="ti ti-upload" style={{ fontSize: 14 }} />
-            Export
-          </button>
+          <DashboardExportButton sections={exportSections} />
         </div>
       </div>
 
