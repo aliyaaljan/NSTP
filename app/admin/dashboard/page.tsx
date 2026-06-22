@@ -2,6 +2,7 @@ import { Montserrat } from "next/font/google"
 import { FONT_BODY, FONT_HEADING, TYPE } from "@/lib/admin-typography"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardFilters from "@/components/shared/DashboardFilters"
+import { DATABASE_IDS } from "@/lib/constants"
 
 export const revalidate = 0
 
@@ -533,61 +534,22 @@ export default async function AdminDashboardPage({
   mondayThisWeek.setHours(0, 0, 0, 0)
   const mondayISO = mondayThisWeek.toISOString()
 
-  // fetch lookup IDs first
-  const [
-    roleStudentRes,
-    roleAdviserRes,
-    statusActiveRes,
-    statusOpenRes,
-    statusReviewRes,
-    typeTimeInRes,
-    filteredAdviserRes,
-  ] = await Promise.all([
-    supabase.from("role").select("role_id").eq("code", "student").maybeSingle(),
-    supabase.from("role").select("role_id").eq("code", "adviser").maybeSingle(),
-    supabase
-      .from("enrollment_status")
-      .select("enrollment_status_id")
-      .eq("code", "active")
-      .maybeSingle(),
-    supabase
-      .from("appeal_status")
-      .select("appeal_status_id")
-      .eq("code", "open")
-      .maybeSingle(),
-    supabase
-      .from("appeal_status")
-      .select("appeal_status_id")
-      .eq("code", "under_review")
-      .maybeSingle(),
-    supabase
-      .from("attendance_event_type")
-      .select("attendance_event_type_id")
-      .eq("code", "time_in")
-      .maybeSingle(),
-    selectedAdviser
-      ? supabase
-          .from("app_user")
-          .select("app_user_id")
-          .eq("full_name", selectedAdviser)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ])
+  // fetch lookup IDs from constants.ts
+  const studentRoleId = DATABASE_IDS.roles.student
+  const adviserRoleId = DATABASE_IDS.roles.adviser
+  const activeStatusId = DATABASE_IDS.enrollmentStatuses.active
+  const openStatusId = DATABASE_IDS.appealStatuses.open
+  const underReviewStatusId = DATABASE_IDS.appealStatuses.underReview
+  const timeInTypeId = DATABASE_IDS.attendanceEventTypes.timeIn
 
-  const studentRoleId = roleStudentRes.data?.role_id
-  const adviserRoleId = roleAdviserRes.data?.role_id
-  const activeStatusId = statusActiveRes.data?.enrollment_status_id
-  const openStatusId = statusOpenRes.data?.appeal_status_id
-  const underReviewStatusId = statusReviewRes.data?.appeal_status_id
-  const timeInTypeId = typeTimeInRes.data?.attendance_event_type_id
+  const filteredAdviserRes = selectedAdviser
+    ? await supabase
+        .from("app_user")
+        .select("app_user_id")
+        .eq("full_name", selectedAdviser)
+        .maybeSingle()
+    : null
   const filteredAdviserId = filteredAdviserRes?.data?.app_user_id
-
-  // compute average hours using supabase RPC, outside of Promise block
-  const avgHoursRes = await supabase.rpc("get_active_students_average_hours", {
-    active_status_id: activeStatusId,
-    filter_section_name: selectedSection || null,
-    filter_adviser_name: selectedAdviser || null,
-  })
 
   // --- dynamic select strings for inner join ---
   const studentCountSelect =
@@ -755,6 +717,7 @@ export default async function AdminDashboardPage({
   const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
   const availableAdvisers =
     advisersFilterRes.data?.map((a) => a.full_name) || []
+
   const [
     studentsRes,
     advisersRes,
@@ -763,6 +726,7 @@ export default async function AdminDashboardPage({
     attendanceRateRes,
     enrollmentsRes,
     adviserWorkloadRes,
+    avgHoursRes,
     //  recentActivityRes,
   ] = await Promise.all([
     // student counter call
@@ -787,6 +751,12 @@ export default async function AdminDashboardPage({
 
     // adviser workload query call
     adviserWorkloadQuery,
+    // put
+    supabase.rpc("get_active_students_average_hours", {
+      active_status_id: activeStatusId,
+      filter_section_name: selectedSection || null,
+      filter_adviser_name: selectedAdviser || null,
+    }),
 
     /* recent activity
     supabase
@@ -804,7 +774,7 @@ export default async function AdminDashboardPage({
     totalMinutesRendered / 60 / activeStudentsDivisor
   )
 */
-  const calculatedAvgHours = avgHoursRes.data || 0
+
   // calculating weekly attendance rate
   const totalActiveEnrollments = attendanceRateRes[0]?.count || 0
   const uniqueScansThisWeek = new Set(
@@ -886,6 +856,7 @@ export default async function AdminDashboardPage({
 
   const totalStudentsCount = studentsRes.count || 0
   const activeStudentsDivisor = rawEnrollments.length || 1
+  const calculatedAvgHours = avgHoursRes.data || 0
 
   //  section progress layout sorting (alphabetical)
   let processedSectionProgress: SectionProgress[] = []
@@ -1000,7 +971,7 @@ export default async function AdminDashboardPage({
   const statCards: Array<React.ComponentProps<typeof StatCard>> = [
     {
       icon: "ti-users",
-      label: "Total Students",
+      label: "Active Students",
       value: rawEnrollments.length,
       badge: { text: `↑ 4%`, bg: COLORS.greenBgLight, color: COLORS.green },
       note: "v.s. last sem",
