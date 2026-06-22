@@ -115,14 +115,12 @@ export default function DashboardPage() {
     { label: "Completed", value: currentData.completed, Icon: IconCircleCheck },
   ]
 
-  const filtered = searchVal.trim()
-    ? currentData.students.filter((s) =>
-        s.name.toLowerCase().includes(searchVal.toLowerCase())
-      )
-    : currentData.students
+  const students = currentData.students ?? []
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice(
+  const filtered = searchVal.trim() ? students.filter((s) => s.name.toLowerCase().includes(searchVal.toLowerCase())) : students
+
+  const totalPages = Math.max(1, Math.ceil(filtered?.length / PAGE_SIZE))
+  const paginated = filtered?.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   )
