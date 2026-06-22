@@ -231,7 +231,7 @@ export default function DashboardPage() {
                         {sectionDropdownOpen && (
                           <>
                             <div
-                              style={{ position: "fixed", inset: 0, zIndex: 9 }}
+                              className="sections-dropdown"
                               onClick={() => setSectionDropdownOpen(false)}
                             />
                             <div
@@ -239,10 +239,11 @@ export default function DashboardPage() {
                                 position: "absolute",
                                 top: "calc(100% + 6px)",
                                 right: 0,
+                                background: "var(--white)",
+                                border: "1px solid var(--border)",
+                                borderRadius: 10,
+                                boxShadow: "var(--shadow)",
                                 zIndex: 10,
-                                background: "var(--color-background-primary)",
-                                border: "0.5px solid var(--color-border-secondary)",
-                                borderRadius: "var(--border-radius-md)",
                                 minWidth: 160,
                                 overflow: "hidden",
                               }}
@@ -256,16 +257,13 @@ export default function DashboardPage() {
                                     setCurrentPage(1)
                                   }}
                                   style={{
-                                    padding: "8px 14px",
-                                    fontSize: 13,
-                                    cursor: "pointer",
-                                    background:
-                                      s.name === selectedSection
-                                        ? "var(--color-background-secondary)"
-                                        : undefined,
-                                    color: "var(--color-text-primary)",
+                                    display: "block", width: "100%", padding: "9px 16px", 
+                                    textAlign: "left", fontSize: 13, cursor: "pointer", border: "none",
+                                    fontFamily: "var(--font)", fontWeight: s.name === selectedSection ? 600 : 400,
+                                    background: s.name === selectedSection ? "var(--green)" : "none",
+                                    color: s.name === selectedSection ? "var(--white)": "var(--text)",
                                   }}
-                                >
+                                  >
                                   {s.name}
                                 </div>
                               ))}
@@ -334,8 +332,7 @@ export default function DashboardPage() {
                         Showing{" "}
                         {filtered.length === 0
                           ? 0
-                          : (currentPage - 1) * PAGE_SIZE + 1}
-                        –{Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
+                          : (currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
                         {filtered.length}
                       </span>
                       <div
@@ -453,7 +450,7 @@ export default function DashboardPage() {
                   <Calendar />
 
                   {/* Recent Activity */}
-                  <div className="activity-card" style={{ width: "100%" }}>
+                  <div className="activity-card" style={{ width: "100%"}}>
                     <div className="card-title">Recent Activity</div>
                     <div className="activity-empty">
                       <div className="activity-empty-icon">
