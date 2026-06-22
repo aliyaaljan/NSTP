@@ -1,7 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+@source "./**/*.{js,ts,jsx,tsx}";
+@theme {
+  --color-maroon: var(--maroon);
+  --color-green: var(--green);
+  --color-white: var(--white);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --font-sans: var(--font);
+}
+@layer base {
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+}
 
 html, body {
   height: 100%;
