@@ -703,21 +703,7 @@ export default async function AdminDashboardPage({
       filteredAdviserId
     )
   }
-
-  // Fetching distinct options for filtering dropdown selectors
-  const [sectionsFilterRes, advisersFilterRes] = await Promise.all([
-    supabase.from("section").select("name").order("name"),
-    supabase
-      .from("app_user")
-      .select("full_name")
-      .eq("role_id", adviserRoleId)
-      .order("full_name"),
-  ])
-
-  const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
-  const availableAdvisers =
-    advisersFilterRes.data?.map((a) => a.full_name) || []
-
+  // MAIN PARALLEL FETCHING QUERY BLOCK
   const [
     studentsRes,
     advisersRes,
@@ -727,6 +713,8 @@ export default async function AdminDashboardPage({
     enrollmentsRes,
     adviserWorkloadRes,
     avgHoursRes,
+    sectionsFilterRes,
+    advisersFilterRes,
     //  recentActivityRes,
   ] = await Promise.all([
     // student counter call
@@ -751,12 +739,21 @@ export default async function AdminDashboardPage({
 
     // adviser workload query call
     adviserWorkloadQuery,
-    // put
     supabase.rpc("get_active_students_average_hours", {
       active_status_id: activeStatusId,
       filter_section_name: selectedSection || null,
       filter_adviser_name: selectedAdviser || null,
     }),
+
+    //Filter Dropdown for section list lookup
+    supabase.from("section").select("name").order("name"),
+
+    // Filter dropdown for advisers list lookup
+    supabase
+      .from("app_user")
+      .select("full_name")
+      .eq("role_id", adviserRoleId)
+      .order("full_name"),
 
     /* recent activity
     supabase
@@ -766,6 +763,10 @@ export default async function AdminDashboardPage({
       .limit(5),
       */
   ])
+
+  const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
+  const availableAdvisers =
+    advisersFilterRes.data?.map((a) => a.full_name) || []
 
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
 
