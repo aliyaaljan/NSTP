@@ -793,7 +793,7 @@ export default async function AdminDashboardPage({
   let inProgressCount = 0
   let atRiskCount = 0
 
-  let totalMinutesRendered = 0 // <-- ADD THIS NEW TRACKER
+  let totalMinutesRendered = 0
 
   const processedAtRiskList: AtRiskStudentRow[] = []
 
@@ -811,7 +811,7 @@ export default async function AdminDashboardPage({
 
     const studentHours = studentMinutes / 60
 
-    totalMinutesRendered += studentMinutes // <-- ACCUMULATE THE MINUTES HERE
+    totalMinutesRendered += studentMinutes
 
     const studentCompletionPct = Math.round((studentHours / targetHours) * 100)
 
