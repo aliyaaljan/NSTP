@@ -1,9 +1,16 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOutWithAudit } from "@/lib/auth-actions"
+import { Goblin_One } from "next/font/google"
+
+const goblinOne = Goblin_One({
+  subsets: ["latin"],
+  weight: "400",
+})
 
 const C = {
   green: "#14492E",
@@ -36,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
 export default function StudentSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [expanded, setExpanded] = useState(false)
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -59,7 +67,7 @@ export default function StudentSidebar() {
           padding: 22px 0 18px;
           overflow: hidden;
           white-space: nowrap;
-          z-index: 50;
+          z-index: 60;
           transition: width 0.22s ease;
           box-shadow: 0 10px 30px rgba(0,0,0,0.12);
         }
@@ -108,7 +116,25 @@ export default function StudentSidebar() {
         }
       `}</style>
 
-      <aside className="nstp-rail">
+      {expanded && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(255,255,255,0.35)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            zIndex: 40,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      <aside
+        className="nstp-rail"
+        onMouseEnter={() => setExpanded(true)}
+        onMouseLeave={() => setExpanded(false)}
+      >
 
         {/* header */}
         <div
@@ -143,6 +169,7 @@ export default function StudentSidebar() {
           <div className="nstp-expand" style={{ marginLeft: 6 }}>
             <div
               style={{
+                fontFamily: goblinOne.style.fontFamily,
                 color: "#fff",
                 fontSize: 20,
                 fontWeight: 800,
@@ -155,7 +182,8 @@ export default function StudentSidebar() {
 
             <div
               style={{
-                fontSize: 9.5,
+                fontFamily: goblinOne.style.fontFamily,
+                fontSize: 6,
                 color: "rgba(255,255,255,0.65)",
                 lineHeight: 1.4,
               }}
@@ -165,8 +193,6 @@ export default function StudentSidebar() {
           </div>
         </div>
 
-
-        {/* divider */}
         <div
           style={{
             height: 1,
@@ -175,8 +201,6 @@ export default function StudentSidebar() {
           }}
         />
 
-
-        {/* contents */}
         <nav
           className="nstp-scroll-dark"
           style={{
@@ -227,9 +251,7 @@ export default function StudentSidebar() {
                       className={`ti ${item.icon}`}
                       style={{
                         fontSize: 21,
-                        color: active
-                          ? C.activeText
-                          : C.idleText,
+                        color: active ? C.activeText : C.idleText,
                       }}
                     />
                   </span>
@@ -239,9 +261,7 @@ export default function StudentSidebar() {
                     style={{
                       fontSize: 14,
                       fontWeight: active ? 700 : 500,
-                      color: active
-                        ? C.activeText
-                        : C.idleText,
+                      color: active ? C.activeText : C.idleText,
                     }}
                   >
                     {item.label}
@@ -252,8 +272,6 @@ export default function StudentSidebar() {
           </div>
         </nav>
 
-
-        {/* logout */}
         <div style={{ padding: "8px 14px 0" }}>
           <button
             onClick={handleSignOut}
