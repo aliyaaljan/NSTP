@@ -163,9 +163,10 @@ interface SidebarProps {
   activeNav: string;
   onToggle: () => void;
   onNavClick: (label: string) => void;
+  onSignOut: () => void;
 }
 
-export function Sidebar({ open, activeNav, onToggle, onNavClick }: SidebarProps) {
+export function Sidebar({ open, activeNav, onToggle, onNavClick, onSignOut }: SidebarProps) {
   return (
     <div className="sb-wrap">
       <aside
@@ -206,7 +207,7 @@ export function Sidebar({ open, activeNav, onToggle, onNavClick }: SidebarProps)
 
         <div className="sb-footer">
           <button className="sb-logout" title={!open ? "Log Out" : undefined}
-            onClick={(e) => e.stopPropagation()}>
+            onClick={(e) => {e.stopPropagation();  onSignOut()}}>
             <IconLogout2 size={16} stroke={1.75} />
             <span className="sb-logout-label">Log Out</span>
           </button>
@@ -348,13 +349,22 @@ export const dashboardStyles = `
   .completion-meta { flex: 1; }
   .completion-name { font-weight: 700; font-size: 13px; }
   .completion-sub { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
-  .completion-warn { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; color: var(--amber); font-weight: 600; }
-  .bottom-row { display: flex; gap: 14px; align-items: flex-start; flex: 1; }
-  .progress-card { flex: 1; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; }
+.completion-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  background: rgba(217, 119, 6, 0.12);
+  color: var(--amber);
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 999px;
+}  .bottom-row { display: flex; gap: 14px; align-items: flex-start; flex: 1; }
+  .progress-card { display:flex; flex-direction:column; flex: 1; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; align-items: stretch;}
   .progress-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .view-all-btn { background: none; border: none; color: var(--maroon); font-weight: 700; cursor: pointer; font-size: 13px; font-family: var(--font); text-decoration: underline; text-underline-offset: 2px; padding: 0; }
   .student-list { display: flex; flex-direction: column; gap: 12px; }
-  .student-row { display: flex; align-items: center; gap: 10px; }
+  .student-row { display: flex; align-items: center; gap: 10px; flex:1}
   .student-info { flex: 1; min-width: 0; }
   .student-name { font-size: 13px; font-weight: 500; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600; }

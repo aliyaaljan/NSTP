@@ -42,8 +42,6 @@ export default function FacilitatorLayout({
       }}
     >
       <style>{`
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
         :root {
           --green:       #1B4332;
           --green-dark:  #14532D;
@@ -60,6 +58,7 @@ export default function FacilitatorLayout({
           --shadow:      0 2px 6px rgba(0,0,0,0.07);
         }
       `}</style>
+      {/* *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; } */}
       {children}
     </div>
   );

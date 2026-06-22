@@ -256,14 +256,10 @@ export default function DashboardPage() {
                                     setSectionDropdownOpen(false)
                                     setCurrentPage(1)
                                   }}
-                                  style={{
-                                    display: "block", width: "100%", padding: "9px 16px", 
-                                    textAlign: "left", fontSize: 13, cursor: "pointer", border: "none",
-                                    fontFamily: "var(--font)", fontWeight: s.name === selectedSection ? 600 : 400,
-                                    background: s.name === selectedSection ? "var(--green)" : "none",
-                                    color: s.name === selectedSection ? "var(--white)": "var(--text)",
-                                  }}
-                                  >
+                                  className={`block w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
+                                    s.name === selectedSection ? "font-semibold bg-green text-white" : "font-normal text-text"
+                                  }`}
+                                >
                                   {s.name}
                                 </div>
                               ))}
@@ -325,7 +321,7 @@ export default function DashboardPage() {
                         justifyContent: "space-between",
                         padding: "12px 0 0",
                         borderTop: "1px solid var(--border)",
-                        marginTop: 8,
+                        marginTop: "auto",
                       }}
                     >
                       <span style={{ fontSize: 12, color: "var(--muted)" }}>
@@ -434,14 +430,12 @@ export default function DashboardPage() {
                             : selectedSection}
                         </div>
                         <div className="completion-sub">
-                          {currentData.on_track} out of {currentData.total}{" "}
-                          students on track
+                          {currentData.on_track} / {currentData.total} students on track
                         </div>
-                        <div className="completion-warn">
-                          <IconAlertCircle size={13} stroke={1.75} />{" "}
-                          {currentData.at_risk} students behind expected
-                          semester pace
-                        </div>
+                        {currentData.at_risk > 0 && (<div className="completion-warn">
+                          <IconAlertCircle size={15} stroke={1.75} className="shrink-0 m-1"/>{" "}
+                          {currentData.at_risk}  {currentData.at_risk === 1 ? "student" : "students"} behind
+                        </div>)}
                       </div>
                     </div>
                   </div>
