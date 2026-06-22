@@ -17,7 +17,7 @@ import {
   type AdviserListRow,
   type AdviserListSectionOption,
 } from "@/lib/admin/adviser-list"
-import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { FONT_HEADING, PAGE_TITLE, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
   textDark: "#2C2C2A",
@@ -452,7 +452,7 @@ export default function AdviserListClient({
       </div>
 
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ ...TYPE.h1, color: COLORS.textDark, margin: 0 }}>Adviser List</h1>
+        <h1 style={{ ...PAGE_TITLE, color: COLORS.textDark, margin: 0 }}>Adviser List</h1>
         <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
           Academic Year {meta.academicYear} | {meta.semester}
         </p>
