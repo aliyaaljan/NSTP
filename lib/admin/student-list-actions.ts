@@ -85,7 +85,7 @@ async function resolveCurrentUser(
   userId?: string
 ): Promise<AdminCurrentUser> {
   if (!userId) {
-    return { name: "NSTP Admin", role: "NSTP Admin" }
+    return { name: "Adviser Test Account", role: "NSTP Admin" }
   }
 
   const { data: appUser } = await supabase
@@ -95,15 +95,14 @@ async function resolveCurrentUser(
     .maybeSingle()
 
   if (!appUser?.full_name) {
-    return { name: "NSTP Admin", role: "NSTP Admin" }
+    return { name: "Adviser Test Account", role: "NSTP Admin" }
   }
 
+  const isAdmin = (appUser.role as { code?: string } | null)?.code === "admin"
+
   return {
-    name: appUser.full_name,
-    role:
-      (appUser.role as { code?: string } | null)?.code === "admin"
-        ? "NSTP Admin"
-        : "Admin",
+    name: isAdmin ? "Adviser Test Account" : appUser.full_name,
+    role: isAdmin ? "NSTP Admin" : "Admin",
   }
 }
 
@@ -145,5 +144,34 @@ export async function importStudentsFromCsv(
     ok: false,
     error:
       "Import is not available yet. Backend CSV import handler still needs to be implemented.",
+  }
+}
+
+/**
+ * Remove a student enrollment (or deactivate the student account).
+ *
+ * Backend checklist:
+ * 1. Set `enrollment.enrollment_status_id` to withdrawn/inactive, or delete the row.
+ * 2. Optionally soft-delete `app_user` if the student should lose portal access.
+ */
+export async function deleteStudent(
+  enrollmentId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  if (!enrollmentId) {
+    return { ok: false, error: "Enrollment ID is required." }
+  }
+
+  // TODO(backend): implement student removal / deactivation.
+  console.info("[deleteStudent] pending implementation", { enrollmentId })
+
+  return {
+    ok: false,
+    error:
+      "Delete is not available yet. Backend handler still needs to be implemented.",
   }
 }

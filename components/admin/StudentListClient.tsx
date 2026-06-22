@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
+import { deleteStudent } from "@/lib/admin/student-list-actions"
 import {
   PROGRESS_STATUS_FILTER_OPTIONS,
   PROGRESS_STATUS_LABELS,
+  type StudentProgressStatus,
 } from "@/lib/admin/student-progress"
 import type {
   AdminCurrentUser,
@@ -253,6 +255,9 @@ export default function StudentListClient({
   const searchParams = useSearchParams()
   const [importOpen, setImportOpen] = useState(false)
   const [searchInput, setSearchInput] = useState(query.search)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [isDeleting, startDeleteTransition] = useTransition()
   const sectionFilterRef = useRef<HTMLDivElement>(null)
   const statusFilterRef = useRef<HTMLDivElement>(null)
 
@@ -304,6 +309,25 @@ export default function StudentListClient({
   const statusLabel =
     PROGRESS_STATUS_FILTER_OPTIONS.find((o) => o.value === query.progressStatus)
       ?.label ?? "All Status"
+
+  function handleDelete(enrollmentId: string) {
+    if (!window.confirm("Remove this student from the list? This action cannot be undone.")) {
+      return
+    }
+
+    setDeleteError(null)
+    setDeletingId(enrollmentId)
+
+    startDeleteTransition(async () => {
+      const result = await deleteStudent(enrollmentId)
+      setDeletingId(null)
+      if (!result.ok) {
+        setDeleteError(result.error)
+        return
+      }
+      window.location.reload()
+    })
+  }
 
   return (
     <>
@@ -372,8 +396,12 @@ export default function StudentListClient({
             borderRadius: 24,
             padding: "11px 22px",
             cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
+          <i className="ti ti-plus" style={{ fontSize: 16 }} />
           Import Student/s
         </button>
 
@@ -410,6 +438,12 @@ export default function StudentListClient({
           ))}
         </FilterDropdown>
       </div>
+
+      {deleteError && (
+        <p style={{ ...TYPE.body, color: COLORS.maroon, margin: "0 0 16px" }}>
+          {deleteError}
+        </p>
+      )}
 
       <div
         style={{
@@ -561,7 +595,45 @@ export default function StudentListClient({
                           {PROGRESS_STATUS_LABELS[student.progressStatus]}
                         </span>
                       </td>
-                      <td style={{ padding: "16px 18px" }} />
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                          <button
+                            type="button"
+                            aria-label={`Edit ${student.fullName}`}
+                            title="Edit student"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 4,
+                              cursor: "pointer",
+                              color: COLORS.maroon,
+                            }}
+                          >
+                            <i className="ti ti-pencil" style={{ fontSize: 18 }} />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Delete ${student.fullName}`}
+                            title="Delete student"
+                            disabled={isDeleting && deletingId === student.enrollmentId}
+                            onClick={() => handleDelete(student.enrollmentId)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 4,
+                              cursor:
+                                isDeleting && deletingId === student.enrollmentId
+                                  ? "not-allowed"
+                                  : "pointer",
+                              color: COLORS.maroon,
+                              opacity:
+                                isDeleting && deletingId === student.enrollmentId ? 0.5 : 1,
+                            }}
+                          >
+                            <i className="ti ti-trash" style={{ fontSize: 18 }} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )
                 })

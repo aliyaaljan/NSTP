@@ -975,7 +975,7 @@ export default async function AdminDashboardPage({
     semester: "2nd Semester",
   }
   const currentUserMeta: CurrentUser = {
-    name: "Admin Manager",
+    name: "Adviser Test Account",
     role: "NSTP Admin",
   }
 
