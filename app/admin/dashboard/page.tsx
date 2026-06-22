@@ -799,11 +799,6 @@ export default async function AdminDashboardPage({
 
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
 
-  // calculating average hours rendered
-
-  const totalStudentsCount = studentsRes.count || 0
-  const activeStudentsDivisor = totalStudentsCount || 1
-
   /*
   const calculatedAvgHours = Math.round(
     totalMinutesRendered / 60 / activeStudentsDivisor
@@ -888,6 +883,9 @@ export default async function AdminDashboardPage({
     sectionAggregationMap[sectionId].totalHoursRequired += targetHours
     sectionAggregationMap[sectionId].studentCount++
   })
+
+  const totalStudentsCount = studentsRes.count || 0
+  const activeStudentsDivisor = rawEnrollments.length || 1
 
   //  section progress layout sorting (alphabetical)
   let processedSectionProgress: SectionProgress[] = []
@@ -1003,7 +1001,7 @@ export default async function AdminDashboardPage({
     {
       icon: "ti-users",
       label: "Total Students",
-      value: totalStudentsCount,
+      value: rawEnrollments.length,
       badge: { text: `↑ 4%`, bg: COLORS.greenBgLight, color: COLORS.green },
       note: "v.s. last sem",
     },
