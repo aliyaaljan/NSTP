@@ -9,13 +9,7 @@ const studentNav = [
   { label: "Profile",   href: "/student/profile",   icon: "ti-user-circle" },
 ]
 
-export default async function StudentLayout({ children }: { children: React.ReactNode }) {
-  const role = await getAppUserRole()
-  if (role !== "student") redirect("/")
 
-  return (
-    <SidebarLayout role="student" navItems={studentNav}>
-      {children}
-    </SidebarLayout>
-  )
+export default function StudentLayout({ children }) {
+  return <>{children}</>
 }
