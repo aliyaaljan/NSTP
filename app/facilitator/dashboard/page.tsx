@@ -55,6 +55,7 @@ export default function DashboardPage() {
   const [initials, setInitials] = useState("")
   const [sections, setSections] = useState<{ id: string; name: string }[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
+  const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at: string }[]>([])
   const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
@@ -89,6 +90,11 @@ export default function DashboardPage() {
         })
         setSections(sortedSection)
       }
+
+      //Get recent activity
+      const {data: auditData, error: auditError} = await supabase.rpc("get_adviser_recent_activity",{p_adviser_user_id: user?.id})
+      if (auditError) console.log(auditError)
+      if (auditData) setRecentActivity(auditData)
     })
   }, [])
 
@@ -287,9 +293,9 @@ export default function DashboardPage() {
                       <div className="card-title" style={{ marginBottom: 0 }}>
                         Student Progress
                       </div>
-                      <button className="view-all-btn">View All</button>
+                      {/* <button className="view-all-btn">View All</button> */}
                     </div>
-                    <div className="student-list">
+                    <div className="student-list mb-4">
                       {filtered.length === 0 ? (
                         <div className="no-results">
                           No students match your search.
@@ -321,14 +327,13 @@ export default function DashboardPage() {
                         borderTop: "1px solid var(--border)",
                         marginTop: "auto",
                       }}
-                      className="w-auto"
+                      className="w-auto pt-2"
                     >
                       <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                        Showing{" "}
-                        {filtered.length === 0
-                          ? 0
-                          : (currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
-                        {filtered.length}
+                        Showing {filtered.length === 0 ? "0" : 
+                                 filtered.length === 1 ? "1" : 
+                                `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filtered.length)}`
+                        } of {filtered.length}
                       </span>
                       <div
                         style={{
@@ -339,6 +344,7 @@ export default function DashboardPage() {
                           alignItems: "center",
                           gap: 4,
                         }}
+                        className="pt-2"
                       >
                         <button
                           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -432,7 +438,7 @@ export default function DashboardPage() {
                           {currentData.on_track} / {currentData.total} students on track
                         </div>
                         {currentData.at_risk > 0 && (<div className="completion-warn">
-                          <IconAlertCircle size={15} stroke={1.75} className="shrink-0 m-1"/>{" "}
+                          <IconAlertCircle size={20} stroke={1.75} className="shrink-0 ml-2"/>{" "}
                           {currentData.at_risk}  {currentData.at_risk === 1 ? "student" : "students"} behind
                         </div>)}
                       </div>
@@ -441,21 +447,38 @@ export default function DashboardPage() {
 
                   {/* Calendar */}
                   <Calendar />
-
                   {/* Recent Activity */}
-                  <div className="activity-card" style={{ width: "100%"}}>
-                    <div className="card-title">Recent Activity</div>
-                    <div className="activity-empty">
-                      <div className="activity-empty-icon">
-                        <IconInfoCircle size={18} stroke={1.5} />
+<div className="activity-card overflow-y-auto" style={{ width: "100%", maxHeight: "300px" }}>                    <div className="card-title">Recent Activity</div>
+                    {recentActivity.length > 0 ? (
+                      recentActivity.map((item, index) => {
+                        const date = new Date(item.created_at)
+                        const formatted = date.toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })
+                        return (
+                          <div key={index} className="text-xs bg-white border border-gray-300 rounded-(--radius) px-4 py-3 mt-2 shadow-(--shadow)">
+                            <div className="text-justify">{item.summary}</div>
+                            <div className="text-muted mt-1 text-[10px]">{formatted}</div>
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <div className="activity-empty">
+                        <div className="activity-empty-icon">
+                          <IconInfoCircle size={18} stroke={1.5} />
+                        </div>
+                        <div className="activity-empty-text">
+                          No activity for the past 30 days.
+                          <br />
+                          Actions you take will appear here.
+                        </div>
                       </div>
-                      <div className="activity-empty-text">
-                        No activity yet.
-                        <br />
-                        Actions you take will appear here.
-                      </div>
-                      <button className="activity-empty-cta">Go to Forms</button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
