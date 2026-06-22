@@ -16,6 +16,11 @@ import {
   type AdviserPendingAppealDbRow,
 } from "@/lib/admin/adviser-list"
 import type { ImportAdvisersResult } from "@/lib/admin/adviser-import"
+import {
+  validateAdviserEditPayload,
+  type AdviserEditPayload,
+  type UpdateAdviserResult,
+} from "@/lib/admin/adviser-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 
 /**
@@ -176,6 +181,44 @@ export async function importAdvisersFromCsv(
     ok: false,
     error:
       "Import is not available yet. Backend CSV import handler still needs to be implemented.",
+  }
+}
+
+/**
+ * Update an adviser profile and section assignments.
+ *
+ * Backend checklist:
+ * 1. Validate admin role (already done below).
+ * 2. Update `app_user` SET full_name, email, is_active WHERE app_user_id = adviserUserId.
+ * 3. For each sectionId in payload.sectionIds, SET `section.adviser_user_id = adviserUserId`.
+ * 4. Clear `section.adviser_user_id` on sections previously assigned to this adviser but omitted.
+ * 5. If email changes, sync `auth.users` email via Supabase Admin API if needed.
+ * 6. Return `{ ok: true }` on success.
+ */
+export async function updateAdviser(
+  payload: AdviserEditPayload
+): Promise<UpdateAdviserResult> {
+  const role = await getAppUserRole()
+  if (role !== "admin") {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  const validationError = validateAdviserEditPayload(payload)
+  if (validationError) {
+    return { ok: false, error: validationError }
+  }
+
+  // TODO(backend): implement adviser update.
+  console.info("[updateAdviser] pending implementation", {
+    adviserUserId: payload.adviserUserId,
+    sectionIds: payload.sectionIds,
+    isActive: payload.isActive,
+  })
+
+  return {
+    ok: false,
+    error:
+      "Edit is not available yet. Backend handler still needs to be implemented.",
   }
 }
 

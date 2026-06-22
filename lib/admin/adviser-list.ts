@@ -15,6 +15,8 @@ export interface AdviserListRow {
   email: string
   /** Derived from `fullName` for avatar display. */
   initials: string
+  /** `section.section_id` values for sections this adviser facilitates. */
+  sectionIds: string[]
   /** `section.name` values for sections this adviser facilitates. */
   sectionNames: string[]
   /** Active enrollments across all facilitated sections. */
@@ -129,7 +131,11 @@ export function mapAdviserDbRowToListRow(
   pendingCount: number
 ): AdviserListRow {
   const sections = row.section ?? []
-  const sectionNames = sections.map((s) => s.name).sort((a, b) => a.localeCompare(b))
+  const sortedSections = [...sections].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  )
+  const sectionIds = sortedSections.map((s) => s.section_id)
+  const sectionNames = sortedSections.map((s) => s.name)
 
   let studentCount = 0
   let completionSum = 0
@@ -159,6 +165,7 @@ export function mapAdviserDbRowToListRow(
     fullName: row.full_name ?? "Unknown",
     email: row.email ?? "",
     initials: initialsFromName(row.full_name ?? "?"),
+    sectionIds,
     sectionNames,
     studentCount,
     avgCompletionPct,

@@ -14,6 +14,11 @@ import {
   type StudentListSectionOption,
 } from "@/lib/admin/student-list"
 import type { ImportStudentsResult } from "@/lib/admin/student-import"
+import {
+  validateStudentEditPayload,
+  type StudentEditPayload,
+  type UpdateStudentResult,
+} from "@/lib/admin/student-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 
 /**
@@ -144,6 +149,43 @@ export async function importStudentsFromCsv(
     ok: false,
     error:
       "Import is not available yet. Backend CSV import handler still needs to be implemented.",
+  }
+}
+
+/**
+ * Update a student profile and section assignment.
+ *
+ * Backend checklist:
+ * 1. Validate admin role (already done below).
+ * 2. Update `app_user` SET full_name, email, student_number WHERE app_user_id = studentUserId.
+ * 3. Update `enrollment` SET section_id WHERE enrollment_id = enrollmentId.
+ * 4. If email changes, sync `auth.users` email via Supabase Admin API if needed.
+ * 5. Return `{ ok: true }` on success.
+ */
+export async function updateStudent(
+  payload: StudentEditPayload
+): Promise<UpdateStudentResult> {
+  const role = await getAppUserRole()
+  if (role !== "admin") {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  const validationError = validateStudentEditPayload(payload)
+  if (validationError) {
+    return { ok: false, error: validationError }
+  }
+
+  // TODO(backend): implement student update.
+  console.info("[updateStudent] pending implementation", {
+    enrollmentId: payload.enrollmentId,
+    studentUserId: payload.studentUserId,
+    sectionId: payload.sectionId,
+  })
+
+  return {
+    ok: false,
+    error:
+      "Edit is not available yet. Backend handler still needs to be implemented.",
   }
 }
 

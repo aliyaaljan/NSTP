@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import EditStudentModal from "@/components/admin/EditStudentModal"
 import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
 import { deleteStudent } from "@/lib/admin/student-list-actions"
 import {
@@ -254,6 +255,7 @@ export default function StudentListClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [importOpen, setImportOpen] = useState(false)
+  const [editStudent, setEditStudent] = useState<StudentListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -601,6 +603,7 @@ export default function StudentListClient({
                             type="button"
                             aria-label={`Edit ${student.fullName}`}
                             title="Edit student"
+                            onClick={() => setEditStudent(student)}
                             style={{
                               background: "none",
                               border: "none",
@@ -644,6 +647,12 @@ export default function StudentListClient({
       </div>
 
       <ImportStudentsModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <EditStudentModal
+        open={editStudent !== null}
+        student={editStudent}
+        sections={sections}
+        onClose={() => setEditStudent(null)}
+      />
     </>
   )
 }

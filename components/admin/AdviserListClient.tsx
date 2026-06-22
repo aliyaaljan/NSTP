@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import EditAdviserModal from "@/components/admin/EditAdviserModal"
 import ImportAdvisersModal from "@/components/admin/ImportAdvisersModal"
 import { deleteAdviser } from "@/lib/admin/adviser-list-actions"
 import {
@@ -116,10 +117,12 @@ function FilterDropdown({
 
 function AdviserCard({
   adviser,
+  onEdit,
   onDelete,
   isDeleting,
 }: {
   adviser: AdviserListRow
+  onEdit: (adviser: AdviserListRow) => void
   onDelete: (id: string) => void
   isDeleting: boolean
 }) {
@@ -152,6 +155,7 @@ function AdviserCard({
           type="button"
           aria-label={`Edit ${adviser.fullName}`}
           title="Edit adviser"
+          onClick={() => onEdit(adviser)}
           style={{
             background: "none",
             border: "none",
@@ -359,6 +363,7 @@ export default function AdviserListClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [importOpen, setImportOpen] = useState(false)
+  const [editAdviser, setEditAdviser] = useState<AdviserListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -543,6 +548,7 @@ export default function AdviserListClient({
             <AdviserCard
               key={adviser.adviserUserId}
               adviser={adviser}
+              onEdit={setEditAdviser}
               onDelete={handleDelete}
               isDeleting={isDeleting && deletingId === adviser.adviserUserId}
             />
@@ -557,6 +563,12 @@ export default function AdviserListClient({
       />
 
       <ImportAdvisersModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <EditAdviserModal
+        open={editAdviser !== null}
+        adviser={editAdviser}
+        sections={sections}
+        onClose={() => setEditAdviser(null)}
+      />
     </>
   )
 }

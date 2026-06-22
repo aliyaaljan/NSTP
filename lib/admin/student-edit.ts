@@ -1,0 +1,72 @@
+/**
+ * Student edit contract for the admin student list page.
+ *
+ * Backend devs: implement `updateStudent()` in `lib/admin/student-list-actions.ts`.
+ * The UI submits `StudentEditPayload` only — no other shape is required.
+ *
+ * Database mapping:
+ *   enrollmentId   → `enrollment.enrollment_id` (lookup key)
+ *   studentUserId  → `enrollment.student_user_id` / `app_user.app_user_id`
+ *   fullName       → `app_user.full_name`
+ *   email          → `app_user.email` (must satisfy @up.edu.ph check constraint)
+ *   studentNumber  → `app_user.student_number`
+ *   sectionId      → `enrollment.section_id` → `section.section_id`
+ */
+
+import type { StudentListRow } from "@/lib/admin/student-list"
+
+export interface StudentEditPayload {
+  /** `enrollment.enrollment_id` */
+  enrollmentId: string
+  /** `enrollment.student_user_id` → `app_user.app_user_id` */
+  studentUserId: string
+  /** `app_user.full_name` */
+  fullName: string
+  /** `app_user.email` */
+  email: string
+  /** `app_user.student_number` */
+  studentNumber: string | null
+  /** `enrollment.section_id` → `section.section_id` */
+  sectionId: string
+}
+
+export type UpdateStudentResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+/** Build the edit form payload from a list row. */
+export function studentRowToEditPayload(row: StudentListRow): StudentEditPayload {
+  return {
+    enrollmentId: row.enrollmentId,
+    studentUserId: row.studentUserId,
+    fullName: row.fullName,
+    email: row.email,
+    studentNumber: row.studentNumber,
+    sectionId: row.sectionId,
+  }
+}
+
+/** Shared client/server validation before calling `updateStudent()`. */
+export function validateStudentEditPayload(
+  payload: StudentEditPayload
+): string | null {
+  if (!payload.enrollmentId.trim()) {
+    return "Enrollment ID is required."
+  }
+  if (!payload.studentUserId.trim()) {
+    return "Student user ID is required."
+  }
+  if (!payload.fullName.trim()) {
+    return "Full name is required."
+  }
+  if (!payload.email.trim()) {
+    return "Email is required."
+  }
+  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
+    return "Email must be a UP email (@up.edu.ph)."
+  }
+  if (!payload.sectionId.trim()) {
+    return "Section is required."
+  }
+  return null
+}
