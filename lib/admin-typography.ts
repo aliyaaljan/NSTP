@@ -11,6 +11,17 @@
 export const FONT_HEADING = "'Futura', 'Futura PT', 'Century Gothic', sans-serif"
 export const FONT_BODY = "var(--font-montserrat), 'Montserrat', 'Helvetica Neue', Arial, sans-serif"
 
+/**
+ * Large page titles — matches the Student Dashboard greeting headline
+ * (Montserrat 800, responsive clamp).
+ */
+export const PAGE_TITLE = {
+  fontFamily: FONT_BODY,
+  fontSize: "clamp(22px, 4.5vw, 30px)",
+  fontWeight: 800,
+  lineHeight: 1.25,
+} as const
+
 export const TYPE = {
   h1: {
     fontFamily: FONT_HEADING,

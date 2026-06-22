@@ -1,5 +1,5 @@
 import { Montserrat } from "next/font/google"
-import { FONT_BODY, FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { FONT_BODY, FONT_HEADING, PAGE_TITLE, TYPE } from "@/lib/admin-typography"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardFilters from "@/components/shared/DashboardFilters"
 import DashboardExportButton from "@/components/admin/DashboardExportButton"
@@ -1078,7 +1078,7 @@ export default async function AdminDashboardPage({
         }}
       >
         <div>
-          <h1 style={{ ...TYPE.h1, color: COLORS.textDark, margin: 0 }}>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.textDark, margin: 0 }}>
             Dashboard
           </h1>
           <p
