@@ -603,11 +603,12 @@ export default async function AdminDashboardPage({
           )
         `
 
-  const enrollmentSelect =
-    selectedSection || selectedAdviser
-      ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, name, required_hour_total, app_user!inner(full_name)), attendance_session(duration_minute)`
-      : `student_user_id, app_user(full_name, student_number), section(section_id, name, required_hour_total, app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
-
+  const enrollmentSelect = `
+    student_user_id, 
+    app_user(full_name, student_number), 
+    section(section_id, name, required_hour_total, app_user(full_name)), 
+    attendance_session(duration_minute)
+  `
   // ---  Base Queries ---
   let studentsQuery = supabase
     .from("app_user")
@@ -703,6 +704,7 @@ export default async function AdminDashboardPage({
       filteredAdviserId
     )
   }
+
   // MAIN PARALLEL FETCHING QUERY BLOCK
   const [
     studentsRes,
@@ -712,31 +714,22 @@ export default async function AdminDashboardPage({
     attendanceRateRes,
     enrollmentsRes,
     adviserWorkloadRes,
-    avgHoursRes,
     sectionsFilterRes,
     advisersFilterRes,
     //  recentActivityRes,
   ] = await Promise.all([
     // student counter call
     studentsQuery,
-
     // adviser/facilitator count call
     advisersQuery,
-
-    // sessions
-
     // files submitted query call
     filesQuery,
-
     // appeals query call
     appealsQuery,
-
     //attendance rate query call
     Promise.all([weeklyActiveCountQuery, weeklyTimeInLogsQuery]),
-
     //enrollment query call
     enrollmentQuery,
-
     // adviser workload query call
     adviserWorkloadQuery,
     supabase.rpc("get_active_students_average_hours", {
@@ -763,18 +756,16 @@ export default async function AdminDashboardPage({
       .limit(5),
       */
   ])
-
-  const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
+  const availableSections =
+    (sectionsFilterRes?.data as { name: string }[] | null)?.map(
+      (s) => s.name
+    ) || []
   const availableAdvisers =
-    advisersFilterRes.data?.map((a) => a.full_name) || []
+    (advisersFilterRes?.data as { full_name: string }[] | null)?.map(
+      (a) => a.full_name
+    ) || []
 
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
-
-  /*
-  const calculatedAvgHours = Math.round(
-    totalMinutesRendered / 60 / activeStudentsDivisor
-  )
-*/
 
   // calculating weekly attendance rate
   const totalActiveEnrollments = attendanceRateRes[0]?.count || 0
@@ -787,6 +778,7 @@ export default async function AdminDashboardPage({
       : 0
 
   // processing enrollment data
+
   const rawEnrollments = enrollmentsRes.data || []
   const sectionAggregationMap: Record<
     string,
@@ -802,6 +794,8 @@ export default async function AdminDashboardPage({
   let inProgressCount = 0
   let atRiskCount = 0
 
+  let totalMinutesRendered = 0 // <-- ADD THIS NEW TRACKER
+
   const processedAtRiskList: AtRiskStudentRow[] = []
 
   rawEnrollments.forEach((en: any) => {
@@ -815,7 +809,11 @@ export default async function AdminDashboardPage({
         (sum: number, s: any) => sum + (s.duration_minute || 0),
         0
       ) || 0
+
     const studentHours = studentMinutes / 60
+
+    totalMinutesRendered += studentMinutes // minutes accumulation
+
     const studentCompletionPct = Math.round((studentHours / targetHours) * 100)
 
     if (studentCompletionPct >= 60) onTrackCount++
@@ -857,7 +855,9 @@ export default async function AdminDashboardPage({
 
   const totalStudentsCount = studentsRes.count || 0
   const activeStudentsDivisor = rawEnrollments.length || 1
-  const calculatedAvgHours = avgHoursRes.data || 0
+  const calculatedAvgHours = Math.round(
+    totalMinutesRendered / 60 / activeStudentsDivisor
+  )
 
   //  section progress layout sorting (alphabetical)
   let processedSectionProgress: SectionProgress[] = []
