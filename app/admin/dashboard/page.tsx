@@ -603,12 +603,11 @@ export default async function AdminDashboardPage({
           )
         `
 
-  const enrollmentSelect = `
-    student_user_id, 
-    app_user(full_name, student_number), 
-    section(section_id, name, required_hour_total, app_user(full_name)), 
-    attendance_session(duration_minute)
-  `
+  const enrollmentSelect =
+    selectedSection || selectedAdviser
+      ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, name, required_hour_total, app_user!inner(full_name)), attendance_session(duration_minute)`
+      : `student_user_id, app_user(full_name, student_number), section(section_id, name, required_hour_total, app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
+
   // ---  Base Queries ---
   let studentsQuery = supabase
     .from("app_user")
@@ -720,23 +719,26 @@ export default async function AdminDashboardPage({
   ] = await Promise.all([
     // student counter call
     studentsQuery,
+
     // adviser/facilitator count call
     advisersQuery,
+
+    // sessions
+
     // files submitted query call
     filesQuery,
+
     // appeals query call
     appealsQuery,
+
     //attendance rate query call
     Promise.all([weeklyActiveCountQuery, weeklyTimeInLogsQuery]),
+
     //enrollment query call
     enrollmentQuery,
+
     // adviser workload query call
     adviserWorkloadQuery,
-    supabase.rpc("get_active_students_average_hours", {
-      active_status_id: activeStatusId,
-      filter_section_name: selectedSection || null,
-      filter_adviser_name: selectedAdviser || null,
-    }),
 
     //Filter Dropdown for section list lookup
     supabase.from("section").select("name").order("name"),
@@ -756,14 +758,11 @@ export default async function AdminDashboardPage({
       .limit(5),
       */
   ])
-  const availableSections =
-    (sectionsFilterRes?.data as { name: string }[] | null)?.map(
-      (s) => s.name
-    ) || []
+
+  const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
+
   const availableAdvisers =
-    (advisersFilterRes?.data as { full_name: string }[] | null)?.map(
-      (a) => a.full_name
-    ) || []
+    advisersFilterRes.data?.map((a) => a.full_name) || []
 
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
 
@@ -812,7 +811,7 @@ export default async function AdminDashboardPage({
 
     const studentHours = studentMinutes / 60
 
-    totalMinutesRendered += studentMinutes // minutes accumulation
+    totalMinutesRendered += studentMinutes // <-- ACCUMULATE THE MINUTES HERE
 
     const studentCompletionPct = Math.round((studentHours / targetHours) * 100)
 
@@ -989,7 +988,7 @@ export default async function AdminDashboardPage({
       icon: "ti-clock",
       label: "Average hours rendered",
       value: calculatedAvgHours,
-      valueSuffix: `/500`,
+      valueSuffix: `/60`,
       badge: {
         text: `${Math.min(100, Math.round((calculatedAvgHours / 60) * 100))}%`,
         bg: COLORS.amberBgLight,
