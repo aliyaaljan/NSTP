@@ -51,8 +51,8 @@ DELETE FROM section_geofence WHERE section_geofence_id::text LIKE '5eed%';
 DELETE FROM section WHERE section_id::text LIKE '5eed%';
 
 -- Synthetic app_user rows (advisers + synthetic students only — 5eed prefix)
--- The 3 fake accounts (admin.test, adviser.test, student.test) have auth.users UUIDs
--- that do NOT start with 5eed, so they are NOT deleted here.
+-- The 4 fake accounts (admin.test, adviser.test, student.test, studentleader.test)
+-- have auth.users UUIDs that do NOT start with 5eed, so they are NOT deleted here.
 -- To fully remove the fake accounts, delete their auth.users rows via:
 --   Dashboard → Authentication → Users  (or the admin API in seed-auth-users.mjs)
 DELETE FROM app_user WHERE app_user_id::text LIKE '5eed%';
@@ -61,7 +61,8 @@ DELETE FROM app_user WHERE app_user_id::text LIKE '5eed%';
 DELETE FROM term WHERE term_id::text LIKE '5eed%';
 
 -- ── Done ─────────────────────────────────────────────────────
--- The 3 fake account app_user rows (admin.test, adviser.test, student.test)
+-- The 4 fake account app_user rows
+-- (admin.test, adviser.test, student.test, studentleader.test)
 -- are NOT removed — their auth.users UUIDs don't start with 5eed.
 -- They are harmless to leave; this backend is disposable.
 -- To remove them completely: Dashboard → Authentication → Users → delete each.

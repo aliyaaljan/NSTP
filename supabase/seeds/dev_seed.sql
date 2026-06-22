@@ -1,12 +1,12 @@
 -- ============================================================
--- NSTP Dev Seed v2  —  dev_seed.sql
+-- NSTP Dev Seed v3  —  dev_seed.sql
 --
 -- Purpose : Populate realistic dashboard data for local development.
 -- Run in  : Supabase SQL editor (Dashboard → SQL editor)
 -- Run AFTER: npm run seed-auth-users  (creates auth.users rows for fake accounts)
 -- Run AFTER: dev_teardown.sql if re-seeding over existing data.
 --
--- All seeded PKs (except the 3 fake auth accounts whose IDs come from
+-- All seeded PKs (except the 4 fake auth accounts whose IDs come from
 -- auth.users) begin with '5eed'. The teardown script uses this prefix.
 --
 -- NOT fully idempotent — session/event DO blocks use gen_random_uuid().
@@ -15,12 +15,13 @@
 -- Approx totals:
 --   5 terms | 3 synthetic advisers | 254 synthetic students
 --   20 sections (16 adviser.test + 4 student.test) | 6 geofences
---   258 enrollments | ~3600 sessions | ~7300 events | 4 appeals
+--   260 enrollments | ~3600 sessions | ~7300 events | 4 appeals
 -- ============================================================
 
 -- ── 0. Guard ────────────────────────────────────────────────
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin.test@up.edu.ph') THEN
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin.test@up.edu.ph')
+  OR NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'studentleader.test@up.edu.ph') THEN
     RAISE EXCEPTION
       E'Fake auth accounts not found.\nRun: npm run seed-auth-users  (then re-run this file)';
   END IF;
@@ -68,6 +69,12 @@ INSERT INTO app_user (app_user_id, role_id, email, full_name)
 SELECT id, (SELECT role_id FROM role WHERE code = 'student'),
        'student.test@up.edu.ph', 'Student Test Account'
 FROM auth.users WHERE email = 'student.test@up.edu.ph'
+ON CONFLICT (app_user_id) DO UPDATE SET role_id = EXCLUDED.role_id;
+
+INSERT INTO app_user (app_user_id, role_id, email, full_name)
+SELECT id, (SELECT role_id FROM role WHERE code = 'student'),
+       'studentleader.test@up.edu.ph', 'Student Leader Test Account'
+FROM auth.users WHERE email = 'studentleader.test@up.edu.ph'
 ON CONFLICT (app_user_id) DO UPDATE SET role_id = EXCLUDED.role_id;
 
 -- ── 4. Synthetic students ────────────────────────────────────
@@ -256,7 +263,8 @@ CROSS JOIN generate_series(1, 15) AS g(stu)
 ON CONFLICT DO NOTHING;
 
 -- 7c. adviser.test's active sections — 5eed4151–5eed4225
---     Students 5eed2151–5eed2225 | student 1 is leader
+--     Students 5eed2151–5eed2225 | student 1 is leader, except in sec 1 (CWTS-2526A)
+--     where studentleader.test (5eed4235, §7f) is the designated leader instead.
 INSERT INTO enrollment
   (enrollment_id, section_id, student_user_id, enrollment_status_id, is_student_leader)
 SELECT
@@ -270,7 +278,7 @@ SELECT
   ]::uuid[])[s.sec],
   ('5eed2' || lpad((150 + (s.sec - 1) * 15 + g.stu)::text, 3, '0') || '-0000-0000-0000-000000000000')::uuid,
   (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'active'),
-  (g.stu = 1)
+  (g.stu = 1 AND s.sec != 1)
 FROM generate_series(1, 5) AS s(sec)
 CROSS JOIN generate_series(1, 15) AS g(stu)
 ON CONFLICT DO NOTHING;
@@ -339,6 +347,29 @@ SELECT
   ('5eed2' || lpad((249 + g.i)::text, 3, '0') || '-0000-0000-0000-000000000000')::uuid,
   (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'active')
 FROM generate_series(1, 5) AS g(i)
+ON CONFLICT DO NOTHING;
+
+-- ── 7f. studentleader.test + student.test in shared section CWTS-2526A ──
+INSERT INTO enrollment
+  (enrollment_id, section_id, student_user_id, enrollment_status_id, is_student_leader)
+SELECT
+  '5eed4235-0000-0000-0000-000000000000',
+  '5eed3031-0000-0000-0000-000000000000',
+  id,
+  (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'active'),
+  true
+FROM auth.users WHERE email = 'studentleader.test@up.edu.ph'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO enrollment
+  (enrollment_id, section_id, student_user_id, enrollment_status_id, is_student_leader)
+SELECT
+  '5eed4236-0000-0000-0000-000000000000',
+  '5eed3031-0000-0000-0000-000000000000',
+  id,
+  (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'active'),
+  false
+FROM auth.users WHERE email = 'student.test@up.edu.ph'
 ON CONFLICT DO NOTHING;
 
 -- ── 8a. Sessions — adviser.test's completed sections ─────────
@@ -664,6 +695,88 @@ BEGIN
 
 END $$;
 
+-- ── 8e. Sessions — studentleader.test + student.test in CWTS-2526A ──
+-- studentleader.test (5eed4235): 12 closed + 1 open  (leader, currently timed in)
+-- student.test in CWTS-2526A   (5eed4236): 12 closed
+-- Closed sessions required so both appear on the adviser dashboard.
+-- Term 5 base: 2025-08-18 | source: adviser_manual
+DO $$
+DECLARE
+  v_adviser_id uuid;
+  v_time_in    uuid;
+  v_time_out   uuid;
+  v_manual_src uuid;
+  v_closed     uuid;
+  v_open       uuid;
+  v_session_id uuid;
+  v_start      timestamptz;
+  v_end        timestamptz;
+  v_base       CONSTANT timestamptz := TIMESTAMPTZ '2025-08-18 00:00:00+00';
+  d            int;
+BEGIN
+  SELECT id INTO v_adviser_id FROM auth.users WHERE email = 'adviser.test@up.edu.ph';
+  SELECT attendance_event_type_id   INTO v_time_in    FROM attendance_event_type   WHERE code = 'time_in';
+  SELECT attendance_event_type_id   INTO v_time_out   FROM attendance_event_type   WHERE code = 'time_out';
+  SELECT attendance_event_source_id INTO v_manual_src FROM attendance_event_source WHERE code = 'adviser_manual';
+  SELECT attendance_session_status_id INTO v_closed   FROM attendance_session_status WHERE code = 'closed';
+  SELECT attendance_session_status_id INTO v_open     FROM attendance_session_status WHERE code = 'open';
+
+  -- studentleader.test (5eed4235): 12 closed sessions
+  FOR d IN 0..11 LOOP
+    v_start      := v_base + (d * 7 * INTERVAL '1 day') + INTERVAL '48 minutes';
+    v_end        := v_start + INTERVAL '3 hours';
+    v_session_id := gen_random_uuid();
+
+    INSERT INTO attendance_session
+      (attendance_session_id, enrollment_id, attendance_session_status_id, started_at, ended_at)
+    VALUES (v_session_id, '5eed4235-0000-0000-0000-000000000000', v_closed, v_start, v_end);
+
+    INSERT INTO attendance_event
+      (attendance_event_id, enrollment_id, attendance_session_id,
+       attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id)
+    VALUES
+      (gen_random_uuid(), '5eed4235-0000-0000-0000-000000000000', v_session_id,
+       v_time_in,  v_manual_src, v_start, v_adviser_id),
+      (gen_random_uuid(), '5eed4235-0000-0000-0000-000000000000', v_session_id,
+       v_time_out, v_manual_src, v_end,   v_adviser_id);
+  END LOOP;
+
+  -- studentleader.test (5eed4235): 1 open session (currently timed in)
+  v_start      := now() - INTERVAL '45 minutes';
+  v_session_id := gen_random_uuid();
+
+  INSERT INTO attendance_session
+    (attendance_session_id, enrollment_id, attendance_session_status_id, started_at, ended_at)
+  VALUES (v_session_id, '5eed4235-0000-0000-0000-000000000000', v_open, v_start, NULL);
+
+  INSERT INTO attendance_event
+    (attendance_event_id, enrollment_id, attendance_session_id,
+     attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id)
+  VALUES (gen_random_uuid(), '5eed4235-0000-0000-0000-000000000000', v_session_id,
+          v_time_in, v_manual_src, v_start, v_adviser_id);
+
+  -- student.test in CWTS-2526A (5eed4236): 12 closed sessions
+  FOR d IN 0..11 LOOP
+    v_start      := v_base + (d * 7 * INTERVAL '1 day') + INTERVAL '51 minutes';
+    v_end        := v_start + INTERVAL '3 hours';
+    v_session_id := gen_random_uuid();
+
+    INSERT INTO attendance_session
+      (attendance_session_id, enrollment_id, attendance_session_status_id, started_at, ended_at)
+    VALUES (v_session_id, '5eed4236-0000-0000-0000-000000000000', v_closed, v_start, v_end);
+
+    INSERT INTO attendance_event
+      (attendance_event_id, enrollment_id, attendance_session_id,
+       attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id)
+    VALUES
+      (gen_random_uuid(), '5eed4236-0000-0000-0000-000000000000', v_session_id,
+       v_time_in,  v_manual_src, v_start, v_adviser_id),
+      (gen_random_uuid(), '5eed4236-0000-0000-0000-000000000000', v_session_id,
+       v_time_out, v_manual_src, v_end,   v_adviser_id);
+  END LOOP;
+
+END $$;
+
 -- ── 9. Appeals ───────────────────────────────────────────────
 -- 3 appeals from students in adviser.test's first active section (5eed3031)
 -- Enrollment 5eed4151 = sec 1 / stu 1 → student 5eed2151, etc.
@@ -726,11 +839,12 @@ VALUES
 ON CONFLICT (appeal_message_id) DO NOTHING;
 
 -- ── Done ─────────────────────────────────────────────────────
--- adviser.test sees : 5 completed | 5 archived | 5 active | 1 draft sections
--- student.test sees : 1 completed | 1 archived | 1 active | 1 draft enrollment
--- admin.test sees   : all of the above (full read via RLS)
+-- adviser.test        sees : 5 completed | 5 archived | 5 active | 1 draft sections
+-- student.test        sees : 1 completed | 1 archived | 2 active (incl. CWTS-2526A) | 1 draft
+-- studentleader.test  sees : 1 active enrollment in CWTS-2526A (is_student_leader = true)
+-- admin.test          sees : all of the above (full read via RLS)
 --
 -- Totals (approx):
---   5 terms | 6 advisers (3 synthetic + 3 fake accounts)
---   20 sections | 6 geofences | 258 enrollments
+--   5 terms | 7 app_users (3 synthetic advisers + 4 fake accounts)
+--   20 sections | 6 geofences | 260 enrollments
 --   ~3600 sessions | ~7300 events | 4 appeals | 2 appeal messages

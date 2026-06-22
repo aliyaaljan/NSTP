@@ -1,5 +1,5 @@
 /**
- * Creates the three fake @up.edu.ph dev accounts in Supabase Auth.
+ * Creates the four fake @up.edu.ph dev accounts in Supabase Auth.
  * Run ONCE on the dev backend before running dev_seed.sql.
  *
  *   npm run seed-auth-users
@@ -28,9 +28,10 @@ const supabase = createClient(url, key, {
 })
 
 const accounts = [
-  { email: "admin.test@up.edu.ph",   label: "admin",   name: "Admin Test Account" },
-  { email: "adviser.test@up.edu.ph", label: "adviser", name: "Adviser Test Account" },
-  { email: "student.test@up.edu.ph", label: "student", name: "Student Test Account" },
+  { email: "admin.test@up.edu.ph",         label: "admin",   name: "Admin Test Account" },
+  { email: "adviser.test@up.edu.ph",       label: "adviser", name: "Adviser Test Account" },
+  { email: "student.test@up.edu.ph",       label: "student", name: "Student Test Account" },
+  { email: "studentleader.test@up.edu.ph", label: "leader",  name: "Student Leader Test Account" },
 ]
 
 console.log("Creating dev auth accounts…\n")
