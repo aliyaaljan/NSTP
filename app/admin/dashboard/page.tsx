@@ -541,6 +541,7 @@ export default async function AdminDashboardPage({
     statusOpenRes,
     statusReviewRes,
     typeTimeInRes,
+    filteredAdviserRes,
   ] = await Promise.all([
     supabase.from("role").select("role_id").eq("code", "student").maybeSingle(),
     supabase.from("role").select("role_id").eq("code", "adviser").maybeSingle(),
@@ -564,6 +565,13 @@ export default async function AdminDashboardPage({
       .select("attendance_event_type_id")
       .eq("code", "time_in")
       .maybeSingle(),
+    selectedAdviser
+      ? supabase
+          .from("app_user")
+          .select("app_user_id")
+          .eq("full_name", selectedAdviser)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   const studentRoleId = roleStudentRes.data?.role_id
@@ -572,6 +580,7 @@ export default async function AdminDashboardPage({
   const openStatusId = statusOpenRes.data?.appeal_status_id
   const underReviewStatusId = statusReviewRes.data?.appeal_status_id
   const timeInTypeId = typeTimeInRes.data?.attendance_event_type_id
+  const filteredAdviserId = filteredAdviserRes?.data?.app_user_id
 
   // compute average hours using supabase RPC, outside of Promise block
   const avgHoursRes = await supabase.rpc("get_active_students_average_hours", {
@@ -683,6 +692,7 @@ export default async function AdminDashboardPage({
     .eq("enrollment_status_id", activeStatusId)
 
   // ---  Conditional Filters ---
+
   if (selectedSection) {
     studentsQuery = studentsQuery.eq("enrollment.section.name", selectedSection)
     advisersQuery = advisersQuery.eq("section.name", selectedSection)
@@ -703,36 +713,32 @@ export default async function AdminDashboardPage({
     enrollmentQuery = enrollmentQuery.eq("section.name", selectedSection)
   }
 
-  if (selectedAdviser) {
+  if (selectedAdviser && filteredAdviserId) {
     studentsQuery = studentsQuery.eq(
-      "enrollment.section.app_user!section_adviser_user_id_fkey.full_name",
-      selectedAdviser
+      "enrollment.section.adviser_user_id",
+      filteredAdviserId
     )
-    advisersQuery = advisersQuery.eq("full_name", selectedAdviser)
-
+    advisersQuery = advisersQuery.eq("app_user_id", filteredAdviserId)
     weeklyActiveCountQuery = weeklyActiveCountQuery.eq(
-      "section.app_user!section_adviser_user_id_fkey.full_name",
-      selectedAdviser
+      "section.adviser_user_id",
+      filteredAdviserId
     )
     weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
-      "enrollment.section.app_user!section_adviser_user_id_fkey.full_name",
-      selectedAdviser
+      "enrollment.section.adviser_user_id",
+      filteredAdviserId
     )
-
-    filesQuery = filesQuery.eq(
-      "section.app_user!section_adviser_user_id_fkey.full_name",
-      selectedAdviser
-    )
+    filesQuery = filesQuery.eq("section.adviser_user_id", filteredAdviserId)
     appealsQuery = appealsQuery.eq(
-      "enrollment.section.app_user!section_adviser_user_id_fkey.full_name",
-      selectedAdviser
+      "enrollment.section.adviser_user_id",
+      filteredAdviserId
     )
-
-    adviserWorkloadQuery = adviserWorkloadQuery.eq("full_name", selectedAdviser)
-
+    adviserWorkloadQuery = adviserWorkloadQuery.eq(
+      "app_user_id",
+      filteredAdviserId
+    )
     enrollmentQuery = enrollmentQuery.eq(
-      "section.app_user!section_adviser_user_id_fkey.full_name",
-      selectedAdviser
+      "section.adviser_user_id",
+      filteredAdviserId
     )
   }
 
