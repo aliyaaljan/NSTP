@@ -335,6 +335,7 @@ export const dashboardStyles = `
   .overview-label { font-weight: 700; font-size: 11px; letter-spacing: 1.2px; color: var(--muted); text-transform: uppercase; }
   .sections-btn { display: flex; align-items: center; gap: 4px; background: var(--green); color: #fff; border: none; border-radius: 20px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; font-family: var(--font); font-weight: 600; transition: background 0.13s; }
   .sections-btn:hover { background: var(--green-dark); }
+  .sections-dropdown {position: fixed;inset: 0; z-index: 9; background: transparent;}
   .stat-cards { display: flex; gap: 10px; }
   .stat-card { flex: 1; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
   .stat-card-label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
@@ -358,7 +359,7 @@ export const dashboardStyles = `
   .student-name { font-size: 13px; font-weight: 500; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600; }
   .no-results { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 0; }
-  .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); flex-shrink: 0; }
+  .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); flex: 1 }
   .activity-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 0 12px; gap: 8px; }
   .activity-empty-icon { width: 36px; height: 36px; border-radius: 50%; background: #F3F4F6; display: flex; align-items: center; justify-content: center; color: var(--light); }
   .activity-empty-text { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.5; }
@@ -396,7 +397,7 @@ export const dashboardStyles = `
   .cal-cell.cal-today { background: var(--maroon); color: #fff; font-weight: 700; border-radius: 50%; }
 
   /* ── Dashboard layout ── */
-  .dashboard-layout { display: flex; gap: 16px; align-items: flex-start; flex: 1; }
+  .dashboard-layout { display: flex; gap: 16px; align-items: flex-start; flex: 1; align-items: stretch; }
   .dashboard-left   { flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
