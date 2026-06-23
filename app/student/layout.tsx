@@ -1,15 +1,3 @@
-import { redirect } from "next/navigation"
-import { getAppUserRole } from "@/lib/auth-actions"
-import SidebarLayout from "@/components/shared/SidebarLayout"
-
-const studentNav = [
-  { label: "Dashboard", href: "/student/dashboard", icon: "ti-layout-dashboard" },
-  { label: "My Hours",  href: "/student/hours",     icon: "ti-clock" },
-  { label: "Schedule",  href: "/student/schedule",  icon: "ti-calendar" },
-  { label: "Profile",   href: "/student/profile",   icon: "ti-user-circle" },
-]
-
-
-export default function StudentLayout({ children }) {
+export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }

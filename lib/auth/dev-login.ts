@@ -5,7 +5,8 @@ import { cookies, headers } from "next/headers"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { ensureAppUser } from "@/lib/auth-actions"
 import { createLoginSession } from "@/lib/auth/session"
-import { roleToDashboard } from "@/lib/auth/routes"
+import { roleToDashboard, STUDENT_LEADER_DASHBOARD } from "@/lib/auth/routes"
+import { getActiveLeaderEnrollment } from "@/lib/auth/leader"
 
 export async function signInWithDevPassword(formData: FormData): Promise<void> {
   if (process.env.NODE_ENV === "production" || process.env.DEV_AUTH_ENABLED !== "true") {
@@ -46,5 +47,11 @@ export async function signInWithDevPassword(formData: FormData): Promise<void> {
     // audit failure is non-fatal
   }
 
-  redirect(roleToDashboard(roleCode))
+  let destination = roleToDashboard(roleCode)
+  if (roleCode === "student") {
+    const leader = await getActiveLeaderEnrollment(supabase, user.id)
+    if (leader) destination = STUDENT_LEADER_DASHBOARD
+  }
+
+  redirect(destination)
 }

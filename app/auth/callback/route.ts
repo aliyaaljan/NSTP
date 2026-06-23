@@ -1,7 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { ensureAppUser } from "@/lib/auth-actions"
 import { createLoginSession } from "@/lib/auth/session"
-import { roleToDashboard } from "@/lib/auth/routes"
+import { roleToDashboard, STUDENT_LEADER_DASHBOARD } from "@/lib/auth/routes"
+import { getActiveLeaderEnrollment } from "@/lib/auth/leader"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
@@ -74,9 +75,14 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const response = NextResponse.redirect(
-    new URL(roleToDashboard(roleCode), origin)
-  )
+  let destination = roleToDashboard(roleCode)
+  if (roleCode === "student") {
+    const supabase = await createSupabaseServerClient()
+    const leader = await getActiveLeaderEnrollment(supabase, user.id)
+    if (leader) destination = STUDENT_LEADER_DASHBOARD
+  }
+
+  const response = NextResponse.redirect(new URL(destination, origin))
 
   try {
     const userAgent = request.headers.get("user-agent")

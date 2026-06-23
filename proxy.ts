@@ -52,8 +52,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (path === "/" && user) {
-    const prefix = role ? ROLE_PREFIX[role] : undefined
-    if (prefix) return redirect(`${prefix}/dashboard`)
+    if (role === "admin" || role === "adviser") {
+      const prefix = ROLE_PREFIX[role]
+      return redirect(`${prefix}/dashboard`)
+    }
     return supabaseResponse
   }
 
