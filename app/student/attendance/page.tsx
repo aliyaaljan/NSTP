@@ -7,6 +7,8 @@ import Sidebar from "@/components/shared/StudentSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
 import { generateQrToken } from "@/lib/attendance/qr-actions"
 import type { QrDisplayInfo } from "@/lib/attendance/qr-actions"
+import { getStudentDashboard } from "@/lib/student/dashboard-actions"
+import { getInitials } from "@/lib/student/dashboard-view"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -72,10 +74,27 @@ export default function QRGenerationPage() {
   const [qrHidden, setQrHidden] = useState(false)
   const [locationDenied, setLocationDenied] = useState(false)
   const [loadingPhase, setLoadingPhase] = useState<"locating" | "generating" | null>(null)
+  const [profile, setProfile] = useState<{ fullName: string; sectionName: string }>({
+    fullName: "",
+    sectionName: "",
+  })
 
   const generatingRef = useRef(false)
   const displayRef = useRef<QrDisplayInfo | null>(null)
   useEffect(() => { displayRef.current = display }, [display])
+
+  // Load the student's name + section for the profile pill
+  useEffect(() => {
+    let cancelled = false
+    getStudentDashboard().then((res) => {
+      if (cancelled || !res.ok) return
+      setProfile({
+        fullName: res.data.fullName,
+        sectionName: res.data.sectionName ?? "",
+      })
+    })
+    return () => { cancelled = true }
+  }, [])
 
   // Check geolocation permission state on mount
   useEffect(() => {
@@ -355,9 +374,9 @@ export default function QRGenerationPage() {
 
 
             <ProfilePill
-              name="Kim, Mingyu"
-              initials="MK"
-              section="H"
+              name={profile.fullName}
+              initials={getInitials(profile.fullName)}
+              section={profile.sectionName}
             />
 
           </div>
