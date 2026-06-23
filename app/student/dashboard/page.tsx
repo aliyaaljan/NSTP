@@ -3,14 +3,15 @@
 import CalendarOverview from "@/components/student/Calendar";
 import Documents from "@/components/student/Documents";
 
-import Image from "next/image"
-import Link from "next/link"
 import { useState, useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
 import { Montserrat } from "next/font/google"
-import { signOutWithAudit } from "@/lib/auth-actions"
 import Sidebar from "@/components/shared/StudentSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
+import { getStudentDashboard } from "@/lib/student/dashboard-actions"
+import type { StudentDashboardData } from "@/lib/student/dashboard-actions"
+import { getMyForms } from "@/lib/forms/submission-actions"
+import type { StudentFormView } from "@/lib/forms/submission-actions"
+import { getInitials, formsToDocuments, formsToCalendarEvents } from "@/lib/student/dashboard-view"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -41,15 +42,6 @@ const C = {
 
 const COLLAPSED_W  = 88
 const RAIL_MARGIN  = 16
-
-interface StudentDashboardProps {
-  studentFirstName: string
-  studentLastName: string
-  studentInitials: string
-  section: string
-  hoursRendered: number
-  hoursTarget: number
-}
 
 // HOURS FUNCTION --------------- 
 
@@ -114,17 +106,11 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
 
 // MAIN PAGE -------------------------------
 
-export default function StudentDashboardPage({
-  studentFirstName = "Mingyu",
-  studentLastName = "Kim",
-  studentInitials = "MK",
-  section = "H",
-  hoursRendered = 395,
-  hoursTarget = 500,
-
-}: Partial<StudentDashboardProps>) {
+export default function StudentDashboardPage() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [dashboard, setDashboard] = useState<StudentDashboardData | null>(null)
+  const [formViews, setFormViews] = useState<StudentFormView[]>([])
 
   useEffect(() => {
     const accepted = localStorage.getItem("privacyAccepted")
@@ -136,7 +122,28 @@ export default function StudentDashboardPage({
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+
   }, [])
+
+  useEffect(() => {
+    async function load() {
+      const res = await getStudentDashboard()
+      if (!res.ok) return
+      setDashboard(res.data)
+      if (res.data.enrollmentId) {
+        const formsRes = await getMyForms(res.data.enrollmentId)
+        if (formsRes.ok) setFormViews(formsRes.data)
+      }
+    }
+    load()
+  }, [])
+
+  const fullName = dashboard?.fullName ?? ""
+  const firstName = fullName.split(" ")[0] || ""
+  const initials = getInitials(fullName)
+  const sectionName = dashboard?.sectionName ?? ""
+  const hoursRendered = dashboard?.hoursRendered ?? 0
+  const hoursTarget = dashboard?.requiredHours ?? 60
 
   // Calculate left padding
   const getLeftPadding = () => {
@@ -190,12 +197,12 @@ export default function StudentDashboardPage({
             color: C.maroon, 
             margin: 0 
           }}>
-            Hello, {studentFirstName}!
+            Hello, {firstName}!
           </h1>
-          <ProfilePill 
-            name={`${studentLastName}, ${studentFirstName}`} 
-            initials={studentInitials} 
-            section={section} 
+          <ProfilePill
+            name={fullName}
+            initials={initials}
+            section={sectionName}
           />
         </div>
 
@@ -216,7 +223,11 @@ export default function StudentDashboardPage({
             minHeight: isMobile ? "450px" : "500px",
             maxHeight: isMobile ? "500px" : "550px",
           }}>
-            <CalendarOverview />
+            <CalendarOverview
+              documentEvents={formsToCalendarEvents(formViews)}
+              renderedDaysByMonth={dashboard?.renderedDaysByMonth ?? {}}
+              renderedTimeByMonth={dashboard?.renderedTimeByMonth ?? {}}
+            />
           </div>
           <div style={{ 
             minWidth: 0,
@@ -225,7 +236,7 @@ export default function StudentDashboardPage({
             minHeight: isMobile ? "400px" : "500px",
             maxHeight: isMobile ? "500px" : "550px",
           }}>
-            <Documents />
+            <Documents documents={formsToDocuments(formViews)} />
           </div>
         </div>
 

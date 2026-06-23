@@ -34,13 +34,16 @@ export interface CalendarEvent {
 export interface CalendarOverviewProps {
   month?: number
   year?: number
+  documentEvents?: CalendarEvent[]
+  renderedDaysByMonth?: Record<number, number[]>
+  renderedTimeByMonth?: Record<number, Record<number, string>>
   onMonthChange?: (year: number, month: number) => void
   onDayClick?: (day: number, event?: CalendarEvent) => void
   onRenderedDayClick?: (day: number) => void
 }
 
 // Manual typings of holidays and docs deadline
-const FIXED_EVENTS: CalendarEvent[] = [
+const HOLIDAYS: CalendarEvent[] = [
   // Holidays
   { day: 1, month: 0, title: "New Year's Day", type: 'holiday' },
   { day: 6, month: 1, title: "Chinese/Lunar New Year", type: 'holiday' },
@@ -64,59 +67,16 @@ const FIXED_EVENTS: CalendarEvent[] = [
   { day: 25, month: 11, title: "Christmas Day", type: 'holiday' },
   { day: 30, month: 11, title: "Rizal Day", type: 'holiday' },
   { day: 31, month: 11, title: "Last Day of the Year", type: 'holiday' },
-  
-  // Documents
-  // Pending
-  { day: 25, month: 5, title: "Form A", type: 'deadline', status: 'pending', note: "Due Jun 25" },
-  { day: 27, month: 5, title: "Document Something", type: 'deadline', status: 'pending', note: "Due Jun 27" },
-  { day: 28, month: 5, title: "Form B", type: 'deadline', status: 'pending', note: "Due Jun 28" },
-  { day: 30, month: 5, title: "Docs", type: 'deadline', status: 'pending', note: "Due Jun 30" },
-  
-  // Submitted
-  { day: 3, month: 5, title: "Endorsement Letter", type: 'submitted', status: 'submitted', note: "Due Jun 3" },
-  { day: 3, month: 5, title: "Medical Certificate", type: 'submitted', status: 'submitted', note: "Due Jun 3" },
-  { day: 5, month: 5, title: "Parental Consent Form", type: 'submitted', status: 'submitted', note: "Due Jun 5" },
-  { day: 5, month: 5, title: "Insurance Form", type: 'submitted', status: 'submitted', note: "Due Jun 5" },
-  { day: 9, month: 5, title: "Orientation Certificate", type: 'submitted', status: 'submitted', note: "Due Jun 9" },
-  { day: 9, month: 5, title: "Waiver Form", type: 'submitted', status: 'submitted', note: "Due Jun 9" },
 ]
-
-// Random value render time
-const RENDERED_DAYS_BY_MONTH: { [key: number]: number[] } = {
-  0: [3, 8, 15, 22, 27],
-  1: [4, 11, 18, 22],
-  2: [3, 10, 17, 24, 30],
-  3: [2, 8, 15, 22, 28],
-  4: [5, 12, 19, 26, 30],
-  5: [4, 11, 18, 25],
-  6: [2, 9, 16, 23, 29],
-  7: [4, 11, 18, 25, 29],
-  8: [5, 12, 19, 26],
-  9: [3, 10, 17, 24, 31],
-  10: [4, 11, 18, 25],
-  11: [3, 10, 17, 23, 28],
-}
-
-const RENDERED_TIME_BY_MONTH: { [key: number]: { [key: number]: string } } = {
-  0: { 3: "2h 30m", 8: "1h 45m", 15: "3h 15m", 22: "4h 0m", 27: "2h 10m" },
-  1: { 4: "3h 20m", 11: "2h 0m", 18: "5h 30m", 22: "1h 50m" },
-  2: { 3: "4h 15m", 10: "2h 45m", 17: "3h 0m", 24: "6h 20m", 30: "2h 30m" },
-  3: { 2: "1h 30m", 8: "3h 40m", 15: "4h 20m", 22: "2h 15m", 28: "5h 0m" },
-  4: { 5: "3h 10m", 12: "4h 30m", 19: "2h 50m", 26: "3h 45m", 30: "1h 20m" },
-  5: { 4: "5h 0m", 11: "2h 30m", 18: "3h 30m", 25: "4h 10m" },
-  6: { 2: "2h 20m", 9: "3h 15m", 16: "4h 45m", 23: "1h 40m", 29: "3h 0m" },
-  7: { 4: "4h 10m", 11: "2h 40m", 18: "5h 20m", 25: "3h 30m", 29: "2h 50m" },
-  8: { 5: "3h 0m", 12: "4h 30m", 19: "2h 15m", 26: "5h 45m" },
-  9: { 3: "2h 50m", 10: "3h 20m", 17: "4h 0m", 24: "6h 10m", 31: "2h 0m" },
-  10: { 4: "3h 40m", 11: "5h 15m", 18: "2h 30m", 25: "4h 20m" },
-  11: { 3: "4h 30m", 10: "3h 0m", 17: "5h 40m", 23: "2h 20m", 28: "3h 50m" },
-}
 
 const MONTH_NAMES_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 export default function CalendarOverview({
   month,
   year,
+  documentEvents = [],
+  renderedDaysByMonth = {},
+  renderedTimeByMonth = {},
   onMonthChange,
   onDayClick,
   onRenderedDayClick,
@@ -137,7 +97,7 @@ export default function CalendarOverview({
     const handleResize = () => {
       const width = window.innerWidth
       setIsMobile(width < 768)
-      setIsVerySmall(width < 380) 
+      setIsVerySmall(width < 380)
     }
     handleResize()
     window.addEventListener('resize', handleResize)
@@ -145,11 +105,11 @@ export default function CalendarOverview({
   }, [])
 
   const getRenderedDaysForMonth = () => {
-    const allDays = RENDERED_DAYS_BY_MONTH[currentMonth] || []
+    const allDays = renderedDaysByMonth[currentMonth] || []
     const todayDay = today.getDate()
     const todayMonth = today.getMonth()
     const todayYear = today.getFullYear()
-    
+
     if (currentYear === todayYear && currentMonth === todayMonth) {
       return allDays.filter(day => day <= todayDay)
     }
@@ -161,14 +121,15 @@ export default function CalendarOverview({
 
   const renderedDays = getRenderedDaysForMonth()
   const renderedTime: { [key: number]: string } = {}
-  const allRenderedTime = RENDERED_TIME_BY_MONTH[currentMonth] || {}
+  const allRenderedTime = renderedTimeByMonth[currentMonth] || {}
   renderedDays.forEach(day => {
     if (allRenderedTime[day]) {
       renderedTime[day] = allRenderedTime[day]
     }
   })
 
-  const currentMonthEvents = FIXED_EVENTS.filter(e => e.month === currentMonth)
+  const allEvents = [...HOLIDAYS, ...documentEvents]
+  const currentMonthEvents = allEvents.filter(e => e.month === currentMonth)
   const eventMap = new Map<number, CalendarEvent[]>()
   currentMonthEvents.forEach(e => {
     if (!eventMap.has(e.day)) {
@@ -235,7 +196,7 @@ export default function CalendarOverview({
   }
 
   const isHoliday = (day: number) => {
-    return FIXED_EVENTS.some(e => e.month === currentMonth && e.day === day && e.type === 'holiday')
+    return HOLIDAYS.some(e => e.month === currentMonth && e.day === day && e.type === 'holiday')
   }
 
   const isFutureDate = (day: number) => {
@@ -262,7 +223,7 @@ export default function CalendarOverview({
     const hasHoliday = events.some(e => e.type === 'holiday')
     const hasDocuments = events.some(e => e.type === 'deadline' || e.type === 'submitted')
     const totalDocs = events.filter(e => e.type === 'deadline' || e.type === 'submitted').length
-    
+
     if (hasDocuments) {
       if (totalDocs >= 2) {
         return { type: 'multiple', count: totalDocs - 1, color: COLORS.maroon }
@@ -270,7 +231,7 @@ export default function CalendarOverview({
         return { type: 'single', color: COLORS.maroon }
       }
     }
-    
+
     if (hasHoliday) return { type: 'holiday' }
     return null
   }
@@ -312,8 +273,8 @@ export default function CalendarOverview({
           width: isMobile ? "100%" : "auto",
           gap: isVerySmall ? "1px" : "2px",
         }}>
-          <button 
-            onClick={() => navigate(-1)} 
+          <button
+            onClick={() => navigate(-1)}
             style={{
               ...styles.iconBtn,
               width: isVerySmall ? "28px" : "36px",
@@ -329,9 +290,9 @@ export default function CalendarOverview({
           >
             ‹
           </button>
-          
-          <button 
-            onClick={() => setShowMonthPicker(!showMonthPicker)} 
+
+          <button
+            onClick={() => setShowMonthPicker(!showMonthPicker)}
             style={{
               ...styles.monthBtn,
               padding: isVerySmall ? "4px 6px" : isMobile ? "6px 10px" : "6px 14px",
@@ -350,9 +311,9 @@ export default function CalendarOverview({
             <span style={styles.yearText}>{currentYear}</span>
             <span style={styles.arrowDown}>▾</span>
           </button>
-          
-          <button 
-            onClick={() => navigate(1)} 
+
+          <button
+            onClick={() => navigate(1)}
             style={{
               ...styles.iconBtn,
               width: isVerySmall ? "28px" : "36px",
@@ -370,8 +331,8 @@ export default function CalendarOverview({
           </button>
         </div>
 
-        <button 
-          onClick={goToToday} 
+        <button
+          onClick={goToToday}
           style={{
             ...styles.todayBtn,
             width: isMobile ? "100%" : "auto",
@@ -394,16 +355,16 @@ export default function CalendarOverview({
 
       {showMonthPicker && (
         <div style={styles.overlay} onClick={() => setShowMonthPicker(false)}>
-            <div style={{
+          <div style={{
             ...styles.popup,
             width: isVerySmall ? "95%" : isMobile ? "90%" : "280px",
             padding: isVerySmall ? "16px" : "24px",
             paddingTop: isVerySmall ? "47px" : "55px",
             position: 'relative' as const,
-            }} onClick={(e) => e.stopPropagation()}>
-            <button 
-                onClick={() => setShowMonthPicker(false)}
-                style={{
+          }} onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowMonthPicker(false)}
+              style={{
                 position: 'absolute' as const,
                 top: '12px',
                 right: '12px',
@@ -417,78 +378,78 @@ export default function CalendarOverview({
                 transition: 'color 0.15s',
                 lineHeight: 1,
                 zIndex: 10,
-                }}
-                onMouseEnter={(e) => {
+              }}
+              onMouseEnter={(e) => {
                 e.currentTarget.style.color = COLORS.maroon
-                }}
-                onMouseLeave={(e) => {
+              }}
+              onMouseLeave={(e) => {
                 e.currentTarget.style.color = COLORS.muted
-                }}
+              }}
             >
-                ✕
+              ✕
             </button>
-            
+
             <div style={styles.popupHeader}>
-                <button 
-                onClick={() => setCurrentYear(y => y - 1)} 
+              <button
+                onClick={() => setCurrentYear(y => y - 1)}
                 style={styles.popupNav}
                 onMouseEnter={(e) => {
-                    e.currentTarget.style.background = COLORS.hover
+                  e.currentTarget.style.background = COLORS.hover
                 }}
                 onMouseLeave={(e) => {
-                    e.currentTarget.style.background = COLORS.white
+                  e.currentTarget.style.background = COLORS.white
                 }}
-                >
+              >
                 ‹
-                </button>
-                <span style={styles.popupYear}>{currentYear}</span>
-                <button 
-                onClick={() => setCurrentYear(y => y + 1)} 
+              </button>
+              <span style={styles.popupYear}>{currentYear}</span>
+              <button
+                onClick={() => setCurrentYear(y => y + 1)}
                 style={styles.popupNav}
                 onMouseEnter={(e) => {
-                    e.currentTarget.style.background = COLORS.hover
+                  e.currentTarget.style.background = COLORS.hover
                 }}
                 onMouseLeave={(e) => {
-                    e.currentTarget.style.background = COLORS.white
+                  e.currentTarget.style.background = COLORS.white
                 }}
-                >
+              >
                 ›
-                </button>
+              </button>
             </div>
             <div style={{
-                ...styles.popupGrid,
-                gap: isVerySmall ? "4px" : "8px",
-                marginTop: '8px',
+              ...styles.popupGrid,
+              gap: isVerySmall ? "4px" : "8px",
+              marginTop: '8px',
             }}>
-                {MONTHS.map((name, idx) => (
+              {MONTHS.map((name, idx) => (
                 <button
-                    key={idx}
-                    onClick={() => goToMonth(idx, currentYear)}
-                    style={{
+                  key={idx}
+                  onClick={() => goToMonth(idx, currentYear)}
+                  style={{
                     ...styles.monthOption,
                     padding: isVerySmall ? "6px" : "10px",
                     fontSize: isVerySmall ? "11px" : "13px",
                     background: idx === currentMonth ? COLORS.gold : 'transparent',
                     color: idx === currentMonth ? COLORS.white : COLORS.text,
-                    }}
-                    onMouseEnter={(e) => {
+                  }}
+                  onMouseEnter={(e) => {
                     if (idx !== currentMonth) {
-                        e.currentTarget.style.background = COLORS.hover
+                      e.currentTarget.style.background = COLORS.hover
                     }
-                    }}
-                    onMouseLeave={(e) => {
+                  }}
+                  onMouseLeave={(e) => {
                     if (idx !== currentMonth) {
-                        e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.background = 'transparent'
                     }
-                    }}
+                  }}
                 >
-                    {name.slice(0, 3)}
+                  {name.slice(0, 3)}
                 </button>
-                ))}
+              ))}
             </div>
-            </div>
+          </div>
         </div>
-        )}
+      )}
 
       {/* Event Popup */}
       {selectedEvent && (
@@ -506,8 +467,8 @@ export default function CalendarOverview({
               }}>
                 {MONTH_NAMES_SHORT[currentMonth]} {selectedEvent.day}, {currentYear}
               </span>
-              <button 
-                onClick={() => setSelectedEvent(null)} 
+              <button
+                onClick={() => setSelectedEvent(null)}
                 style={{
                   ...styles.closeBtn,
                   fontSize: isVerySmall ? "16px" : isMobile ? "20px" : "22px",
@@ -562,8 +523,8 @@ export default function CalendarOverview({
               }}>
                 {MONTH_NAMES_SHORT[currentMonth]} {selectedDayEvents.day}, {currentYear}
               </span>
-              <button 
-                onClick={() => setSelectedDayEvents(null)} 
+              <button
+                onClick={() => setSelectedDayEvents(null)}
                 style={{
                   ...styles.closeBtn,
                   fontSize: isVerySmall ? "16px" : isMobile ? "20px" : "22px",
@@ -589,7 +550,7 @@ export default function CalendarOverview({
                 const isLast = index === selectedDayEvents.events.length - 1
                 const label = getEventLabel(event)
                 const isHoliday = event.type === 'holiday'
-                
+
                 return (
                   <div key={index}>
                     <div style={{
@@ -643,8 +604,8 @@ export default function CalendarOverview({
               }}>
                 {MONTH_NAMES_SHORT[currentMonth]} {selectedRenderedDay}, {currentYear}
               </span>
-              <button 
-                onClick={() => setSelectedRenderedDay(null)} 
+              <button
+                onClick={() => setSelectedRenderedDay(null)}
                 style={{
                   ...styles.closeBtn,
                   fontSize: isVerySmall ? "16px" : isMobile ? "20px" : "22px",
@@ -699,9 +660,9 @@ export default function CalendarOverview({
         {cells.map((cell, idx) => {
           const dayEvents = cell.inMonth ? eventMap.get(cell.day) || [] : []
           const hasEvent = dayEvents.length > 0
-          const isToday = cell.inMonth && 
-            currentYear === today.getFullYear() && 
-            currentMonth === today.getMonth() && 
+          const isToday = cell.inMonth &&
+            currentYear === today.getFullYear() &&
+            currentMonth === today.getMonth() &&
             cell.day === today.getDate()
           const isHolidayDay = cell.inMonth && isHoliday(cell.day)
           const isFuture = cell.inMonth && isFutureDate(cell.day)
@@ -765,7 +726,7 @@ export default function CalendarOverview({
                     borderRadius: '3px',
                     marginTop: isVerySmall ? "1px" : "2px",
                   }} />
-                  
+
                   {indicator.type === 'multiple' && indicator.count !== undefined && indicator.count > 0 && (
                     <div style={{
                       fontSize: isVerySmall ? "6px" : isMobile ? "7px" : "8px",
@@ -794,8 +755,8 @@ export default function CalendarOverview({
       }}>
         <div style={styles.legendItem}>
           <div style={{
-            ...styles.legendDot, 
-            background: COLORS.gold, 
+            ...styles.legendDot,
+            background: COLORS.gold,
             borderRadius: '50%',
             width: isVerySmall ? "10px" : "12px",
             height: isVerySmall ? "10px" : "12px",
@@ -804,9 +765,9 @@ export default function CalendarOverview({
         </div>
         <div style={styles.legendItem}>
           <div style={{
-            ...styles.legendDot, 
-            background: COLORS.green, 
-            borderRadius: '3px', 
+            ...styles.legendDot,
+            background: COLORS.green,
+            borderRadius: '3px',
             height: isVerySmall ? "3px" : "4px",
             width: isVerySmall ? "8px" : "10px",
           }} />
@@ -814,25 +775,25 @@ export default function CalendarOverview({
         </div>
         <div style={styles.legendItem}>
           <div style={{
-            ...styles.legendDot, 
-            background: COLORS.maroon, 
-            borderRadius: '3px', 
+            ...styles.legendDot,
+            background: COLORS.maroon,
+            borderRadius: '3px',
             height: isVerySmall ? "3px" : "4px",
             width: isVerySmall ? "8px" : "10px",
           }} />
           <span style={{ fontSize: legendFontSize }}>Document</span>
         </div>
         <div style={styles.legendItem}>
-        <div style={{
+          <div style={{
             width: isVerySmall ? "5px" : "6px",
             height: isVerySmall ? "5px" : "6px",
             borderRadius: '50%',
             background: COLORS.gold,
             flexShrink: 0,
-        }} />
-        <span style={{ fontSize: legendFontSize }}>Rendered</span>
+          }} />
+          <span style={{ fontSize: legendFontSize }}>Rendered</span>
         </div>
-    </div>
+      </div>
     </div>
   )
 }

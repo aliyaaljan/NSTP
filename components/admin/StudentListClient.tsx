@@ -99,7 +99,7 @@ function FilterDropdown({
   value: string
   onChange: (value: string) => void
   children: React.ReactNode
-  containerRef?: React.RefObject<HTMLDivElement | null>
+  containerRef?: React.Ref<HTMLDivElement>
 }) {
   return (
     <div
