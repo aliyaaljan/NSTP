@@ -13,4 +13,9 @@ export const DATABASE_IDS = {
   attendanceEventTypes: {
     timeIn: "a5875822-8dbf-47d5-bd3e-ec495bded29a",
   },
+  formSubmissionStatuses: {
+    submitted: "edd0dbcf-f3a0-4e09-8201-20ae70eba840",
+    approved: "cec6417f-6d9c-4fe0-8772-cc37866a5b84",
+    rejected: "981d88d0-bf44-4fde-b873-a20c5b20daa8",
+  },
 } as const
