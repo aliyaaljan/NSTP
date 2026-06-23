@@ -33,12 +33,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { icon: "ti-layout-dashboard", label: "Dashboard", href: "/studentLeader/dashboard" },
-  { icon: "ti-presentation", label: "My Class", href: "/studentLeader/class" },
-  { icon: "ti-scan", label: "Scanner", href: "/studentLeader/scanner" },
-  { icon: "ti-users", label: "Attendance", href: "/studentLeader/attendance" },
-  { icon: "ti-clipboard-check", label: "Documents", href: "/studentLeader/documents" },
-  { icon: "ti-pencil", label: "Submit Request", href: "/studentLeader/submit-request" },
+  { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/leader/dashboard" },
+  { icon: "ti-presentation", label: "My Class", href: "/student/leader/class" },
+  { icon: "ti-scan", label: "Scanner", href: "/student/leader/scanner" },
+  { icon: "ti-users", label: "Attendance", href: "/student/leader/attendance" },
+  { icon: "ti-clipboard-check", label: "Documents", href: "/student/leader/documents" },
+  { icon: "ti-pencil", label: "Submit Request", href: "/student/leader/submit-request" },
 ]
 
 export default function StudentSidebar() {
@@ -222,8 +222,8 @@ export default function StudentSidebar() {
               const active =
                 pathname === item.href ||
                 (item.label === "Dashboard" &&
-                  (pathname === "/studentLeader/dashboard" ||
-                    pathname === "/studentLeader"))
+                  (pathname === "/student/leader/dashboard" ||
+                    pathname === "/student/leader"))
 
               return (
                 <Link
