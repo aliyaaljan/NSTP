@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter } from "next/navigation";
 import {
   IconSearch, IconQrcode, IconChevronDown,
@@ -313,7 +313,7 @@ const myStudentsStyles = `
   .ms-modal-progress { margin-top: 4px; }
 `;
 
-export default function MyStudentsPage() {
+function MyStudentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeNav, setActiveNav] = useState("Dashboard")
@@ -334,7 +334,6 @@ export default function MyStudentsPage() {
 
   useEffect(() => {
     const tab = searchParams.get("tab")
-    console.log(tab)
     if (tab === "pending" || tab === "list") {
       setActiveTab(tab)
     }
@@ -793,5 +792,13 @@ export default function MyStudentsPage() {
         {scannerOpen && <QrScanner onClose={() => setScannerOpen(false)} />}
       </div>
     </>
+  );
+}
+
+export default function MyStudentsPage() {
+  return (
+    <Suspense>
+      <MyStudentsContent />
+    </Suspense>
   );
 }
