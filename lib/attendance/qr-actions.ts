@@ -1,12 +1,13 @@
 "use server"
 
-import { createHmac, randomBytes } from "crypto"
+import { randomBytes } from "crypto"
 import { headers } from "next/headers"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { getActiveLeaderEnrollment } from "@/lib/auth/leader"
-import { DATABASE_IDS } from "@/lib/constants"
+import { resolveActiveStudentEnrollment } from "@/lib/student/enrollment"
 import { parseUserAgent } from "@/lib/user-agent"
+import { encryptQrPayload, decryptQrPayload } from "@/lib/attendance/qr-crypto"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,9 +16,22 @@ import { parseUserAgent } from "@/lib/user-agent"
 export type QrTokenPayload = {
   enrollmentId: string
   nonce: string
-  signature: string
-  generatedAt: string  // ISO
-  expiresAt: string    // ISO
+  generatedAt: string
+  expiresAt: string
+  latitude: number
+  longitude: number
+  accuracy_meter: number
+  device_type: string | null
+  browser: string | null
+  os: string | null
+  ip_address: string | null
+}
+
+export type QrDisplayInfo = {
+  generatedAt: string
+  expiresAt: string
+  latitude: number
+  longitude: number
 }
 
 export type ScanMeta = {
@@ -32,34 +46,19 @@ export type AttendanceResult = {
   effective_at: string
 }
 
+export type GeoInput = {
+  latitude: number
+  longitude: number
+  accuracy_meter: number
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function getSigningSecret(): string {
-  const secret = process.env.QR_SIGNING_SECRET
-  if (!secret) throw new Error("QR_SIGNING_SECRET is not set")
-  return secret
-}
-
-function signNonce(enrollmentId: string, nonce: string): string {
-  return createHmac("sha256", getSigningSecret())
-    .update(`${enrollmentId}.${nonce}`)
-    .digest("hex")
-}
-
-function verifySignature(enrollmentId: string, nonce: string, sig: string): boolean {
-  const expected = signNonce(enrollmentId, nonce)
-  // Constant-time comparison to avoid timing attacks
-  if (expected.length !== sig.length) return false
-  let diff = 0
-  for (let i = 0; i < expected.length; i++) {
-    diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i)
-  }
-  return diff === 0
-}
-
-async function buildScannerMeta(geo?: ScanMeta) {
+// Reads the caller's device/IP fingerprint from the incoming request headers.
+// Shared by QR generation (student's device) and scan/time-out (scanner's device).
+async function getRequestClientMeta() {
   const h = await headers()
   const ua = h.get("user-agent")
   const ip =
@@ -67,55 +66,52 @@ async function buildScannerMeta(geo?: ScanMeta) {
     h.get("x-real-ip") ??
     null
   const { device_type, browser, os } = parseUserAgent(ua)
+  return { device_type, browser, os, ip_address: ip }
+}
+
+async function buildScannerMeta(geo?: ScanMeta) {
   return {
     latitude: geo?.latitude ?? null,
     longitude: geo?.longitude ?? null,
     accuracy_meter: geo?.accuracy_meter ?? null,
-    device_type,
-    browser,
-    os,
-    ip_address: ip,
+    ...(await getRequestClientMeta()),
   }
 }
 
 // ---------------------------------------------------------------------------
 // generateQrToken
 // Called by the student on their attendance page.
-// Generates a crypto-random nonce, UPSERTs qr_current_token (60 s window),
-// and returns the payload the frontend encodes into a QR image.
+// Requires the student's geolocation — generation is blocked without it.
+// Returns an AES-256-GCM encrypted token (opaque) + display-only metadata.
 // ---------------------------------------------------------------------------
-export async function generateQrToken(): Promise<
-  { ok: true; payload: QrTokenPayload } | { ok: false; error: string }
+export async function generateQrToken(
+  geo: GeoInput
+): Promise<
+  { ok: true; token: string; display: QrDisplayInfo } | { ok: false; error: string }
 > {
+  if (
+    !geo ||
+    typeof geo.latitude !== "number" || !Number.isFinite(geo.latitude) ||
+    typeof geo.longitude !== "number" || !Number.isFinite(geo.longitude)
+  ) {
+    return { ok: false, error: "Location is required to generate a QR." }
+  }
+
   const supabase = await createSupabaseServerClient()
   const service = createSupabaseServiceClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not authenticated" }
 
-  // Resolve student's active enrollment
-  const { data: enrollmentRows } = await service
-    .from("enrollment")
-    .select("enrollment_id")
-    .eq("student_user_id", user.id)
-    .eq("enrollment_status_id", DATABASE_IDS.enrollmentStatuses.active)
-    .limit(1)
-
-  const enrollmentId = enrollmentRows?.[0]?.enrollment_id
-  if (!enrollmentId) return { ok: false, error: "No active enrollment found" }
+  const enrollment = await resolveActiveStudentEnrollment(service, user.id)
+  if (!enrollment) return { ok: false, error: "No active enrollment found" }
+  const enrollmentId = enrollment.enrollmentId
 
   const nonce = randomBytes(32).toString("hex")
-  const signature = signNonce(enrollmentId, nonce)
   const generatedAt = new Date()
   const expiresAt = new Date(generatedAt.getTime() + 60_000)
 
-  const h = await headers()
-  const ua = h.get("user-agent")
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    h.get("x-real-ip") ??
-    null
-  const { device_type, browser, os } = parseUserAgent(ua)
+  const { device_type, browser, os, ip_address: ip } = await getRequestClientMeta()
 
   const { error } = await service
     .from("qr_current_token")
@@ -136,31 +132,42 @@ export async function generateQrToken(): Promise<
     return { ok: false, error: "Failed to generate QR token" }
   }
 
+  const payload: QrTokenPayload = {
+    enrollmentId,
+    nonce,
+    generatedAt: generatedAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    latitude: geo.latitude,
+    longitude: geo.longitude,
+    accuracy_meter: geo.accuracy_meter ?? 0,
+    device_type,
+    browser,
+    os,
+    ip_address: ip,
+  }
+
+  const token = encryptQrPayload(payload)
+
   return {
     ok: true,
-    payload: {
-      enrollmentId,
-      nonce,
-      signature,
+    token,
+    display: {
       generatedAt: generatedAt.toISOString(),
       expiresAt: expiresAt.toISOString(),
-      // Device metadata embedded so the scanner can forward it as generated_meta
-      ...(device_type ? { device_type } : {}),
-      ...(browser ? { browser } : {}),
-      ...(os ? { os } : {}),
-      ...(ip ? { ip_address: ip } : {}),
-    } as QrTokenPayload & Record<string, string>,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+    },
   }
 }
 
 // ---------------------------------------------------------------------------
 // recordScan
 // Called by the student leader (or adviser) after decoding the student's QR.
-// payload: the decoded QrTokenPayload from the student's QR code.
+// token: the opaque AES-256-GCM encrypted string from the QR code.
 // scannerGeo: the scanner's GPS coordinates (captured on the scanner device).
 // ---------------------------------------------------------------------------
 export async function recordScan(
-  payload: QrTokenPayload & Record<string, string>,
+  token: string,
   scannerGeo?: ScanMeta
 ): Promise<{ ok: true; result: AttendanceResult } | { ok: false; error: string }> {
   const supabase = await createSupabaseServerClient()
@@ -169,17 +176,16 @@ export async function recordScan(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not authenticated" }
 
-  // Validate payload shape
-  if (!payload.enrollmentId || !payload.nonce || !payload.signature) {
-    return { ok: false, error: "Invalid QR payload" }
+  const payload = decryptQrPayload(token)
+  if (!payload || !payload.enrollmentId || !payload.nonce) {
+    return { ok: false, error: "Invalid or tampered QR" }
   }
 
-  // Verify HMAC — defense-in-depth (the DB CAS is authoritative)
-  if (!verifySignature(payload.enrollmentId, payload.nonce, payload.signature)) {
-    return { ok: false, error: "QR signature invalid" }
+  const expiresAtMs = new Date(payload.expiresAt as string).getTime()
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+    return { ok: false, error: "QR code has expired" }
   }
 
-  // Resolve the student's section from the enrollment
   const { data: enrollmentRow } = await service
     .from("enrollment")
     .select("section_id")
@@ -188,7 +194,6 @@ export async function recordScan(
 
   if (!enrollmentRow) return { ok: false, error: "Enrollment not found" }
 
-  // Authz: scanner must lead or advise the student's section
   const { data: leadsData } = await supabase.rpc("app_leads_section", {
     p_section_id: enrollmentRow.section_id,
   })
@@ -202,25 +207,26 @@ export async function recordScan(
 
   const scannerMeta = await buildScannerMeta(scannerGeo)
 
-  // generated_meta: what the student's device stamped into the QR payload
   const generatedMeta = {
-    signature:    payload.signature,
-    generated_at: payload.generatedAt,
-    latitude:     payload.latitude ?? null,
-    longitude:    payload.longitude ?? null,
+    // AES-256-GCM already authenticates the token, so no separate signature is
+    // stored. qr_signature stays NULL (nullable column).
+    signature: null,
+    generated_at: payload.generatedAt ?? null,
+    latitude: payload.latitude ?? null,
+    longitude: payload.longitude ?? null,
     accuracy_meter: payload.accuracy_meter ?? null,
-    device_type:  payload.device_type ?? null,
-    browser:      payload.browser ?? null,
-    os:           payload.os ?? null,
-    ip_address:   payload.ip_address ?? null,
+    device_type: payload.device_type ?? null,
+    browser: payload.browser ?? null,
+    os: payload.os ?? null,
+    ip_address: payload.ip_address ?? null,
   }
 
   const { data, error } = await service.rpc("record_attendance_scan", {
-    p_enrollment_id:  payload.enrollmentId,
-    p_nonce:          payload.nonce,
-    p_recorded_by:    user.id,
+    p_enrollment_id: payload.enrollmentId,
+    p_nonce: payload.nonce,
+    p_recorded_by: user.id,
     p_generated_meta: generatedMeta,
-    p_scan_meta:      scannerMeta,
+    p_scan_meta: scannerMeta,
   })
 
   if (error) {
@@ -245,16 +251,9 @@ export async function recordStudentTimeOut(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not authenticated" }
 
-  // Resolve student's active enrollment
-  const { data: enrollmentRows } = await service
-    .from("enrollment")
-    .select("enrollment_id")
-    .eq("student_user_id", user.id)
-    .eq("enrollment_status_id", DATABASE_IDS.enrollmentStatuses.active)
-    .limit(1)
-
-  const enrollmentId = enrollmentRows?.[0]?.enrollment_id
-  if (!enrollmentId) return { ok: false, error: "No active enrollment found" }
+  const enrollment = await resolveActiveStudentEnrollment(service, user.id)
+  if (!enrollment) return { ok: false, error: "No active enrollment found" }
+  const enrollmentId = enrollment.enrollmentId
 
   const meta = await buildScannerMeta(studentGeo)
 

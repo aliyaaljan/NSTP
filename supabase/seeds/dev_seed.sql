@@ -298,7 +298,7 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO enrollment (enrollment_id, section_id, student_user_id, enrollment_status_id)
 SELECT '5eed4233-0000-0000-0000-000000000000', '5eed3053-0000-0000-0000-000000000000', id,
-       (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'active')
+       (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'dropped')
 FROM auth.users WHERE email = 'student.test@up.edu.ph'
 ON CONFLICT DO NOTHING;
 
@@ -840,7 +840,7 @@ ON CONFLICT (appeal_message_id) DO NOTHING;
 
 -- ── Done ─────────────────────────────────────────────────────
 -- adviser.test        sees : 5 completed | 5 archived | 5 active | 1 draft sections
--- student.test        sees : 1 completed | 1 archived | 2 active (incl. CWTS-2526A) | 1 draft
+-- student.test        sees : 1 completed | 1 archived | 1 dropped | 1 active (CWTS-2526A) | 1 draft
 -- studentleader.test  sees : 1 active enrollment in CWTS-2526A (is_student_leader = true)
 -- admin.test          sees : all of the above (full read via RLS)
 --

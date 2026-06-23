@@ -3,7 +3,7 @@
 import "server-only"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
-import { DATABASE_IDS } from "@/lib/constants"
+import { resolveActiveStudentEnrollment } from "@/lib/student/enrollment"
 
 export type StudentDashboardData = {
   enrollmentId: string | null
@@ -76,64 +76,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
     const fullName = appUser?.full_name ?? ""
     const studentNumber = appUser?.student_number ?? null
 
-    const { data: activeSectionStatus } = await service
-      .from("section_status")
-      .select("section_status_id")
-      .eq("code", "active")
-      .single()
-
-    if (!activeSectionStatus) {
-      return { ok: true, data: emptyDashboard(fullName, studentNumber) }
-    }
-
-    const { data: enrollments } = await service
-      .from("enrollment")
-      .select(
-        `
-        enrollment_id,
-        section:section_id (
-          section_id,
-          name,
-          course_code,
-          required_hour_total,
-          section_status_id,
-          term:term_id ( is_active )
-        )
-      `
-      )
-      .eq("student_user_id", user.id)
-      .eq("enrollment_status_id", DATABASE_IDS.enrollmentStatuses.active)
-
-    const candidates = (enrollments ?? [])
-      .map((e) => {
-        const sec = Array.isArray(e.section) ? e.section[0] : e.section
-        return { enrollmentId: e.enrollment_id, section: sec }
-      })
-      .filter(
-        (e) =>
-          e.section &&
-          e.section.section_status_id === activeSectionStatus.section_status_id
-      )
-      .sort((a, b) => {
-        const termA = Array.isArray(a.section.term)
-          ? a.section.term[0]
-          : a.section.term
-        const termB = Array.isArray(b.section.term)
-          ? b.section.term[0]
-          : b.section.term
-        const activeA = termA?.is_active ? 1 : 0
-        const activeB = termB?.is_active ? 1 : 0
-        if (activeB !== activeA) return activeB - activeA
-        const byCourse = (a.section.course_code ?? "").localeCompare(
-          b.section.course_code ?? ""
-        )
-        if (byCourse !== 0) return byCourse
-        const byName = (a.section.name ?? "").localeCompare(b.section.name ?? "")
-        if (byName !== 0) return byName
-        return a.enrollmentId.localeCompare(b.enrollmentId)
-      })
-
-    const primary = candidates[0] ?? null
+    const primary = await resolveActiveStudentEnrollment(service, user.id)
 
     if (!primary) {
       return { ok: true, data: emptyDashboard(fullName, studentNumber) }
