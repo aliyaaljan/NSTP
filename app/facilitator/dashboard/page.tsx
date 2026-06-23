@@ -432,12 +432,12 @@ export default function DashboardPage() {
                     <div className="completion-inner">
                       <DonutChart pct={currentData.completion_pct} />
                       <div className="completion-meta">
-                        <div className="completion-name">
+                        <div className="completion-name text-center">
                           {selectedSection === "All Sections"
                             ? "NSTP Overall"
                             : selectedSection}
                         </div>
-                        <div className="completion-sub">
+                        <div className="completion-sub text-center">
                           {currentData.on_track} / {currentData.total} students on track
                         </div>
                         {currentData.at_risk > 0 && (<div className="completion-warn">
