@@ -6,7 +6,7 @@ import ScannedStudents from "@/components/student/ScannedStudents";
 
 import { useState, useEffect } from "react"
 import { Montserrat } from "next/font/google"
-import Sidebar from "@/components/shared/StudentSidebar"
+import Sidebar from "@/components/shared/StudentLeaderSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
 
 const montserrat = Montserrat({
