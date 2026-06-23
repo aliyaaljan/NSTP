@@ -2,9 +2,11 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { useState } from "react"
 import { usePathname, useRouter } from 'next/navigation'
 import { signOutWithAudit } from '@/lib/auth-actions'
 import { FONT_HEADING, TYPE } from '@/lib/admin-typography'
+import { Goblin_One } from "next/font/google"
 
 /**
  * Admin collapsible sidebar.
@@ -27,6 +29,11 @@ export interface NavGroup {
   heading: string
   items: NavItem[]
 }
+
+const goblinOne = Goblin_One({
+  subsets: ["latin"],
+  weight: "400",
+})
 
 const COLLAPSED_W = 88
 const EXPANDED_W = 256
@@ -67,6 +74,7 @@ export default function AdminSidebar({
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [expanded, setExpanded] = useState(false)
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -90,7 +98,7 @@ export default function AdminSidebar({
           padding: 22px 0 18px;
           overflow: hidden;
           white-space: nowrap;
-          z-index: 50;
+          z-index: 1000;
           transition: width 0.22s ease;
           box-shadow: 0 10px 30px rgba(0,0,0,0.12);
         }
@@ -101,17 +109,52 @@ export default function AdminSidebar({
         .nstp-link.active:hover { background: ${C.activeBg}; }
       `}</style>
 
-      <aside className="nstp-rail">
+      {expanded && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(255,255,255,0.35)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            zIndex: 40,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      <aside
+        className="nstp-rail"
+        onMouseEnter={() => setExpanded(true)}
+        onMouseLeave={() => setExpanded(false)}
+      >
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '0 22px', minHeight: 48 }}>
           <div style={{ width: COLLAPSED_W - 44, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
             <NstpLogo />
           </div>
           <div className="nstp-expand" style={{ marginLeft: 6 }}>
-            <div style={{ ...TYPE.h1, color: '#fff', letterSpacing: 1 }}>
+            <div
+              style={{
+                fontFamily: goblinOne.style.fontFamily,
+                color: "#fff",
+                fontSize: 20,
+                fontWeight: 800,
+                letterSpacing: 1,
+                lineHeight: 1,
+              }}
+            >
               NSTP
             </div>
-            <div style={{ fontFamily: FONT_BODY, fontSize: 9.5, color: 'rgba(255,255,255,0.7)' }}>
+
+            <div
+              style={{
+                fontFamily: goblinOne.style.fontFamily,
+                fontSize: 6,
+                color: "rgba(255,255,255,0.65)",
+                lineHeight: 1.4,
+              }}
+            >
               University of the Philippines Baguio
             </div>
           </div>
