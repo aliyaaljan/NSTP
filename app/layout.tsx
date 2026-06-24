@@ -1,5 +1,28 @@
 import type { Metadata } from "next"
+import { Goblin_One, Cormorant, Montserrat } from "next/font/google"
 import "./globals.css"
+
+const goblinOne = Goblin_One({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-goblin",
+  display: "swap",
+})
+
+const cormorant = Cormorant({
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-cormorant",
+  display: "swap",
+})
+
+const montserrat = Montserrat({
+  weight: ["400", "500", "600", "700", "800"],
+  subsets: ["latin"],
+  variable: "--font-montserrat",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "UP Community Extension | Login",
@@ -12,18 +35,24 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning
+      className={`${goblinOne.variable} ${cormorant.variable} ${montserrat.variable}`}
+    >
       <head>
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"
         />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap"
-          rel="stylesheet"
-        />
       </head>
-      <body>{children}</body>
+      <body
+        style={{
+          ["--font-title" as string]:   "var(--font-goblin, Georgia, serif)",
+          ["--font-sub" as string]:     "var(--font-cormorant, Georgia, serif)",
+          ["--font-content" as string]: "var(--font-montserrat, 'Helvetica Neue', Arial, sans-serif)",
+        }}
+      >
+        {children}
+      </body>
     </html>
   )
 }

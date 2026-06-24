@@ -1,10 +1,15 @@
 "use client"
+import { Goblin_One, Cormorant, Montserrat } from "next/font/google"
 import { createClient } from "@/lib/client"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import styles from "./LoginForm.module.css"
 import { signInWithDevPassword } from "@/lib/auth/dev-login"
+
+const goblinOne = Goblin_One({ weight: "400", subsets: ["latin"], display: "swap" })
+const cormorant = Cormorant({ weight: ["400","500","600","700"], style: ["normal","italic"], subsets: ["latin"], display: "swap" })
+const montserrat = Montserrat({ weight: ["400","500","600","700","800"], subsets: ["latin"], display: "swap" })
 
 const DEV_ENABLED = process.env.NEXT_PUBLIC_DEV_AUTH_ENABLED === "true"
 
@@ -43,7 +48,7 @@ export default function LoginForm() {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${goblinOne.className} ${cormorant.className} ${montserrat.className}`}>
       {/* ── Left: login form ── */}
       <div className={styles.leftPanel}>
         <div className={styles.formWrap}>
@@ -129,13 +134,12 @@ export default function LoginForm() {
           <h1 className={styles.brandTitle}>
             Welcome to
             <br />
-            <em>NSTP</em>
+            NSTP
           </h1>
           <p className={styles.brandSub}>National Service Training Program</p>
           <div className={styles.brandDivider} />
           <p className={styles.brandCaption}>
-            Coordinating student service hours, facilitator forms, and community
-            outreach — all in one place.
+            Built for UP Baguio students
           </p>
         </div>
       </div>
