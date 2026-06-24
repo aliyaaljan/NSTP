@@ -1,7 +1,7 @@
 "use server"
 
 import { getAppUserRole } from "@/lib/auth-actions"
-import { DATABASE_IDS } from "@/lib/constants"
+import { lookupId } from "@/lib/lookups"
 import {
   ADVISER_LIST_ALL_SECTIONS,
   ADVISER_LIST_SELECT,
@@ -36,10 +36,10 @@ export async function getAdviserListData(
   query: AdviserListQuery
 ): Promise<AdviserListPageData> {
   const supabase = await createSupabaseServerClient()
-  const adviserRoleId = DATABASE_IDS.roles.adviser
-  const activeStatusId = DATABASE_IDS.enrollmentStatuses.active
-  const openStatusId = DATABASE_IDS.appealStatuses.open
-  const underReviewStatusId = DATABASE_IDS.appealStatuses.underReview
+  const adviserRoleId = await lookupId("role", "adviser")
+  const activeStatusId = await lookupId("enrollment_status", "active")
+  const openStatusId = await lookupId("appeal_status", "open")
+  const underReviewStatusId = await lookupId("appeal_status", "under_review")
 
   let adviserSelect: string = ADVISER_LIST_SELECT
 

@@ -4,7 +4,7 @@ import "server-only"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { uploadFormFile, deleteFormFile, getSignedUrl } from "@/lib/forms/storage"
-import { DATABASE_IDS } from "@/lib/constants"
+import { lookupId } from "@/lib/lookups"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,12 +82,16 @@ export async function submitForm(
     // §4a: verify the caller owns this enrollment
     const { data: enrollment } = await service
       .from("enrollment")
-      .select("enrollment_id, section_id, student_user_id")
+      .select("enrollment_id, section_id, student_user_id, enrollment_status_id")
       .eq("enrollment_id", enrollmentId)
       .single()
 
     if (!enrollment || enrollment.student_user_id !== user.id) {
       return { ok: false, error: "You are not enrolled with this enrollment" }
+    }
+
+    if (enrollment.enrollment_status_id !== (await lookupId("enrollment_status", "active"))) {
+      return { ok: false, error: "This enrollment is not active" }
     }
 
     // §4b: verify the requirement applies to this section (resolution rule)
@@ -147,7 +151,7 @@ export async function submitForm(
           file_name: upload.sanitizedName,
           content_type: upload.contentType,
           file_size_byte: upload.fileSize,
-          form_submission_status_id: DATABASE_IDS.formSubmissionStatuses.submitted,
+          form_submission_status_id: await lookupId("form_submission_status", "submitted"),
           reviewer_comment: null,
           reviewed_by_user_id: null,
           reviewed_at: null,
@@ -259,7 +263,7 @@ export async function getMyForms(
         (status === "missing"
           ? now > new Date(req.due_date + "T23:59:59+08:00")
           : sub != null &&
-            new Date(sub.submitted_at) > new Date(req.due_date + "T23:59:59+08:00"))
+          new Date(sub.submitted_at) > new Date(req.due_date + "T23:59:59+08:00"))
 
       return {
         form_requirement_id: req.form_requirement_id,
@@ -378,7 +382,7 @@ export async function getSubmissionsByForm(
         "enrollment_id, student_user_id, app_user:app_user!inner(full_name, student_number)"
       )
       .eq("section_id", sectionId)
-      .eq("enrollment_status_id", DATABASE_IDS.enrollmentStatuses.active)
+      .eq("enrollment_status_id", await lookupId("enrollment_status", "active"))
 
     if (!enrollments || enrollments.length === 0) {
       return {
@@ -419,8 +423,8 @@ export async function getSubmissionsByForm(
           (status === "missing"
             ? new Date() > new Date(req.due_date + "T23:59:59+08:00")
             : sub != null &&
-              new Date(sub.submitted_at) >
-                new Date(req.due_date + "T23:59:59+08:00"))
+            new Date(sub.submitted_at) >
+            new Date(req.due_date + "T23:59:59+08:00"))
 
         return {
           enrollment_id: enr.enrollment_id,
@@ -472,8 +476,8 @@ export async function reviewSubmission(
 
     const statusId =
       decision === "approved"
-        ? DATABASE_IDS.formSubmissionStatuses.approved
-        : DATABASE_IDS.formSubmissionStatuses.rejected
+        ? await lookupId("form_submission_status", "approved")
+        : await lookupId("form_submission_status", "rejected")
 
     const { data: updated, error } = await service
       .from("form_submission")
@@ -567,7 +571,7 @@ export async function getCompletionOverview(): Promise<
     const { count: totalEnrolled } = await service
       .from("enrollment")
       .select("enrollment_id", { count: "exact", head: true })
-      .eq("enrollment_status_id", DATABASE_IDS.enrollmentStatuses.active)
+      .eq("enrollment_status_id", await lookupId("enrollment_status", "active"))
 
     const statusCodes = await getStatusCodeMap(service)
 

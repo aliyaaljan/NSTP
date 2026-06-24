@@ -1,6 +1,6 @@
 import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { DATABASE_IDS } from "@/lib/constants"
+import { lookupId } from "@/lib/lookups"
 
 export type ActiveLeaderEnrollment = {
   enrollmentId: string
@@ -17,7 +17,7 @@ export async function getActiveLeaderEnrollment(
     .from("enrollment")
     .select(`
       enrollment_id,
-      section:section_id (
+      section:section_id!inner (
         section_id,
         name,
         course_code
@@ -25,7 +25,8 @@ export async function getActiveLeaderEnrollment(
     `)
     .eq("student_user_id", userId)
     .eq("is_student_leader", true)
-    .eq("enrollment_status_id", DATABASE_IDS.enrollmentStatuses.active)
+    .eq("enrollment_status_id", await lookupId("enrollment_status", "active"))
+    .eq("section.section_status_id", await lookupId("section_status", "active"))
 
   if (error) {
     console.error("[getActiveLeaderEnrollment] query failed", error)

@@ -1,6 +1,6 @@
 import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { DATABASE_IDS } from "@/lib/constants"
+import { lookupId } from "@/lib/lookups"
 
 export type ActiveStudentEnrollment = {
   enrollmentId: string
@@ -47,7 +47,7 @@ export async function resolveActiveStudentEnrollment(
     `
     )
     .eq("student_user_id", userId)
-    .eq("enrollment_status_id", DATABASE_IDS.enrollmentStatuses.active)
+    .eq("enrollment_status_id", await lookupId("enrollment_status", "active"))
 
   const candidates = (enrollments ?? [])
     .map((e) => {

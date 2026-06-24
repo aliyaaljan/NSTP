@@ -313,6 +313,12 @@ create index attendance_event_corrects_idx    on attendance_event(corrects_event
 create index form_uploaded_by_idx             on form(uploaded_by_user_id);
 create index role_change_target_idx           on role_change(target_user_id);
 create index role_change_changed_by_idx       on role_change(changed_by_user_id);
+create index appeal_status_idx                on appeal(appeal_status_id);
+create index attendance_event_source_idx      on attendance_event(attendance_event_source_id);
+create index attendance_session_status_idx    on attendance_session(attendance_session_status_id);
+create index role_change_old_role_idx         on role_change(old_role_id);
+create index role_change_new_role_idx         on role_change(new_role_id);
+create index section_status_idx               on section(section_status_id);
 
 -- ============================================================
 -- updated_at auto-maintenance (moddatetime)
@@ -386,3 +392,166 @@ insert into section_status (code, name) values
   ('completed', 'Completed'),
   ('archived',  'Archived')
 on conflict (code) do nothing;
+
+-- ============================================================
+-- Audit log — append-only "who changed what" trail.
+-- (Captured here from production; originally created ad hoc in the
+--  SQL editor. RLS for these tables lives in 0002_rls.sql; the
+--  form_requirement/form_submission audit triggers live in 0006.)
+--
+-- Label tables intentionally keep natural-key PKs (they are static
+-- display config joined by name, referenced by no FK) — see review F15.
+-- ============================================================
+create table if not exists audit_table_labels (
+  table_name text primary key,
+  label      text not null
+);
+
+create table if not exists audit_field_labels (
+  table_name text not null,
+  field_name text not null,
+  label      text not null,
+  field_type text not null default 'text',
+  primary key (table_name, field_name)
+);
+
+create table if not exists audit_log (
+  audit_log_id   uuid primary key default gen_random_uuid(),
+  actor_user_id  uuid references app_user(app_user_id),
+  table_name     text not null,
+  record_id      uuid not null,
+  action         text not null,            -- INSERT | UPDATE | DELETE (TG_OP)
+  old_data       jsonb,
+  new_data       jsonb,
+  changed_fields text[],
+  created_at     timestamptz not null default now()
+);
+
+-- Indexes for the recent-activity feed + audit page (review F16/F7).
+create index if not exists audit_log_created_at_idx   on audit_log(created_at desc);
+create index if not exists audit_log_actor_idx        on audit_log(actor_user_id);
+create index if not exists audit_log_table_record_idx on audit_log(table_name, record_id);
+
+-- Value formatter used by the readable view.
+create or replace function public.fn_format_audit_value(p_value text, p_type text)
+returns text language plpgsql
+set search_path = public, pg_temp as $$
+begin
+  if p_value is null then return 'empty'; end if;
+  case p_type
+    when 'timestamp' then return to_char(p_value::timestamptz, 'Mon DD, YYYY HH12:MI AM');
+    when 'boolean'   then return case p_value when 'true' then 'yes' when 'false' then 'no' else p_value end;
+    else return p_value;
+  end case;
+exception when others then
+  return p_value;
+end;
+$$;
+
+-- Trigger fn: append one audit_log row per change. Executes as owner
+-- (SECURITY DEFINER); EXECUTE is revoked from all roles since triggers
+-- do not require it and it must stay off the PostgREST RPC surface (F6).
+create or replace function public.fn_audit_log()
+returns trigger language plpgsql security definer
+set search_path = public, pg_temp as $$
+declare
+  _record_id uuid;
+  _old jsonb := null;
+  _new jsonb := null;
+  _changed text[];
+begin
+  if tg_op = 'DELETE' then
+    _record_id := (to_jsonb(old) ->> (tg_table_name || '_id'))::uuid;
+    _old := to_jsonb(old);
+  elsif tg_op = 'INSERT' then
+    _record_id := (to_jsonb(new) ->> (tg_table_name || '_id'))::uuid;
+    _new := to_jsonb(new);
+  else
+    _record_id := (to_jsonb(new) ->> (tg_table_name || '_id'))::uuid;
+    _old := to_jsonb(old);
+    _new := to_jsonb(new);
+    select array_agg(key) into _changed
+    from jsonb_each(_new) n
+    where n.value is distinct from (_old -> n.key);
+  end if;
+
+  insert into public.audit_log (actor_user_id, table_name, record_id, action, old_data, new_data, changed_fields)
+  values (auth.uid(), tg_table_name, _record_id, tg_op, _old, _new, _changed);
+
+  return null;
+end;
+$$;
+revoke execute on function public.fn_audit_log() from public, anon, authenticated;
+
+-- Human-readable projection. security_invoker = true so audit_log RLS
+-- applies to whoever queries the view directly (review F3) — without it
+-- the view ran as owner and leaked old_data/new_data snapshots.
+create or replace view public.audit_log_readable
+with (security_invoker = true) as
+select
+  al.audit_log_id,
+  al.created_at,
+  u.app_user_id,
+  coalesce(u.full_name, 'System') as actor_name,
+  al.table_name,
+  coalesce(tl.label, al.table_name) as table_label,
+  al.record_id,
+  al.action,
+  case al.action
+    when 'INSERT' then 'Created a new ' || coalesce(tl.label, al.table_name) || ' record'
+    when 'DELETE' then 'Deleted a '     || coalesce(tl.label, al.table_name) || ' record'
+    when 'UPDATE' then 'Changed ' || coalesce((
+        select string_agg(
+          coalesce(fl.label, cf.field_name)
+            || ' from "' || public.fn_format_audit_value(al.old_data ->> cf.field_name, coalesce(fl.field_type, 'text'))
+            || '" to "'  || public.fn_format_audit_value(al.new_data ->> cf.field_name, coalesce(fl.field_type, 'text')) || '"',
+          ', ')
+        from unnest(al.changed_fields) cf(field_name)
+        left join public.audit_field_labels fl on fl.table_name = al.table_name and fl.field_name = cf.field_name
+      ), 'a field') || ' for ' || coalesce(tl.label, al.table_name)
+    else null
+  end as summary,
+  al.old_data,
+  al.new_data,
+  al.changed_fields
+from public.audit_log al
+left join public.app_user u           on u.app_user_id = al.actor_user_id
+left join public.audit_table_labels tl on tl.table_name = al.table_name
+order by al.created_at desc;
+
+-- audit_log is append-only (sibling of block_attendance_event_mutation).
+-- Retention/pruning must DISABLE these triggers (see dev_teardown.sql pattern).
+create or replace function public.block_audit_log_mutation()
+returns trigger language plpgsql set search_path = public, pg_temp as $$
+begin
+  raise exception 'audit_log is append-only; rows cannot be modified or deleted';
+end;
+$$;
+drop trigger if exists audit_log_no_update on audit_log;
+drop trigger if exists audit_log_no_delete on audit_log;
+create trigger audit_log_no_update before update on audit_log
+  for each row execute function public.block_audit_log_mutation();
+create trigger audit_log_no_delete before delete on audit_log
+  for each row execute function public.block_audit_log_mutation();
+
+-- Audit triggers on the core tables (form_* triggers are created in 0006).
+drop trigger if exists trg_audit_app_user on app_user;
+create trigger trg_audit_app_user after insert or update or delete on app_user
+  for each row execute function public.fn_audit_log();
+drop trigger if exists trg_audit_appeal on appeal;
+create trigger trg_audit_appeal after insert or update or delete on appeal
+  for each row execute function public.fn_audit_log();
+drop trigger if exists trg_audit_attendance_session on attendance_session;
+create trigger trg_audit_attendance_session after insert or update or delete on attendance_session
+  for each row execute function public.fn_audit_log();
+drop trigger if exists trg_audit_enrollment on enrollment;
+create trigger trg_audit_enrollment after insert or update or delete on enrollment
+  for each row execute function public.fn_audit_log();
+
+-- Friendly labels for the core audited tables (form_* labels seeded in 0006).
+insert into audit_table_labels (table_name, label) values
+  ('app_user',           'user'),
+  ('appeal',             'appeal'),
+  ('attendance_session', 'attendance session'),
+  ('enrollment',         'enrollment')
+on conflict (table_name) do nothing;

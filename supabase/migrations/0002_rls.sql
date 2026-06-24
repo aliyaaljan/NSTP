@@ -225,3 +225,32 @@ begin
     execute format('grant  execute on function %s to authenticated;', fn);
   end loop;
 end $$;
+
+-- ============================================================
+-- Audit log RLS (tables defined in 0001_schema.sql).
+--   audit_log: admin sees all; a user sees rows where they are the
+--   actor. (auth.uid() wrapped in a select per perf advisor 0003.)
+--   Label tables: non-sensitive display config — readable by any
+--   authenticated user (closes the RLS-disabled advisor ERROR).
+-- The sensitive snapshots in audit_log.old_data/new_data are guarded
+-- by audit_log RLS + the security_invoker audit_log_readable view.
+-- ============================================================
+alter table audit_log          enable row level security;
+alter table audit_table_labels enable row level security;
+alter table audit_field_labels enable row level security;
+
+-- Replace the original ad-hoc policies with cleaner, perf-friendly ones.
+drop policy if exists "admins can view all audit logs" on audit_log;
+drop policy if exists "facilitators view own audit logs" on audit_log;
+drop policy if exists audit_log_admin_read on audit_log;
+drop policy if exists audit_log_own_read   on audit_log;
+drop policy if exists audit_log_read       on audit_log;
+-- Single combined SELECT policy (admin OR own) — one permissive policy avoids
+-- the multiple-permissive-policies perf lint of two separate SELECT policies.
+create policy audit_log_read on audit_log for select to authenticated
+  using (public.app_is_admin() or actor_user_id = (select auth.uid()));
+
+drop policy if exists audit_table_labels_read on audit_table_labels;
+drop policy if exists audit_field_labels_read on audit_field_labels;
+create policy audit_table_labels_read on audit_table_labels for select to authenticated using (true);
+create policy audit_field_labels_read on audit_field_labels for select to authenticated using (true);

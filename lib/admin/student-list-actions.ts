@@ -1,7 +1,7 @@
 "use server"
 
 import { getAppUserRole } from "@/lib/auth-actions"
-import { DATABASE_IDS } from "@/lib/constants"
+import { lookupId } from "@/lib/lookups"
 import {
   ENROLLMENT_LIST_SELECT,
   mapEnrollmentToStudentListRow,
@@ -34,7 +34,7 @@ export async function getStudentListData(
   query: StudentListQuery
 ): Promise<StudentListPageData> {
   const supabase = await createSupabaseServerClient()
-  const activeStatusId = DATABASE_IDS.enrollmentStatuses.active
+  const activeStatusId = await lookupId("enrollment_status", "active")
 
   let enrollmentQuery = supabase
     .from("enrollment")

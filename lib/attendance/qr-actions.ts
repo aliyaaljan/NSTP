@@ -231,7 +231,7 @@ export async function recordScan(
 
   if (error) {
     console.error("[recordScan] rpc failed", error)
-    return { ok: false, error: error.message }
+    return { ok: false, error: "Could not record the scan. The QR may be invalid, expired, or already used." }
   }
 
   return { ok: true, result: data as AttendanceResult }
@@ -266,7 +266,7 @@ export async function recordStudentTimeOut(
 
   if (error) {
     console.error("[recordStudentTimeOut] rpc failed", error)
-    return { ok: false, error: error.message }
+    return { ok: false, error: "Could not record time-out. You may not have an open session." }
   }
 
   return { ok: true, result: data as AttendanceResult }
@@ -298,7 +298,7 @@ export async function recordLeaderTimeIn(
 
   if (error) {
     console.error("[recordLeaderTimeIn] rpc failed", error)
-    return { ok: false, error: error.message }
+    return { ok: false, error: "Could not record time-in. You may already have an open session." }
   }
 
   return { ok: true, result: data as AttendanceResult }
@@ -331,7 +331,7 @@ export async function recordLeaderTimeOut(
 
   if (error) {
     console.error("[recordLeaderTimeOut] rpc failed", error)
-    return { ok: false, error: error.message }
+    return { ok: false, error: "Could not record time-out. You may not have an open session." }
   }
 
   return { ok: true, result: data as AttendanceResult }

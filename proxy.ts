@@ -68,6 +68,10 @@ export async function proxy(request: NextRequest) {
     return redirect("/")
   }
 
+  if (user && isProtected && !role) {
+    return redirect("/")
+  }
+
   if (user && isProtected && role) {
     const allowedPrefix = ROLE_PREFIX[role]
     if (allowedPrefix && !path.startsWith(allowedPrefix)) {

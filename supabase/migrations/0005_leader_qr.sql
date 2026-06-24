@@ -30,10 +30,13 @@ set search_path = public, pg_temp as $$
     select 1
     from  public.enrollment     e
     join  public.enrollment_status es on es.enrollment_status_id = e.enrollment_status_id
+    join  public.section           s  on s.section_id = e.section_id
+    join  public.section_status    ss on ss.section_status_id = s.section_status_id
     where e.section_id         = p_section_id
       and e.student_user_id    = auth.uid()
       and e.is_student_leader  = true
       and es.code              = 'active'
+      and ss.code              = 'active'
   );
 $$;
 
@@ -497,3 +500,250 @@ $$;
 revoke execute on function public.record_self_time_out(uuid, uuid, text, jsonb) from public;
 revoke execute on function public.record_self_time_out(uuid, uuid, text, jsonb) from anon;
 revoke execute on function public.record_self_time_out(uuid, uuid, text, jsonb) from authenticated;
+
+-- ============================================================
+-- 7. Adviser / admin dashboard read RPCs
+--    (Originally created ad hoc in the SQL editor; captured here.)
+--
+--    Security model — mirrors get_leader_section_dashboard above:
+--      * SECURITY DEFINER + caller guard: the caller must be the
+--        adviser themselves (auth.uid() = p_adviser_user_id) or an
+--        admin. Without this, these were callable by anon with ANY
+--        adviser id, leaking every section's roster + PII.
+--      * SET search_path = public, pg_temp.
+--      * EXECUTE revoked from anon/public, granted to authenticated.
+--      * Lookup IDs resolved by code (no hardcoded UUIDs).
+-- ============================================================
+
+-- get_adviser_dashboard_data — roster + completion stats per section
+create or replace function public.get_adviser_dashboard_data(p_adviser_user_id uuid)
+returns table(
+  section_id uuid, section_name text, total integer, pending integer,
+  completed integer, completion_pct numeric, on_track integer,
+  at_risk integer, students jsonb
+)
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to read this adviser''s dashboard';
+  end if;
+
+  return query
+  with student_minutes as (
+    select
+      e.enrollment_id,
+      e.section_id,
+      coalesce(sum(att.duration_minute), 0) as total_minutes
+    from enrollment e
+    left join attendance_session att on att.enrollment_id = e.enrollment_id
+    where att.attendance_session_status_id not in (
+            select attendance_session_status_id from attendance_session_status
+            where code in ('voided', 'open', 'under_appeal')
+          )
+      and e.enrollment_status_id = (
+            select enrollment_status_id from enrollment_status where code = 'active'
+          )
+    group by e.enrollment_id, e.section_id
+  ),
+  section_stats as (
+    select
+      s.section_id,
+      s.name as section_name,
+      s.required_hour_total,
+      count(sm.enrollment_id)::integer as total,
+      count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
+      count(sm.enrollment_id) filter (where ((now()::date - t.start_date)::numeric/nullif((t.end_date - t.start_date), 0)*100 - (sm.total_minutes::numeric/nullif(s.required_hour_total*60, 0)*100) <= 20))::integer as on_track,
+      count(sm.enrollment_id) filter (where ((now()::date - t.start_date)::numeric/nullif((t.end_date - t.start_date), 0)*100 - (sm.total_minutes::numeric/nullif(s.required_hour_total*60, 0)*100) > 20))::integer as at_risk,
+      jsonb_agg(json_build_object('name', u.full_name, 'pct', least(round(sm.total_minutes::numeric/nullif(s.required_hour_total*60, 0)*100), 100))) as students
+    from section s
+    join student_minutes sm on sm.section_id = s.section_id
+    join term t on t.term_id = s.term_id
+    join enrollment e on e.section_id = s.section_id and e.enrollment_id = sm.enrollment_id
+    join app_user u on u.app_user_id = e.student_user_id
+    where s.adviser_user_id = p_adviser_user_id
+      and t.is_active = true
+      and e.enrollment_status_id = (
+            select enrollment_status_id from enrollment_status where code = 'active'
+          )
+    group by s.section_id, s.name, s.required_hour_total
+  ),
+  pending_appeals as (
+    select
+      e.section_id,
+      count(*)::integer as pending
+    from appeal appe
+    join enrollment e on e.enrollment_id = appe.enrollment_id
+    join section s on s.section_id = e.section_id
+    join term t on t.term_id = s.term_id
+    where appe.appeal_status_id = (
+            select appeal_status_id from appeal_status where code = 'open'
+          )
+      and t.is_active = true
+      and appe.assigned_adviser_user_id = p_adviser_user_id
+      and e.enrollment_status_id = (
+            select enrollment_status_id from enrollment_status where code = 'active'
+          )
+    group by e.section_id
+  ),
+  all_sections as (
+    select
+      null::uuid as section_id,
+      'All Sections'::text as section_name,
+      (select sum(ss.total) from section_stats ss)::integer as total,
+      (select coalesce(sum(pa.pending), 0) from pending_appeals pa)::integer as pending,
+      (select sum(ss.completed) from section_stats ss)::integer as completed,
+      least(round((select sum(ss.completed)::numeric from section_stats ss) / nullif((select sum(ss.total) from section_stats ss), 0) * 100, 2), 100) as completion_pct,
+      (select sum(ss.on_track) from section_stats ss)::integer as on_track,
+      (select sum(ss.at_risk) from section_stats ss)::integer as at_risk,
+      (select jsonb_agg(student) from section_stats ss2, lateral jsonb_array_elements(ss2.students) as student) as students
+  )
+  select
+    ss.section_id,
+    ss.section_name,
+    ss.total,
+    coalesce(pa.pending, 0) as pending,
+    ss.completed,
+    least(round((ss.completed::numeric/nullif(ss.total,0)*100), 2), 100) as completion_pct,
+    ss.on_track,
+    ss.at_risk,
+    ss.students
+  from section_stats ss
+  left join pending_appeals pa on pa.section_id = ss.section_id
+  union all
+  select * from all_sections;
+end;
+$function$;
+
+-- get_sections — active-term sections for an adviser
+create or replace function public.get_sections(p_adviser_user_id uuid)
+returns table(id uuid, name text)
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to read this adviser''s sections';
+  end if;
+
+  return query
+  select s.section_id, s.name
+  from section s
+  join term t on t.term_id = s.term_id
+  where s.adviser_user_id = p_adviser_user_id and t.is_active = true;
+end;
+$function$;
+
+-- get_adviser_recent_activity — last 7 days of audit activity for the adviser
+create or replace function public.get_adviser_recent_activity(p_adviser_user_id uuid)
+returns table(summary text, created_at timestamptz)
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to read this adviser''s activity';
+  end if;
+
+  return query
+  select ar.summary, ar.created_at
+  from public.audit_log_readable ar
+  join app_user au on au.app_user_id = ar.app_user_id
+  where ar.created_at >= now() - interval '7 days'
+    and au.app_user_id = p_adviser_user_id;
+end;
+$function$;
+
+-- get_active_students_average_hours — admin analytics (both overloads).
+-- No repo caller today; gated to admins and removed from the anon surface.
+create or replace function public.get_active_students_average_hours(active_status_id uuid)
+returns integer
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  total_minutes int := 0;
+  total_students int := 0;
+begin
+  if not public.app_is_admin() then
+    raise exception 'admin access required';
+  end if;
+
+  select coalesce(sum(duration_minute), 0)
+  into total_minutes
+  from public.attendance_session att
+  join public.enrollment e on att.enrollment_id = e.enrollment_id
+  where e.enrollment_status_id = active_status_id;
+
+  select count(distinct student_user_id)
+  into total_students
+  from public.enrollment
+  where enrollment_status_id = active_status_id;
+
+  if total_students = 0 then
+    return 0;
+  else
+    return round(total_minutes / 60.0 / total_students);
+  end if;
+end;
+$function$;
+
+create or replace function public.get_active_students_average_hours(
+  active_status_id uuid,
+  filter_section_name text default null,
+  filter_adviser_id uuid default null
+)
+returns integer
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  total_minutes int := 0;
+  total_students int := 0;
+begin
+  if not public.app_is_admin() then
+    raise exception 'admin access required';
+  end if;
+
+  select coalesce(sum(att.duration_minute), 0)
+  into total_minutes
+  from public.attendance_session att
+  join public.enrollment e on att.enrollment_id = e.enrollment_id
+  join public.section s on e.section_id = s.section_id
+  where e.enrollment_status_id = active_status_id
+    and (filter_section_name is null or s.name = filter_section_name)
+    and (filter_adviser_id is null or s.adviser_user_id = filter_adviser_id);
+
+  select count(distinct e.student_user_id)
+  into total_students
+  from public.enrollment e
+  join public.section s on e.section_id = s.section_id
+  where e.enrollment_status_id = active_status_id
+    and (filter_section_name is null or s.name = filter_section_name)
+    and (filter_adviser_id is null or s.adviser_user_id = filter_adviser_id);
+
+  if total_students = 0 then
+    return 0;
+  else
+    return round(total_minutes / 60.0 / total_students);
+  end if;
+end;
+$function$;
+
+-- Lock down the RPC surface: authenticated only (the guard enforces row scope).
+do $$
+declare fn text;
+begin
+  foreach fn in array array[
+    'public.get_adviser_dashboard_data(uuid)',
+    'public.get_sections(uuid)',
+    'public.get_adviser_recent_activity(uuid)',
+    'public.get_active_students_average_hours(uuid)',
+    'public.get_active_students_average_hours(uuid, text, uuid)'
+  ] loop
+    execute format('revoke execute on function %s from public;', fn);
+    execute format('revoke execute on function %s from anon;', fn);
+    execute format('grant  execute on function %s to authenticated;', fn);
+  end loop;
+end $$;

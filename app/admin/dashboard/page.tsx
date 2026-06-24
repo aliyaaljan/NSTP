@@ -3,7 +3,7 @@ import { FONT_BODY, FONT_HEADING, PAGE_TITLE, TYPE } from "@/lib/admin-typograph
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardFilters from "@/components/shared/DashboardFilters"
 import DashboardExportButton from "@/components/admin/DashboardExportButton"
-import { DATABASE_IDS } from "@/lib/constants"
+import { lookupId } from "@/lib/lookups"
 
 export const revalidate = 0
 
@@ -536,12 +536,12 @@ export default async function AdminDashboardPage({
   const mondayISO = mondayThisWeek.toISOString()
 
   // fetch lookup IDs from constants.ts
-  const studentRoleId = DATABASE_IDS.roles.student
-  const adviserRoleId = DATABASE_IDS.roles.adviser
-  const activeStatusId = DATABASE_IDS.enrollmentStatuses.active
-  const openStatusId = DATABASE_IDS.appealStatuses.open
-  const underReviewStatusId = DATABASE_IDS.appealStatuses.underReview
-  const timeInTypeId = DATABASE_IDS.attendanceEventTypes.timeIn
+  const studentRoleId = await lookupId("role", "student")
+  const adviserRoleId = await lookupId("role", "adviser")
+  const activeStatusId = await lookupId("enrollment_status", "active")
+  const openStatusId = await lookupId("appeal_status", "open")
+  const underReviewStatusId = await lookupId("appeal_status", "under_review")
+  const timeInTypeId = await lookupId("attendance_event_type", "time_in")
 
   const filteredAdviserRes = selectedAdviser
     ? await supabase

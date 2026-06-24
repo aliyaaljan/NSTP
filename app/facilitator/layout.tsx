@@ -1,4 +1,6 @@
 // app/facilitator/layout.tsx
+import { redirect } from "next/navigation";
+import { getAppUserRole } from "@/lib/auth-actions";
 import { Goblin_One, Cormorant, Montserrat } from "next/font/google";
 
 const goblinOne = Goblin_One({
@@ -23,11 +25,14 @@ const montserrat = Montserrat({
   display: "swap",
 });
 
-export default function FacilitatorLayout({
+export default async function FacilitatorLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const role = await getAppUserRole();
+  if (role !== "adviser") redirect("/");
+
   return (
     <div
       className={`${goblinOne.variable} ${cormorant.variable} ${montserrat.variable}`}
@@ -36,9 +41,9 @@ export default function FacilitatorLayout({
         display: "flex",
         flexDirection: "column",
         // Resolve font aliases here, where the Next.js font variables are in scope
-        ["--font" as string]:       "var(--font-content, 'Helvetica Neue', Arial, sans-serif)",
+        ["--font" as string]: "var(--font-content, 'Helvetica Neue', Arial, sans-serif)",
         ["--font-title" as string]: "var(--font-goblin, Georgia, serif)",
-        ["--font-sub" as string]:   "var(--font-cormorant, Georgia, serif)",
+        ["--font-sub" as string]: "var(--font-cormorant, Georgia, serif)",
       }}
     >
       <style>{`
