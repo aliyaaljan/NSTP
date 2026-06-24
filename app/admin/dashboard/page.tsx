@@ -535,13 +535,22 @@ export default async function AdminDashboardPage({
   mondayThisWeek.setHours(0, 0, 0, 0)
   const mondayISO = mondayThisWeek.toISOString()
 
-  // fetch lookup IDs from constants.ts
-  const studentRoleId = await lookupId("role", "student")
-  const adviserRoleId = await lookupId("role", "adviser")
-  const activeStatusId = await lookupId("enrollment_status", "active")
-  const openStatusId = await lookupId("appeal_status", "open")
-  const underReviewStatusId = await lookupId("appeal_status", "under_review")
-  const timeInTypeId = await lookupId("attendance_event_type", "time_in")
+  // Resolve lookup IDs concurrently (distinct tables → parallel on a cold cache)
+  const [
+    studentRoleId,
+    adviserRoleId,
+    activeStatusId,
+    openStatusId,
+    underReviewStatusId,
+    timeInTypeId,
+  ] = await Promise.all([
+    lookupId("role", "student"),
+    lookupId("role", "adviser"),
+    lookupId("enrollment_status", "active"),
+    lookupId("appeal_status", "open"),
+    lookupId("appeal_status", "under_review"),
+    lookupId("attendance_event_type", "time_in"),
+  ])
 
   const filteredAdviserRes = selectedAdviser
     ? await supabase

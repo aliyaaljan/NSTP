@@ -36,10 +36,13 @@ export async function getAdviserListData(
   query: AdviserListQuery
 ): Promise<AdviserListPageData> {
   const supabase = await createSupabaseServerClient()
-  const adviserRoleId = await lookupId("role", "adviser")
-  const activeStatusId = await lookupId("enrollment_status", "active")
-  const openStatusId = await lookupId("appeal_status", "open")
-  const underReviewStatusId = await lookupId("appeal_status", "under_review")
+  const [adviserRoleId, activeStatusId, openStatusId, underReviewStatusId] =
+    await Promise.all([
+      lookupId("role", "adviser"),
+      lookupId("enrollment_status", "active"),
+      lookupId("appeal_status", "open"),
+      lookupId("appeal_status", "under_review"),
+    ])
 
   let adviserSelect: string = ADVISER_LIST_SELECT
 

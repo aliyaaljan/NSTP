@@ -537,12 +537,13 @@ begin
       e.section_id,
       coalesce(sum(att.duration_minute), 0) as total_minutes
     from enrollment e
-    left join attendance_session att on att.enrollment_id = e.enrollment_id
-    where att.attendance_session_status_id not in (
+    left join attendance_session att
+      on att.enrollment_id = e.enrollment_id
+      and att.attendance_session_status_id not in (
             select attendance_session_status_id from attendance_session_status
             where code in ('voided', 'open', 'under_appeal')
           )
-      and e.enrollment_status_id = (
+    where e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
           )
     group by e.enrollment_id, e.section_id
@@ -577,8 +578,8 @@ begin
     join enrollment e on e.enrollment_id = appe.enrollment_id
     join section s on s.section_id = e.section_id
     join term t on t.term_id = s.term_id
-    where appe.appeal_status_id = (
-            select appeal_status_id from appeal_status where code = 'open'
+    where appe.appeal_status_id in (
+            select appeal_status_id from appeal_status where code in ('open', 'under_review')
           )
       and t.is_active = true
       and appe.assigned_adviser_user_id = p_adviser_user_id

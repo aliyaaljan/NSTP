@@ -313,12 +313,12 @@ create index attendance_event_corrects_idx    on attendance_event(corrects_event
 create index form_uploaded_by_idx             on form(uploaded_by_user_id);
 create index role_change_target_idx           on role_change(target_user_id);
 create index role_change_changed_by_idx       on role_change(changed_by_user_id);
-create index appeal_status_idx                on appeal(appeal_status_id);
-create index attendance_event_source_idx      on attendance_event(attendance_event_source_id);
-create index attendance_session_status_idx    on attendance_session(attendance_session_status_id);
-create index role_change_old_role_idx         on role_change(old_role_id);
-create index role_change_new_role_idx         on role_change(new_role_id);
-create index section_status_idx               on section(section_status_id);
+create index if not exists appeal_status_idx                on appeal(appeal_status_id);
+create index if not exists attendance_event_source_idx      on attendance_event(attendance_event_source_id);
+create index if not exists attendance_session_status_idx    on attendance_session(attendance_session_status_id);
+create index if not exists role_change_old_role_idx         on role_change(old_role_id);
+create index if not exists role_change_new_role_idx         on role_change(new_role_id);
+create index if not exists section_status_idx               on section(section_status_id);
 
 -- ============================================================
 -- updated_at auto-maintenance (moddatetime)
@@ -472,7 +472,8 @@ begin
     _new := to_jsonb(new);
     select array_agg(key) into _changed
     from jsonb_each(_new) n
-    where n.value is distinct from (_old -> n.key);
+    where n.value is distinct from (_old -> n.key)
+      and n.key <> 'updated_at';
   end if;
 
   insert into public.audit_log (actor_user_id, table_name, record_id, action, old_data, new_data, changed_fields)
