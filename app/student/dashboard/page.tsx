@@ -47,6 +47,15 @@ const RAIL_MARGIN  = 16
 
 function HoursCard({ rendered, target }: { rendered: number; target: number }) {
   const percent = Math.min(100, Math.round((rendered / target) * 100)) 
+  const deadline = "2026-07-14"
+  const daysRemaining = Math.max(
+    0,
+    Math.ceil(
+      (new Date(deadline).getTime() - Date.now()) /
+        (1000 * 60 * 60 * 24)
+    )
+  )
+
   return (
     <div style={{ 
       background: C.hoursBg, 
@@ -55,19 +64,46 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
       border: `1.5px solid ${C.hoursBorder}`,
       transition: "all 0.3s ease",
     }}>
-      <div style={{ 
-        fontSize: "clamp(13px, 1.2vw, 15px)", 
-        fontWeight: 700, 
-        color: C.textDark, 
-        marginBottom: 8, 
-        textTransform: "uppercase", 
-        letterSpacing: "0.03em",
-        display: "flex",
-        flexWrap: "wrap",
-        gap: "4px",
-      }}>
-        Hours Accomplished:&nbsp;
-        <span style={{ fontWeight: 800 }}>{rendered} / {target} hours</span>
+      <div
+        style={{
+          fontSize: "clamp(15px, 1.2vw, 15px)",
+          fontWeight: 700,
+          color: C.textDark,
+          marginBottom: 8,
+          textTransform: "uppercase",
+          letterSpacing: "0.03em",
+          display: "flex",
+          alignItems: "flex-end",
+          gap: "4px",
+          width: "100%",
+        }}
+      >
+        <span>Hours Accomplished:</span>
+
+        <span
+          style={{
+            fontWeight: 900,
+            fontSize: "clamp(20px, 2vw, 26px)",
+            color: C.maroon,
+            lineHeight: 1,
+          }}
+        >
+          {rendered}
+        </span>
+
+        <span>/ {target} hours</span>
+
+        <span
+          style={{
+            marginLeft: "auto",
+            fontSize: "clamp(12px, 1vw, 14px)",
+            fontWeight: 700,
+            color: C.textMuted,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {daysRemaining} days remaining
+        </span>
       </div>
       <div style={{ 
         display: "flex", 
@@ -76,7 +112,7 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
         flexWrap: "wrap",
       }}>
         <span style={{ 
-          fontSize: "clamp(13px, 1.1vw, 14px)", 
+          fontSize: "clamp(20px, 1.1vw, 14px)", 
           fontWeight: 700, 
           color: C.textDark, 
           minWidth: 36 
@@ -88,7 +124,7 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
           minWidth: "60px",
           height: "clamp(18px, 2vw, 22px)", 
           background: C.track, 
-          borderRadius: 4, 
+          borderRadius: 7,  //hehe if 14 po kasi itll look round lang kaya 7 nalang, medj same naman na sa container i thikn
           overflow: "hidden" 
         }}>
           <div style={{ 
