@@ -352,7 +352,7 @@ export default function StudentListClient({
           justifyContent: "space-between",
           alignItems: "flex-start",
           gap: 16,
-          marginBottom: 20,
+          marginBottom: 12,
         }}
       >
         <div>
@@ -367,7 +367,7 @@ export default function StudentListClient({
         <ProfilePill user={currentUser} />
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 12 }}>
         <div style={{ position: "relative" }}>
           <i
             className="ti ti-search"
@@ -400,7 +400,7 @@ export default function StudentListClient({
         </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
         <button
           type="button"
           onClick={() => setImportOpen(true)}

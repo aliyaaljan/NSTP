@@ -1061,7 +1061,7 @@ export default async function AdminDashboardPage({
           justifyContent: "space-between",
           alignItems: "flex-start",
           gap: 16,
-          marginBottom: 28,
+          marginBottom: 12,
         }}
       >
         <div>
@@ -1078,19 +1078,7 @@ export default async function AdminDashboardPage({
             Academic Year {currentSemesterMeta.academicYear} |{" "}
             {currentSemesterMeta.semester}
           </p>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            gap: 12,
-            flexShrink: 0,
-          }}
-        >
-          <ProfilePill user={currentUserMeta} />
-          <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
             <DashboardFilters
               currentFilter={currentFilter}
               sections={availableSections}
@@ -1098,6 +1086,17 @@ export default async function AdminDashboardPage({
             />
             <DashboardExportButton sections={exportSections} />
           </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            flexShrink: 0,
+          }}
+        >
+          <ProfilePill user={currentUserMeta} />
         </div>
       </div>
 

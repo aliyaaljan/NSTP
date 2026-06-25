@@ -148,20 +148,21 @@ export default function DashboardExportButton({
         type="button"
         onClick={resetAndOpen}
         style={{
-          ...TYPE.bodyBold,
           fontFamily: FONT_BODY,
+          fontSize: "12.5px",
+          fontWeight: 600,
           color: "#fff",
-          background: "#7B1113",
+          background: ADMIN_COLORS.green,
           border: "none",
-          borderRadius: 24,
-          padding: "11px 22px",
-          display: "flex",
+          borderRadius: 20,
+          padding: "5px 13px",
+          display: "inline-flex",
           alignItems: "center",
           gap: 8,
           cursor: "pointer",
         }}
       >
-        <i className="ti ti-upload" style={{ fontSize: 14 }} />
+        <i className="ti ti-upload" style={{ fontSize: 16 }} />
         Export
       </button>
 

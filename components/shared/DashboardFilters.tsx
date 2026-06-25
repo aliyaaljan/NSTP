@@ -63,7 +63,7 @@ export default function DashboardFilters({
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
       <div style={buttonWrapperStyle}>
         <span>{selectedLabel}</span>
-        <i className="ti ti-chevron-down" style={{ fontSize: 22 }} />
+        <i className="ti ti-chevron-down" style={{ fontSize: 16 }} />
 
         <select
           value={currentFilter}
