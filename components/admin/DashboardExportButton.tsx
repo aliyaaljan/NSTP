@@ -115,7 +115,11 @@ export default function DashboardExportButton({
   }, [open, close])
 
   function handleExport() {
-    const request = buildExportAnalyticsRequest({ fileType, sectionId, content })
+    const request = buildExportAnalyticsRequest({
+      fileType,
+      sectionId,
+      content,
+    })
     if (!request) return
 
     setError(null)
