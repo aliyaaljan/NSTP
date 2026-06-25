@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AddChoiceModal from "@/components/admin/AddChoiceModal"
+import AddStudentModal from "@/components/admin/AddStudentModal"
 import EditStudentModal from "@/components/admin/EditStudentModal"
 import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
 import { deleteStudent } from "@/lib/admin/student-list-actions"
@@ -83,17 +85,14 @@ function FilterDropdown({
   value,
   onChange,
   children,
-  containerRef,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   children: React.ReactNode
-  containerRef?: React.Ref<HTMLDivElement>
 }) {
   return (
     <div
-      ref={containerRef}
       style={{
         ...TYPE.bodyBold,
         fontFamily: FONT_BODY,
@@ -149,9 +148,6 @@ function ColumnHeader({
   sortActive = false,
   sortDirection = "asc",
   onSort,
-  filterable = false,
-  filterActive = false,
-  onFilter,
 }: {
   label: string
   align?: "left" | "center"
@@ -159,9 +155,6 @@ function ColumnHeader({
   sortActive?: boolean
   sortDirection?: "asc" | "desc"
   onSort?: () => void
-  filterable?: boolean
-  filterActive?: boolean
-  onFilter?: () => void
 }) {
   return (
     <div
@@ -205,29 +198,6 @@ function ColumnHeader({
           />
         </button>
       )}
-      {filterable && (
-        <button
-          type="button"
-          onClick={onFilter}
-          aria-label={`Filter ${label}`}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-          }}
-        >
-          <i
-            className="ti ti-filter"
-            style={{
-              fontSize: 14,
-              color: filterActive ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-        </button>
-      )}
     </div>
   )
 }
@@ -247,6 +217,8 @@ export default function StudentListClient({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [addChoiceOpen, setAddChoiceOpen] = useState(false)
+  const [addManualOpen, setAddManualOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [editStudent, setEditStudent] = useState<StudentListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -257,16 +229,6 @@ export default function StudentListClient({
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
-  const sectionFilterRef = useRef<HTMLDivElement>(null)
-  const statusFilterRef = useRef<HTMLDivElement>(null)
-
-  function openFilterSelect(ref: React.RefObject<HTMLDivElement | null>) {
-    const select = ref.current?.querySelector("select")
-    if (select instanceof HTMLSelectElement) {
-      select.focus()
-      select.click()
-    }
-  }
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -400,61 +362,70 @@ export default function StudentListClient({
         </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          marginBottom: 12,
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <FilterDropdown
+            label={sectionLabel}
+            value={query.sectionId}
+            onChange={(value) =>
+              pushParams({
+                sectionId: value === STUDENT_LIST_ALL_SECTIONS ? null : value,
+              })
+            }
+          >
+            <option value={STUDENT_LIST_ALL_SECTIONS}>All Sections</option>
+            {sections.map((section) => (
+              <option key={section.sectionId} value={section.sectionId}>
+                Section {section.name}
+              </option>
+            ))}
+          </FilterDropdown>
+
+          <FilterDropdown
+            label={statusLabel}
+            value={query.progressStatus}
+            onChange={(value) =>
+              pushParams({ status: value === "all" ? null : value })
+            }
+          >
+            {PROGRESS_STATUS_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </FilterDropdown>
+        </div>
+
         <button
           type="button"
-          onClick={() => setImportOpen(true)}
+          onClick={() => setAddChoiceOpen(true)}
+          aria-label="Add student"
+          title="Add student"
           style={{
-            fontFamily: FONT_BODY,
-            fontSize: "12.5px",
-            fontWeight: 600,
-            color: "#fff",
-            background: COLORS.green,
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
             border: "none",
-            borderRadius: 20,
-            padding: "5px 13px",
+            background: COLORS.green,
+            color: "#fff",
             cursor: "pointer",
             display: "inline-flex",
             alignItems: "center",
-            gap: 8,
+            justifyContent: "center",
+            flexShrink: 0,
           }}
         >
-          <i className="ti ti-plus" style={{ fontSize: 16 }} />
-          Import Student/s
+          <i className="ti ti-plus" style={{ fontSize: 18 }} />
         </button>
-
-        <FilterDropdown
-          label={sectionLabel}
-          value={query.sectionId}
-          containerRef={sectionFilterRef}
-          onChange={(value) =>
-            pushParams({
-              sectionId: value === STUDENT_LIST_ALL_SECTIONS ? null : value,
-            })
-          }
-        >
-          <option value={STUDENT_LIST_ALL_SECTIONS}>All Sections</option>
-          {sections.map((section) => (
-            <option key={section.sectionId} value={section.sectionId}>
-              Section {section.name}
-            </option>
-          ))}
-        </FilterDropdown>
-
-        <FilterDropdown
-          label={statusLabel}
-          value={query.progressStatus}
-          containerRef={statusFilterRef}
-          onChange={(value) =>
-            pushParams({ status: value === "all" ? null : value })
-          }
-        >
-          {PROGRESS_STATUS_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </FilterDropdown>
       </div>
 
       <div
@@ -497,9 +468,6 @@ export default function StudentListClient({
                     sortActive={query.sort === "adviser"}
                     sortDirection={query.dir}
                     onSort={() => toggleSort("adviser")}
-                    filterable
-                    filterActive={query.sectionId !== STUDENT_LIST_ALL_SECTIONS}
-                    onFilter={() => openFilterSelect(sectionFilterRef)}
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
@@ -509,9 +477,6 @@ export default function StudentListClient({
                   <ColumnHeader
                     label="Progress & Status"
                     align="center"
-                    filterable
-                    filterActive={query.progressStatus !== "all"}
-                    onFilter={() => openFilterSelect(statusFilterRef)}
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left", width: 80 }}>
@@ -659,6 +624,19 @@ export default function StudentListClient({
         </div>
       </div>
 
+      <AddChoiceModal
+        open={addChoiceOpen}
+        onClose={() => setAddChoiceOpen(false)}
+        title="Add Student"
+        entityLabel="student"
+        onAddManually={() => setAddManualOpen(true)}
+        onImport={() => setImportOpen(true)}
+      />
+      <AddStudentModal
+        open={addManualOpen}
+        sections={sections}
+        onClose={() => setAddManualOpen(false)}
+      />
       <ImportStudentsModal open={importOpen} onClose={() => setImportOpen(false)} />
       <EditStudentModal
         open={editStudent !== null}

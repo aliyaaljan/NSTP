@@ -18,8 +18,11 @@ import {
 import type { ImportAdvisersResult } from "@/lib/admin/adviser-import"
 import {
   validateAdviserEditPayload,
+  validateAdviserCreatePayload,
   type AdviserEditPayload,
+  type AdviserCreatePayload,
   type UpdateAdviserResult,
+  type CreateAdviserResult,
 } from "@/lib/admin/adviser-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 
@@ -184,6 +187,41 @@ export async function importAdvisersFromCsv(
     ok: false,
     error:
       "Import is not available yet. Backend CSV import handler still needs to be implemented.",
+  }
+}
+
+/**
+ * Create a new adviser account and section assignments.
+ *
+ * Backend checklist:
+ * 1. Validate admin role (already done below).
+ * 2. Create auth user + `app_user` (role = adviser) with full_name, email, is_active.
+ * 3. For each sectionId in payload.sectionIds, SET `section.adviser_user_id`.
+ * 4. Return `{ ok: true }` on success.
+ */
+export async function createAdviser(
+  payload: AdviserCreatePayload
+): Promise<CreateAdviserResult> {
+  const role = await getAppUserRole()
+  if (role !== "admin") {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  const validationError = validateAdviserCreatePayload(payload)
+  if (validationError) {
+    return { ok: false, error: validationError }
+  }
+
+  // TODO(backend): implement adviser creation.
+  console.info("[createAdviser] pending implementation", {
+    sectionIds: payload.sectionIds,
+    email: payload.email,
+  })
+
+  return {
+    ok: false,
+    error:
+      "Add is not available yet. Backend handler still needs to be implemented.",
   }
 }
 

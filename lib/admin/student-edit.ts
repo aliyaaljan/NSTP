@@ -34,6 +34,28 @@ export type UpdateStudentResult =
   | { ok: true }
   | { ok: false; error: string }
 
+export interface StudentCreatePayload {
+  /** `app_user.full_name` */
+  fullName: string
+  /** `app_user.email` */
+  email: string
+  /** `app_user.student_number` */
+  studentNumber: string | null
+  /** `enrollment.section_id` → `section.section_id` */
+  sectionId: string
+}
+
+export type CreateStudentResult = UpdateStudentResult
+
+export function emptyStudentCreatePayload(): StudentCreatePayload {
+  return {
+    fullName: "",
+    email: "",
+    studentNumber: null,
+    sectionId: "",
+  }
+}
+
 /** Build the edit form payload from a list row. */
 export function studentRowToEditPayload(row: StudentListRow): StudentEditPayload {
   return {
@@ -56,6 +78,25 @@ export function validateStudentEditPayload(
   if (!payload.studentUserId.trim()) {
     return "Student user ID is required."
   }
+  if (!payload.fullName.trim()) {
+    return "Full name is required."
+  }
+  if (!payload.email.trim()) {
+    return "Email is required."
+  }
+  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
+    return "Email must be a UP email (@up.edu.ph)."
+  }
+  if (!payload.sectionId.trim()) {
+    return "Section is required."
+  }
+  return null
+}
+
+/** Shared client/server validation before calling `createStudent()`. */
+export function validateStudentCreatePayload(
+  payload: StudentCreatePayload
+): string | null {
   if (!payload.fullName.trim()) {
     return "Full name is required."
   }
