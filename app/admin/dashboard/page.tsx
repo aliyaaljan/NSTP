@@ -6,6 +6,7 @@ import DashboardExportButton from "@/components/admin/DashboardExportButton"
 import AdminCalendar from "@/components/admin/AdminCalendar"
 import AdminAttendanceStrip from "@/components/admin/AdminAttendanceStrip"
 import SectionProgressPanel from "@/components/admin/SectionProgressPanel"
+import RemainingDaysChart from "@/components/admin/RemainingDaysChart"
 import CompletionDonutChart from "@/components/admin/CompletionDonutChart"
 import { lookupId } from "@/lib/lookups"
 
@@ -641,7 +642,7 @@ export default async function AdminDashboardPage({
     sectionsFilterRes,
     advisersFilterRes,
     recentActivityRes,
-    //  recentActivityRes,
+    activeTermRes,
   ] = await Promise.all([
     // student counter call
     studentsQuery,
@@ -677,6 +678,11 @@ export default async function AdminDashboardPage({
       )
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("term")
+      .select("start_date, end_date")
+      .eq("is_active", true)
+      .maybeSingle(),
   ])
 
   const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
@@ -913,6 +919,10 @@ export default async function AdminDashboardPage({
     }
   )
 
+  const nstpTermStart =
+    activeTermRes.data?.start_date ?? "2025-08-11"
+  const nstpCompletionDeadline = "2026-07-17"
+
   const currentSemesterMeta = {
     academicYear: "2025-2026",
     semester: "2nd Semester",
@@ -1101,9 +1111,36 @@ export default async function AdminDashboardPage({
             minHeight: "100%",
           }}
         >
-          <div style={{ ...TYPE.h2, color: COLORS.textDark, marginBottom: 18 }}>
-            Calendar
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <div style={{ ...TYPE.h2, color: COLORS.textDark }}>Calendar</div>
+            <div
+              style={{
+                fontFamily: FONT_BODY,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.8px",
+                color: COLORS.textGray,
+                whiteSpace: "nowrap",
+              }}
+            >
+              TODAY ·{" "}
+              {new Date()
+                .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                .toUpperCase()}
+            </div>
           </div>
+          <RemainingDaysChart
+            endDate={nstpCompletionDeadline}
+            startDate={nstpTermStart}
+          />
           <AdminCalendar />
           <AdminAttendanceStrip data={todayAttendance} />
         </div>
@@ -1148,7 +1185,6 @@ export default async function AdminDashboardPage({
 
         <ListCard
           title="At risk students"
-          rightLabel="Below 45%"
           colLeft="Student"
           colRight="Completion"
         >

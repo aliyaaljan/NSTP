@@ -69,7 +69,7 @@ export default function CompletionDonutChart({ data }: { data: CompletionDonutDa
               strokeDasharray={`${dash} ${c - dash}`}
               strokeDashoffset={-offsetAcc}
               transform={`rotate(-90 ${size / 2} ${size / 2})`}
-              strokeLinecap="butt"
+              strokeLinecap="round"
               style={{
                 cursor: "pointer",
                 opacity: hoveredLabel && hoveredLabel !== seg.label ? 0.45 : 1,

@@ -55,38 +55,20 @@ function StatBox({
 }
 
 export default function AdminAttendanceStrip({ data }: { data: TodayAttendance }) {
-  const today = new Date()
-  const dateLabel = today
-    .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    .toUpperCase()
-
   const presentPct = data.total > 0 ? (data.present / data.total) * 100 : 0
   const absentPct = data.total > 0 ? (data.absent / data.total) * 100 : 0
 
   return (
     <div style={{ marginTop: "auto", paddingTop: 20 }}>
-      <div
-        style={{
-          fontFamily: FONT_BODY,
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: "0.8px",
-          color: COLORS.textGray,
-          marginBottom: 12,
-        }}
-      >
-        TODAY · {dateLabel}
-      </div>
-
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <StatBox value={data.present} label="Present" valueColor={COLORS.green} />
         <StatBox value={data.absent} label="Absent" valueColor={COLORS.maroon} />
-        <StatBox value={data.notYet} label="Not yet" valueColor={COLORS.textGray} />
+        <StatBox value={data.notYet} label="Not yet scanned" valueColor={COLORS.textGray} />
       </div>
 
       <div
         style={{
-          height: 6,
+          height: 8,
           borderRadius: 999,
           background: COLORS.track,
           overflow: "hidden",

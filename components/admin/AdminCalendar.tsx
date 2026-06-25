@@ -48,26 +48,8 @@ export default function AdminCalendar() {
       c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 }
     )
 
-  const todayLabel = today.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  })
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div
-        style={{
-          ...TYPE.caption,
-          color: COLORS.textGray,
-          textAlign: "center",
-          lineHeight: 1.4,
-        }}
-      >
-        {todayLabel}
-      </div>
-
       <div
         style={{
           display: "flex",
