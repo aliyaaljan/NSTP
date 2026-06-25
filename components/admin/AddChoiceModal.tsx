@@ -18,6 +18,11 @@ export default function AddChoiceModal({
   entityLabel,
   onAddManually,
   onImport,
+  manualTitle,
+  manualDescription,
+  manualIcon = "ti-user-plus",
+  importTitle = "Import from CSV",
+  importDescription,
 }: {
   open: boolean
   onClose: () => void
@@ -25,6 +30,11 @@ export default function AddChoiceModal({
   entityLabel: string
   onAddManually: () => void
   onImport: () => void
+  manualTitle?: string
+  manualDescription?: string
+  manualIcon?: string
+  importTitle?: string
+  importDescription?: string
 }) {
   const close = useCallback(() => {
     onClose()
@@ -146,7 +156,7 @@ export default function AddChoiceModal({
                 flexShrink: 0,
               }}
             >
-              <i className="ti ti-user-plus" style={{ fontSize: 20 }} />
+              <i className={`ti ${manualIcon}`} style={{ fontSize: 20 }} />
             </span>
             <span>
               <span
@@ -157,10 +167,10 @@ export default function AddChoiceModal({
                   display: "block",
                 }}
               >
-                Add {entityLabel} manually
+                {manualTitle ?? `Add ${entityLabel} manually`}
               </span>
               <span style={{ ...TYPE.caption, color: COLORS.textGray }}>
-                Enter details one at a time
+                {manualDescription ?? "Enter details one at a time"}
               </span>
             </span>
           </button>
@@ -208,10 +218,10 @@ export default function AddChoiceModal({
                   display: "block",
                 }}
               >
-                Import from CSV
+                {importTitle}
               </span>
               <span style={{ ...TYPE.caption, color: COLORS.textGray }}>
-                Upload a spreadsheet of {entityLabel}s
+                {importDescription ?? `Upload a spreadsheet of ${entityLabel}s`}
               </span>
             </span>
           </button>
