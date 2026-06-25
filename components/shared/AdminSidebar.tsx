@@ -35,14 +35,14 @@ const EXPANDED_W = 256
 const RAIL_MARGIN = 16
 
 const C = {
-  green: ADMIN_COLORS.green,
-  greenHover: 'rgba(255,255,255,0.08)',
-  activeBg: 'rgba(232,232,232,0.92)',
-  activeText: ADMIN_COLORS.green,
-  idleText: ADMIN_COLORS.greenLight,
+  green: '#14492E',
+  greenHover: 'rgba(255,255,255,0.10)',
+  activeBg: '#F2EEE6',
+  activeText: '#14492E',
+  idleText: 'rgba(255,255,255,0.86)',
   headingText: 'rgba(255,255,255,0.45)',
   divider: 'rgba(255,255,255,0.14)',
-  logout: '#FCA5A5',
+  logout: '#D9534F',
 }
 
 function NstpLogo({ size = 44 }: { size?: number }) {
@@ -143,10 +143,9 @@ export default function AdminSidebar({
               style={{
                 fontFamily: FONT_SUB,
                 fontSize: 12,
-                color: ADMIN_COLORS.greenLight,
+                color: "rgba(255,255,255,0.65)",
                 lineHeight: 1.4,
                 marginTop: 4,
-                opacity: 0.9,
                 whiteSpace: "nowrap",
               }}
             >
