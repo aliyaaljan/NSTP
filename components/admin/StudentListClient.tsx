@@ -23,7 +23,7 @@ import type {
 } from "@/lib/admin/student-list"
 import { STUDENT_LIST_ALL_SECTIONS, filterStudentListRows } from "@/lib/admin/student-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
 const STATUS_BADGE: Record<
   StudentProgressStatus,
@@ -115,13 +115,7 @@ function FilterDropdown({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={label}
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: 0,
-          cursor: "pointer",
-          width: "100%",
-        }}
+        style={ADMIN_FILTER_SELECT_STYLE}
       >
         {children}
       </select>

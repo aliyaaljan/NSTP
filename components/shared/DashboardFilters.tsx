@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { FONT_BODY } from "@/lib/admin-typography"
-import { ADMIN_COLORS } from "@/lib/admin-theme"
+import { ADMIN_COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
 interface FilterProps {
   currentFilter: string
@@ -42,13 +42,10 @@ export default function DashboardFilters({
   }
 
   const hiddenSelectStyle: React.CSSProperties = {
-    position: "absolute",
+    ...ADMIN_FILTER_SELECT_STYLE,
     top: 0,
     left: 0,
-    width: "100%",
     height: "100%",
-    opacity: 0,
-    cursor: "pointer",
     appearance: "none",
   }
 
