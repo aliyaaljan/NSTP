@@ -9,14 +9,15 @@ import {
   EXPORT_FILE_TYPE_OPTIONS,
   type ExportSectionOption,
 } from "@/lib/admin/export-analytics"
-import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { FONT_BODY, TYPE } from "@/lib/admin-typography"
+import { ADMIN_COLORS } from "@/lib/admin-theme"
 
 const COLORS = {
-  textDark: "#2C2C2A",
-  textGray: "#8C8C88",
-  headerGreen: "#14492E",
-  fieldBg: "#EBEBE8",
-  error: "#7B1113",
+  textDark: ADMIN_COLORS.text,
+  textGray: ADMIN_COLORS.muted,
+  headerGreen: ADMIN_COLORS.green,
+  fieldBg: "#F3F4F6",
+  error: ADMIN_COLORS.maroon,
 }
 
 function ExportSelect({
@@ -148,7 +149,7 @@ export default function DashboardExportButton({
         onClick={resetAndOpen}
         style={{
           ...TYPE.bodyBold,
-          fontFamily: FONT_HEADING,
+          fontFamily: FONT_BODY,
           color: "#fff",
           background: "#7B1113",
           border: "none",
@@ -296,7 +297,7 @@ export default function DashboardExportButton({
                 disabled={!canExport}
                 style={{
                   ...TYPE.bodyBold,
-                  fontFamily: FONT_HEADING,
+                  fontFamily: FONT_BODY,
                   color: "#fff",
                   background: canExport ? COLORS.headerGreen : "#A8B5AD",
                   border: "none",

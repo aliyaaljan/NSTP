@@ -1,40 +1,11 @@
-import { Montserrat } from "next/font/google"
-import { FONT_BODY, FONT_HEADING, PAGE_TITLE, TYPE } from "@/lib/admin-typography"
+import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardFilters from "@/components/shared/DashboardFilters"
 import DashboardExportButton from "@/components/admin/DashboardExportButton"
 import { lookupId } from "@/lib/lookups"
 
 export const revalidate = 0
-
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-montserrat",
-})
-
-const COLORS = {
-  textDark: "#2C2C2A",
-  textGray: "#8C8C88",
-  cardBg: "#FFFFFF",
-  cardShadow: "0 1px 4px rgba(0,0,0,0.06)",
-  border: "#ECECEA",
-  track: "#E3E3E1",
-
-  green: "#2D6A4F",
-  greenBgLight: "#DFEEE6",
-
-  maroon: "#7B1113",
-  maroonBgLight: "#F6DEE1",
-
-  maroonDark: "#5C0B18",
-  maroonDarkBgLight: "#EAD9DB",
-
-  amber: "#B5451B",
-  amberBgLight: "#FBEFDA",
-
-  iconBg: "#F8DCDD",
-}
 
 // ── Data contracts ────────────────────────────────────────────────────────
 
@@ -130,8 +101,9 @@ function StatCard({
     <div
       style={{
         background: COLORS.cardBg,
-        borderRadius: 14,
-        padding: "20px 22px",
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: COLORS.radius,
+        padding: "14px 16px",
         boxShadow: COLORS.cardShadow,
         display: "flex",
         flexDirection: "column",
@@ -155,11 +127,23 @@ function StatCard({
         />
       </div>
 
-      <div style={{ ...TYPE.body, color: COLORS.textGray }}>{label}</div>
+      <div
+        style={{
+          fontFamily: FONT_BODY,
+          fontSize: "11.5px",
+          fontWeight: 600,
+          color: COLORS.textGray,
+        }}
+      >
+        {label}
+      </div>
 
       <div
         style={{
-          ...TYPE.bodyBold,
+          fontFamily: FONT_BODY,
+          fontSize: "30px",
+          fontWeight: 800,
+          lineHeight: 1,
           color: valueColor ?? COLORS.textDark,
           display: "flex",
           alignItems: "baseline",
@@ -364,8 +348,9 @@ function ListCard({
     <div
       style={{
         background: COLORS.cardBg,
-        borderRadius: 14,
-        padding: "20px 22px",
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: COLORS.radius,
+        padding: "18px 20px",
         boxShadow: COLORS.cardShadow,
         display: "flex",
         flexDirection: "column",
@@ -472,30 +457,35 @@ function ProfilePill({ user }: { user: CurrentUser }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 12,
+        gap: PROFILE_PILL.gap,
         background: COLORS.maroon,
-        borderRadius: 40,
-        padding: "8px 22px 8px 10px",
+        borderRadius: PROFILE_PILL.borderRadius,
+        padding: PROFILE_PILL.padding,
+        color: "#fff",
+        flexShrink: 0,
       }}
     >
       <span
         style={{
-          width: 40,
-          height: 40,
+          width: PROFILE_PILL.avatarSize,
+          height: PROFILE_PILL.avatarSize,
           borderRadius: "50%",
           background: user.avatarUrl
             ? `center/cover no-repeat url(${user.avatarUrl})`
-            : "#D8D8D5",
+            : "rgba(255,255,255,0.2)",
           flexShrink: 0,
         }}
       />
       <div style={{ lineHeight: 1.2 }}>
-        <div style={{ ...TYPE.bodyBold, color: "#fff" }}>{user.name}</div>
+        <div style={{ ...PROFILE_PILL.name, fontFamily: FONT_BODY, color: "#fff" }}>
+          {user.name}
+        </div>
         <div
           style={{
-            ...TYPE.caption,
-            color: "rgba(255,255,255,0.75)",
-            fontStyle: "normal",
+            ...PROFILE_PILL.role,
+            fontFamily: FONT_BODY,
+            color: "#fff",
+            marginTop: 1,
           }}
         >
           {user.role}
@@ -1055,7 +1045,7 @@ export default async function AdminDashboardPage({
   ]
 
   return (
-    <div className={montserrat.variable} style={{ fontFamily: FONT_BODY }}>
+    <div style={{ fontFamily: FONT_BODY, fontSize: 14, color: COLORS.text }}>
       <style>{`
         .nstp-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
         .nstp-scroll::-webkit-scrollbar { width: 5px; }
@@ -1064,30 +1054,18 @@ export default async function AdminDashboardPage({
         .nstp-scroll::-webkit-scrollbar-thumb:hover { background: #BDBDB8; }
       `}</style>
 
-      {/* Profile pill */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginBottom: 22,
-        }}
-      >
-        <ProfilePill user={currentUserMeta} />
-      </div>
-
       {/* Header */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
+          alignItems: "flex-start",
           gap: 16,
           marginBottom: 28,
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.textDark, margin: 0 }}>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>
             Dashboard
           </h1>
           <p
@@ -1102,13 +1080,24 @@ export default async function AdminDashboardPage({
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 12 }}>
-          <DashboardFilters
-            currentFilter={currentFilter}
-            sections={availableSections}
-            advisers={availableAdvisers}
-          />
-          <DashboardExportButton sections={exportSections} />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 12,
+            flexShrink: 0,
+          }}
+        >
+          <ProfilePill user={currentUserMeta} />
+          <div style={{ display: "flex", gap: 12 }}>
+            <DashboardFilters
+              currentFilter={currentFilter}
+              sections={availableSections}
+              advisers={availableAdvisers}
+            />
+            <DashboardExportButton sections={exportSections} />
+          </div>
         </div>
       </div>
 
@@ -1138,8 +1127,9 @@ export default async function AdminDashboardPage({
         <div
           style={{
             background: COLORS.cardBg,
-            borderRadius: 16,
-            padding: "24px 28px",
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: COLORS.radius,
+            padding: "18px 20px",
             boxShadow: COLORS.cardShadow,
           }}
         >
@@ -1161,8 +1151,9 @@ export default async function AdminDashboardPage({
         <div
           style={{
             background: COLORS.cardBg,
-            borderRadius: 14,
-            padding: "22px 24px",
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: COLORS.radius,
+            padding: "18px 20px",
             boxShadow: COLORS.cardShadow,
             display: "flex",
             flexDirection: "column",

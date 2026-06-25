@@ -1,6 +1,8 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { FONT_BODY } from "@/lib/admin-typography"
+import { ADMIN_COLORS } from "@/lib/admin-theme"
 
 interface FilterProps {
   currentFilter: string
@@ -24,13 +26,13 @@ export default function DashboardFilters({
   }
 
   const buttonWrapperStyle: React.CSSProperties = {
-    fontFamily: "var(--font-montserrat), var(--font-body), sans-serif",
-    fontSize: "14px",
-    fontWeight: 700,
+    fontFamily: FONT_BODY,
+    fontSize: "12.5px",
+    fontWeight: 600,
     color: "#fff",
-    background: "#7B1113",
-    borderRadius: 24,
-    padding: "11px 22px",
+    background: ADMIN_COLORS.green,
+    borderRadius: 20,
+    padding: "5px 13px",
     display: "inline-flex",
     alignItems: "center",
     gap: 8,
@@ -68,28 +70,28 @@ export default function DashboardFilters({
           onChange={(e) => handleFilterChange(e.target.value)}
           style={hiddenSelectStyle}
         >
-          <option value="" style={{ color: "#2C2C2A" }}>
+          <option value="" style={{ color: ADMIN_COLORS.text }}>
             All Sections & Advisers
           </option>
 
-          <optgroup label="Sections" style={{ color: "#8C8C88" }}>
+          <optgroup label="Sections" style={{ color: ADMIN_COLORS.muted }}>
             {sections.map((name) => (
               <option
                 key={name}
                 value={`section:${name}`}
-                style={{ color: "#2C2C2A" }}
+                style={{ color: ADMIN_COLORS.text }}
               >
                 Section {name}
               </option>
             ))}
           </optgroup>
 
-          <optgroup label="Advisers" style={{ color: "#8C8C88" }}>
+          <optgroup label="Advisers" style={{ color: ADMIN_COLORS.muted }}>
             {advisers.map((name) => (
               <option
                 key={name}
                 value={`adviser:${name}`}
-                style={{ color: "#2C2C2A" }}
+                style={{ color: ADMIN_COLORS.text }}
               >
                 {name}
               </option>
@@ -104,10 +106,10 @@ export default function DashboardFilters({
           style={{
             background: "none",
             border: "none",
-            color: "#7B1113",
+            color: ADMIN_COLORS.maroon,
             cursor: "pointer",
             fontSize: "13px",
-            fontWeight: 600,
+            fontWeight: 700,
             fontFamily: "inherit",
             padding: "0 4px",
           }}
