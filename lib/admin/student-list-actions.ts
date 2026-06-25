@@ -90,7 +90,7 @@ async function resolveCurrentUser(
   userId?: string
 ): Promise<AdminCurrentUser> {
   if (!userId) {
-    return { name: "Adviser Test Account", role: "NSTP Admin" }
+    return { name: "Admin Test Account", role: "NSTP Admin" }
   }
 
   const { data: appUser } = await supabase
@@ -100,13 +100,13 @@ async function resolveCurrentUser(
     .maybeSingle()
 
   if (!appUser?.full_name) {
-    return { name: "Adviser Test Account", role: "NSTP Admin" }
+    return { name: "Admin Test Account", role: "NSTP Admin" }
   }
 
   const isAdmin = (appUser.role as { code?: string } | null)?.code === "admin"
 
   return {
-    name: isAdmin ? "Adviser Test Account" : appUser.full_name,
+    name: isAdmin ? "Admin Test Account" : appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
   }
 }
