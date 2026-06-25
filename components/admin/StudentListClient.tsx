@@ -20,23 +20,8 @@ import type {
   StudentListSortKey,
 } from "@/lib/admin/student-list"
 import { STUDENT_LIST_ALL_SECTIONS, filterStudentListRows } from "@/lib/admin/student-list"
-import { FONT_HEADING, PAGE_TITLE, TYPE } from "@/lib/admin-typography"
-
-const COLORS = {
-  textDark: "#2C2C2A",
-  textGray: "#8C8C88",
-  maroon: "#7B1113",
-  cardBg: "#FFFFFF",
-  cardShadow: "0 1px 4px rgba(0,0,0,0.06)",
-  border: "#ECECEA",
-  tableHeadBg: "#E8E8E5",
-  green: "#2D6A4F",
-  greenBgLight: "#DFEEE6",
-  amber: "#B5451B",
-  amberBgLight: "#FBEFDA",
-  maroonDark: "#5C0B18",
-  maroonDarkBgLight: "#EAD9DB",
-}
+import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 const STATUS_BADGE: Record<
   StudentProgressStatus,
@@ -55,30 +40,35 @@ function ProfilePill({ user }: { user: CurrentUser }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 12,
+        gap: PROFILE_PILL.gap,
         background: COLORS.maroon,
-        borderRadius: 40,
-        padding: "8px 22px 8px 10px",
+        borderRadius: PROFILE_PILL.borderRadius,
+        padding: PROFILE_PILL.padding,
+        color: "#fff",
+        flexShrink: 0,
       }}
     >
       <span
         style={{
-          width: 40,
-          height: 40,
+          width: PROFILE_PILL.avatarSize,
+          height: PROFILE_PILL.avatarSize,
           borderRadius: "50%",
           background: user.avatarUrl
             ? `center/cover no-repeat url(${user.avatarUrl})`
-            : "#D8D8D5",
+            : "rgba(255,255,255,0.2)",
           flexShrink: 0,
         }}
       />
       <div style={{ lineHeight: 1.2 }}>
-        <div style={{ ...TYPE.bodyBold, color: "#fff" }}>{user.name}</div>
+        <div style={{ ...PROFILE_PILL.name, fontFamily: FONT_BODY, color: "#fff" }}>
+          {user.name}
+        </div>
         <div
           style={{
-            ...TYPE.caption,
-            color: "rgba(255,255,255,0.75)",
-            fontStyle: "normal",
+            ...PROFILE_PILL.role,
+            fontFamily: FONT_BODY,
+            color: "#fff",
+            marginTop: 1,
           }}
         >
           {user.role}
@@ -106,11 +96,13 @@ function FilterDropdown({
       ref={containerRef}
       style={{
         ...TYPE.bodyBold,
-        fontFamily: FONT_HEADING,
+        fontFamily: FONT_BODY,
         color: "#fff",
-        background: COLORS.maroon,
-        borderRadius: 24,
-        padding: "11px 22px",
+        background: COLORS.green,
+        borderRadius: 20,
+        padding: "5px 13px",
+        fontSize: "12.5px",
+        fontWeight: 600,
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
@@ -354,21 +346,28 @@ export default function StudentListClient({
         .student-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
       `}</style>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 22 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+          marginBottom: 12,
+        }}
+      >
+        <div>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Student List</h1>
+          <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
+            Academic Year {meta.academicYear} | {meta.semester}
+          </p>
+          <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
+            {visibleStudents.length} total students
+          </p>
+        </div>
         <ProfilePill user={currentUser} />
       </div>
 
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ ...PAGE_TITLE, color: COLORS.textDark, margin: 0 }}>Student List</h1>
-        <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
-          Academic Year {meta.academicYear} | {meta.semester}
-        </p>
-        <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-          {visibleStudents.length} total students
-        </p>
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 12 }}>
         <div style={{ position: "relative" }}>
           <i
             className="ti ti-search"
@@ -377,8 +376,8 @@ export default function StudentListClient({
               left: 16,
               top: "50%",
               transform: "translateY(-50%)",
-              fontSize: 18,
-              color: COLORS.maroon,
+              fontSize: 14,
+              color: COLORS.light,
             }}
           />
           <input
@@ -388,30 +387,32 @@ export default function StudentListClient({
             placeholder="Search students"
             style={{
               width: "100%",
-              ...TYPE.body,
-              color: COLORS.textDark,
-              border: `1.5px solid ${COLORS.maroon}`,
-              borderRadius: 999,
-              padding: "12px 18px 12px 46px",
+              fontFamily: FONT_BODY,
+              fontSize: "13.5px",
+              color: COLORS.text,
+              border: `1.5px solid ${COLORS.border}`,
+              borderRadius: 24,
+              padding: "8px 16px 8px 40px",
               outline: "none",
-              background: "#fff",
+              background: COLORS.white,
             }}
           />
         </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
         <button
           type="button"
           onClick={() => setImportOpen(true)}
           style={{
-            ...TYPE.bodyBold,
-            fontFamily: FONT_HEADING,
+            fontFamily: FONT_BODY,
+            fontSize: "12.5px",
+            fontWeight: 600,
             color: "#fff",
-            background: COLORS.maroon,
+            background: COLORS.green,
             border: "none",
-            borderRadius: 24,
-            padding: "11px 22px",
+            borderRadius: 20,
+            padding: "5px 13px",
             cursor: "pointer",
             display: "inline-flex",
             alignItems: "center",
@@ -459,7 +460,8 @@ export default function StudentListClient({
       <div
         style={{
           background: COLORS.cardBg,
-          borderRadius: 14,
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: COLORS.radius,
           boxShadow: COLORS.cardShadow,
           overflow: "hidden",
         }}

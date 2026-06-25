@@ -1,14 +1,29 @@
 import { redirect } from "next/navigation"
-import { Montserrat } from "next/font/google"
+import { Goblin_One, Cormorant, Montserrat } from "next/font/google"
 import { getAppUserRole } from "@/lib/auth-actions"
 import AdminSidebar, { type NavGroup } from "@/components/shared/AdminSidebar"
+import { ADMIN_THEME_CSS } from "@/lib/admin-theme"
 
-// Self-hosted via next/font (no layout shift). Futura is referenced through a
-// system font stack in the components since it isn't available on Google Fonts.
+const goblinOne = Goblin_One({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-goblin",
+  display: "swap",
+})
+
+const cormorant = Cormorant({
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-cormorant",
+  display: "swap",
+})
+
 const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-montserrat",
+  variable: "--font-content",
+  display: "swap",
 })
 
 const adminNav: NavGroup[] = [
@@ -36,7 +51,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (role !== "admin") redirect("/")
 
   return (
-    <div className={montserrat.variable}>
+    <div
+      className={`${goblinOne.variable} ${cormorant.variable} ${montserrat.variable}`}
+      style={{
+        minHeight: "100vh",
+        ["--font" as string]: "var(--font-content, 'Helvetica Neue', Arial, sans-serif)",
+        ["--font-title" as string]: "var(--font-goblin, Georgia, serif)",
+        ["--font-sub" as string]: "var(--font-cormorant, Georgia, serif)",
+      }}
+    >
+      <style>{ADMIN_THEME_CSS}</style>
       <AdminSidebar navGroups={adminNav}>{children}</AdminSidebar>
     </div>
   )

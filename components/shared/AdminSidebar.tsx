@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useState } from "react"
 import { usePathname, useRouter } from 'next/navigation'
 import { signOutWithAudit } from '@/lib/auth-actions'
-import { FONT_HEADING, TYPE } from '@/lib/admin-typography'
-import { Goblin_One } from "next/font/google"
+import { FONT_BODY, FONT_SUB, FONT_TITLE, TYPE } from '@/lib/admin-typography'
+import { ADMIN_COLORS } from '@/lib/admin-theme'
 
 /**
  * Admin collapsible sidebar.
@@ -30,11 +30,6 @@ export interface NavGroup {
   items: NavItem[]
 }
 
-const goblinOne = Goblin_One({
-  subsets: ["latin"],
-  weight: "400",
-})
-
 const COLLAPSED_W = 88
 const EXPANDED_W = 256
 const RAIL_MARGIN = 16
@@ -49,8 +44,6 @@ const C = {
   divider: 'rgba(255,255,255,0.14)',
   logout: '#D9534F',
 }
-
-const FONT_BODY = TYPE.body.fontFamily
 
 function NstpLogo({ size = 44 }: { size?: number }) {
   return (
@@ -83,7 +76,7 @@ export default function AdminSidebar({
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#EDE9E1', fontFamily: FONT_BODY }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: ADMIN_COLORS.bg, fontFamily: FONT_BODY, fontSize: 14, color: ADMIN_COLORS.text }}>
       <style>{`
         .nstp-rail {
           position: fixed;
@@ -136,12 +129,11 @@ export default function AdminSidebar({
           <div className="nstp-expand" style={{ marginLeft: 6 }}>
             <div
               style={{
-                fontFamily: goblinOne.style.fontFamily,
+                fontFamily: FONT_TITLE,
                 color: "#fff",
-                fontSize: 20,
-                fontWeight: 800,
-                letterSpacing: 1,
+                fontSize: 30,
                 lineHeight: 1,
+                letterSpacing: 0.5,
               }}
             >
               NSTP
@@ -149,10 +141,12 @@ export default function AdminSidebar({
 
             <div
               style={{
-                fontFamily: goblinOne.style.fontFamily,
-                fontSize: 6,
+                fontFamily: FONT_SUB,
+                fontSize: 12,
                 color: "rgba(255,255,255,0.65)",
                 lineHeight: 1.4,
+                marginTop: 4,
+                whiteSpace: "nowrap",
               }}
             >
               University of the Philippines Baguio
@@ -212,7 +206,9 @@ export default function AdminSidebar({
                       <span
                         className="nstp-expand"
                         style={{
-                          ...(active ? TYPE.bodyBold : TYPE.body),
+                          fontFamily: FONT_BODY,
+                          fontSize: 15,
+                          fontWeight: 600,
                           color: active ? C.activeText : C.idleText,
                         }}
                       >
@@ -257,7 +253,7 @@ export default function AdminSidebar({
             </span>
             <span
               className="nstp-expand"
-              style={{ ...TYPE.body, fontWeight: 500, color: C.logout }}
+              style={{ fontFamily: FONT_BODY, fontSize: 13, fontWeight: 500, color: C.logout }}
             >
               Log Out
             </span>
@@ -270,7 +266,7 @@ export default function AdminSidebar({
         style={{
           flex: 1,
           marginLeft: COLLAPSED_W + RAIL_MARGIN * 2,
-          padding: '36px 40px',
+          padding: '36px 28px',
           minWidth: 0,
         }}
       >
