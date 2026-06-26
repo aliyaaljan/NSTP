@@ -402,12 +402,12 @@ on conflict (code) do nothing;
 -- Label tables intentionally keep natural-key PKs (they are static
 -- display config joined by name, referenced by no FK) — see review F15.
 -- ============================================================
-create table if not exists audit_table_labels (
+create table if not exists audit_table_label (
   table_name text primary key,
   label      text not null
 );
 
-create table if not exists audit_field_labels (
+create table if not exists audit_field_label (
   table_name text not null,
   field_name text not null,
   label      text not null,
@@ -508,7 +508,7 @@ select
             || '" to "'  || public.fn_format_audit_value(al.new_data ->> cf.field_name, coalesce(fl.field_type, 'text')) || '"',
           ', ')
         from unnest(al.changed_fields) cf(field_name)
-        left join public.audit_field_labels fl on fl.table_name = al.table_name and fl.field_name = cf.field_name
+        left join public.audit_field_label fl on fl.table_name = al.table_name and fl.field_name = cf.field_name
       ), 'a field') || ' for ' || coalesce(tl.label, al.table_name)
     else null
   end as summary,
@@ -517,7 +517,7 @@ select
   al.changed_fields
 from public.audit_log al
 left join public.app_user u           on u.app_user_id = al.actor_user_id
-left join public.audit_table_labels tl on tl.table_name = al.table_name
+left join public.audit_table_label tl on tl.table_name = al.table_name
 order by al.created_at desc;
 
 -- audit_log is append-only (sibling of block_attendance_event_mutation).
@@ -550,7 +550,7 @@ create trigger trg_audit_enrollment after insert or update or delete on enrollme
   for each row execute function public.fn_audit_log();
 
 -- Friendly labels for the core audited tables (form_* labels seeded in 0006).
-insert into audit_table_labels (table_name, label) values
+insert into audit_table_label (table_name, label) values
   ('app_user',           'user'),
   ('appeal',             'appeal'),
   ('attendance_session', 'attendance session'),
