@@ -3,16 +3,16 @@
 import { useState, useEffect, Suspense } from "react"
 import { useRouter } from "next/navigation";
 import {
-  IconSearch, IconQrcode, IconChevronDown,
+  IconSearch, IconChevronDown,
   IconUsersGroup, IconCircleCheck, IconClock,
-  IconAlertCircle, IconEye, IconX, IconClipboardText, IconPaperclip,
+  IconAlertCircle, IconX, IconClipboardText, IconPaperclip,
 } from "@tabler/icons-react";
 import { Sidebar, QrScanner, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { useSearchParams } from "next/navigation";
 
 // ── Data ──────────────────────────────────────────────────────────────
-type Status = "Completed" | "Near Completion" | "In Progress" | "Not Started";
+type Status = "Completed" | "In Progress" | "Not Started";
 
 interface Student {
   id: string;
@@ -47,30 +47,28 @@ const pendingRequests: PendingRequest[] = [
 ];
 
 const allStudents: Student[] = [
-  { id: "1",  name: "Rhona Shayne Lopez",      studentNo: "20201234", siteLocation: "Salud Mitra",    status: "Near Completion", hoursLogged: 105, totalHours: 120 },
-  { id: "2",  name: "Jaerish Kyle Rabang",     studentNo: "20123421", siteLocation: "Burnham Park",   status: "Completed",       hoursLogged: 120, totalHours: 120 },
-  { id: "3",  name: "Aliya Aljan Mendoza",     studentNo: "20152314", siteLocation: "Engineers Hill", status: "Not Started",     hoursLogged: 0,   totalHours: 120 },
-  { id: "4",  name: "Saffi Limbaro",           studentNo: "20198765", siteLocation: "Burnham Park",   status: "In Progress",     hoursLogged: 60,  totalHours: 120 },
-  { id: "5",  name: "Charles Ansbert Joaquin", studentNo: "20201111", siteLocation: "Salud Mitra",    status: "Completed",       hoursLogged: 120, totalHours: 120 },
-  { id: "6",  name: "Axel Xandrei Valido",     studentNo: "20203333", siteLocation: "Engineers Hill", status: "In Progress",     hoursLogged: 55,  totalHours: 120 },
-  { id: "7",  name: "Janine Irish Tulic",      studentNo: "20204444", siteLocation: "Salud Mitra",    status: "Not Started",     hoursLogged: 0,   totalHours: 120 },
-  { id: "8",  name: "Marco Dela Cruz",         studentNo: "20205555", siteLocation: "Burnham Park",   status: "Near Completion", hoursLogged: 98,  totalHours: 120 },
-  { id: "9",  name: "Patricia Santos",         studentNo: "20206666", siteLocation: "Engineers Hill", status: "In Progress",     hoursLogged: 72,  totalHours: 120 },
-  { id: "10", name: "Luis Miguel Reyes",       studentNo: "20207777", siteLocation: "Salud Mitra",    status: "Completed",       hoursLogged: 120, totalHours: 120 },
+  { id: "1",  name: "Rhona Shayne Lopez",      studentNo: "20201234", siteLocation: "Salud Mitra",    status: "In Progress",  hoursLogged: 105, totalHours: 120 },
+  { id: "2",  name: "Jaerish Kyle Rabang",     studentNo: "20123421", siteLocation: "Burnham Park",   status: "Completed",    hoursLogged: 120, totalHours: 120 },
+  { id: "3",  name: "Aliya Aljan Mendoza",     studentNo: "20152314", siteLocation: "Engineers Hill", status: "Not Started",  hoursLogged: 0,   totalHours: 120 },
+  { id: "4",  name: "Saffi Limbaro",           studentNo: "20198765", siteLocation: "Burnham Park",   status: "In Progress",  hoursLogged: 60,  totalHours: 120 },
+  { id: "5",  name: "Charles Ansbert Joaquin", studentNo: "20201111", siteLocation: "Salud Mitra",    status: "Completed",    hoursLogged: 120, totalHours: 120 },
+  { id: "6",  name: "Axel Xandrei Valido",     studentNo: "20203333", siteLocation: "Engineers Hill", status: "In Progress",  hoursLogged: 55,  totalHours: 120 },
+  { id: "7",  name: "Janine Irish Tulic",      studentNo: "20204444", siteLocation: "Salud Mitra",    status: "Not Started",  hoursLogged: 0,   totalHours: 120 },
+  { id: "8",  name: "Marco Dela Cruz",         studentNo: "20205555", siteLocation: "Burnham Park",   status: "In Progress",  hoursLogged: 98,  totalHours: 120 },
+  { id: "9",  name: "Patricia Santos",         studentNo: "20206666", siteLocation: "Engineers Hill", status: "In Progress",  hoursLogged: 72,  totalHours: 120 },
+  { id: "10", name: "Luis Miguel Reyes",       studentNo: "20207777", siteLocation: "Salud Mitra",    status: "Completed",    hoursLogged: 120, totalHours: 120 },
 ];
 
 const statusConfig: Record<Status, { bg: string; color: string; label: string }> = {
-  "Completed":       { bg: "#D1FAE5", color: "#065F46", label: "Completed"       },
-  "Near Completion": { bg: "#FEF3C7", color: "#92400E", label: "Near Completion" },
-  "In Progress":     { bg: "#DBEAFE", color: "#1E40AF", label: "In Progress"     },
-  "Not Started":     { bg: "#F3E8FF", color: "#6B21A8", label: "Not Started"     },
+  "Completed":   { bg: "#D1FAE5", color: "#065F46", label: "Completed"   },
+  "In Progress": { bg: "#FEF3C7", color: "#92400E", label: "In Progress" },
+  "Not Started": { bg: "#FEE2E2", color: "#991B1B", label: "Not Started" },
 };
 
 function progressColor(status: Status): string {
-  if (status === "Completed")       return "#1B4332";
-  if (status === "Near Completion") return "#D97706";
-  if (status === "In Progress")     return "#3B82F6";
-  return "#E5E7EB";
+  if (status === "Completed")   return "#059669";
+  if (status === "In Progress") return "#D97706";
+  return "#EF4444";
 }
 
 const statCards = [
@@ -144,14 +142,14 @@ const myStudentsStyles = `
   .ms-table thead tr { background: #F9FAFB; border-bottom: 1px solid var(--border); }
   .ms-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: var(--maroon); letter-spacing: 0.8px; text-transform: uppercase; }
   .ms-table th:nth-child(1) { width: 30%; }
-  .ms-table th:nth-child(2) { width: 20%; }
-  .ms-table th:nth-child(3) { width: 20%; }
-  .ms-table th:nth-child(4) { width: 25%; }
-  .ms-table th:nth-child(5) { width: 5%; }
+  .ms-table th:nth-child(2) { width: 22%; }
+  .ms-table th:nth-child(3) { width: 22%; }
+  .ms-table th:nth-child(4) { width: 26%; }
   .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; width: 130px; text-align: center; cursor: pointer; transition: filter 0.15s, transform 0.15s; }
   .ms-status-badge:hover { filter: brightness(0.9); transform: scale(1.04); }
   .ms-table td { padding: 14px 16px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
   .ms-table tbody tr:last-child td { border-bottom: none; }
+  .ms-table tbody tr { cursor: pointer; }
   .ms-table tbody tr:hover td { background: #FAFAFA; }
   .ms-student-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
   .ms-student-no   { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
@@ -326,11 +324,11 @@ function MyStudentsContent() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showFilter, setShowFilter]   = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const [pendingSearch, setPendingSearch] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
   const [requestTypeFilter, setRequestTypeFilter] = useState<"All Types" | RequestType>("All Types");
   const [showTypeFilter, setShowTypeFilter] = useState(false);
-  const PAGE_SIZE = 5;
 
   useEffect(() => {
     const tab = searchParams.get("tab")
@@ -353,10 +351,10 @@ function MyStudentsContent() {
     return matchSearch && matchType;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const statusOptions: StatusFilter[] = ["All Status", "Completed", "Near Completion", "In Progress", "Not Started"];
+  const statusOptions: StatusFilter[] = ["All Status", "Completed", "In Progress", "Not Started"];
 
   async function handleSignOut() {
       await signOutWithAudit()
@@ -453,7 +451,7 @@ function MyStudentsContent() {
                 className={`ms-tab${activeTab === "pending" ? " ms-tab-active" : ""}`}
                 onClick={() => setActiveTab("pending")}
               >
-                <IconQrcode size={16} stroke={1.75} />
+                <IconAlertCircle size={16} stroke={1.75} />
                 Pending Requests
               </button>
             </div>
@@ -513,19 +511,18 @@ function MyStudentsContent() {
                         <th>Site Location</th>
                         <th>Status</th>
                         <th>Hours Logged</th>
-                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
                       {filtered.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="ms-empty">No students match your search.</td>
+                          <td colSpan={4} className="ms-empty">No students match your search.</td>
                         </tr>
                       ) : paginated.map((s) => {
                         const pct = Math.round((s.hoursLogged / s.totalHours) * 100);
                         const cfg = statusConfig[s.status];
                         return (
-                          <tr key={s.id}>
+                          <tr key={s.id} onClick={() => setSelectedStudent(s)}>
                             <td>
                               <div className="ms-student-name">{s.name}</div>
                               <div className="ms-student-no">{s.studentNo}</div>
@@ -547,11 +544,6 @@ function MyStudentsContent() {
                                 <div className="ms-hours-fill" style={{ width: `${pct}%`, background: progressColor(s.status) }} />
                               </div>
                             </td>
-                            <td>
-                              <button className="ms-view-btn" onClick={() => setSelectedStudent(s)} aria-label={`View ${s.name}`}>
-                                <IconEye size={16} stroke={1.75} />
-                              </button>
-                            </td>
                           </tr>
                         );
                       })}
@@ -561,7 +553,7 @@ function MyStudentsContent() {
                   {/* Pagination */}
                   <div className="ms-pagination">
                     <div className="ms-pagination-info">
-                      Showing {filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} students
+                      Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length} students
                     </div>
                     <div className="ms-pagination-controls">
                       <button
@@ -589,6 +581,23 @@ function MyStudentsContent() {
                       >
                         &#8250;
                       </button>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)" }}>
+                      <span>Rows per page:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                        style={{
+                          border: "1.5px solid var(--border)", borderRadius: 8,
+                          padding: "4px 8px", fontSize: 12.5, fontFamily: "var(--font)",
+                          color: "var(--text)", background: "var(--white)", cursor: "pointer",
+                          outline: "none",
+                        }}
+                      >
+                        {[5, 10, 20, 50].map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>
