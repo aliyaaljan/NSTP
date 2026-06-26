@@ -26,6 +26,7 @@ import {
 } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { createClient } from "@/lib/client"
+import { ChartStyles } from "@/components/shared/ChartModule"
 
 type DashboardRow = {
   section_id: string | null
@@ -57,6 +58,8 @@ export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
   const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at: string }[]>([])
   const [currentPage, setCurrentPage] = useState(1)
+  const [animKey, setAnimKey] = useState(0)
+  const [sectionKey, setSectionKey] = useState(0)
 
   useEffect(() => {
     const supabase = createClient()
@@ -131,9 +134,12 @@ export default function DashboardPage() {
     currentPage * PAGE_SIZE
   )
 
+  const pendingCount = dashboardData.find((r) => r.section_name === "All Sections")?.pending ?? 0
+
   return (
     <>
       <style>{dashboardStyles}</style>
+      <ChartStyles />
 
       <div className="db-root">
         <Sidebar
@@ -191,12 +197,15 @@ export default function DashboardPage() {
                   <div className="alert-text">
                     <div className="alert-title">Action Needed</div>
                     <div className="alert-sub">
-                      {dashboardData.find((r) => r.section_name === "All Sections")
-                        ?.pending ?? 0}{" "}
-                      pending requests
+                      {pendingCount} pending requests
                     </div>
                   </div>
-                  <button className="alert-btn" onClick={() => router.push(`${navRoutes["My Students"]}?tab=pending`)}>
+                  <button
+                    className="alert-btn"
+                    onClick={() => pendingCount > 0 && router.push(`${navRoutes["My Students"]}?tab=pending`)}
+                    disabled={pendingCount === 0}
+                    style={pendingCount === 0 ? { opacity: 0.4, cursor: "not-allowed", filter: "grayscale(1)" } : undefined}
+                  >
                     <IconEye size={13} stroke={1.75} /> Review
                   </button>
                 </div>
@@ -261,6 +270,8 @@ export default function DashboardPage() {
                                       setSelectedSection(s.name)
                                       setSectionDropdownOpen(false)
                                       setCurrentPage(1)
+                                      setAnimKey((k) => k + 1)
+                                      setSectionKey((k) => k + 1)
                                     }}
                                     className={`block w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
                                       s.name === selectedSection ? "font-semibold bg-green text-white" : "font-normal text-text"
@@ -277,13 +288,13 @@ export default function DashboardPage() {
                     </div>
                     <div className="stat-cards">
                       {statCards.map(({ label, value, Icon }) => (
-                        <div key={label} className="stat-card">
-                          <div className="stat-card-label">{label}</div>
-                          <div className="stat-card-row">
-                            <span className="stat-card-icon">
-                              <Icon size={22} stroke={1.5} />
-                            </span>
-                            <div className="stat-card-value">{value}</div>
+                        <div key={label} className="db-kpi-card">
+                          <div className="db-kpi-header">
+                            <span className="db-kpi-label">{label}</span>
+                          </div>
+                          <div className="db-kpi-value">{value}</div>
+                          <div className="db-kpi-deco">
+                            <Icon size={64} stroke={1.2} />
                           </div>
                         </div>
                       ))}
@@ -298,14 +309,14 @@ export default function DashboardPage() {
                       </div>
                       {/* <button className="view-all-btn">View All</button> */}
                     </div>
-                    <div className="student-list mb-4">
+                    <div className="student-list mb-4" key={animKey}>
                       {filtered.length === 0 ? (
                         <div className="no-results">
                           No students match your search.
                         </div>
                       ) : (
                         paginated.map(({ name, pct }) => (
-                          <div key={name} className="student-row">
+                          <div key={name} className="student-row anim-list-item">
                             <StudentAvatar name={name} />
                             <div className="student-info">
                               <div className="student-name" title={name}>
@@ -350,7 +361,7 @@ export default function DashboardPage() {
                         className="pt-2"
                       >
                         <button
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          onClick={() => { setCurrentPage((p) => Math.max(1, p - 1)); setAnimKey((k) => k + 1) }}
                           disabled={currentPage === 1}
                           style={{
                             width: 28,
@@ -373,7 +384,7 @@ export default function DashboardPage() {
                           (p) => (
                             <button
                               key={p}
-                              onClick={() => setCurrentPage(p)}
+                              onClick={() => { setCurrentPage(p); setAnimKey((k) => k + 1) }}
                               style={{
                                 width: 28,
                                 height: 28,
@@ -395,9 +406,7 @@ export default function DashboardPage() {
                           )
                         )}
                         <button
-                          onClick={() =>
-                            setCurrentPage((p) => Math.min(totalPages, p + 1))
-                          }
+                          onClick={() => { setCurrentPage((p) => Math.min(totalPages, p + 1)); setAnimKey((k) => k + 1) }}
                           disabled={currentPage === totalPages}
                           style={{
                             width: 28,
@@ -430,7 +439,7 @@ export default function DashboardPage() {
                   <div className="completion-card" style={{ width: "100%" }}>
                     <div className="card-title">Section Completion Rate</div>
                     <div className="completion-inner">
-                      <DonutChart pct={currentData.completion_pct} />
+                      <DonutChart key={sectionKey} pct={currentData.completion_pct} />
                       <div className="completion-meta">
                         <div className="completion-name text-center">
                           {selectedSection === "All Sections"

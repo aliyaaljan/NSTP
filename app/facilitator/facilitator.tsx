@@ -90,14 +90,19 @@ export function StudentAvatar({ name, size = 36 }: { name: string; size?: number
 }
 
 export function ProgressBar({ pct }: { pct: number }) {
+  const [displayed, setDisplayed] = useState(0);
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setDisplayed(pct));
+    return () => cancelAnimationFrame(t);
+  }, [pct]);
   return (
     <div
       role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
       style={{ flex: 1, height: 10, background: "#E5E7EB", borderRadius: 5, overflow: "hidden" }}
     >
       <div style={{
-        height: "100%", width: `${pct}%`,
-        background: progressColor(pct), borderRadius: 5, transition: "width 0.35s ease",
+        height: "100%", width: `${displayed}%`,
+        background: progressColor(pct), borderRadius: 5, transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)",
       }} />
     </div>
   );
@@ -106,12 +111,18 @@ export function ProgressBar({ pct }: { pct: number }) {
 export function DonutChart({ pct = 60 }: { pct?: number }) {
   const r = 46;
   const circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
+  const [displayed, setDisplayed] = useState(0);
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setDisplayed(pct));
+    return () => cancelAnimationFrame(t);
+  }, [pct]);
+  const dash = (displayed / 100) * circ;
   return (
     <svg width="110" height="110" viewBox="0 0 110 110" aria-label={`${pct}% completion rate`} style={{ flexShrink: 0 }}>
       <circle cx="55" cy="55" r={r} fill="none" stroke="#E5E7EB" strokeWidth="11" />
       <circle cx="55" cy="55" r={r} fill="none" stroke="#7B1D1D" strokeWidth="11"
-        strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.25} strokeLinecap="round" />
+        strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.25} strokeLinecap="round"
+        style={{ transition: "stroke-dasharray 0.6s cubic-bezier(0.4,0,0.2,1)" }} />
       <text x="55" y="60" textAnchor="middle" fill="#111827" fontSize="15" fontWeight="700" fontFamily="sans-serif">
         {pct}%
       </text>
