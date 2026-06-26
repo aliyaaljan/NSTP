@@ -32,6 +32,28 @@ export type UpdateAdviserResult =
   | { ok: true }
   | { ok: false; error: string }
 
+export interface AdviserCreatePayload {
+  /** `app_user.full_name` */
+  fullName: string
+  /** `app_user.email` */
+  email: string
+  /** `app_user.is_active` */
+  isActive: boolean
+  /** `section.section_id` values to assign to this adviser */
+  sectionIds: string[]
+}
+
+export type CreateAdviserResult = UpdateAdviserResult
+
+export function emptyAdviserCreatePayload(): AdviserCreatePayload {
+  return {
+    fullName: "",
+    email: "",
+    isActive: true,
+    sectionIds: [],
+  }
+}
+
 /** Build the edit form payload from a list row. */
 export function adviserRowToEditPayload(row: AdviserListRow): AdviserEditPayload {
   return {
@@ -50,6 +72,25 @@ export function validateAdviserEditPayload(
   if (!payload.adviserUserId.trim()) {
     return "Adviser user ID is required."
   }
+  if (!payload.fullName.trim()) {
+    return "Full name is required."
+  }
+  if (!payload.email.trim()) {
+    return "Email is required."
+  }
+  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
+    return "Email must be a UP email (@up.edu.ph)."
+  }
+  if (payload.sectionIds.length === 0) {
+    return "At least one section must be assigned."
+  }
+  return null
+}
+
+/** Shared client/server validation before calling `createAdviser()`. */
+export function validateAdviserCreatePayload(
+  payload: AdviserCreatePayload
+): string | null {
   if (!payload.fullName.trim()) {
     return "Full name is required."
   }

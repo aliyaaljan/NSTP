@@ -1,6 +1,13 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
+import { Montserrat } from "next/font/google"
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-montserrat",
+})
 
 const COLORS = {
   maroonBase: "#7B1113",
@@ -12,6 +19,7 @@ const COLORS = {
   border: "#DDDDDD",
   disabled: "#BBBBBB",
   gold: "#F3AA2C",
+  hover: "#F5F5F5",
 }
 
 export interface GeneratedStudent {
@@ -41,20 +49,21 @@ function initials(name: string) {
     .join("")
 }
 
-// Manual student data
-const DEFAULT_STUDENTS: GeneratedStudent[] = [
-  { id: "1", name: "Jeremy  Padayao", studentId: "NSTP-A", generatedAt: "7:50 AM", scanned: true, scannedAt: "8:15 AM" },
-  { id: "2", name: "Tofu Lammard", studentId: "NSTP-B", generatedAt: "7:40 AM", scanned: true, scannedAt: "7:58 AM" },
-  { id: "3", name: "Rhona Sharine Lopez", studentId: "NSTP-C", generatedAt: "7:30 AM", scanned: true, scannedAt: "7:45 AM" },
-  { id: "4", name: "Kim Mingyu", studentId: "NSTP-D", generatedAt: "8:00 AM", scanned: true, scannedAt: "8:09 AM" },
-  { id: "5", name: "Diego Hartono", studentId: "NSTP-E", generatedAt: "8:05 AM", scanned: false },
-  { id: "6", name: "Anya Querubin", studentId: "NSTP-F", generatedAt: "8:08 AM", scanned: false },
-  { id: "7", name: "Marcus Tibayan", studentId: "NSTP-G", generatedAt: "8:11 AM", scanned: true, scannedAt: "8:20 AM" },
-  { id: "8", name: "Liesel Funk", studentId: "NSTP-H", generatedAt: "8:14 AM", scanned: false },
-]
-
-export default function ScannedStudents({ students = DEFAULT_STUDENTS, variant = "card" }: ScannedStudentsProps) {
+export default function ScannedStudents({ students = [], variant = "card" }: ScannedStudentsProps) {
   const [expanded, setExpanded] = useState(variant === "list")
+  const [isMobile, setIsMobile] = useState(false)
+  const [isVerySmall, setIsVerySmall] = useState(false)
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth
+      setIsMobile(width < 768)
+      setIsVerySmall(width < 380)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const scannedCount = useMemo(() => students.filter((s) => s.scanned).length, [students])
   const total = students.length
@@ -71,21 +80,40 @@ export default function ScannedStudents({ students = DEFAULT_STUDENTS, variant =
           borderRadius: "14px",
           border: `1px solid ${COLORS.border}`,
           boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-          padding: "18px",
+          padding: isVerySmall ? "14px" : isMobile ? "16px" : "18px",
           cursor: "pointer",
+          transition: "all 0.15s",
+          fontFamily: montserrat.style.fontFamily,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = COLORS.maroonBase
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = COLORS.border
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isVerySmall ? "10px" : "14px" }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: "22px", fontWeight: 700, color: COLORS.text, lineHeight: 1.1 }}>
+            <div style={{ 
+              fontSize: isVerySmall ? "18px" : isMobile ? "20px" : "22px", 
+              fontWeight: 700, 
+              color: COLORS.text, 
+              lineHeight: 1.1 
+            }}>
               {scannedCount} / {total}
             </div>
-            <div style={{ fontSize: "12px", color: COLORS.muted, marginTop: "4px" }}>Logged in and Scanned</div>
+            <div style={{ 
+              fontSize: isVerySmall ? "10px" : isMobile ? "11px" : "12px", 
+              color: COLORS.muted, 
+              marginTop: "2px" 
+            }}>
+              Logged in and Scanned
+            </div>
           </div>
           <div
             style={{
-              width: "40px",
-              height: "40px",
+              width: isVerySmall ? "32px" : isMobile ? "36px" : "40px",
+              height: isVerySmall ? "32px" : isMobile ? "36px" : "40px",
               borderRadius: "50%",
               background: COLORS.gold,
               color: COLORS.white,
@@ -95,17 +123,32 @@ export default function ScannedStudents({ students = DEFAULT_STUDENTS, variant =
               flexShrink: 0,
             }}
           >
-            <i className="ti ti-users" style={{ fontSize: "19px" }} />
+            <i className="ti ti-users" style={{ fontSize: isVerySmall ? "15px" : isMobile ? "17px" : "19px" }} />
           </div>
         </div>
-        <div style={{ width: "100%", height: "6px", borderRadius: "4px", background: COLORS.surface, overflow: "hidden", marginTop: "12px" }}>
+        <div style={{ 
+          width: "100%", 
+          height: isVerySmall ? "4px" : "6px", 
+          borderRadius: "4px", 
+          background: COLORS.surface, 
+          overflow: "hidden", 
+          marginTop: isVerySmall ? "8px" : "12px" 
+        }}>
           <div style={{ width: `${pct}%`, height: "100%", background: COLORS.gold, borderRadius: "4px" }} />
         </div>
       </button>
     )
   }
 
-  return <ScannedStudentsList students={students} total={total} scannedCount={scannedCount} pct={pct} onCollapse={variant === "card" ? () => setExpanded(false) : undefined} />
+  return <ScannedStudentsList 
+    students={students} 
+    total={total} 
+    scannedCount={scannedCount} 
+    pct={pct} 
+    onCollapse={variant === "card" ? () => setExpanded(false) : undefined}
+    isMobile={isMobile}
+    isVerySmall={isVerySmall}
+  />
 }
 
 /* Expanded List */
@@ -115,12 +158,16 @@ function ScannedStudentsList({
   scannedCount,
   pct,
   onCollapse,
+  isMobile,
+  isVerySmall,
 }: {
   students: GeneratedStudent[]
   total: number
   scannedCount: number
   pct: number
   onCollapse?: () => void
+  isMobile: boolean
+  isVerySmall: boolean
 }) {
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<"all" | "scanned" | "pending">("all")
@@ -138,52 +185,49 @@ function ScannedStudentsList({
         borderRadius: "14px",
         border: `1px solid ${COLORS.border}`,
         boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-        padding: "22px 24px",
+        padding: isVerySmall ? "14px 12px" : isMobile ? "16px 16px" : "22px 24px",
         display: "flex",
         flexDirection: "column",
-        gap: "16px",
+        gap: isVerySmall ? "10px" : isMobile ? "12px" : "16px",
         height: "100%",
+        fontFamily: montserrat.style.fontFamily,
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+      <div style={{ 
+        display: "flex", 
+        alignItems: isMobile ? "flex-start" : "center", 
+        justifyContent: "space-between", 
+        flexDirection: isMobile ? "column" : "row",
+        gap: isMobile ? "8px" : "0",
+        flexWrap: "wrap" 
+      }}>
         <div>
           <div
             style={{
-              fontFamily: "'Cormorant', Georgia, serif",
               fontWeight: 700,
-              fontSize: "20px",
+              fontSize: isVerySmall ? "15px" : isMobile ? "17px" : "20px",
               color: COLORS.maroonBase,
               letterSpacing: "0.5px",
             }}
           >
-            SCANNED STUDENTS
+            QR Attendance
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              background: COLORS.surface,
-              borderRadius: "999px",
-              padding: "8px 16px",
-            }}
-          >
-            <i className="ti ti-users" style={{ fontSize: "16px", color: COLORS.gold }} />
-            <span style={{ fontSize: "14px", fontWeight: 700, color: COLORS.text }}>
-              {scannedCount} / {total}
-            </span>
-            <span style={{ fontSize: "11px", color: COLORS.muted }}>scanned</span>
-          </div>
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: isVerySmall ? "6px" : "10px",
+          width: isMobile ? "100%" : "auto",
+          justifyContent: isMobile ? "space-between" : "flex-end",
+        }}>
           {onCollapse && (
             <button
               onClick={onCollapse}
               aria-label="Collapse"
               style={{
-                width: "30px",
-                height: "30px",
+                width: isVerySmall ? "28px" : "30px",
+                height: isVerySmall ? "28px" : "30px",
                 borderRadius: "50%",
                 border: `1px solid ${COLORS.border}`,
                 background: COLORS.white,
@@ -192,73 +236,130 @@ function ScannedStudentsList({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                flexShrink: 0,
+                fontFamily: montserrat.style.fontFamily,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = COLORS.hover
+                e.currentTarget.style.borderColor = COLORS.maroonBase
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = COLORS.white
+                e.currentTarget.style.borderColor = COLORS.border
               }}
             >
-              <i className="ti ti-x" style={{ fontSize: "14px" }} />
+              <i className="ti ti-x" style={{ fontSize: isVerySmall ? "12px" : "14px" }} />
             </button>
           )}
         </div>
       </div>
 
-      <div style={{ width: "100%", height: "8px", borderRadius: "5px", background: COLORS.surface, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: COLORS.gold, borderRadius: "5px", transition: "width 0.3s ease" }} />
-      </div>
-
-      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ 
+        display: "flex", 
+        gap: isVerySmall ? "6px" : "10px", 
+        flexWrap: "wrap", 
+        alignItems: "center",
+        flexDirection: isMobile ? "column" : "row",
+      }}>
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
+            gap: isVerySmall ? "6px" : "8px",
             border: `1px solid ${COLORS.border}`,
             borderRadius: "999px",
-            padding: "7px 14px",
+            padding: isVerySmall ? "5px 10px" : isMobile ? "6px 12px" : "7px 14px",
             flex: 1,
-            minWidth: "180px",
+            minWidth: isVerySmall ? "100%" : "140px",
+            width: isMobile ? "100%" : "auto",
+            fontFamily: montserrat.style.fontFamily,
           }}
         >
-          <i className="ti ti-search" style={{ fontSize: "14px", color: COLORS.disabled }} />
+          <i className="ti ti-search" style={{ fontSize: isVerySmall ? "12px" : "14px", color: COLORS.disabled }} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search student name..."
-            style={{ border: "none", outline: "none", fontSize: "13px", flex: 1, color: COLORS.text, background: "transparent" }}
+            placeholder="Search student..."
+            style={{ 
+              border: "none", 
+              outline: "none", 
+              fontSize: isVerySmall ? "11px" : isMobile ? "12px" : "13px", 
+              flex: 1, 
+              color: COLORS.text, 
+              background: "transparent",
+              minWidth: "60px",
+              fontFamily: montserrat.style.fontFamily,
+            }}
           />
         </div>
 
-        <div style={{ display: "flex", gap: "6px" }}>
+        <div style={{ 
+          display: "flex", 
+          gap: isVerySmall ? "4px" : "6px",
+          width: isMobile ? "100%" : "auto",
+          justifyContent: isMobile ? "stretch" : "flex-start",
+        }}>
           {([
             { key: "all", label: "All" },
-            { key: "scanned", label: "Scanned" },
-            { key: "pending", label: "Pending" },
+            { key: "scanned", label: "✓" },
+            { key: "pending", label: "⏱" },
           ] as const).map((opt) => {
             const active = filter === opt.key
+            const label = isVerySmall ? opt.key === "all" ? "All" : opt.key === "scanned" ? "✓" : "⏱" : opt.key === "all" ? "All" : opt.key === "scanned" ? "Scanned" : "Pending"
             return (
               <button
                 key={opt.key}
                 onClick={() => setFilter(opt.key)}
                 style={{
-                  fontSize: "11px",
+                  fontSize: isVerySmall ? "10px" : isMobile ? "10px" : "11px",
                   fontWeight: 600,
-                  padding: "6px 14px",
+                  padding: isVerySmall ? "4px 8px" : isMobile ? "5px 10px" : "6px 14px",
                   borderRadius: "999px",
                   border: `1px solid ${active ? COLORS.maroonBase : COLORS.border}`,
                   background: active ? "rgba(123,17,19,0.08)" : COLORS.white,
                   color: active ? COLORS.maroonBase : COLORS.muted,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
+                  flex: isMobile ? 1 : "auto",
+                  transition: "all 0.15s",
+                  fontFamily: montserrat.style.fontFamily,
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.background = COLORS.hover
+                    e.currentTarget.style.borderColor = COLORS.maroonBase
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.background = COLORS.white
+                    e.currentTarget.style.borderColor = COLORS.border
+                  }
                 }}
               >
-                {opt.label}
+                {label}
               </button>
             )
           })}
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ 
+        flex: 1, 
+        overflowY: "auto", 
+        display: "flex", 
+        flexDirection: "column", 
+        gap: isVerySmall ? "6px" : isMobile ? "6px" : "8px",
+        maxHeight: isVerySmall ? "200px" : isMobile ? "280px" : "400px",
+      }}>
         {visible.length === 0 && (
-          <div style={{ fontSize: "12px", color: COLORS.disabled, textAlign: "center", padding: "30px 0" }}>
+          <div style={{ 
+            fontSize: isVerySmall ? "11px" : isMobile ? "11px" : "12px", 
+            color: COLORS.disabled, 
+            textAlign: "center", 
+            padding: isVerySmall ? "20px 0" : "30px 0",
+            fontFamily: montserrat.style.fontFamily,
+          }}>
             No students match this view.
           </div>
         )}
@@ -268,17 +369,18 @@ function ScannedStudentsList({
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "14px",
-              padding: "10px 12px",
+              gap: isVerySmall ? "8px" : isMobile ? "10px" : "14px",
+              padding: isVerySmall ? "6px 8px" : isMobile ? "8px 10px" : "10px 12px",
               borderRadius: "10px",
               border: `1px solid ${COLORS.border}`,
               background: COLORS.surface,
+              fontFamily: montserrat.style.fontFamily,
             }}
           >
             <span
               style={{
-                width: "36px",
-                height: "36px",
+                width: isVerySmall ? "28px" : isMobile ? "30px" : "36px",
+                height: isVerySmall ? "28px" : isMobile ? "30px" : "36px",
                 flexShrink: 0,
                 borderRadius: "50%",
                 background: COLORS.maroonBase,
@@ -286,59 +388,92 @@ function ScannedStudentsList({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "12px",
+                fontSize: isVerySmall ? "9px" : isMobile ? "10px" : "12px",
                 fontWeight: 700,
+                fontFamily: montserrat.style.fontFamily,
               }}
             >
               {initials(s.name)}
             </span>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "13px", fontWeight: 600, color: COLORS.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div style={{ 
+                fontSize: isVerySmall ? "11px" : isMobile ? "12px" : "13px", 
+                fontWeight: 600, 
+                color: COLORS.text, 
+                whiteSpace: "nowrap", 
+                overflow: "hidden", 
+                textOverflow: "ellipsis",
+                fontFamily: montserrat.style.fontFamily,
+              }}>
                 {s.name}
               </div>
-              <div style={{ fontSize: "11px", color: COLORS.muted }}>
-                {s.studentId} · QR generated {s.generatedAt}
+              <div style={{ 
+                fontSize: isVerySmall ? "9px" : isMobile ? "10px" : "11px", 
+                color: COLORS.muted,
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                flexWrap: "wrap",
+                fontFamily: montserrat.style.fontFamily,
+              }}>
+                <span>Student No: {s.studentId}</span>
+                <span style={{ display: isVerySmall ? "none" : "inline" }}>·</span>
+                <span>QR generated at {s.generatedAt}</span>
               </div>
             </div>
 
             {s.scanned ? (
-              <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
+              <span style={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "flex-end", 
+                gap: "1px",
+                flexShrink: 0,
+              }}>
                 <span
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: "4px",
-                    fontSize: "11px",
+                    gap: isVerySmall ? "2px" : "4px",
+                    fontSize: isVerySmall ? "9px" : isMobile ? "10px" : "11px",
                     fontWeight: 700,
                     color: COLORS.forestLight,
                     background: "rgba(45,106,79,0.10)",
-                    padding: "4px 10px",
+                    padding: isVerySmall ? "2px 6px" : isMobile ? "3px 8px" : "4px 10px",
                     borderRadius: "999px",
+                    whiteSpace: "nowrap",
+                    fontFamily: montserrat.style.fontFamily,
                   }}
                 >
-                  <i className="ti ti-check" style={{ fontSize: "11px" }} />
-                  Scanned
+                  <i className="ti ti-check" style={{ fontSize: isVerySmall ? "8px" : "11px" }} />
+                  {!isVerySmall && "Scanned"}
                 </span>
-                {s.scannedAt && <span style={{ fontSize: "10px", color: COLORS.muted }}>{s.scannedAt}</span>}
+                {s.scannedAt && !isVerySmall && (
+                  <span style={{ fontSize: isVerySmall ? "8px" : "10px", color: COLORS.muted, fontFamily: montserrat.style.fontFamily }}>
+                    {s.scannedAt}
+                  </span>
+                )}
               </span>
             ) : (
               <span
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "4px",
-                  fontSize: "11px",
+                  gap: isVerySmall ? "2px" : "4px",
+                  fontSize: isVerySmall ? "9px" : isMobile ? "10px" : "11px",
                   fontWeight: 700,
                   color: COLORS.gold,
                   background: "rgba(243,170,44,0.12)",
-                  padding: "4px 10px",
+                  padding: isVerySmall ? "2px 6px" : isMobile ? "3px 8px" : "4px 10px",
                   borderRadius: "999px",
                   flexShrink: 0,
+                  whiteSpace: "nowrap",
+                  fontFamily: montserrat.style.fontFamily,
                 }}
               >
-                <i className="ti ti-clock" style={{ fontSize: "11px" }} />
-                Pending
+                <i className="ti ti-clock" style={{ fontSize: isVerySmall ? "8px" : "11px" }} />
+                {!isVerySmall && "Pending"}
               </span>
             )}
           </div>

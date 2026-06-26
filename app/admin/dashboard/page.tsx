@@ -3,6 +3,11 @@ import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardFilters from "@/components/shared/DashboardFilters"
 import DashboardExportButton from "@/components/admin/DashboardExportButton"
+import AdminCalendar from "@/components/admin/AdminCalendar"
+import AdminAttendanceStrip from "@/components/admin/AdminAttendanceStrip"
+import SectionProgressPanel from "@/components/admin/SectionProgressPanel"
+import RemainingDaysChart from "@/components/admin/RemainingDaysChart"
+import CompletionDonutChart from "@/components/admin/CompletionDonutChart"
 import { lookupId } from "@/lib/lookups"
 
 export const revalidate = 0
@@ -103,203 +108,101 @@ function StatCard({
         background: COLORS.cardBg,
         border: `1px solid ${COLORS.border}`,
         borderRadius: COLORS.radius,
-        padding: "14px 16px",
+        padding: "12px 14px",
         boxShadow: COLORS.cardShadow,
         display: "flex",
-        flexDirection: "column",
-        gap: 10,
+        alignItems: "center",
+        gap: 12,
       }}
     >
       <div
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 10,
-          background: COLORS.iconBg,
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          flexDirection: "column",
+          gap: 6,
+          minWidth: 0,
+          flex: 1,
         }}
       >
-        <i
-          className={`ti ${icon}`}
-          style={{ fontSize: 19, color: COLORS.maroon }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              background: COLORS.iconBg,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <i
+              className={`ti ${icon}`}
+              style={{ fontSize: 17, color: COLORS.maroon }}
+            />
+          </div>
+
+          <div
+            style={{
+              fontFamily: FONT_BODY,
+              fontSize: "11.5px",
+              fontWeight: 600,
+              color: COLORS.textGray,
+              lineHeight: 1.3,
+            }}
+          >
+            {label}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {badge && (
+            <span
+              style={{
+                ...TYPE.bodyBold,
+                color: badge.color,
+                background: badge.bg,
+                borderRadius: 12,
+                padding: "2px 8px",
+              }}
+            >
+              {badge.text}
+            </span>
+          )}
+          <span style={{ ...TYPE.caption, color: COLORS.textGray }}>{note}</span>
+        </div>
       </div>
 
       <div
         style={{
           fontFamily: FONT_BODY,
-          fontSize: "11.5px",
-          fontWeight: 600,
-          color: COLORS.textGray,
-        }}
-      >
-        {label}
-      </div>
-
-      <div
-        style={{
-          fontFamily: FONT_BODY,
-          fontSize: "30px",
+          fontSize: "34px",
           fontWeight: 800,
           lineHeight: 1,
+          letterSpacing: "-0.02em",
           color: valueColor ?? COLORS.textDark,
           display: "flex",
           alignItems: "baseline",
           gap: 4,
+          flexShrink: 0,
+          marginLeft: "auto",
+          marginRight: 16,
         }}
       >
         {value}
         {valueSuffix && (
-          <span style={{ ...TYPE.body, color: COLORS.textGray }}>
+          <span
+            style={{
+              fontSize: "15px",
+              fontWeight: 600,
+              color: COLORS.textGray,
+            }}
+          >
             {valueSuffix}
           </span>
         )}
       </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {badge && (
-          <span
-            style={{
-              ...TYPE.bodyBold,
-              color: badge.color,
-              background: badge.bg,
-              borderRadius: 12,
-              padding: "3px 10px",
-            }}
-          >
-            {badge.text}
-          </span>
-        )}
-        <span style={{ ...TYPE.caption, color: COLORS.textGray }}>{note}</span>
-      </div>
-    </div>
-  )
-}
-
-function progressColor(pct: number) {
-  if (pct >= 70) return COLORS.green
-  if (pct >= 50) return COLORS.maroon
-  return COLORS.maroonDark
-}
-
-const SECTION_PROGRESS_GRID = {
-  display: "grid",
-  gridTemplateColumns: "150px 1fr auto",
-  columnGap: 14,
-  alignItems: "center",
-} as const
-
-function SectionProgressHeader() {
-  return (
-    <div style={{ ...SECTION_PROGRESS_GRID, marginBottom: 10 }}>
-      <span style={{ ...TYPE.body, color: COLORS.textDark }}>Section</span>
-      <span />
-      <span
-        style={{ ...TYPE.body, color: COLORS.textDark, textAlign: "right" }}
-      >
-        Progress
-      </span>
-    </div>
-  )
-}
-
-function SectionProgressRow({ section, pct }: SectionProgress) {
-  return (
-    <div style={SECTION_PROGRESS_GRID}>
-      <div style={{ ...TYPE.bodyBold, color: COLORS.textGray }}>{section}</div>
-      <div
-        style={{
-          height: 8,
-          borderRadius: 999,
-          background: COLORS.track,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            borderRadius: 999,
-            background: progressColor(pct),
-          }}
-        />
-      </div>
-      <div
-        style={{
-          ...TYPE.bodyBold,
-          color: COLORS.textGray,
-          textAlign: "right",
-          paddingLeft: 12,
-        }}
-      >
-        {pct}%
-      </div>
-    </div>
-  )
-}
-
-function CompletionDonut({ data }: { data: CompletionStatus }) {
-  const size = 160
-  const strokeWidth = 24
-  const r = (size - strokeWidth) / 2
-  const c = 2 * Math.PI * r
-
-  const segments = [
-    { pct: data.onTrackPct, color: COLORS.green },
-    { pct: data.inProgressPct, color: COLORS.maroon },
-    { pct: data.atRiskPct, color: COLORS.maroonDark },
-  ]
-
-  let offsetAcc = 0
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke={COLORS.track}
-        strokeWidth={strokeWidth}
-      />
-      {segments.map((seg, i) => {
-        const dash = (seg.pct / 100) * c
-        const el = (
-          <circle
-            key={i}
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            stroke={seg.color}
-            strokeWidth={strokeWidth}
-            strokeDasharray={`${dash} ${c - dash}`}
-            strokeDashoffset={-offsetAcc}
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            strokeLinecap="butt"
-          />
-        )
-        offsetAcc += dash
-        return el
-      })}
-    </svg>
-  )
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span
-        style={{
-          width: 10,
-          height: 10,
-          borderRadius: "50%",
-          background: color,
-          flexShrink: 0,
-        }}
-      />
-      <span style={{ ...TYPE.body, color: COLORS.textDark }}>{label}</span>
     </div>
   )
 }
@@ -516,6 +419,13 @@ export default async function AdminDashboardPage({
   }
   const supabase = await createSupabaseServerClient()
 
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const todayStartISO = todayStart.toISOString()
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+  const tomorrowStartISO = tomorrowStart.toISOString()
+
   const today = new Date()
   const dayOfWeek = today.getDay()
   const distanceToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
@@ -632,6 +542,14 @@ export default async function AdminDashboardPage({
     .eq("enrollment.enrollment_status_id", activeStatusId)
     .gte("effective_at", mondayISO)
 
+  let todayTimeInLogsQuery = supabase
+    .from("attendance_event")
+    .select(timeInLogsSelect)
+    .eq("attendance_event_type_id", timeInTypeId)
+    .eq("enrollment.enrollment_status_id", activeStatusId)
+    .gte("effective_at", todayStartISO)
+    .lt("effective_at", tomorrowStartISO)
+
   let filesQuery = supabase
     .from("form")
     .select(filesSelect, { count: "exact", head: true })
@@ -666,6 +584,10 @@ export default async function AdminDashboardPage({
       "enrollment.section.name",
       selectedSection
     )
+    todayTimeInLogsQuery = todayTimeInLogsQuery.eq(
+      "enrollment.section.name",
+      selectedSection
+    )
     filesQuery = filesQuery.eq("section.name", selectedSection)
     appealsQuery = appealsQuery.eq("enrollment.section.name", selectedSection)
     adviserWorkloadQuery = adviserWorkloadQuery.eq(
@@ -686,6 +608,10 @@ export default async function AdminDashboardPage({
       filteredAdviserId
     )
     weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
+      "enrollment.section.adviser_user_id",
+      filteredAdviserId
+    )
+    todayTimeInLogsQuery = todayTimeInLogsQuery.eq(
       "enrollment.section.adviser_user_id",
       filteredAdviserId
     )
@@ -716,7 +642,7 @@ export default async function AdminDashboardPage({
     sectionsFilterRes,
     advisersFilterRes,
     recentActivityRes,
-    //  recentActivityRes,
+    activeTermRes,
   ] = await Promise.all([
     // student counter call
     studentsQuery,
@@ -727,7 +653,11 @@ export default async function AdminDashboardPage({
     // appeals query call
     appealsQuery,
     //attendance rate query call
-    Promise.all([weeklyActiveCountQuery, weeklyTimeInLogsQuery]),
+    Promise.all([
+      weeklyActiveCountQuery,
+      weeklyTimeInLogsQuery,
+      todayTimeInLogsQuery,
+    ]),
     //enrollment query call
     enrollmentQuery,
     // adviser workload query call
@@ -748,6 +678,11 @@ export default async function AdminDashboardPage({
       )
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("term")
+      .select("start_date, end_date")
+      .eq("is_active", true)
+      .maybeSingle(),
   ])
 
   const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
@@ -768,10 +703,25 @@ export default async function AdminDashboardPage({
   const uniqueScansThisWeek = new Set(
     attendanceRateRes[1]?.data?.map((e: any) => e.enrollment_id)
   ).size
+  const presentToday = new Set(
+    attendanceRateRes[2]?.data?.map((e: any) => e.enrollment_id)
+  ).size
   const computedAttendanceRate =
     totalActiveEnrollments > 0
       ? Math.round((uniqueScansThisWeek / totalActiveEnrollments) * 100)
       : 0
+
+  const totalToday = totalActiveEnrollments
+  const notYetToday = 0
+  const absentToday = Math.max(0, totalToday - presentToday - notYetToday)
+  const todayAttendance = {
+    present: presentToday,
+    absent: absentToday,
+    notYet: notYetToday,
+    total: totalToday,
+    presentPct:
+      totalToday > 0 ? Math.round((presentToday / totalToday) * 100) : 0,
+  }
 
   // processing enrollment data
 
@@ -969,12 +919,16 @@ export default async function AdminDashboardPage({
     }
   )
 
+  const nstpTermStart =
+    activeTermRes.data?.start_date ?? "2025-08-11"
+  const nstpCompletionDeadline = "2026-07-17"
+
   const currentSemesterMeta = {
     academicYear: "2025-2026",
     semester: "2nd Semester",
   }
   const currentUserMeta: CurrentUser = {
-    name: "Adviser Test Account",
+    name: "Admin Test Account",
     role: "NSTP Admin",
   }
 
@@ -1139,12 +1093,10 @@ export default async function AdminDashboardPage({
               ? `Student progress under ${selectedAdviser}`
               : "Hours completion by section"}
           </div>
-          <SectionProgressHeader />
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {processedSectionProgress.map((row, i) => (
-              <SectionProgressRow key={i} {...row} />
-            ))}
-          </div>
+          <SectionProgressPanel
+            rows={processedSectionProgress}
+            rowLabel={selectedSection || selectedAdviser ? "students" : "sections"}
+          />
         </div>
 
         <div
@@ -1156,6 +1108,63 @@ export default async function AdminDashboardPage({
             boxShadow: COLORS.cardShadow,
             display: "flex",
             flexDirection: "column",
+            minHeight: "100%",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <div style={{ ...TYPE.h2, color: COLORS.textDark }}>Calendar</div>
+            <div
+              style={{
+                fontFamily: FONT_BODY,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.8px",
+                color: COLORS.textGray,
+                whiteSpace: "nowrap",
+              }}
+            >
+              TODAY ·{" "}
+              {new Date()
+                .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                .toUpperCase()}
+            </div>
+          </div>
+          <RemainingDaysChart
+            endDate={nstpCompletionDeadline}
+            startDate={nstpTermStart}
+          />
+          <AdminCalendar />
+          <AdminAttendanceStrip data={todayAttendance} />
+        </div>
+      </div>
+
+      {/* Completion status, at-risk, and adviser workload — 3 columns; recent activity full width below */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        <div
+          style={{
+            background: COLORS.cardBg,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: COLORS.radius,
+            padding: "18px 20px",
+            boxShadow: COLORS.cardShadow,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: "100%",
           }}
         >
           <div style={{ ...TYPE.h2, color: COLORS.textDark, marginBottom: 18 }}>
@@ -1163,38 +1172,19 @@ export default async function AdminDashboardPage({
           </div>
           <div
             style={{
+              flex: 1,
               display: "flex",
+              alignItems: "center",
               justifyContent: "center",
-              marginBottom: 18,
+              padding: "8px 0",
             }}
           >
-            <CompletionDonut data={processedCompletionStatus} />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <LegendDot
-              color={COLORS.green}
-              label={`On track - ${processedCompletionStatus.onTrackPct}%`}
-            />
-            <LegendDot
-              color={COLORS.maroon}
-              label={`In progress - ${processedCompletionStatus.inProgressPct}%`}
-            />
-            <LegendDot
-              color={COLORS.maroonDark}
-              label={`At risk - ${processedCompletionStatus.atRiskPct}%`}
-            />
+            <CompletionDonutChart data={processedCompletionStatus} />
           </div>
         </div>
-      </div>
 
-      {/* Roster list elements container widgets rows split blocks */}
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}
-      >
-        {/* At risk list panels */}
         <ListCard
           title="At risk students"
-          rightLabel="Below 45%"
           colLeft="Student"
           colRight="Completion"
         >
@@ -1228,7 +1218,6 @@ export default async function AdminDashboardPage({
           )}
         </ListCard>
 
-        {/* Adviser workload panel */}
         <ListCard
           title="Adviser Workload"
           colLeft="Adviser"
@@ -1266,43 +1255,43 @@ export default async function AdminDashboardPage({
           )}
         </ListCard>
 
-        {/* Recent activity trace timeline panel ------------------------*/}
-
-        <ListCard title="Recent Activity" colLeft="Activity" colRight="">
-          {processedRecentActivity.length === 0 ? (
-            <div
-              style={{
-                ...TYPE.caption,
-                color: COLORS.textGray,
-                textAlign: "center",
-                padding: "20px 0",
-              }}
-            >
-              No recent audit activity found
-            </div>
-          ) : (
-            processedRecentActivity.map((a, i) => (
-              <ListRow
-                key={i}
-                title={a.title}
-                subtitle={`${a.actor} | ${a.timeAgo}`}
-                isLast={i === processedRecentActivity.length - 1}
-                leftSlot={
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      border: `2px solid ${COLORS.maroon}`,
-                      background: "#fff",
-                      display: "block",
-                    }}
-                  />
-                }
-              />
-            ))
-          )}
-        </ListCard>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <ListCard title="Recent Activity" colLeft="Activity" colRight="">
+            {processedRecentActivity.length === 0 ? (
+              <div
+                style={{
+                  ...TYPE.caption,
+                  color: COLORS.textGray,
+                  textAlign: "center",
+                  padding: "20px 0",
+                }}
+              >
+                No recent audit activity found
+              </div>
+            ) : (
+              processedRecentActivity.map((a, i) => (
+                <ListRow
+                  key={i}
+                  title={a.title}
+                  subtitle={`${a.actor} | ${a.timeAgo}`}
+                  isLast={i === processedRecentActivity.length - 1}
+                  leftSlot={
+                    <span
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        border: `2px solid ${COLORS.maroon}`,
+                        background: "#fff",
+                        display: "block",
+                      }}
+                    />
+                  }
+                />
+              ))
+            )}
+          </ListCard>
+        </div>
       </div>
     </div>
   )

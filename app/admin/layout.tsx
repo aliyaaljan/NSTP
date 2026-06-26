@@ -52,7 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div
-      className={`${goblinOne.variable} ${cormorant.variable} ${montserrat.variable}`}
+      className={`admin-root ${goblinOne.variable} ${cormorant.variable} ${montserrat.variable}`}
       style={{
         minHeight: "100vh",
         ["--font" as string]: "var(--font-content, 'Helvetica Neue', Arial, sans-serif)",

@@ -451,9 +451,9 @@ export default function DashboardPage() {
                   {/* Calendar */}
                   <Calendar />
                   {/* Recent Activity */}
-                  <div className="activity-card" style={{ width: "100%"}}>
+                  <div className={`activity-card ${recentActivity.length === 0 ? "flex-1" : ""}`} style={{ width: "100%"}}>
                     <div className="card-title">Recent Activity</div>
-                    <div className="activity-card-scroll">
+                    <div className="activity-card-scroll mb-auto pb-2">
                       {recentActivity.length > 0 ? (
                         recentActivity.map((item, index) => {
                           const date = new Date(item.created_at)

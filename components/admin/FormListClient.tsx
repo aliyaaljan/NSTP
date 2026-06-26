@@ -3,40 +3,25 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
-import AddChoiceModal from "@/components/admin/AddChoiceModal"
-import AddStudentModal from "@/components/admin/AddStudentModal"
-import EditStudentModal from "@/components/admin/EditStudentModal"
-import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
-import { deleteStudent } from "@/lib/admin/student-list-actions"
+import CreateFormModal from "@/components/admin/CreateFormModal"
+import ImportFormsModal from "@/components/admin/ImportFormsModal"
+import { deleteForm } from "@/lib/admin/form-list-actions"
+import { formRowToEditPayload } from "@/lib/admin/form-edit"
 import {
-  PROGRESS_STATUS_FILTER_OPTIONS,
-  PROGRESS_STATUS_LABELS,
-  type StudentProgressStatus,
-} from "@/lib/admin/student-progress"
-import type {
-  AdminCurrentUser,
-  StudentListMeta,
-  StudentListQuery,
-  StudentListRow,
-  StudentListSectionOption,
-  StudentListSortKey,
-} from "@/lib/admin/student-list"
-import { STUDENT_LIST_ALL_SECTIONS, filterStudentListRows } from "@/lib/admin/student-list"
+  FORM_LIST_ALL_SECTIONS,
+  filterFormListRows,
+  formatFormDeadline,
+  type AdminCurrentUser,
+  type FormListMeta,
+  type FormListQuery,
+  type FormListRow,
+  type FormListSectionOption,
+  type FormListSortKey,
+} from "@/lib/admin/form-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
-const STATUS_BADGE: Record<
-  StudentProgressStatus,
-  { bg: string; color: string }
-> = {
-  on_track: { bg: COLORS.greenBgLight, color: COLORS.green },
-  in_progress: { bg: COLORS.amberBgLight, color: COLORS.amber },
-  at_risk: { bg: COLORS.maroonDarkBgLight, color: COLORS.maroonDark },
-}
-
-interface CurrentUser extends AdminCurrentUser {}
-
-function ProfilePill({ user }: { user: CurrentUser }) {
+function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
     <div
       style={{
@@ -123,7 +108,7 @@ function FilterDropdown({
   )
 }
 
-const TABLE_COL_WIDTHS = ["28%", "14%", "22%", "10%", "18%", "8%"]
+const TABLE_COL_WIDTHS = ["28%", "22%", "18%", "22%", "10%"]
 
 function TableColGroup() {
   return (
@@ -196,29 +181,25 @@ function ColumnHeader({
   )
 }
 
-export default function StudentListClient({
-  students,
+export default function FormListClient({
+  forms,
   sections,
   meta,
   currentUser,
   query,
 }: {
-  students: StudentListRow[]
-  sections: StudentListSectionOption[]
-  meta: StudentListMeta
-  currentUser: CurrentUser
-  query: StudentListQuery
+  forms: FormListRow[]
+  sections: FormListSectionOption[]
+  meta: FormListMeta
+  currentUser: AdminCurrentUser
+  query: FormListQuery
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [addChoiceOpen, setAddChoiceOpen] = useState(false)
-  const [addManualOpen, setAddManualOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
-  const [editStudent, setEditStudent] = useState<StudentListRow | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: string
-    name: string
-  } | null>(null)
+  const [editForm, setEditForm] = useState<FormListRow | null>(null)
+  const [viewForm, setViewForm] = useState<FormListRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<FormListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -231,13 +212,13 @@ export default function StudentListClient({
   function pushParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString())
     Object.entries(updates).forEach(([key, value]) => {
-      if (!value || value === STUDENT_LIST_ALL_SECTIONS) params.delete(key)
+      if (!value || value === FORM_LIST_ALL_SECTIONS) params.delete(key)
       else params.set(key, value)
     })
-    router.push(`/admin/students?${params.toString()}`)
+    router.push(`/admin/forms?${params.toString()}`)
   }
 
-  function toggleSort(key: StudentListSortKey) {
+  function toggleSort(key: FormListSortKey) {
     const nextDir =
       query.sort === key ? (query.dir === "asc" ? "desc" : "asc") : "asc"
     pushParams({ sort: key, dir: nextDir })
@@ -252,22 +233,19 @@ export default function StudentListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleStudents = useMemo(
-    () => filterStudentListRows(students, { ...query, search: searchInput }),
-    [students, query, searchInput]
+  const visibleForms = useMemo(
+    () => filterFormListRows(forms, { ...query, search: searchInput }),
+    [forms, query, searchInput]
   )
 
   const sectionLabel =
-    query.sectionId !== STUDENT_LIST_ALL_SECTIONS
+    query.sectionId !== FORM_LIST_ALL_SECTIONS
       ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
       : "All Sections"
-  const statusLabel =
-    PROGRESS_STATUS_FILTER_OPTIONS.find((o) => o.value === query.progressStatus)
-      ?.label ?? "All Status"
 
-  function openDeleteConfirm(enrollmentId: string, name: string) {
+  function openDeleteConfirm(form: FormListRow) {
     setDeleteError(null)
-    setDeleteTarget({ id: enrollmentId, name })
+    setDeleteTarget(form)
   }
 
   function closeDeleteConfirm() {
@@ -280,10 +258,14 @@ export default function StudentListClient({
     if (!deleteTarget) return
 
     setDeleteError(null)
-    setDeletingId(deleteTarget.id)
+    setDeletingId(deleteTarget.rowId)
 
     startDeleteTransition(async () => {
-      const result = await deleteStudent(deleteTarget.id)
+      const result = await deleteForm(
+        deleteTarget.formRequirementId,
+        deleteTarget.sectionId,
+        deleteTarget.isGlobal
+      )
       setDeletingId(null)
       if (!result.ok) {
         setDeleteError(result.error)
@@ -297,9 +279,9 @@ export default function StudentListClient({
   return (
     <>
       <style>{`
-        .student-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .student-list-scroll::-webkit-scrollbar { width: 5px; }
-        .student-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
+        .form-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
+        .form-list-scroll::-webkit-scrollbar { width: 5px; }
+        .form-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
       `}</style>
 
       <div
@@ -312,12 +294,12 @@ export default function StudentListClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Student List</h1>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Forms</h1>
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
           <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {visibleStudents.length} total students
+            {visibleForms.length} total forms
           </p>
         </div>
         <ProfilePill user={currentUser} />
@@ -340,7 +322,7 @@ export default function StudentListClient({
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search students"
+            placeholder="Search forms"
             style={{
               width: "100%",
               fontFamily: FONT_BODY,
@@ -366,44 +348,28 @@ export default function StudentListClient({
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-          <FilterDropdown
-            label={sectionLabel}
-            value={query.sectionId}
-            onChange={(value) =>
-              pushParams({
-                sectionId: value === STUDENT_LIST_ALL_SECTIONS ? null : value,
-              })
-            }
-          >
-            <option value={STUDENT_LIST_ALL_SECTIONS}>All Sections</option>
-            {sections.map((section) => (
-              <option key={section.sectionId} value={section.sectionId}>
-                Section {section.name}
-              </option>
-            ))}
-          </FilterDropdown>
-
-          <FilterDropdown
-            label={statusLabel}
-            value={query.progressStatus}
-            onChange={(value) =>
-              pushParams({ status: value === "all" ? null : value })
-            }
-          >
-            {PROGRESS_STATUS_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </FilterDropdown>
-        </div>
+        <FilterDropdown
+          label={sectionLabel}
+          value={query.sectionId}
+          onChange={(value) =>
+            pushParams({
+              sectionId: value === FORM_LIST_ALL_SECTIONS ? null : value,
+            })
+          }
+        >
+          <option value={FORM_LIST_ALL_SECTIONS}>All Sections</option>
+          {sections.map((section) => (
+            <option key={section.sectionId} value={section.sectionId}>
+              Section {section.name}
+            </option>
+          ))}
+        </FilterDropdown>
 
         <button
           type="button"
-          onClick={() => setAddChoiceOpen(true)}
-          aria-label="Add student"
-          title="Add student"
+          onClick={() => setImportOpen(true)}
+          aria-label="Import form"
+          title="Import form"
           style={{
             width: 36,
             height: 36,
@@ -435,7 +401,7 @@ export default function StudentListClient({
           <table
             style={{
               width: "100%",
-              minWidth: 920,
+              minWidth: 880,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
@@ -445,7 +411,7 @@ export default function StudentListClient({
               <tr style={{ background: COLORS.tableHeadBg }}>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Student Name"
+                    label="Form Name"
                     sortable
                     sortActive={query.sort === "name"}
                     sortDirection={query.dir}
@@ -453,27 +419,33 @@ export default function StudentListClient({
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Student ID" />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Section Adviser"
+                    label="Section"
                     sortable
-                    sortActive={query.sort === "adviser"}
+                    sortActive={query.sort === "section"}
                     sortDirection={query.dir}
-                    onSort={() => toggleSort("adviser")}
+                    onSort={() => toggleSort("section")}
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Hours" />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "center" }}>
                   <ColumnHeader
-                    label="Progress & Status"
-                    align="center"
+                    label="Analytics"
+                    sortable
+                    sortActive={query.sort === "analytics"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("analytics")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left", width: 80 }}>
+                <th style={{ padding: "14px 18px", textAlign: "left" }}>
+                  <ColumnHeader
+                    label="Deadline"
+                    sortable
+                    sortActive={query.sort === "deadline"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("deadline")}
+                  />
+                </th>
+                <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader label="Actions" />
                 </th>
               </tr>
@@ -482,23 +454,23 @@ export default function StudentListClient({
         </div>
 
         <div
-          className="student-list-scroll"
+          className="form-list-scroll"
           style={{ overflowX: "auto", overflowY: "auto", maxHeight: 520 }}
         >
           <table
             style={{
               width: "100%",
-              minWidth: 920,
+              minWidth: 880,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
           >
             <TableColGroup />
             <tbody>
-              {visibleStudents.length === 0 ? (
+              {visibleForms.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={5}
                     style={{
                       ...TYPE.body,
                       color: COLORS.textGray,
@@ -506,74 +478,66 @@ export default function StudentListClient({
                       padding: "40px 18px",
                     }}
                   >
-                    No students match your filters.
+                    No forms match your filters.
                   </td>
                 </tr>
               ) : (
-                visibleStudents.map((student) => {
-                  const badge = STATUS_BADGE[student.progressStatus]
+                visibleForms.map((form) => {
+                  const deadline = formatFormDeadline(form.dueDate)
                   return (
                     <tr
-                      key={student.enrollmentId}
+                      key={form.rowId}
                       style={{ borderTop: `1px solid ${COLORS.border}` }}
                     >
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.fullName}
+                          {form.formName}
+                        </div>
+                        {form.isSample ? (
+                          <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                            Sample data
+                          </div>
+                        ) : (
+                          form.isGlobal && (
+                            <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                              Global default
+                            </div>
+                          )
+                        )}
+                      </td>
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                          {form.sectionName} Section
                         </div>
                         <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          {student.email}
+                          {form.adviserName}
                         </div>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.studentNumber ?? "—"}
-                        </div>
-                      </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.sectionName}
+                          {form.submittedCount}/{form.totalStudents}
                         </div>
                         <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          {student.adviserName}
+                          students submitted
                         </div>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.hoursCompleted}/{student.hoursRequired}
+                          {deadline.date}
                         </div>
-                      </td>
-                      <td
-                        style={{
-                          padding: "16px 18px",
-                          verticalAlign: "middle",
-                          textAlign: "center",
-                        }}
-                      >
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.completionPct}%
-                        </div>
-                        <span
-                          style={{
-                            ...TYPE.bodyBold,
-                            display: "inline-block",
-                            marginTop: 6,
-                            padding: "4px 12px",
-                            borderRadius: 999,
-                            background: badge.bg,
-                            color: badge.color,
-                          }}
-                        >
-                          {PROGRESS_STATUS_LABELS[student.progressStatus]}
-                        </span>
+                        {deadline.time && (
+                          <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                            {deadline.time}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <button
                             type="button"
-                            aria-label={`Edit ${student.fullName}`}
-                            title="Edit student"
-                            onClick={() => setEditStudent(student)}
+                            aria-label={`View ${form.formName}`}
+                            title="View submissions"
+                            onClick={() => setViewForm(form)}
                             style={{
                               background: "none",
                               border: "none",
@@ -582,27 +546,46 @@ export default function StudentListClient({
                               color: COLORS.maroon,
                             }}
                           >
+                            <i className="ti ti-eye" style={{ fontSize: 18 }} />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Edit ${form.formName}`}
+                            title={form.isSample ? "Sample rows cannot be edited" : "Edit form"}
+                            disabled={form.isSample}
+                            onClick={() => !form.isSample && setEditForm(form)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 4,
+                              cursor: form.isSample ? "not-allowed" : "pointer",
+                              color: COLORS.maroon,
+                              opacity: form.isSample ? 0.35 : 1,
+                            }}
+                          >
                             <i className="ti ti-pencil" style={{ fontSize: 18 }} />
                           </button>
                           <button
                             type="button"
-                            aria-label={`Delete ${student.fullName}`}
-                            title="Delete student"
-                            disabled={isDeleting && deletingId === student.enrollmentId}
-                            onClick={() =>
-                              openDeleteConfirm(student.enrollmentId, student.fullName)
+                            aria-label={`Delete ${form.formName}`}
+                            title={form.isSample ? "Sample rows cannot be deleted" : "Delete form"}
+                            disabled={
+                              form.isSample || (isDeleting && deletingId === form.rowId)
                             }
+                            onClick={() => !form.isSample && openDeleteConfirm(form)}
                             style={{
                               background: "none",
                               border: "none",
                               padding: 4,
                               cursor:
-                                isDeleting && deletingId === student.enrollmentId
+                                form.isSample || (isDeleting && deletingId === form.rowId)
                                   ? "not-allowed"
                                   : "pointer",
                               color: COLORS.maroon,
                               opacity:
-                                isDeleting && deletingId === student.enrollmentId ? 0.5 : 1,
+                                form.isSample || (isDeleting && deletingId === form.rowId)
+                                  ? 0.35
+                                  : 1,
                             }}
                           >
                             <i className="ti ti-trash" style={{ fontSize: 18 }} />
@@ -618,31 +601,100 @@ export default function StudentListClient({
         </div>
       </div>
 
-      <AddChoiceModal
-        open={addChoiceOpen}
-        onClose={() => setAddChoiceOpen(false)}
-        title="Add Student"
-        entityLabel="student"
-        onAddManually={() => setAddManualOpen(true)}
-        onImport={() => setImportOpen(true)}
-      />
-      <AddStudentModal
-        open={addManualOpen}
+      <ImportFormsModal
+        open={importOpen}
         sections={sections}
-        onClose={() => setAddManualOpen(false)}
+        onClose={() => setImportOpen(false)}
       />
-      <ImportStudentsModal open={importOpen} onClose={() => setImportOpen(false)} />
-      <EditStudentModal
-        open={editStudent !== null}
-        student={editStudent}
+      <CreateFormModal
+        open={editForm !== null}
+        mode="edit"
         sections={sections}
-        onClose={() => setEditStudent(null)}
+        initialEdit={editForm ? formRowToEditPayload(editForm) : null}
+        onClose={() => setEditForm(null)}
       />
+
+      {viewForm && (
+        <div
+          role="presentation"
+          onClick={() => setViewForm(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            background: "rgba(44, 44, 42, 0.35)",
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              borderRadius: 16,
+              overflow: "hidden",
+              background: "#fff",
+              padding: "24px",
+            }}
+          >
+            <h2 style={{ ...TYPE.h1, color: COLORS.textDark, margin: "0 0 8px" }}>
+              {viewForm.formName}
+            </h2>
+            <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "0 0 16px" }}>
+              {viewForm.sectionName} Section · {viewForm.adviserName}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
+                <strong>Submissions:</strong> {viewForm.submittedCount} of{" "}
+                {viewForm.totalStudents} students
+              </div>
+              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
+                <strong>Deadline:</strong>{" "}
+                {formatFormDeadline(viewForm.dueDate).date}
+                {viewForm.dueDate ? ` at ${formatFormDeadline(viewForm.dueDate).time}` : ""}
+              </div>
+              <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 8 }}>
+                {viewForm.isSample
+                  ? "Sample preview row — not stored in the database."
+                  : `Requirement ID: ${viewForm.formRequirementId}`}
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+              <button
+                type="button"
+                onClick={() => setViewForm(null)}
+                style={{
+                  ...TYPE.bodyBold,
+                  background: COLORS.green,
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 20px",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmDeleteModal
         open={deleteTarget !== null}
-        title="Remove Student"
-        subjectName={deleteTarget?.name}
-        message="Remove this student from the list? This action cannot be undone."
+        title="Remove Form"
+        subjectName={deleteTarget?.formName}
+        message={
+          deleteTarget?.isGlobal
+            ? "Remove this global form from the selected section? Other sections will not be affected."
+            : "Remove this form? Students will no longer be required to submit it."
+        }
         isPending={isDeleting}
         error={deleteError}
         onClose={closeDeleteConfirm}

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AddChoiceModal from "@/components/admin/AddChoiceModal"
+import AddAdviserModal from "@/components/admin/AddAdviserModal"
 import EditAdviserModal from "@/components/admin/EditAdviserModal"
 import ImportAdvisersModal from "@/components/admin/ImportAdvisersModal"
 import { deleteAdviser } from "@/lib/admin/adviser-list-actions"
@@ -18,7 +20,7 @@ import {
   type AdviserListSectionOption,
 } from "@/lib/admin/adviser-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
 function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
@@ -98,13 +100,7 @@ function FilterDropdown({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={label}
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: 0,
-          cursor: "pointer",
-          width: "100%",
-        }}
+        style={ADMIN_FILTER_SELECT_STYLE}
       >
         {children}
       </select>
@@ -360,6 +356,8 @@ export default function AdviserListClient({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [addChoiceOpen, setAddChoiceOpen] = useState(false)
+  const [addManualOpen, setAddManualOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [editAdviser, setEditAdviser] = useState<AdviserListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -498,46 +496,57 @@ export default function AdviserListClient({
         </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          marginBottom: 12,
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <FilterDropdown
+            label={sectionLabel}
+            value={query.sectionId}
+            onChange={(value) =>
+              pushParams({
+                sectionId: value === ADVISER_LIST_ALL_SECTIONS ? null : value,
+                page: "1",
+              })
+            }
+          >
+            <option value={ADVISER_LIST_ALL_SECTIONS}>All Sections</option>
+            {sections.map((section) => (
+              <option key={section.sectionId} value={section.sectionId}>
+                Section {section.name}
+              </option>
+            ))}
+          </FilterDropdown>
+        </div>
+
         <button
           type="button"
-          onClick={() => setImportOpen(true)}
+          onClick={() => setAddChoiceOpen(true)}
+          aria-label="Add adviser"
+          title="Add adviser"
           style={{
-            fontFamily: FONT_BODY,
-            fontSize: "12.5px",
-            fontWeight: 600,
-            color: "#fff",
-            background: COLORS.green,
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
             border: "none",
-            borderRadius: 20,
-            padding: "5px 13px",
+            background: COLORS.green,
+            color: "#fff",
             cursor: "pointer",
             display: "inline-flex",
             alignItems: "center",
-            gap: 8,
+            justifyContent: "center",
+            flexShrink: 0,
           }}
         >
-          <i className="ti ti-plus" style={{ fontSize: 16 }} />
-          Import Adviser/s
+          <i className="ti ti-plus" style={{ fontSize: 18 }} />
         </button>
-
-        <FilterDropdown
-          label={sectionLabel}
-          value={query.sectionId}
-          onChange={(value) =>
-            pushParams({
-              sectionId: value === ADVISER_LIST_ALL_SECTIONS ? null : value,
-              page: "1",
-            })
-          }
-        >
-          <option value={ADVISER_LIST_ALL_SECTIONS}>All Sections</option>
-          {sections.map((section) => (
-            <option key={section.sectionId} value={section.sectionId}>
-              Section {section.name}
-            </option>
-          ))}
-        </FilterDropdown>
       </div>
 
       {pageAdvisers.length === 0 ? (
@@ -580,6 +589,19 @@ export default function AdviserListClient({
         onPageChange={(nextPage) => pushParams({ page: String(nextPage) })}
       />
 
+      <AddChoiceModal
+        open={addChoiceOpen}
+        onClose={() => setAddChoiceOpen(false)}
+        title="Add Adviser"
+        entityLabel="adviser"
+        onAddManually={() => setAddManualOpen(true)}
+        onImport={() => setImportOpen(true)}
+      />
+      <AddAdviserModal
+        open={addManualOpen}
+        sections={sections}
+        onClose={() => setAddManualOpen(false)}
+      />
       <ImportAdvisersModal open={importOpen} onClose={() => setImportOpen(false)} />
       <EditAdviserModal
         open={editAdviser !== null}

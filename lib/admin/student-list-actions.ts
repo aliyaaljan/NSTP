@@ -16,8 +16,11 @@ import {
 import type { ImportStudentsResult } from "@/lib/admin/student-import"
 import {
   validateStudentEditPayload,
+  validateStudentCreatePayload,
   type StudentEditPayload,
+  type StudentCreatePayload,
   type UpdateStudentResult,
+  type CreateStudentResult,
 } from "@/lib/admin/student-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 
@@ -90,7 +93,7 @@ async function resolveCurrentUser(
   userId?: string
 ): Promise<AdminCurrentUser> {
   if (!userId) {
-    return { name: "Adviser Test Account", role: "NSTP Admin" }
+    return { name: "Admin Test Account", role: "NSTP Admin" }
   }
 
   const { data: appUser } = await supabase
@@ -100,13 +103,13 @@ async function resolveCurrentUser(
     .maybeSingle()
 
   if (!appUser?.full_name) {
-    return { name: "Adviser Test Account", role: "NSTP Admin" }
+    return { name: "Admin Test Account", role: "NSTP Admin" }
   }
 
   const isAdmin = (appUser.role as { code?: string } | null)?.code === "admin"
 
   return {
-    name: isAdmin ? "Adviser Test Account" : appUser.full_name,
+    name: isAdmin ? "Admin Test Account" : appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
   }
 }
@@ -149,6 +152,41 @@ export async function importStudentsFromCsv(
     ok: false,
     error:
       "Import is not available yet. Backend CSV import handler still needs to be implemented.",
+  }
+}
+
+/**
+ * Create a new student account and enrollment.
+ *
+ * Backend checklist:
+ * 1. Validate admin role (already done below).
+ * 2. Create auth user + `app_user` (role = student) with full_name, email, student_number.
+ * 3. Create `enrollment` for the active term with section_id and status = active.
+ * 4. Return `{ ok: true }` on success.
+ */
+export async function createStudent(
+  payload: StudentCreatePayload
+): Promise<CreateStudentResult> {
+  const role = await getAppUserRole()
+  if (role !== "admin") {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  const validationError = validateStudentCreatePayload(payload)
+  if (validationError) {
+    return { ok: false, error: validationError }
+  }
+
+  // TODO(backend): implement student creation.
+  console.info("[createStudent] pending implementation", {
+    sectionId: payload.sectionId,
+    email: payload.email,
+  })
+
+  return {
+    ok: false,
+    error:
+      "Add is not available yet. Backend handler still needs to be implemented.",
   }
 }
 

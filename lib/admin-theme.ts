@@ -50,4 +50,31 @@ export const ADMIN_THEME_CSS = `
     --radius:      14px;
     --shadow:      0 2px 6px rgba(0,0,0,0.07);
   }
+
+  /* Native <select> lists inherit pill label color (#fff) without this. */
+  .admin-root select {
+    color: #111827;
+    background-color: #ffffff;
+  }
+
+  .admin-root select option,
+  .admin-root select optgroup {
+    color: #111827;
+    background-color: #ffffff;
+  }
+
+  .admin-root select option:disabled {
+    color: #6B7280;
+  }
 `
+
+/** Overlay <select> used inside green filter pills (opacity 0, covers the pill). */
+export const ADMIN_FILTER_SELECT_STYLE = {
+  position: "absolute" as const,
+  inset: 0,
+  opacity: 0,
+  cursor: "pointer",
+  width: "100%",
+  color: "#111827",
+  backgroundColor: "#ffffff",
+}
