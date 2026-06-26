@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import styles from "./LoginForm.module.css"
 import { signInWithDevPassword } from "@/lib/auth/dev-login"
+import { FcGoogle } from "react-icons/fc";
 
 const goblinOne = Goblin_One({ weight: "400", subsets: ["latin"], display: "swap" })
 const cormorant = Cormorant({ weight: ["400","500","600","700"], style: ["normal","italic"], subsets: ["latin"], display: "swap" })
@@ -50,11 +51,11 @@ export default function LoginForm() {
   return (
     <div className={`${styles.page} ${goblinOne.className} ${cormorant.className} ${montserrat.className}`}>
       {/* ── Left: login form ── */}
-      <div className={styles.leftPanel}>
+      <div className={`${styles.leftPanel}`}>
         <div className={styles.formWrap}>
           <div className={styles.cardTop}>
             <div className={styles.cardLabel}>LOG IN</div>
-            <h2 className={styles.cardTitle}>Access your account</h2>
+            <h2 className={`${styles.cardTitle} hidden md:block`}>Access your account</h2>
           </div>
 
           <form noValidate className={styles.form}>
@@ -71,7 +72,7 @@ export default function LoginForm() {
               onClick={handleGoogleLogin}
               disabled={loading}
             >
-              <i className="ti ti-brand-gmail" />
+              {/* <FcGoogle size={20} /> */}
               {loading ? "Redirecting…" : "Log in with UP Mail"}
             </button>
           </form>
@@ -120,7 +121,8 @@ export default function LoginForm() {
 
       {/* ── Right: brand panel ── */}
       <div className={styles.rightPanel}>
-        <div className={styles.brandInner}>
+        <div className={`${styles.brandInner} rounded-none md:rounded-[5%] w-full md:w-auto lg:w-[94%]`}>
+
           <div className={styles.logoWrap}>
             <Image
               src="/nstp-logo.jpg"
@@ -137,9 +139,10 @@ export default function LoginForm() {
             NSTP
           </h1>
           <p className={styles.brandSub}>National Service Training Program</p>
-          <div className={styles.brandDivider} />
-          <p className={styles.brandCaption}>
-            Built for UP Baguio students
+          {/* <div className={`${styles.brandDivider} hidden md:block`} /> */}
+          <p className={`${styles.brandCaption} hidden md:block`}>
+            Develop civic consciousness and defense preparedness in UPB students through: 
+            Civic Welfare Training Service, Literacy Traning Service, and Reserved Officers' Traning Corps
           </p>
         </div>
       </div>
