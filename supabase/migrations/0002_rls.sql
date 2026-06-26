@@ -235,9 +235,9 @@ end $$;
 -- The sensitive snapshots in audit_log.old_data/new_data are guarded
 -- by audit_log RLS + the security_invoker audit_log_readable view.
 -- ============================================================
-alter table audit_log          enable row level security;
-alter table audit_table_labels enable row level security;
-alter table audit_field_labels enable row level security;
+alter table audit_log         enable row level security;
+alter table audit_table_label enable row level security;
+alter table audit_field_label enable row level security;
 
 -- Replace the original ad-hoc policies with cleaner, perf-friendly ones.
 drop policy if exists "admins can view all audit logs" on audit_log;
@@ -250,7 +250,7 @@ drop policy if exists audit_log_read       on audit_log;
 create policy audit_log_read on audit_log for select to authenticated
   using (public.app_is_admin() or actor_user_id = (select auth.uid()));
 
-drop policy if exists audit_table_labels_read on audit_table_labels;
-drop policy if exists audit_field_labels_read on audit_field_labels;
-create policy audit_table_labels_read on audit_table_labels for select to authenticated using (true);
-create policy audit_field_labels_read on audit_field_labels for select to authenticated using (true);
+drop policy if exists audit_table_label_read on audit_table_label;
+drop policy if exists audit_field_label_read on audit_field_label;
+create policy audit_table_label_read on audit_table_label for select to authenticated using (true);
+create policy audit_field_label_read on audit_field_label for select to authenticated using (true);

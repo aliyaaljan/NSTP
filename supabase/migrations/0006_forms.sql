@@ -144,8 +144,8 @@ do $$ begin
       for each row execute function public.fn_audit_log();
   end if;
 
-  if to_regclass('public.audit_table_labels') is not null then
-    insert into public.audit_table_labels (table_name, label)
+  if to_regclass('public.audit_table_label') is not null then
+    insert into public.audit_table_label (table_name, label)
     values ('form_requirement', 'form requirement'), ('form_submission', 'form submission')
     on conflict do nothing;
   end if;
