@@ -92,6 +92,7 @@ export default function CalendarOverview({
   const [isMobile, setIsMobile] = useState(false)
   const [isVerySmall, setIsVerySmall] = useState(false)
   const [selectedPickerMonth, setSelectedPickerMonth] = useState<number | null>(null)
+  const [animateToday, setAnimateToday] = useState(false)
   const monthBtnRef = useRef<HTMLButtonElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -189,6 +190,9 @@ export default function CalendarOverview({
     setCurrentYear(d.getFullYear())
     setCurrentMonth(d.getMonth())
     onMonthChange?.(d.getFullYear(), d.getMonth())
+    // Trigger animation
+    setAnimateToday(true)
+    setTimeout(() => setAnimateToday(false), 400)
   }
 
   const goToMonth = (m: number, y: number) => {
@@ -281,6 +285,11 @@ export default function CalendarOverview({
   const pickerYearFontSize = isMobile ? "13px" : "15px"
   const pickerNavBtnSize = isMobile ? "12px" : "14px"
   const pickerGap = isMobile ? "2px" : "4px"
+
+  const isCurrentMonth = (monthIndex: number) => {
+    const today = new Date()
+    return monthIndex === today.getMonth() && currentYear === today.getFullYear()
+  }
 
   return (
     <div 
@@ -475,7 +484,9 @@ export default function CalendarOverview({
                 gridTemplateColumns: 'repeat(3, 1fr)',
                 gap: pickerGap,
               }}>
-                {MONTHS.map((name, idx) => (
+              {MONTHS.map((name, idx) => {
+                const isCurrent = isCurrentMonth(idx)
+                return (
                   <button
                     key={idx}
                     onClick={() => goToMonth(idx, currentYear)}
@@ -484,13 +495,17 @@ export default function CalendarOverview({
                       fontSize: pickerBtnFontSize,
                       fontWeight: 600,
                       borderRadius: '6px',
-                      border: `1px solid ${selectedPickerMonth === idx ? COLORS.maroon : 'transparent'}`,
-                      background: selectedPickerMonth === idx ? COLORS.maroon : 'transparent',
+                      border: `1px solid ${selectedPickerMonth === idx ? COLORS.gold : 'transparent'}`,
+                      background: selectedPickerMonth === idx ? COLORS.gold : 'transparent',
                       color: selectedPickerMonth === idx ? COLORS.white : COLORS.text,
                       cursor: 'pointer',
                       transition: 'all 0.15s',
                       minHeight: isMobile ? '28px' : '32px',
                       letterSpacing: isMobile ? '0.2px' : '0.3px',
+                      ...(isCurrent && selectedPickerMonth !== idx && {
+                        border: `1px solid ${COLORS.gold}40`,
+                        background: `${COLORS.gold}10`,
+                      }),
                     }}
                     onMouseEnter={(e) => {
                       if (selectedPickerMonth !== idx) {
@@ -500,14 +515,15 @@ export default function CalendarOverview({
                     }}
                     onMouseLeave={(e) => {
                       if (selectedPickerMonth !== idx) {
-                        e.currentTarget.style.background = 'transparent'
-                        e.currentTarget.style.borderColor = 'transparent'
+                        e.currentTarget.style.background = isCurrent ? `${COLORS.gold}10` : 'transparent'
+                        e.currentTarget.style.borderColor = isCurrent ? `${COLORS.gold}40` : 'transparent'
                       }
                     }}
                   >
                     {isMobile ? name.slice(0, 3) : name.slice(0, 3)}
                   </button>
-                ))}
+                )
+              })}
               </div>
             </div>
           )}
@@ -751,6 +767,7 @@ export default function CalendarOverview({
           const isRendered = isClient && cell.inMonth && renderedDays.includes(cell.day) && !isHolidayDay && !isFuture
           const indicator = getDayIndicator(dayEvents)
           const isClickable = isRendered || (hasEvent && cell.inMonth)
+          const shouldAnimate = isToday && animateToday
 
           return (
             <div
@@ -780,10 +797,15 @@ export default function CalendarOverview({
                 width: cellSize,
                 height: cellSize,
                 fontSize: fontSize,
-                background: isToday ? COLORS.gold : 'transparent',
-                color: isToday ? COLORS.white : COLORS.text,
+                borderRadius: '6px', 
+                border: isToday ? `2px solid ${COLORS.gold}` : 'none',
+                background: isToday ? `${COLORS.gold}20` : 'transparent',
+                color: isToday ? COLORS.text : COLORS.text,
                 minWidth: cellSize,
                 minHeight: cellSize,
+                ...(shouldAnimate && {
+                  animation: 'todaySubtle 0.4s ease-out',
+                }),
               }}>
                 {cell.day}
                 {isClient && isRendered && !isToday && (
@@ -826,6 +848,24 @@ export default function CalendarOverview({
           )
         })}
       </div>
+
+      {/* Subtle animation */}
+      <style jsx>{`
+        @keyframes todaySubtle {
+          0% {
+            transform: scale(1);
+          }
+          30% {
+            transform: scale(1.05);
+          }
+          60% {
+            transform: scale(0.97);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+      `}</style>
 
       <div style={{
         ...styles.legend,
