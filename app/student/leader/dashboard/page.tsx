@@ -54,12 +54,12 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
     <div style={{ 
       background: C.hoursBg, 
       borderRadius: 14, 
-      padding: "18px 22px", 
+      padding: "clamp(14px, 2vw, 18px) clamp(16px, 2.5vw, 22px)", 
       border: `1.5px solid ${C.hoursBorder}`,
       transition: "all 0.3s ease",
     }}>
       <div style={{ 
-        fontSize: "clamp(13px, 1.2vw, 15px)", 
+        fontSize: "clamp(12px, 1.2vw, 15px)", 
         fontWeight: 700, 
         color: C.textDark, 
         marginBottom: 8, 
@@ -79,7 +79,7 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
         flexWrap: "wrap",
       }}>
         <span style={{ 
-          fontSize: "clamp(13px, 1.1vw, 14px)", 
+          fontSize: "clamp(12px, 1.1vw, 14px)", 
           fontWeight: 700, 
           color: C.textDark, 
           minWidth: 36 
@@ -89,7 +89,7 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
         <div style={{ 
           flex: 1, 
           minWidth: "60px",
-          height: "clamp(18px, 2vw, 22px)", 
+          height: "clamp(16px, 2vw, 22px)", 
           background: C.track, 
           borderRadius: 4, 
           overflow: "hidden" 
@@ -112,6 +112,7 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
 export default function StudentDashboardPage() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [isVerySmall, setIsVerySmall] = useState(false)
   const [isScannedExpanded, setIsScannedExpanded] = useState(false)
   const [dashboard, setDashboard] = useState<StudentDashboardData | null>(null)
   const [formViews, setFormViews] = useState<StudentFormView[]>([])
@@ -122,7 +123,9 @@ export default function StudentDashboardPage() {
     setShowPrivacyModal(accepted !== "true")
 
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
+      const width = window.innerWidth
+      setIsMobile(width < 768)
+      setIsVerySmall(width < 380)
     }
     handleResize()
     window.addEventListener('resize', handleResize)
@@ -170,7 +173,7 @@ export default function StudentDashboardPage() {
   // Calculate left padding
   const getLeftPadding = () => {
     if (isMobile) {
-      return `${COLLAPSED_W + RAIL_MARGIN * 2 + 12}px`
+      return `${COLLAPSED_W + RAIL_MARGIN * 2 + 8}px`
     }
     return `${COLLAPSED_W + RAIL_MARGIN * 2}px`
   }
@@ -187,6 +190,8 @@ export default function StudentDashboardPage() {
         background: C.pageBg,
         minHeight: "100vh",
         display: "flex",
+        overflow: "hidden",
+        width: "100%",
       }}
     >
       <Sidebar />
@@ -195,31 +200,36 @@ export default function StudentDashboardPage() {
         style={{
           flex: 1,
           paddingLeft: getLeftPadding(),
-          paddingRight: isMobile ? "20px" : "32px",
-          paddingTop: isMobile ? "20px" : "28px",
-          paddingBottom: isMobile ? "20px" : "28px",
+          paddingRight: isVerySmall ? "10px" : isMobile ? "16px" : "32px",
+          paddingTop: isVerySmall ? "12px" : isMobile ? "16px" : "28px",
+          paddingBottom: isVerySmall ? "12px" : isMobile ? "16px" : "28px",
           display: "flex",
           flexDirection: "column",
-          gap: isMobile ? "20px" : "20px",
+          gap: isVerySmall ? "12px" : isMobile ? "16px" : "20px",
           minWidth: 0,
           width: "100%",
           maxWidth: "100%",
+          overflow: "hidden",
           transition: "padding 0.3s ease",
+          boxSizing: "border-box",
         }}
       >
         {/* header */}
         <div style={{ 
           display: "flex", 
           justifyContent: "space-between", 
-          alignItems: "center",
+          alignItems: isVerySmall ? "flex-start" : "center",
+          flexDirection: isVerySmall ? "column" : "row",
           flexWrap: "wrap",
-          gap: "12px",
+          gap: isVerySmall ? "8px" : "12px",
+          width: "100%",
         }}>
           <h1 style={{ 
-            fontSize: isMobile ? "clamp(22px, 5vw, 30px)" : "clamp(24px, 2.5vw, 30px)", 
+            fontSize: isVerySmall ? "clamp(18px, 5vw, 22px)" : isMobile ? "clamp(20px, 5vw, 26px)" : "clamp(24px, 2.5vw, 30px)", 
             fontWeight: 800, 
             color: C.maroon, 
-            margin: 0 
+            margin: 0,
+            wordBreak: "break-word",
           }}>
             Hello, {firstName}!
           </h1>
@@ -232,20 +242,25 @@ export default function StudentDashboardPage() {
 
         <HoursCard rendered={hoursRendered} target={hoursTarget} />
 
-        {/* Calendar and Documents (top row) */}
+        {/* Calendar and Documents */}
         <div style={{ 
           display: "grid",
           gridTemplateColumns: isMobile ? "1fr" : "3fr 2fr",
-          gap: isMobile ? "20px" : "20px",
+          gap: isMobile ? "16px" : "20px",
           flex: 1,
           alignItems: "stretch",
+          width: "100%",
+          maxWidth: "100%",
+          overflow: "hidden",
         }}>
           <div style={{ 
             minWidth: 0,
             display: "flex",       
             flexDirection: "column",
-            minHeight: isMobile ? "450px" : "500px",
-            maxHeight: isMobile ? "500px" : "550px",
+            minHeight: isVerySmall ? "350px" : isMobile ? "400px" : "500px",
+            maxHeight: isVerySmall ? "400px" : isMobile ? "450px" : "550px",
+            width: "100%",
+            overflow: "hidden",
           }}>
             <CalendarOverview
               documentEvents={formsToCalendarEvents(formViews)}
@@ -257,9 +272,11 @@ export default function StudentDashboardPage() {
             minWidth: 0,
             display: "flex",       
             flexDirection: "column",
-            gap: "16px", 
-            minHeight: isMobile ? "400px" : "500px",
-            maxHeight: isMobile ? "500px" : "550px",
+            gap: isVerySmall ? "10px" : isMobile ? "12px" : "16px", 
+            minHeight: isVerySmall ? "300px" : isMobile ? "350px" : "500px",
+            maxHeight: isVerySmall ? "350px" : isMobile ? "400px" : "550px",
+            width: "100%",
+            overflow: "hidden",
           }}>
             <Documents documents={formsToDocuments(formViews)} />
           </div>
@@ -268,23 +285,27 @@ export default function StudentDashboardPage() {
         {/* Scanned Students - Collapsible Section */}
         <div style={{ 
           width: "100%",
+          maxWidth: "100%",
+          overflow: "hidden",
         }}>
-          {/* Summary Card - Always Visible */}
           <button
             onClick={() => setIsScannedExpanded(!isScannedExpanded)}
             style={{
               width: "100%",
+              maxWidth: "100%",
               textAlign: "left",
               background: C.cardBg,
               borderRadius: "14px",
               border: `1px solid ${C.border}`,
               boxShadow: C.cardShadow,
-              padding: "18px 22px",
+              padding: isVerySmall ? "12px 14px" : isMobile ? "14px 18px" : "18px 22px",
               cursor: "pointer",
               transition: "all 0.2s ease",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
+              flexDirection: "column",
+              gap: isVerySmall ? "8px" : isMobile ? "10px" : "0",
+              boxSizing: "border-box",
+              overflow: "hidden",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "scale(1.002)"
@@ -295,72 +316,147 @@ export default function StudentDashboardPage() {
               e.currentTarget.style.boxShadow = C.cardShadow
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "16px", flex: 1 }}>
-              <div
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  borderRadius: "50%",
-                  background: C.gold,
-                  color: "#FFFFFF",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
+            {/* Top */}
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "space-between",
+              width: "100%",
+              gap: isVerySmall ? "8px" : "12px",
+            }}>
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: isVerySmall ? "8px" : isMobile ? "10px" : "16px", 
+                flex: 1,
+                minWidth: 0,
+              }}>
+                <div
+                  style={{
+                    width: isVerySmall ? "28px" : isMobile ? "32px" : "44px",
+                    height: isVerySmall ? "28px" : isMobile ? "32px" : "44px",
+                    borderRadius: "50%",
+                    background: C.gold,
+                    color: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width={isVerySmall ? "12" : isMobile ? "14" : "20"} 
+                    height={isVerySmall ? "12" : isMobile ? "14" : "20"} 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </div>
+                
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ 
+                    fontSize: isVerySmall ? "clamp(11px, 1.2vw, 13px)" : isMobile ? "clamp(12px, 1.2vw, 14px)" : "clamp(15px, 1.2vw, 17px)", 
+                    fontWeight: 700, 
+                    color: C.textDark,
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}>
+                    Scanned Students
+                  </div>
+                  <div style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: isVerySmall ? "4px" : "6px",
+                    marginTop: "2px",
+                    flexWrap: "wrap",
+                  }}>
+                    <span style={{ 
+                      fontSize: isVerySmall ? "clamp(9px, 1vw, 11px)" : isMobile ? "clamp(10px, 1vw, 12px)" : "clamp(13px, 1vw, 14px)", 
+                      fontWeight: 500, 
+                      color: C.maroon 
+                    }}>
+                      {scannedCount} / {totalStudents}
+                    </span>
+                    <span style={{ 
+                      fontSize: isVerySmall ? "9px" : isMobile ? "10px" : "12px", 
+                      color: C.textGray,
+                    }}>
+                      students
+                    </span>
+                    {isVerySmall && (
+                      <span style={{ 
+                        fontSize: "9px", 
+                        color: C.textGray,
+                        background: C.hoursBg,
+                        padding: "1px 8px",
+                        borderRadius: "10px",
+                      }}>
+                        {percentage}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* View All / Hide button */}
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: isVerySmall ? "4px" : "6px",
+                color: C.textGray,
+                flexShrink: 0,
+              }}>
+                <span style={{ 
+                  fontSize: isVerySmall ? "10px" : isMobile ? "11px" : "12px", 
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                }}>
+                  {isScannedExpanded ? "Hide" : "View All"}
+                </span>
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
-                  width="20" 
-                  height="20" 
+                  width={isVerySmall ? "14" : isMobile ? "16" : "18"} 
+                  height={isVerySmall ? "14" : isMobile ? "16" : "18"} 
                   viewBox="0 0 24 24" 
                   fill="none" 
                   stroke="currentColor" 
                   strokeWidth="2" 
                   strokeLinecap="round" 
                   strokeLinejoin="round"
+                  style={{ 
+                    transition: "transform 0.3s ease",
+                    transform: isScannedExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                    flexShrink: 0,
+                  }}
                 >
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  <polyline points="6 9 12 15 18 9" />
                 </svg>
               </div>
-              
-              <div style={{ flex: 1 }}>
-                <div style={{ 
-                  fontSize: "clamp(15px, 1.2vw, 17px)", 
-                  fontWeight: 700, 
-                  color: C.textDark 
-                }}>
-                  Scanned Students
-                </div>
-                <div style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "10px",
-                  marginTop: "2px",
-                  flexWrap: "wrap",
-                }}>
-                  <span style={{ 
-                    fontSize: "clamp(13px, 1vw, 14px)", 
-                    fontWeight: 500, 
-                    color: C.maroon 
-                  }}>
-                    {scannedCount} / {totalStudents} students scanned
-                  </span>
-                </div>
-              </div>
+            </div>
 
-              {/* Progress bar */}
+            {/* Bottom row */}
+            <div style={{ 
+              display: isVerySmall || isMobile ? "flex" : "none",
+              alignItems: "center",
+              gap: "10px",
+              width: "100%",
+              paddingTop: isVerySmall ? "4px" : "6px",
+            }}>
               <div style={{ 
-                width: "120px", 
+                flex: 1,
                 height: "6px", 
                 borderRadius: "4px", 
                 background: C.track, 
                 overflow: "hidden",
-                flexShrink: 0,
-                display: isMobile ? "none" : "block",
               }}>
                 <div style={{ 
                   width: `${percentage}%`, 
@@ -370,54 +466,30 @@ export default function StudentDashboardPage() {
                   transition: "width 0.3s ease",
                 }} />
               </div>
-              <span style={{ 
-                    fontSize: "12px", 
-                    color: C.textGray,
-                    background: C.hoursBg,
-                    padding: "2px 10px",
-                    borderRadius: "12px",
-                  }}>
-                    {percentage}%
-                  </span>
-            </div>
-
-            {/* Expand/Collapse icon */}
-            <div style={{ 
-              display: "flex", 
-              alignItems: "center", 
-              gap: "8px",
-              color: C.textGray,
-              flexShrink: 0,
-              marginLeft: "12px",
-            }}>
-              <span style={{ fontSize: "12px", fontWeight: 500 }}>
-                {isScannedExpanded ? "Hide" : "View All"}
-              </span>
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="18" 
-                height="18" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-                style={{ 
-                  transition: "transform 0.3s ease",
-                  transform: isScannedExpanded ? "rotate(180deg)" : "rotate(0deg)"
-                }}
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
+              {!isVerySmall && (
+                <span style={{ 
+                  fontSize: isMobile ? "10px" : "11px", 
+                  color: C.textGray,
+                  background: C.hoursBg,
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}>
+                  {percentage}%
+                </span>
+              )}
             </div>
           </button>
 
-          {/* Expanded List - Only visible when expanded */}
+          {/* Expanded List */}
           {isScannedExpanded && (
             <div style={{ 
-              marginTop: "12px",
+              marginTop: isVerySmall ? "8px" : isMobile ? "10px" : "12px",
               animation: "slideDown 0.3s ease-out",
+              width: "100%",
+              maxWidth: "100%",
+              overflow: "hidden",
             }}>
               <style>
                 {`
@@ -464,21 +536,22 @@ export default function StudentDashboardPage() {
             >
               <div
                 style={{
-                  width: isMobile ? "95%" : 600,
+                  width: isVerySmall ? "98%" : isMobile ? "95%" : 600,
                   maxWidth: "100%",
                   background: C.maroon,
                   borderRadius: 28,
-                  padding: isMobile ? "16px" : "18px 22px 20px",
+                  padding: isVerySmall ? "12px" : isMobile ? "14px" : "18px 22px 20px",
                   boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
+                  maxHeight: "90vh",
                 }}
               >
                 <div
                   style={{
                     textAlign: "center",
                     color: "#fff",
-                    fontSize: isMobile ? "16px" : "18px",
+                    fontSize: isVerySmall ? "14px" : isMobile ? "15px" : "18px",
                     fontWeight: 800,
-                    marginBottom: 16,
+                    marginBottom: isVerySmall ? "10px" : "14px",
                   }}
                 >
                   DATA PRIVACY AGREEMENT
@@ -488,23 +561,23 @@ export default function StudentDashboardPage() {
                   style={{
                     background: "#fff",
                     borderRadius: 26,
-                    padding: isMobile ? "16px" : "20px",
+                    padding: isVerySmall ? "12px" : isMobile ? "14px" : "20px",
                     minHeight: "auto",
-                    maxHeight: "60vh",
+                    maxHeight: "50vh",
                     overflowY: "auto",
                   }}
                 >
                   <p style={{ 
-                    fontSize: isMobile ? "14px" : "15px", 
-                    lineHeight: isMobile ? 1.8 : 2, 
-                    marginBottom: 20 
+                    fontSize: isVerySmall ? "12px" : isMobile ? "13px" : "15px", 
+                    lineHeight: isVerySmall ? 1.6 : isMobile ? 1.7 : 2, 
+                    marginBottom: isVerySmall ? "12px" : "16px" 
                   }}>
                     By continuing to use this system, you acknowledge and consent to the collection, processing, and storage of your personal information in accordance with the Data Privacy Act of 2012.
                   </p>
 
                   <p style={{ 
-                    fontSize: isMobile ? "14px" : "15px", 
-                    lineHeight: isMobile ? 1.6 : 1.7 
+                    fontSize: isVerySmall ? "12px" : isMobile ? "13px" : "15px", 
+                    lineHeight: isVerySmall ? 1.5 : isMobile ? 1.6 : 1.7 
                   }}>
                     Your information will only be used for NSTP-related transactions and academic requirements.
                   </p>
@@ -514,7 +587,7 @@ export default function StudentDashboardPage() {
                   style={{
                     display: "flex",
                     justifyContent: "flex-end",
-                    marginTop: 14,
+                    marginTop: isVerySmall ? "10px" : "12px",
                   }}
                 >
                   <button
@@ -527,8 +600,8 @@ export default function StudentDashboardPage() {
                       color: "#fff",
                       border: "1px solid #C6C6C6",
                       borderRadius: 999,
-                      padding: isMobile ? "8px 20px" : "6px 18px",
-                      fontSize: isMobile ? "14px" : "15px",
+                      padding: isVerySmall ? "6px 16px" : isMobile ? "7px 18px" : "6px 18px",
+                      fontSize: isVerySmall ? "12px" : isMobile ? "13px" : "15px",
                       fontWeight: 700,
                       cursor: "pointer",
                       transition: "all 0.2s ease",
