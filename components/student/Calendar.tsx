@@ -15,6 +15,7 @@ const COLORS = {
   hover: "#F5F5F5",
   hoverDark: "#E8E8E8",
   forestBg: "#014421",
+  lightGreen: "#E8EDE5",
 }
 
 const MONTHS = [
@@ -437,7 +438,7 @@ export default function CalendarOverview({
         flexDirection: "column",
         position: 'relative' as const,
         overflow: 'hidden',
-        borderTop: `6px solid ${COLORS.maroon}`,
+        borderTop: `6px solid ${COLORS.forestBg}`,
         borderTopLeftRadius: '16px',
         borderTopRightRadius: '16px',
       }}
@@ -680,20 +681,19 @@ export default function CalendarOverview({
               textAlign: "center",
               padding: isVerySmall ? "4px 12px" : isMobile ? "6px 16px" : "6px 16px",
               fontSize: isVerySmall ? "11px" : isMobile ? "12px" : "13px",
-              background: "#014421",
-              color: "#FFFFFF",
-              border: `1px solid #014421`,
+              background: "rgba(123, 17, 19, 0.1)",
+              color: COLORS.maroon,
+              border: `2px solid ${COLORS.maroon}`,
               fontWeight: 600,
               borderRadius: '8px',
               cursor: 'pointer',
               transition: 'all 0.15s',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#1a6b3a' 
               e.currentTarget.style.transform = 'scale(1.02)'
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#014421"
+              e.currentTarget.style.background = "rgba(123, 17, 19, 0.1)"
               e.currentTarget.style.transform = 'scale(1)'
             }}
           >
