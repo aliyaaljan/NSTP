@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   IconSearch, IconChevronDown,
   IconUsersGroup, IconCircleCheck, IconClock,
-  IconAlertCircle, IconX, IconClipboardText, IconPaperclip,
+  IconAlertCircle, IconX, IconPaperclip,
 } from "@tabler/icons-react";
-import { Sidebar, QrScanner, dashboardStyles, navRoutes } from "../facilitator";
+import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { useSearchParams } from "next/navigation";
 
@@ -71,12 +71,17 @@ function progressColor(status: Status): string {
   return "#EF4444";
 }
 
-const statCards = [
-  { label: "Total Students",   value: 40, Icon: IconUsersGroup  },
-  { label: "Completed",        value: 3,  Icon: IconCircleCheck },
-  { label: "In Progress",      value: 10, Icon: IconClock       },
-  { label: "Pending Requests", value: 14, Icon: IconAlertCircle },
-];
+function buildStatCards(students: Student[]) {
+  const completed  = students.filter(s => s.status === "Completed").length;
+  const inProgress = students.filter(s => s.status === "In Progress").length;
+  const pending    = pendingRequests.length;
+  return [
+    { label: "Total Students",   value: students.length, Icon: IconUsersGroup  },
+    { label: "Completed",        value: completed,        Icon: IconCircleCheck },
+    { label: "In Progress",      value: inProgress,       Icon: IconClock       },
+    { label: "Pending Requests", value: pending,          Icon: IconAlertCircle },
+  ];
+}
 
 type Tab = "list" | "pending";
 type StatusFilter = "All Status" | Status;
@@ -111,7 +116,7 @@ const myStudentsStyles = `
   .ms-body { flex: 1; overflow: auto; padding: 20px 28px 28px; }
   .ms-table-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
   .ms-table-toolbar {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center;
     padding: 16px 20px; border-bottom: 1px solid var(--border);
   }
   .ms-table-title { font-weight: 700; font-size: 15px; }
@@ -145,8 +150,7 @@ const myStudentsStyles = `
   .ms-table th:nth-child(2) { width: 22%; }
   .ms-table th:nth-child(3) { width: 22%; }
   .ms-table th:nth-child(4) { width: 26%; }
-  .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; width: 130px; text-align: center; cursor: pointer; transition: filter 0.15s, transform 0.15s; }
-  .ms-status-badge:hover { filter: brightness(0.9); transform: scale(1.04); }
+  .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center; }
   .ms-table td { padding: 14px 16px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
   .ms-table tbody tr:last-child td { border-bottom: none; }
   .ms-table tbody tr { cursor: pointer; }
@@ -162,104 +166,68 @@ const myStudentsStyles = `
   .ms-hours-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
   .ms-hours-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
   .ms-hours-fill  { height: 100%; border-radius: 4px; transition: width 0.35s ease; }
-  .ms-view-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--muted); display: flex; align-items: center;
-    padding: 4px; border-radius: 6px; transition: color 0.13s, background 0.13s;
-  }
-  .ms-view-btn:hover { color: var(--maroon); background: #FEF2F2; }
-
   /* Empty / pending */
   .ms-empty { text-align: center; padding: 48px 0; color: var(--muted); font-size: 13px; }
 
   /* Pending Requests */
   .ms-requests-toolbar {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center;
     padding: 16px 20px; border-bottom: 1px solid var(--border);
   }
-  .ms-requests-grid { display: grid; grid-template-columns: 1fr 1fr; }
-  .ms-request-card {
-    display: flex; flex-direction: column; gap: 10px;
-    padding: 18px 20px; border-bottom: 1px solid #F3F4F6;
-    border-right: 1px solid #F3F4F6;
-    transition: background 0.12s; cursor: pointer;
+  .ms-requests-list { display: flex; flex-direction: column; }
+  .ms-request-row {
+    display: grid;
+    grid-template-columns: 2.4fr 1.2fr 1fr 2fr 140px;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid #F3F4F6;
+    cursor: pointer;
+    transition: background 0.12s;
   }
-  .ms-request-card:nth-child(even) { border-right: none; }
-  .ms-request-card:hover { background: #FAFAFA; }
-  .ms-request-top { display: flex; align-items: center; gap: 12px; }
+  .ms-request-row:last-child { border-bottom: none; }
+  .ms-request-row:hover { background: #FAFAFA; }
+  .ms-request-student { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .ms-request-avatar {
-    width: 42px; height: 42px; border-radius: 50%;
-    background: #D1D5DB; flex-shrink: 0;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #E5E7EB; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 700; color: #4B5563;
+    font-size: 11.5px; font-weight: 700; color: #4B5563;
   }
-  .ms-request-name    { font-size: 14px; font-weight: 600; color: var(--text); }
-  .ms-request-meta    { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
-  .ms-request-mid     { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .ms-request-type    { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
-  .ms-request-date    { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
-  .ms-request-note    { font-size: 12px; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .ms-request-bottom  { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
-  .ms-attachment-tag  { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--muted); }
-  .ms-review-btn {
-    background: #F59E0B; color: #fff; border: none;
-    border-radius: 20px; padding: 5px 16px;
-    font-size: 12.5px; font-weight: 600; font-family: var(--font);
-    cursor: pointer; transition: background 0.12s;
+  .ms-request-name  { font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ms-request-meta  { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .ms-request-type  { font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; display: inline-block; }
+  .ms-request-date  { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .ms-request-note  { font-size: 12px; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ms-attachment-tag { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; color: var(--muted); }
+
+  .ms-requests-thead {
+    display: grid;
+    grid-template-columns: 2.4fr 1.2fr 1fr 2fr 140px;
+    gap: 16px;
+    padding: 10px 20px;
+    background: #F9FAFB;
+    border-bottom: 1px solid var(--border);
   }
-  .ms-review-btn:hover { background: #D97706; }
+  .ms-requests-thead span {
+    font-size: 11px; font-weight: 700; color: var(--maroon);
+    letter-spacing: 0.8px; text-transform: uppercase;
+  }
+  .ms-requests-thead span:last-child { text-align: center; }
 
   /* Request modal */
-  .ms-req-modal-wrap {
-    background: var(--white); border-radius: 16px;
-    width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-    overflow: hidden;
+  .ms-req-modal-section { margin-bottom: 2px; }
+  .ms-req-modal-note {
+    font-size: 13px; color: var(--text); line-height: 1.6;
+    background: #F9FAFB; border-radius: 10px; padding: 12px 14px;
+    margin-top: 4px;
   }
-  .ms-req-modal-header {
-    background: var(--green); padding: 18px 20px;
-    display: flex; align-items: center; justify-content: space-between;
+  .ms-req-modal-attachment {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--maroon); font-weight: 600;
+    background: #FEF2F2; border-radius: 10px; padding: 10px 14px;
+    margin-top: 4px; cursor: pointer;
   }
-  .ms-req-modal-header-left { display: flex; align-items: center; gap: 12px; }
-  .ms-req-modal-avatar {
-    width: 40px; height: 40px; border-radius: 50%;
-    background: rgba(255,255,255,0.15); flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 700; color: #fff;
-  }
-  .ms-req-modal-hname { font-size: 15px; font-weight: 700; color: #fff; }
-  .ms-req-modal-hsub  { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 1px; }
-  .ms-req-modal-close {
-    background: none; border: none; cursor: pointer; color: #fff;
-    display: flex; align-items: center; padding: 4px;
-    opacity: 0.85; transition: opacity 0.12s;
-  }
-  .ms-req-modal-close:hover { opacity: 1; }
-  .ms-req-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-  .ms-req-modal-label { font-size: 13.5px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
-  .ms-req-modal-textarea {
-    width: 100%; border-radius: 12px; border: none;
-    background: #F0F0F0; padding: 14px 16px; height: 80px;
-    font-size: 13px; font-family: var(--font); color: var(--text);
-    resize: none; outline: none; line-height: 1.5;
-  }
-  .ms-req-modal-photo {
-    width: 100%; border-radius: 12px; background: #F0F0F0;
-    height: 80px; display: flex; align-items: center; justify-content: center;
-    color: var(--light); font-size: 13px; cursor: pointer; gap: 6px;
-    border: none; transition: background 0.12s; font-family: var(--font);
-  }
-  .ms-req-modal-photo:hover { background: #E8E8E8; }
-  .ms-req-modal-footer {
-    display: flex; justify-content: flex-end;
-    padding: 0 20px 20px;
-  }
-  .ms-req-save-btn {
-    background: var(--green); color: #fff; border: none;
-    border-radius: 20px; padding: 10px 24px;
-    font-size: 13.5px; font-weight: 700; font-family: var(--font);
-    cursor: pointer; transition: background 0.12s;
-  }
-  .ms-req-save-btn:hover { background: var(--green-dark); }
 
   /* Pagination */
   .ms-pagination {
@@ -314,17 +282,15 @@ const myStudentsStyles = `
 function MyStudentsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeNav, setActiveNav] = useState("Dashboard")
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [scannerOpen, setScannerOpen] = useState(false);
-  const [activeTab, setActiveTab]     = useState<Tab>("list");
-  const [searchVal, setSearchVal]     = useState("");
-  const [tableSearch, setTableSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All Status");
+  const [sidebarOpen, setSidebarOpen]     = useState(false);
+  const [activeTab, setActiveTab]         = useState<Tab>("list");
+  const [headerSearch, setHeaderSearch]   = useState("");
+  const [tableSearch, setTableSearch]     = useState("");
+  const [statusFilter, setStatusFilter]   = useState<StatusFilter>("All Status");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [showFilter, setShowFilter]   = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [showFilter, setShowFilter]       = useState(false);
+  const [currentPage, setCurrentPage]     = useState(1);
+  const [pageSize, setPageSize]           = useState(5);
   const [pendingSearch, setPendingSearch] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
   const [requestTypeFilter, setRequestTypeFilter] = useState<"All Types" | RequestType>("All Types");
@@ -338,9 +304,10 @@ function MyStudentsContent() {
   }, [searchParams])
 
   const filtered = allStudents.filter((s) => {
-    const matchSearch = tableSearch.trim() === "" ||
-      s.name.toLowerCase().includes(tableSearch.toLowerCase()) ||
-      s.studentNo.includes(tableSearch);
+    const q = (headerSearch || tableSearch).trim().toLowerCase();
+    const matchSearch = q === "" ||
+      s.name.toLowerCase().includes(q) ||
+      s.studentNo.includes(q);
     const matchStatus = statusFilter === "All Status" || s.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -355,20 +322,14 @@ function MyStudentsContent() {
   const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const statusOptions: StatusFilter[] = ["All Status", "Completed", "In Progress", "Not Started"];
+  const statCards = buildStatCards(allStudents);
 
   async function handleSignOut() {
-      await signOutWithAudit()
-      router.push("/")
-      router.refresh()
-    }
-  
-    function handleNavClick(label: string) {
-      setActiveNav(label)
-      setSidebarOpen(false)
-      if (navRoutes?.[label]) {
-        router.push(navRoutes[label])
-      }
-    }
+    await signOutWithAudit();
+    router.push("/");
+    router.refresh();
+  }
+
   function requestTypeStyle(type: RequestType): { bg: string; color: string } {
     const map: Record<RequestType, { bg: string; color: string }> = {
       "Absence Excuse":  { bg: "#FEF3C7", color: "#92400E" },
@@ -404,9 +365,11 @@ function MyStudentsContent() {
               <div className="search-bar" style={{ minWidth: 200 }}>
                 <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
                 <input
-                  className="search-input" value={searchVal}
-                  onChange={(e) => setSearchVal(e.target.value)}
-                  placeholder="Search..." aria-label="Search"
+                  className="search-input"
+                  value={headerSearch}
+                  onChange={(e) => { setHeaderSearch(e.target.value); setTableSearch(""); setCurrentPage(1); }}
+                  placeholder="Search students..."
+                  aria-label="Search students"
                 />
               </div>
               <div className="profile-pill">
@@ -465,13 +428,13 @@ function MyStudentsContent() {
                       <div className="ms-table-title">All Students</div>
                       <div className="ms-table-count">{filtered.length} student{filtered.length !== 1 ? "s" : ""} found</div>
                     </div>
-                    <div className="ms-toolbar-right">
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 24 }}>
                       <div className="ms-search-bar">
                         <IconSearch size={13} stroke={1.75} color="var(--light)" />
                         <input
                           className="ms-search-input"
                           value={tableSearch}
-                          onChange={(e) => { setTableSearch(e.target.value); setCurrentPage(1); }}
+                          onChange={(e) => { setTableSearch(e.target.value); setHeaderSearch(""); setCurrentPage(1); }}
                           placeholder="Search..."
                         />
                       </div>
@@ -481,13 +444,13 @@ function MyStudentsContent() {
                         </button>
                         {showFilter && (
                           <div style={{
-                            position: "absolute", top: "calc(100% + 6px)", right: 0,
+                            position: "absolute", top: "calc(100% + 6px)", left: 0,
                             background: "var(--white)", border: "1px solid var(--border)",
                             borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
                             minWidth: 160, overflow: "hidden",
                           }}>
                             {statusOptions.map((opt) => (
-                              <button key={opt} onClick={() => { setStatusFilter(opt); setShowFilter(false); }}
+                              <button key={opt} onClick={() => { setStatusFilter(opt); setShowFilter(false); setCurrentPage(1); }}
                                 style={{
                                   display: "block", width: "100%", padding: "9px 16px",
                                   textAlign: "left", background: statusFilter === opt ? "#F9FAFB" : "none",
@@ -538,7 +501,6 @@ function MyStudentsContent() {
                             <td className="ms-hours-cell">
                               <div className="ms-hours-label">
                                 <span>{s.hoursLogged}/{s.totalHours} hrs</span>
-                                <span>{pct}%</span>
                               </div>
                               <div className="ms-hours-track">
                                 <div className="ms-hours-fill" style={{ width: `${pct}%`, background: progressColor(s.status) }} />
@@ -608,7 +570,7 @@ function MyStudentsContent() {
                       <div className="ms-table-title">All Requests</div>
                       <div className="ms-table-count">{filteredPending.length} request{filteredPending.length !== 1 ? "s" : ""} found</div>
                     </div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 24 }}>
                       <div className="ms-search-bar" style={{ minWidth: 180 }}>
                         <IconSearch size={13} stroke={1.75} color="var(--light)" />
                         <input
@@ -624,7 +586,7 @@ function MyStudentsContent() {
                         </button>
                         {showTypeFilter && (
                           <div style={{
-                            position: "absolute", top: "calc(100% + 6px)", right: 0,
+                            position: "absolute", top: "calc(100% + 6px)", left: 0,
                             background: "var(--white)", border: "1px solid var(--border)",
                             borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
                             minWidth: 170, overflow: "hidden",
@@ -649,42 +611,46 @@ function MyStudentsContent() {
                   {filteredPending.length === 0 ? (
                     <div className="ms-empty">No pending requests found.</div>
                   ) : (
-                    <div className="ms-requests-grid">
-                      {filteredPending.map((r) => {
-                        const typeStyle = requestTypeStyle(r.type);
-                        const initials = r.name.split(" ").slice(0,2).map((w: string) => w[0]).join("").toUpperCase();
-                        return (
-                          <div key={r.id} className="ms-request-card" onClick={() => setSelectedRequest(r)}>
-                            <div className="ms-request-top">
-                              <div className="ms-request-avatar">{initials}</div>
+                    <>
+                      <div className="ms-requests-thead">
+                        <span>Student</span>
+                        <span>Type</span>
+                        <span>Date</span>
+                        <span>Note</span>
+                        <span>Attachment</span>
+                      </div>
+                      <div className="ms-requests-list">
+                        {filteredPending.map((r) => {
+                          const typeStyle = requestTypeStyle(r.type);
+                          const initials = r.name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
+                          return (
+                            <div key={r.id} className="ms-request-row" onClick={() => setSelectedRequest(r)}>
+                              <div className="ms-request-student">
+                                <div className="ms-request-avatar">{initials}</div>
+                                <div>
+                                  <div className="ms-request-name">{r.name}</div>
+                                  <div className="ms-request-meta">{r.studentNo} · {r.section}</div>
+                                </div>
+                              </div>
                               <div>
-                                <div className="ms-request-name">{r.name}</div>
-                                <div className="ms-request-meta">{r.studentNo} · {r.section}</div>
+                                <span className="ms-request-type" style={{ background: typeStyle.bg, color: typeStyle.color }}>
+                                  {r.type}
+                                </span>
+                              </div>
+                              <div className="ms-request-date">{r.dateSubmitted}</div>
+                              <div className="ms-request-note">{r.note}</div>
+                              <div className="ms-attachment-tag">
+                                {r.hasAttachment ? (
+                                  <><IconPaperclip size={13} stroke={1.75} /> 1 file</>
+                                ) : (
+                                  <span style={{ opacity: 0.35 }}>—</span>
+                                )}
                               </div>
                             </div>
-                            <div className="ms-request-mid">
-                              <span className="ms-request-type" style={{ background: typeStyle.bg, color: typeStyle.color }}>
-                                {r.type}
-                              </span>
-                              <span className="ms-request-date">{r.dateSubmitted}</span>
-                            </div>
-                            <div className="ms-request-note">{r.note}</div>
-                            <div className="ms-request-bottom">
-                              <span className="ms-attachment-tag">
-                                {r.hasAttachment ? (
-                                  <><IconPaperclip size={13} stroke={1.75} /> 1 attachment</>
-                                ) : (
-                                  <span style={{ opacity: 0.4 }}>No attachment</span>
-                                )}
-                              </span>
-                              <button className="ms-review-btn" onClick={(e) => { e.stopPropagation(); setSelectedRequest(r); }}>
-                                Review
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -733,7 +699,7 @@ function MyStudentsContent() {
                 <div className="ms-modal-field ms-modal-progress">
                   <div className="ms-modal-label">Progress</div>
                   <div className="ms-hours-label" style={{ marginTop: 6 }}>
-                    <span></span>
+                    <span>{selectedStudent.hoursLogged} / {selectedStudent.totalHours} hrs</span>
                     <span>{Math.round((selectedStudent.hoursLogged / selectedStudent.totalHours) * 100)}%</span>
                   </div>
                   <div className="ms-hours-track">
@@ -798,7 +764,6 @@ function MyStudentsContent() {
           </div>
         )}
 
-        {scannerOpen && <QrScanner onClose={() => setScannerOpen(false)} />}
       </div>
     </>
   );
