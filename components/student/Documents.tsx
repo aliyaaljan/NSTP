@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useRef } from "react"
 
 const COLORS = {
   maroonBase: "#7B1113",
@@ -12,6 +12,7 @@ const COLORS = {
   border: "#DDDDDD",
   disabled: "#BBBBBB",
   gold: "#F3AA2C",
+  forestGreen: "#014421",
 }
 
 export type DocumentStatus = "submitted" | "pending"
@@ -29,28 +30,13 @@ export interface DocumentsProps {
   maxListHeight?: number
 }
 
-// Manual docs
-const DEFAULT_DOCUMENTS: DocumentItem[] = [
-  { id: "1", name: "Endorsement Letter", status: "submitted", note: "Due Jun 3" },
-  { id: "2", name: "Medical Certificate", status: "submitted", note: "Due Jun 3" },
-  { id: "3", name: "Parental Consent Form", status: "submitted", note: "Due Jun 5" },
-  { id: "4", name: "Insurance Form", status: "submitted", note: "Due Jun 5" },
-  { id: "5", name: "Orientation Certificate", status: "submitted", note: "Due Jun 9" },
-  { id: "6", name: "Waiver Form", status: "submitted", note: "Due Jun 9" },
-  { id: "7", name: "Form A", status: "pending", note: "Due Jun 25" },
-  { id: "8", name: "Document Something", status: "pending", note: "Due Jun 27" },
-  { id: "9", name: "Form B", status: "pending", note: "Due Jun 28" },
-  { id: "10", name: "Docs", status: "pending", note: "Due Jun 30" },
-  { id: "11", name: "Docs", status: "pending", note: "Due Jun 30" },
-]
-
 const STATUS_META: Record<DocumentStatus, { label: string; color: string; bg: string; icon: string }> = {
   submitted: { label: "Submitted", color: COLORS.forestLight, bg: "rgba(45,106,79,0.10)", icon: "ti-check" },
   pending: { label: "Pending", color: COLORS.gold, bg: "rgba(243,170,44,0.12)", icon: "ti-clock" },
 }
 
 export default function Documents({
-  documents = DEFAULT_DOCUMENTS,
+  documents = [],
   variant = "compact",
   maxListHeight = 360,
 }: DocumentsProps) {
@@ -62,12 +48,25 @@ export default function Documents({
 
 function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
   const [filter, setFilter] = useState<"all" | DocumentStatus>("all")
-  const [showAllRemaining, setShowAllRemaining] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [scrollIndex, setScrollIndex] = useState(0)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [itemsPerRow, setItemsPerRow] = useState(6)
   
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
+      const width = window.innerWidth
+      setIsMobile(width < 768)
+      
+      if (width < 480) {
+        setItemsPerRow(3)
+      } else if (width < 768) {
+        setItemsPerRow(4)
+      } else if (width < 1024) {
+        setItemsPerRow(5)
+      } else {
+        setItemsPerRow(6)
+      }
     }
     handleResize()
     window.addEventListener('resize', handleResize)
@@ -77,10 +76,9 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
   const submitted = documents.filter((d) => d.status === "submitted")
   const pendingDocs = documents.filter((d) => d.status === "pending")
   
-  // Selection filter
   const getFilteredDocuments = () => {
     if (filter === "all") {
-      return [...submitted, ...pendingDocs]
+      return [...pendingDocs, ...submitted]
     } else if (filter === "submitted") {
       return submitted
     } else if (filter === "pending") {
@@ -98,10 +96,28 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
     return "Documents"
   }
 
-  const showLimit = isMobile ? 8 : 12
-  const gridDocuments = showAllRemaining ? displayDocuments : displayDocuments.slice(0, showLimit)
-  const hasMore = displayDocuments.length > showLimit
-  const listDocuments = showAllRemaining ? displayDocuments : displayDocuments.slice(0, showLimit)
+  const totalItems = displayDocuments.length
+  const maxIndex = Math.max(0, Math.ceil(totalItems / itemsPerRow) - 1)
+
+  const getVisibleItems = () => {
+    const start = scrollIndex * itemsPerRow
+    const end = start + itemsPerRow
+    return displayDocuments.slice(start, end)
+  }
+
+  const visibleItems = getVisibleItems()
+
+  const handlePrev = () => {
+    setScrollIndex(prev => Math.max(0, prev - 1))
+  }
+
+  const handleNext = () => {
+    setScrollIndex(prev => Math.min(maxIndex, prev + 1))
+  }
+
+  const hasMore = totalItems > itemsPerRow
+  const showLeftArrow = scrollIndex > 0
+  const showRightArrow = scrollIndex < maxIndex
 
   return (
     <div
@@ -109,6 +125,9 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
         background: COLORS.white,
         borderRadius: "14px",
         border: `1px solid ${COLORS.border}`,
+        borderTop: `6px solid ${COLORS.forestGreen}`, 
+        borderTopLeftRadius: "16px",
+        borderTopRightRadius: "16px",
         boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
         padding: isMobile ? "14px" : "18px",
         display: "flex",
@@ -132,7 +151,7 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             fontWeight: 700,
             fontSize: isMobile ? "15px" : "16px",
-            color: COLORS.maroonBase,
+            color: COLORS.text,
             letterSpacing: "0.5px",
           }}
         >
@@ -161,14 +180,14 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
               key={key}
               onClick={() => {
                 setFilter(key)
-                setShowAllRemaining(false)
+                setScrollIndex(0)
               }}
               style={{
                 fontSize: isMobile ? "9px" : "10px",
                 fontWeight: 600,
                 padding: isMobile ? "3px 8px" : "4px 10px",
                 borderRadius: "999px",
-                border: `1px solid ${active ? (meta?.color ?? COLORS.maroonBase) : COLORS.border}`,
+                border: `2px solid ${active ? (meta?.color ?? COLORS.maroonBase) : COLORS.border}`,
                 background: active ? (meta?.bg ?? "rgba(123,17,19,0.08)") : COLORS.white,
                 color: active ? (meta?.color ?? COLORS.maroonBase) : COLORS.muted,
                 cursor: "pointer",
@@ -195,98 +214,165 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
         })}
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "repeat(4, 1fr)" : "repeat(6, 1fr)",
-          gap: isMobile ? "6px" : "8px",
-          justifyItems: "center",
-          flexShrink: 0,
-        }}
-      >
-        {gridDocuments.map((doc) => {
-          const meta = STATUS_META[doc.status]
-          const isSubmitted = doc.status === "submitted"
-          return (
-            <div
-              key={doc.id}
-              title={`${doc.name} — ${meta.label}`}
-              style={{
-                width: "100%",
-                aspectRatio: "1 / 1",
-                borderRadius: "9px",
-                border: `1px solid ${isSubmitted ? COLORS.border : "#CCCCCC"}`,
-                background: isSubmitted ? meta.bg : "#E8E8E8",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: isSubmitted ? meta.color : "#999999",
-                opacity: isSubmitted ? 1 : 0.7,
-                transition: "all 0.15s",
-                cursor: "default",
-                fontSize: isMobile ? "14px" : "16px",
-              }}
-              onMouseEnter={(e) => {
-                if (isSubmitted) {
-                  e.currentTarget.style.transform = "scale(1.05)"
-                  e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)"
-                e.currentTarget.style.boxShadow = "none"
-              }}
-            >
-              <i className="ti ti-file-text" style={{ fontSize: isMobile ? "14px" : "16px" }} />
-            </div>
-          )
-        })}
-        {showAllRemaining && hasMore && (
-          <div
+      <div style={{ 
+        position: "relative", 
+        flexShrink: 0,
+        padding: "0 32px",
+      }}>
+        <div
+          ref={gridRef}
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${itemsPerRow}, 1fr)`,
+            gap: isMobile ? "6px" : "8px",
+            justifyItems: "center",
+            transition: "all 0.3s ease-in-out",
+          }}
+        >
+          {visibleItems.map((doc) => {
+            const meta = STATUS_META[doc.status]
+            const isSubmitted = doc.status === "submitted"
+            return (
+              <div
+                key={doc.id}
+                title={`${doc.name} — ${meta.label}${doc.note ? ` (${doc.note})` : ''}`}
+                style={{
+                  width: "100%",
+                  aspectRatio: "1 / 1",
+                  borderRadius: "9px",
+                  border: `2px solid ${isSubmitted ? COLORS.border : "#CCCCCC"}`,
+                  background: isSubmitted ? meta.bg : "#E8E8E8",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: isSubmitted ? meta.color : "#999999",
+                  opacity: isSubmitted ? 1 : 0.7,
+                  transition: "all 0.2s ease-in-out",
+                  cursor: "pointer",
+                  fontSize: isMobile ? "14px" : "16px",
+                  gap: "2px",
+                  position: "relative",
+                  minWidth: 0,
+                }}
+                onMouseEnter={(e) => {
+                  if (isSubmitted) {
+                    e.currentTarget.style.transform = "scale(1.05)"
+                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"
+                  }
+                  e.currentTarget.style.borderColor = meta.color
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)"
+                  e.currentTarget.style.boxShadow = "none"
+                  e.currentTarget.style.borderColor = isSubmitted ? COLORS.border : "#CCCCCC"
+                }}
+              >
+                <i className="ti ti-file-text" style={{ fontSize: isMobile ? "14px" : "16px" }} />
+                <span style={{ 
+                  fontSize: isMobile ? "6px" : "7px", 
+                  fontWeight: 600,
+                  opacity: 0.8,
+                  maxWidth: "80%",
+                  textAlign: "center",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}>
+                  {doc.name.split(' ').slice(0, 2).join(' ')}
+                </span>
+              </div>
+            )
+          })}
+          {visibleItems.length < itemsPerRow && 
+            Array.from({ length: itemsPerRow - visibleItems.length }).map((_, i) => (
+              <div key={`empty-${i}`} style={{ visibility: "hidden", aspectRatio: "1 / 1" }} />
+            ))
+          }
+        </div>
+
+        {/* Left Arrow */}
+        {hasMore && showLeftArrow && (
+          <button
+            onClick={handlePrev}
             style={{
-              width: "100%",
-              aspectRatio: "1 / 1",
-              borderRadius: "9px",
+              position: "absolute",
+              left: "0",
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: COLORS.white,
               border: `1px solid ${COLORS.border}`,
-              background: COLORS.surface,
+              borderRadius: "50%",
+              width: isMobile ? "24px" : "28px",
+              height: isMobile ? "24px" : "28px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: isMobile ? "10px" : "12px",
-              fontWeight: 600,
-              color: COLORS.muted,
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+              transition: "all 0.2s ease-in-out",
+              zIndex: 1,
+              padding: 0,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = COLORS.surface
+              e.currentTarget.style.transform = "translateY(-50%) scale(1.1)"
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = COLORS.white
+              e.currentTarget.style.transform = "translateY(-50%) scale(1)"
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)"
             }}
           >
-            +{displayDocuments.length - showLimit}
-          </div>
+            <i className="ti ti-chevron-left" style={{ 
+              fontSize: isMobile ? "12px" : "14px",
+              color: COLORS.text,
+            }} />
+          </button>
+        )}
+
+        {/* Right Arrow */}
+        {hasMore && showRightArrow && (
+          <button
+            onClick={handleNext}
+            style={{
+              position: "absolute",
+              right: "0",
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: COLORS.white,
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: "50%",
+              width: isMobile ? "24px" : "28px",
+              height: isMobile ? "24px" : "28px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+              transition: "all 0.2s ease-in-out",
+              zIndex: 1,
+              padding: 0,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = COLORS.surface
+              e.currentTarget.style.transform = "translateY(-50%) scale(1.1)"
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = COLORS.white
+              e.currentTarget.style.transform = "translateY(-50%) scale(1)"
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)"
+            }}
+          >
+            <i className="ti ti-chevron-right" style={{ 
+              fontSize: isMobile ? "12px" : "14px",
+              color: COLORS.text,
+            }} />
+          </button>
         )}
       </div>
-
-      {hasMore && !showAllRemaining && (
-        <button
-          onClick={() => setShowAllRemaining(true)}
-          style={{
-            fontSize: isMobile ? "10px" : "11px",
-            color: COLORS.muted,
-            textAlign: "center",
-            padding: "4px 0",
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            textDecoration: "underline",
-            flexShrink: 0,
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = COLORS.maroonBase
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = COLORS.muted
-          }}
-        >
-          +{displayDocuments.length - showLimit} more
-        </button>
-      )}
 
       <div style={{ 
         height: "1px", 
@@ -313,7 +399,7 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
         >
           {getSectionTitle()}
         </span>
-        {listDocuments.length === 0 ? (
+        {displayDocuments.length === 0 ? (
           <span style={{ 
             fontSize: isMobile ? "11px" : "12px", 
             color: COLORS.muted,
@@ -334,9 +420,8 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
             overflowY: "auto",
             scrollbarWidth: "thin",
           }}>
-            {listDocuments.map((doc) => {
+            {displayDocuments.map((doc) => {
               const meta = STATUS_META[doc.status]
-              const isSubmitted = doc.status === "submitted"
               return (
                 <li
                   key={doc.id}
@@ -348,15 +433,18 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
                     color: "#666666",
                     opacity: 0.8,
                     padding: "2px 0",
-                    transition: "all 0.15s",
+                    transition: "all 0.2s ease-in-out",
+                    cursor: "pointer",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.opacity = "1"
                     e.currentTarget.style.color = COLORS.text
+                    e.currentTarget.style.transform = "translateX(4px)"
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.opacity = "0.8"
                     e.currentTarget.style.color = "#666666"
+                    e.currentTarget.style.transform = "translateX(0)"
                   }}
                 >
                   <span
@@ -377,9 +465,9 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
                     {doc.name}
                   </span>
                   <span style={{ 
-                    fontSize: isMobile ? "8px" : "9px", 
-                    color: "#999999", 
-                    fontWeight: 500,
+                    fontSize: isMobile ? "10px" : "11px", 
+                    color: "#666666", 
+                    fontWeight: 600,
                     flexShrink: 0,
                   }}>
                     {doc.note || meta.label}
@@ -417,14 +505,16 @@ function DocumentsFull({
   const total = documents.length
   const pct = total === 0 ? 0 : Math.round((submittedCount / total) * 100)
 
-  // Selected filter
   const getVisibleDocuments = () => {
+    const pendingDocs = documents.filter((d) => d.status === "pending")
+    const submittedDocs = documents.filter((d) => d.status === "submitted")
+    
     if (filter === "all") {
-      return documents
+      return [...pendingDocs, ...submittedDocs]
     } else if (filter === "submitted") {
-      return documents.filter((d) => d.status === "submitted")
+      return submittedDocs
     } else if (filter === "pending") {
-      return documents.filter((d) => d.status === "pending")
+      return pendingDocs
     }
     return documents
   }
@@ -444,6 +534,9 @@ function DocumentsFull({
         background: COLORS.white,
         borderRadius: "14px",
         border: `1px solid ${COLORS.border}`,
+        borderTop: `6px solid ${COLORS.forestGreen}`, 
+        borderTopLeftRadius: "16px",
+        borderTopRightRadius: "16px",
         padding: isMobile ? "16px" : "20px",
         boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
         display: "flex",
@@ -579,8 +672,8 @@ function DocumentsFull({
                 border: `1px solid ${isSubmitted ? COLORS.border : "#CCCCCC"}`,
                 background: isSubmitted ? COLORS.surface : "#EEEEEE",
                 opacity: isSubmitted ? 1 : 0.7,
-                transition: "all 0.15s",
-                cursor: "default",
+                transition: "all 0.2s ease-in-out",
+                cursor: "pointer",
               }}
               onMouseEnter={(e) => {
                 if (isSubmitted) {
@@ -589,6 +682,7 @@ function DocumentsFull({
                 } else {
                   e.currentTarget.style.opacity = "0.85"
                 }
+                e.currentTarget.style.borderColor = meta.color
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateX(0)"
@@ -596,6 +690,7 @@ function DocumentsFull({
                 if (!isSubmitted) {
                   e.currentTarget.style.opacity = "0.7"
                 }
+                e.currentTarget.style.borderColor = isSubmitted ? COLORS.border : "#CCCCCC"
               }}
             >
               <span
@@ -630,7 +725,8 @@ function DocumentsFull({
                 </div>
                 {doc.note && (
                   <div style={{ 
-                    fontSize: isMobile ? "10px" : "11px", 
+                    fontSize: isMobile ? "11px" : "12px", 
+                    fontWeight: 500,
                     color: isSubmitted ? COLORS.muted : "#AAAAAA", 
                     marginTop: "1px" 
                   }}>
