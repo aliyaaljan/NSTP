@@ -26,7 +26,7 @@ const C = {
   gold:        "#C8A84B",
   goldBg:      "#FFF3CD",
   goldText:    "#4A2C00",
-  pageBg:      "#F0EFE8",
+  pageBg:      "#F0F0F0",
   cardBg:      "#FFFFFF",
   cardShadow:  "0 1px 4px rgba(0,0,0,0.06)",
   border:      "#ECECEA",
