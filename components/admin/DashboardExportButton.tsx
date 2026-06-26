@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useState, useTransition } from "react"
-import { exportDashboardAnalytics } from "@/lib/admin/export-analytics-actions"
 import {
   buildExportAnalyticsRequest,
   EXPORT_ALL_SECTIONS_VALUE,
@@ -116,24 +115,19 @@ export default function DashboardExportButton({
   }, [open, close])
 
   function handleExport() {
-    const request = buildExportAnalyticsRequest({
-      fileType,
-      sectionId,
-      content,
-    })
-    if (!request) return
+    // construct query parameters
+    const queryParams = new URLSearchParams()
 
-    setError(null)
-    startTransition(async () => {
-      const result = await exportDashboardAnalytics(request)
-      if (!result.ok) {
-        setError(result.error)
-        return
-      }
+    queryParams.append("sectionId", sectionId || "all") // for section filter bounds
+    queryParams.append("content", content || "all") // handles data
 
-      window.open(result.downloadUrl, "_blank", "noopener,noreferrer")
-      close()
-    })
+    // ensure active state value is appended to the parameters stream
+    queryParams.append("fileType", fileType)
+
+    // direct the browser window location to load the stream endpoint
+    window.location.href = `/api/export?${queryParams.toString()}`
+
+    if (typeof close === "function") close() // close modal window
   }
 
   function resetAndOpen() {
@@ -144,7 +138,7 @@ export default function DashboardExportButton({
     setOpen(true)
   }
 
-  const canExport = Boolean(fileType && sectionId && content) && !isPending
+  const canExport = Boolean(fileType && sectionId && content)
 
   return (
     <>
