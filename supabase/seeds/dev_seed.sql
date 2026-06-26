@@ -18,7 +18,7 @@
 --   260 enrollments | ~3600 sessions | ~7300 events | 4 appeals
 -- ============================================================
 
--- ── 0. Guard ────────────────────────────────────────────────
+-- -- 0. Guard ------------------------------------------------
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin.test@up.edu.ph')
   OR NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'studentleader.test@up.edu.ph') THEN
@@ -27,7 +27,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- ── 1. Terms ────────────────────────────────────────────────
+-- -- 1. Terms ------------------------------------------------
 -- 4 past + 1 current active term
 INSERT INTO term (term_id, name, school_year, semester, start_date, end_date, is_active) VALUES
   ('5eed0001-0000-0000-0000-000000000000', '1st Semester AY 2022-2023', '2022-2023', 'first',  '2022-08-15', '2022-12-16', false),
@@ -37,7 +37,7 @@ INSERT INTO term (term_id, name, school_year, semester, start_date, end_date, is
   ('5eed0005-0000-0000-0000-000000000000', '1st Semester AY 2025-2026', '2025-2026', 'first',  '2025-08-11', '2025-12-19', true)
 ON CONFLICT DO NOTHING;
 
--- ── 2. Synthetic advisers (no auth.users rows → zero MAU cost) ──
+-- -- 2. Synthetic advisers (no auth.users rows → zero MAU cost) --
 INSERT INTO app_user (app_user_id, role_id, email, full_name) VALUES
   ('5eed1001-0000-0000-0000-000000000000',
    (SELECT role_id FROM role WHERE code = 'adviser'),
@@ -50,7 +50,7 @@ INSERT INTO app_user (app_user_id, role_id, email, full_name) VALUES
    'clara.lim@up.edu.ph', 'Clara Lim')
 ON CONFLICT (app_user_id) DO NOTHING;
 
--- ── 3. Fake account app_user rows ───────────────────────────
+-- -- 3. Fake account app_user rows ---------------------------
 -- UPSERT the role to fix seed-order race (dev may have logged in first, creating
 -- the row with the default 'student' role before the seed ran).
 INSERT INTO app_user (app_user_id, role_id, email, full_name)
@@ -77,7 +77,7 @@ SELECT id, (SELECT role_id FROM role WHERE code = 'student'),
 FROM auth.users WHERE email = 'studentleader.test@up.edu.ph'
 ON CONFLICT (app_user_id) DO UPDATE SET role_id = EXCLUDED.role_id;
 
--- ── 4. Synthetic students ────────────────────────────────────
+-- -- 4. Synthetic students ------------------------------------
 -- 5eed2001–5eed2225 : enrolled in adviser.test's 15 sections (15 per section)
 -- 5eed2226–5eed2254 : classmates in student.test's 4 sections (8+8+8+5)
 INSERT INTO app_user (app_user_id, role_id, email, full_name)
@@ -89,12 +89,12 @@ SELECT
 FROM generate_series(1, 254) AS g(i)
 ON CONFLICT (app_user_id) DO NOTHING;
 
--- ── 5. Sections ─────────────────────────────────────────────
+-- -- 5. Sections ---------------------------------------------
 
 INSERT INTO section
   (section_id, term_id, adviser_user_id, course_code, name, section_status_id, required_hour_total)
 VALUES
-  -- adviser.test: 5 completed sections ─────────────────────
+  -- adviser.test: 5 completed sections ---------------------
   ('5eed3011-0000-0000-0000-000000000000', '5eed0001-0000-0000-0000-000000000000',
    (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph'),
    'NSTP 1 CWTS', 'CWTS-2223A',
@@ -120,7 +120,7 @@ VALUES
    'NSTP 1 CWTS', 'CWTS-2324A',
    (SELECT section_status_id FROM section_status WHERE code = 'completed'), 60),
 
-  -- adviser.test: 5 archived sections (completed, then archived) ─
+  -- adviser.test: 5 archived sections (completed, then archived) -
   ('5eed3021-0000-0000-0000-000000000000', '5eed0001-0000-0000-0000-000000000000',
    (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph'),
    'NSTP 1 LTS', 'LTS-2223A',
@@ -146,7 +146,7 @@ VALUES
    'NSTP 1 LTS', 'LTS-2223C',
    (SELECT section_status_id FROM section_status WHERE code = 'archived'), 60),
 
-  -- adviser.test: 5 active sections (current term) ──────────
+  -- adviser.test: 5 active sections (current term) ----------
   ('5eed3031-0000-0000-0000-000000000000', '5eed0005-0000-0000-0000-000000000000',
    (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph'),
    'NSTP 2 CWTS', 'CWTS-2526A',
@@ -172,13 +172,13 @@ VALUES
    'NSTP 2 CWTS', 'CWTS-2526C',
    (SELECT section_status_id FROM section_status WHERE code = 'active'), 60),
 
-  -- adviser.test: 1 draft section ───────────────────────────
+  -- adviser.test: 1 draft section ---------------------------
   ('5eed3041-0000-0000-0000-000000000000', '5eed0005-0000-0000-0000-000000000000',
    (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph'),
    'NSTP 2 LTS', 'LTS-2526C',
    (SELECT section_status_id FROM section_status WHERE code = 'draft'), 60),
 
-  -- student.test: 4 sections advised by synthetic advisers ──
+  -- student.test: 4 sections advised by synthetic advisers --
   ('5eed3051-0000-0000-0000-000000000000', '5eed0003-0000-0000-0000-000000000000',
    '5eed1001-0000-0000-0000-000000000000',
    'NSTP 1 CWTS', 'CWTS-2324D',
@@ -201,7 +201,7 @@ VALUES
 
 ON CONFLICT (section_id) DO NOTHING;
 
--- ── 6. Geofences ─────────────────────────────────────────────
+-- -- 6. Geofences ---------------------------------------------
 -- adviser.test's 5 active sections + student.test's active section
 INSERT INTO section_geofence
   (section_geofence_id, section_id, label, center_latitude, center_longitude, radius_meter, is_active)
@@ -220,7 +220,7 @@ VALUES
    'UP Baguio Gymnasium',    16.412000, 120.597000, 250, true)
 ON CONFLICT (section_geofence_id) DO NOTHING;
 
--- ── 7. Enrollments ───────────────────────────────────────────
+-- -- 7. Enrollments -------------------------------------------
 
 -- 7a. adviser.test's completed sections — 5eed4001–5eed4075
 --     Students 5eed2001–5eed2075 | 15 per section | student 1 is leader
@@ -349,7 +349,7 @@ SELECT
 FROM generate_series(1, 5) AS g(i)
 ON CONFLICT DO NOTHING;
 
--- ── 7f. studentleader.test + student.test in shared section CWTS-2526A ──
+-- -- 7f. studentleader.test + student.test in shared section CWTS-2526A --
 INSERT INTO enrollment
   (enrollment_id, section_id, student_user_id, enrollment_status_id, is_student_leader)
 SELECT
@@ -372,7 +372,7 @@ SELECT
 FROM auth.users WHERE email = 'student.test@up.edu.ph'
 ON CONFLICT DO NOTHING;
 
--- ── 8a. Sessions — adviser.test's completed sections ─────────
+-- -- 8a. Sessions — adviser.test's completed sections ---------
 -- Sections 5eed3011–5eed3015, enrollments 5eed4001–5eed4075.
 -- Students 1–12 per section: 20 closed sessions (60 hrs).
 -- Students 13–15 per section: 10 closed sessions (30 hrs, incomplete).
@@ -441,7 +441,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- ── 8b. Sessions — adviser.test's archived sections ───────────
+-- -- 8b. Sessions — adviser.test's archived sections -----------
 -- Sections 5eed3021–5eed3025, enrollments 5eed4076–5eed4150.
 -- Same session structure as completed sections (archived = finished, then archived).
 -- Term bases:
@@ -508,7 +508,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- ── 8c. Sessions — adviser.test's active sections ─────────────
+-- -- 8c. Sessions — adviser.test's active sections -------------
 -- Sections 5eed3031–5eed3035, enrollments 5eed4151–5eed4225.
 -- All term 5 (base: 2025-08-18 = 8 AM Manila).
 -- Each student: 12 closed sessions (36 hrs so far).
@@ -594,7 +594,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- ── 8d. Sessions — student.test ──────────────────────────────
+-- -- 8d. Sessions — student.test ------------------------------
 -- Completed section (5eed4231, term 3, adviser: Ana Reyes): 20 closed sessions = 60 hrs
 -- Archived section  (5eed4232, term 4, adviser: Ben Santos): 20 closed sessions = 60 hrs
 -- Active section    (5eed4233, term 5, adviser: Clara Lim):  12 closed + 1 open
@@ -695,7 +695,7 @@ BEGIN
 
 END $$;
 
--- ── 8e. Sessions — studentleader.test + student.test in CWTS-2526A ──
+-- -- 8e. Sessions — studentleader.test + student.test in CWTS-2526A --
 -- studentleader.test (5eed4235): 12 closed + 1 open  (leader, currently timed in)
 -- student.test in CWTS-2526A   (5eed4236): 12 closed
 -- Closed sessions required so both appear on the adviser dashboard.
@@ -712,6 +712,7 @@ DECLARE
   v_start      timestamptz;
   v_end        timestamptz;
   v_base       CONSTANT timestamptz := TIMESTAMPTZ '2025-08-18 00:00:00+00';
+  v_base_student CONSTANT timestamptz := TIMESTAMPTZ '2026-04-04 00:00:00+00';
   d            int;
 BEGIN
   SELECT id INTO v_adviser_id FROM auth.users WHERE email = 'adviser.test@up.edu.ph';
@@ -757,7 +758,7 @@ BEGIN
 
   -- student.test in CWTS-2526A (5eed4236): 12 closed sessions
   FOR d IN 0..11 LOOP
-    v_start      := v_base + (d * 7 * INTERVAL '1 day') + INTERVAL '51 minutes';
+    v_start      := v_base_student + (d * 7 * INTERVAL '1 day') + INTERVAL '51 minutes';
     v_end        := v_start + INTERVAL '3 hours';
     v_session_id := gen_random_uuid();
 
@@ -777,7 +778,7 @@ BEGIN
 
 END $$;
 
--- ── 9. Appeals ───────────────────────────────────────────────
+-- -- 9. Appeals -----------------------------------------------
 -- 3 appeals from students in adviser.test's first active section (5eed3031)
 -- Enrollment 5eed4151 = sec 1 / stu 1 → student 5eed2151, etc.
 INSERT INTO appeal
@@ -824,7 +825,7 @@ SELECT
 FROM auth.users WHERE email = 'student.test@up.edu.ph'
 ON CONFLICT (appeal_id) DO NOTHING;
 
--- ── 10. Appeal messages ──────────────────────────────────────
+-- -- 10. Appeal messages --------------------------------------
 -- Thread on the under_review appeal (5eed7002)
 INSERT INTO appeal_message (appeal_message_id, appeal_id, sender_user_id, body)
 VALUES
@@ -838,9 +839,87 @@ VALUES
    'Thank you for reaching out. I checked the sign-in sheet and you are listed as present. I will update your attendance record shortly.')
 ON CONFLICT (appeal_message_id) DO NOTHING;
 
--- ── Done ─────────────────────────────────────────────────────
+-- -- 11. Required forms (CWTS-2526A) --------------------------
+-- 6 section-scoped required forms with deadlines for student.test's active
+-- section (5eed3031). created_by = the section's adviser. Templates are upload-only
+-- (template_storage_path NULL). PKs use the 5eedf0xx prefix so dev_teardown removes them.
+INSERT INTO form_requirement
+  (form_requirement_id, section_id, title, description, due_date, is_active, created_by_user_id)
+VALUES
+  ('5eedf001-0000-0000-0000-000000000000', '5eed3031-0000-0000-0000-000000000000',
+   'Parental Consent / Waiver',
+   'Signed parental consent and liability waiver required before joining community activities.',
+   DATE '2026-06-12', true,
+   (SELECT adviser_user_id FROM section WHERE section_id = '5eed3031-0000-0000-0000-000000000000')),
+  ('5eedf002-0000-0000-0000-000000000000', '5eed3031-0000-0000-0000-000000000000',
+   'Medical Certificate',
+   'Certificate of physical fitness from a licensed physician for fieldwork clearance.',
+   DATE '2026-06-19', true,
+   (SELECT adviser_user_id FROM section WHERE section_id = '5eed3031-0000-0000-0000-000000000000')),
+  ('5eedf003-0000-0000-0000-000000000000', '5eed3031-0000-0000-0000-000000000000',
+   'Module 1 Reflection Paper',
+   'One-page reflection on the Module 1 orientation and values formation session.',
+   DATE '2026-06-26', true,
+   (SELECT adviser_user_id FROM section WHERE section_id = '5eed3031-0000-0000-0000-000000000000')),
+  ('5eedf004-0000-0000-0000-000000000000', '5eed3031-0000-0000-0000-000000000000',
+   'Insurance / Liability Form',
+   'Group accident insurance enrollment form for off-campus immersion.',
+   DATE '2026-06-30', true,
+   (SELECT adviser_user_id FROM section WHERE section_id = '5eed3031-0000-0000-0000-000000000000')),
+  ('5eedf005-0000-0000-0000-000000000000', '5eed3031-0000-0000-0000-000000000000',
+   'Mid-Program Narrative Report',
+   'Narrative report summarizing service activities completed at the program midpoint.',
+   DATE '2026-07-15', true,
+   (SELECT adviser_user_id FROM section WHERE section_id = '5eed3031-0000-0000-0000-000000000000')),
+  ('5eedf006-0000-0000-0000-000000000000', '5eed3031-0000-0000-0000-000000000000',
+   'Final Activity Documentation',
+   'Compiled photo documentation and attendance log for all rendered service hours.',
+   DATE '2026-07-25', true,
+   (SELECT adviser_user_id FROM section WHERE section_id = '5eed3031-0000-0000-0000-000000000000'))
+ON CONFLICT (form_requirement_id) DO NOTHING;
+
+-- student.test (enrollment 5eed4236) submissions: mixed statuses (2 approved, 1
+-- submitted/pending, 1 rejected). 5eedf005/5eedf006 left unsubmitted (missing).
+-- storage_path is a mock key (no real object); the dashboard only reads status/title/due_date.
+INSERT INTO form_submission
+  (form_submission_id, form_requirement_id, enrollment_id, storage_path, file_name,
+   content_type, file_size_byte, form_submission_status_id,
+   reviewer_comment, reviewed_by_user_id, reviewed_at, submitted_at)
+VALUES
+  ('5eedf501-0000-0000-0000-000000000000', '5eedf001-0000-0000-0000-000000000000',
+   '5eed4236-0000-0000-0000-000000000000',
+   'submissions/5eed4236-0000-0000-0000-000000000000/5eedf001-0000-0000-0000-000000000000/mock-parental-consent.pdf',
+   'parental_consent.pdf', 'application/pdf', 102400,
+   (SELECT form_submission_status_id FROM form_submission_status WHERE code = 'approved'),
+   NULL, (SELECT adviser_user_id FROM section WHERE section_id = '5eed3031-0000-0000-0000-000000000000'),
+   TIMESTAMPTZ '2026-06-07 02:00:00+00', TIMESTAMPTZ '2026-06-05 01:30:00+00'),
+  ('5eedf502-0000-0000-0000-000000000000', '5eedf002-0000-0000-0000-000000000000',
+   '5eed4236-0000-0000-0000-000000000000',
+   'submissions/5eed4236-0000-0000-0000-000000000000/5eedf002-0000-0000-0000-000000000000/mock-medical-certificate.pdf',
+   'medical_certificate.pdf', 'application/pdf', 153600,
+   (SELECT form_submission_status_id FROM form_submission_status WHERE code = 'approved'),
+   NULL, (SELECT adviser_user_id FROM section WHERE section_id = '5eed3031-0000-0000-0000-000000000000'),
+   TIMESTAMPTZ '2026-06-12 03:15:00+00', TIMESTAMPTZ '2026-06-10 02:45:00+00'),
+  ('5eedf503-0000-0000-0000-000000000000', '5eedf003-0000-0000-0000-000000000000',
+   '5eed4236-0000-0000-0000-000000000000',
+   'submissions/5eed4236-0000-0000-0000-000000000000/5eedf003-0000-0000-0000-000000000000/mock-reflection-module1.pdf',
+   'reflection_module1.pdf', 'application/pdf', 81920,
+   (SELECT form_submission_status_id FROM form_submission_status WHERE code = 'submitted'),
+   NULL, NULL, NULL, TIMESTAMPTZ '2026-06-24 05:00:00+00'),
+  ('5eedf504-0000-0000-0000-000000000000', '5eedf004-0000-0000-0000-000000000000',
+   '5eed4236-0000-0000-0000-000000000000',
+   'submissions/5eed4236-0000-0000-0000-000000000000/5eedf004-0000-0000-0000-000000000000/mock-insurance-form.pdf',
+   'insurance_form.pdf', 'application/pdf', 122880,
+   (SELECT form_submission_status_id FROM form_submission_status WHERE code = 'rejected'),
+   'Wrong form version — please resubmit using the 2026 group insurance template.',
+   (SELECT adviser_user_id FROM section WHERE section_id = '5eed3031-0000-0000-0000-000000000000'),
+   TIMESTAMPTZ '2026-06-23 06:00:00+00', TIMESTAMPTZ '2026-06-22 04:30:00+00')
+ON CONFLICT (form_submission_id) DO NOTHING;
+
 -- adviser.test        sees : 5 completed | 5 archived | 5 active | 1 draft sections
 -- student.test        sees : 1 completed | 1 archived | 1 dropped | 1 active (CWTS-2526A) | 1 draft
+--                            + 6 required forms (deadlines Jun 12 – Jul 25 2026; mixed statuses)
+--                            + 36h rendered across Apr–Jun 2026 (12 closed sessions)
 -- studentleader.test  sees : 1 active enrollment in CWTS-2526A (is_student_leader = true)
 -- admin.test          sees : all of the above (full read via RLS)
 --

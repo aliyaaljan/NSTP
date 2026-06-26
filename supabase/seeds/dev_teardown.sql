@@ -8,7 +8,7 @@
 -- After running, you can re-seed with dev_seed.sql.
 -- ============================================================
 
--- ── Children first ──────────────────────────────────────────
+-- -- Children first ------------------------------------------
 
 -- Appeal messages
 DELETE FROM appeal_message
@@ -17,6 +17,14 @@ WHERE appeal_message_id::text LIKE '5eed%';
 -- Appeals (5eed prefix + student.test's dynamic-UUID appeal joined via enrollment)
 DELETE FROM appeal
 WHERE appeal_id::text LIKE '5eed%';
+
+-- Form submissions then requirements (children before parents; both before
+-- enrollment/section deletes, since form_submission → form_requirement → section).
+DELETE FROM form_submission
+WHERE form_submission_id::text LIKE '5eed%';
+
+DELETE FROM form_requirement
+WHERE form_requirement_id::text LIKE '5eed%';
 
 -- attendance_event is append-only — trigger must be disabled for DELETE.
 -- This requires superuser / owner access; run in the SQL editor (not via PostgREST).
@@ -60,7 +68,7 @@ DELETE FROM app_user WHERE app_user_id::text LIKE '5eed%';
 -- Terms
 DELETE FROM term WHERE term_id::text LIKE '5eed%';
 
--- ── Done ─────────────────────────────────────────────────────
+-- -- Done -----------------------------------------------------
 -- The 4 fake account app_user rows
 -- (admin.test, adviser.test, student.test, studentleader.test)
 -- are NOT removed — their auth.users UUIDs don't start with 5eed.
