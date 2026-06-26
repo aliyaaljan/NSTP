@@ -5,7 +5,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { lookupId } from "@/lib/lookups"
 import ExcelJS from "exceljs"
 import { jsPDF } from "jspdf"
-import "jspdf-autotable"
+import autoTable from "jspdf-autotable"
 
 export async function GET(request: Request) {
   try {
@@ -83,5 +83,78 @@ export async function GET(request: Request) {
         `${pct}`,
       ])
     })
-  } catch {}
+
+    const filename = `NSTP_${content}_Report_${Date.now()}.${fileType}`
+
+    // FOR EXCEL (.xlsx) generation
+    if (fileType === "xlsx") {
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet("NSTP 2 Analytics Summary")
+
+      // sample style for header of xlsx
+      const headerRow = worksheet.addRow(headers)
+      headerRow.font = {
+        name: "Arial",
+        size: 11,
+        bold: true,
+        color: { argb: "FFFFFF" },
+      }
+      headerRow.eachCell((cell) => {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "7B1113" },
+        }
+      })
+
+      // data rows
+      rows.forEach((row) => worksheet.addRow(row))
+      worksheet.columns.forEach((col) => (col.width = 22)) // fallback sizing
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      return new NextResponse(buffer, {
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      })
+    }
+    // FOR PDF (.pdf) generation
+    if (fileType === "pdf") {
+      const doc = new jsPDF()
+      doc.text(`NSTP 2 Analytics Report: ${content.toUpperCase()}`, 14, 15)
+      doc.setFontSize(10)
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22)
+
+      // exported pdf table styling
+      autoTable(doc, {
+        startY: 26,
+        head: [headers],
+        body: rows,
+        headStyles: { fillColor: [123, 17, 19] },
+        theme: "striped",
+      })
+      const pdfBuffer = Buffer.from(doc.output("arraybuffer"))
+      return new NextResponse(pdfBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename=${filename}`,
+        },
+      })
+    }
+    // FOR CSV (.csv) generation -- DEFAULT FALLBACK
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((r) => r.map((cell: any) => `"${cell}"`).join(",")),
+    ].join("\n")
+    return new NextResponse(csvContent, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}`,
+      },
+    })
+  } catch (error) {
+    return new NextResponse((error as Error).message, { status: 500 })
+  }
 }
