@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 
 const COLORS = {
   maroon: "#7B1113",
@@ -91,6 +91,10 @@ export default function CalendarOverview({
   const [selectedRenderedDay, setSelectedRenderedDay] = useState<number | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [isVerySmall, setIsVerySmall] = useState(false)
+  const [selectedPickerMonth, setSelectedPickerMonth] = useState<number | null>(null)
+  const monthBtnRef = useRef<HTMLButtonElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setIsClient(true)
@@ -103,6 +107,22 @@ export default function CalendarOverview({
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // Handle click outside to close month picker
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showMonthPicker && 
+          pickerRef.current && 
+          !pickerRef.current.contains(event.target as Node) &&
+          monthBtnRef.current &&
+          !monthBtnRef.current.contains(event.target as Node)) {
+        setShowMonthPicker(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMonthPicker])
 
   const getRenderedDaysForMonth = () => {
     const allDays = renderedDaysByMonth[currentMonth] || []
@@ -174,6 +194,7 @@ export default function CalendarOverview({
   const goToMonth = (m: number, y: number) => {
     setCurrentMonth(m)
     setCurrentYear(y)
+    setSelectedPickerMonth(null)
     onMonthChange?.(y, m)
     setShowMonthPicker(false)
   }
@@ -251,14 +272,28 @@ export default function CalendarOverview({
   const legendFontSize = isVerySmall ? 9 : isMobile ? 10 : 11
   const gridGap = isVerySmall ? 0 : isMobile ? 1 : 2
 
+  // Month picker responsive sizes
+  const pickerWidth = isMobile ? Math.min(200, window.innerWidth - 32) : Math.min(240, window.innerWidth - 24)
+  const pickerPadding = isMobile ? "10px 12px 12px" : "14px 16px 16px"
+  const pickerFontSize = isMobile ? "12px" : "15px"
+  const pickerBtnFontSize = isMobile ? "10px" : "11px"
+  const pickerBtnPadding = isMobile ? "4px 3px" : "6px 4px"
+  const pickerYearFontSize = isMobile ? "13px" : "15px"
+  const pickerNavBtnSize = isMobile ? "12px" : "14px"
+  const pickerGap = isMobile ? "2px" : "4px"
+
   return (
-    <div style={{
-      ...styles.container,
-      padding: isVerySmall ? "10px 6px 12px" : isMobile ? "16px 12px 16px" : "24px 20px 20px",
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-    }}>
+    <div 
+      ref={containerRef}
+      style={{
+        ...styles.container,
+        padding: isVerySmall ? "10px 6px 12px" : isMobile ? "16px 12px 16px" : "24px 20px 20px",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        position: 'relative' as const,
+      }}
+    >
       <div style={{
         ...styles.header,
         flexDirection: isMobile ? "column" : "row",
@@ -266,12 +301,15 @@ export default function CalendarOverview({
         alignItems: isMobile ? "stretch" : "center",
         flexShrink: 0,
         marginBottom: isVerySmall ? "10px" : "16px",
+        position: 'relative' as const,
+        zIndex: 10,
       }}>
         <div style={{
           ...styles.leftGroup,
           justifyContent: isMobile ? "center" : "flex-start",
           width: isMobile ? "100%" : "auto",
           gap: isVerySmall ? "1px" : "2px",
+          position: 'relative' as const,
         }}>
           <button
             onClick={() => navigate(-1)}
@@ -292,24 +330,35 @@ export default function CalendarOverview({
           </button>
 
           <button
-            onClick={() => setShowMonthPicker(!showMonthPicker)}
+            ref={monthBtnRef}
+            onClick={() => {
+              setShowMonthPicker(!showMonthPicker)
+              if (!showMonthPicker) {
+                setSelectedPickerMonth(currentMonth)
+              }
+            }}
             style={{
               ...styles.monthBtn,
               padding: isVerySmall ? "4px 6px" : isMobile ? "6px 10px" : "6px 14px",
               width: isMobile ? "auto" : "190px",
               fontSize: isVerySmall ? "12px" : isMobile ? "13px" : "15px",
               gap: isVerySmall ? "4px" : "8px",
+              background: showMonthPicker ? COLORS.hover : 'transparent',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = COLORS.hover
+              if (!showMonthPicker) {
+                e.currentTarget.style.background = COLORS.hover
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent'
+              if (!showMonthPicker) {
+                e.currentTarget.style.background = 'transparent'
+              }
             }}
           >
             <span style={styles.monthText}>{MONTHS[currentMonth]}</span>
             <span style={styles.yearText}>{currentYear}</span>
-            <span style={styles.arrowDown}>▾</span>
+            <span style={styles.arrowDown}>{showMonthPicker ? '▴' : '▾'}</span>
           </button>
 
           <button
@@ -329,6 +378,139 @@ export default function CalendarOverview({
           >
             ›
           </button>
+
+          {showMonthPicker && (
+            <div
+              ref={pickerRef}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginTop: isMobile ? '4px' : '6px',
+                width: pickerWidth,
+                background: COLORS.white,
+                borderRadius: isMobile ? '10px' : '12px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+                border: `1px solid ${COLORS.border}`,
+                padding: pickerPadding,
+                zIndex: 100,
+              }}
+            >
+              {/* Year navigation */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: isMobile ? '8px' : '12px',
+              }}>
+                <button
+                  onClick={() => {
+                    setCurrentYear(y => y - 1)
+                    setSelectedPickerMonth(null)
+                  }}
+                  style={{
+                    padding: isMobile ? '1px 8px' : '2px 10px',
+                    border: `1px solid ${COLORS.border}`,
+                    background: COLORS.white,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: pickerNavBtnSize,
+                    color: COLORS.text,
+                    transition: 'all 0.15s',
+                    minWidth: isMobile ? '28px' : '32px',
+                    minHeight: isMobile ? '24px' : '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = COLORS.hover
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = COLORS.white
+                  }}
+                >
+                  ‹
+                </button>
+                <span style={{
+                  fontWeight: 700,
+                  fontSize: pickerYearFontSize,
+                  color: COLORS.text,
+                }}>{currentYear}</span>
+                <button
+                  onClick={() => {
+                    setCurrentYear(y => y + 1)
+                    setSelectedPickerMonth(null)
+                  }}
+                  style={{
+                    padding: isMobile ? '1px 8px' : '2px 10px',
+                    border: `1px solid ${COLORS.border}`,
+                    background: COLORS.white,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: pickerNavBtnSize,
+                    color: COLORS.text,
+                    transition: 'all 0.15s',
+                    minWidth: isMobile ? '28px' : '32px',
+                    minHeight: isMobile ? '24px' : '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = COLORS.hover
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = COLORS.white
+                  }}
+                >
+                  ›
+                </button>
+              </div>
+
+              {/* Month grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: pickerGap,
+              }}>
+                {MONTHS.map((name, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => goToMonth(idx, currentYear)}
+                    style={{
+                      padding: pickerBtnPadding,
+                      fontSize: pickerBtnFontSize,
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      border: `1px solid ${selectedPickerMonth === idx ? COLORS.maroon : 'transparent'}`,
+                      background: selectedPickerMonth === idx ? COLORS.maroon : 'transparent',
+                      color: selectedPickerMonth === idx ? COLORS.white : COLORS.text,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      minHeight: isMobile ? '28px' : '32px',
+                      letterSpacing: isMobile ? '0.2px' : '0.3px',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedPickerMonth !== idx) {
+                        e.currentTarget.style.background = COLORS.hover
+                        e.currentTarget.style.borderColor = COLORS.border
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedPickerMonth !== idx) {
+                        e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.borderColor = 'transparent'
+                      }
+                    }}
+                  >
+                    {isMobile ? name.slice(0, 3) : name.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <button
@@ -342,114 +524,14 @@ export default function CalendarOverview({
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = COLORS.hover
-            e.currentTarget.style.borderColor = COLORS.maroon
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = COLORS.white
-            e.currentTarget.style.borderColor = COLORS.border
           }}
         >
           Today
         </button>
       </div>
-
-      {showMonthPicker && (
-        <div style={styles.overlay} onClick={() => setShowMonthPicker(false)}>
-          <div style={{
-            ...styles.popup,
-            width: isVerySmall ? "95%" : isMobile ? "90%" : "280px",
-            padding: isVerySmall ? "16px" : "24px",
-            paddingTop: isVerySmall ? "47px" : "55px",
-            position: 'relative' as const,
-          }} onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setShowMonthPicker(false)}
-              style={{
-                position: 'absolute' as const,
-                top: '12px',
-                right: '12px',
-                background: 'none',
-                border: 'none',
-                fontSize: isVerySmall ? "16px" : "20px",
-                cursor: 'pointer',
-                color: COLORS.muted,
-                padding: isVerySmall ? "4px 8px" : "6px 10px",
-                borderRadius: '8px',
-                transition: 'color 0.15s',
-                lineHeight: 1,
-                zIndex: 10,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = COLORS.maroon
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = COLORS.muted
-              }}
-            >
-              ✕
-            </button>
-
-            <div style={styles.popupHeader}>
-              <button
-                onClick={() => setCurrentYear(y => y - 1)}
-                style={styles.popupNav}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = COLORS.hover
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = COLORS.white
-                }}
-              >
-                ‹
-              </button>
-              <span style={styles.popupYear}>{currentYear}</span>
-              <button
-                onClick={() => setCurrentYear(y => y + 1)}
-                style={styles.popupNav}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = COLORS.hover
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = COLORS.white
-                }}
-              >
-                ›
-              </button>
-            </div>
-            <div style={{
-              ...styles.popupGrid,
-              gap: isVerySmall ? "4px" : "8px",
-              marginTop: '8px',
-            }}>
-              {MONTHS.map((name, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => goToMonth(idx, currentYear)}
-                  style={{
-                    ...styles.monthOption,
-                    padding: isVerySmall ? "6px" : "10px",
-                    fontSize: isVerySmall ? "11px" : "13px",
-                    background: idx === currentMonth ? COLORS.gold : 'transparent',
-                    color: idx === currentMonth ? COLORS.white : COLORS.text,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (idx !== currentMonth) {
-                      e.currentTarget.style.background = COLORS.hover
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (idx !== currentMonth) {
-                      e.currentTarget.style.background = 'transparent'
-                    }
-                  }}
-                >
-                  {name.slice(0, 3)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Event Popup */}
       {selectedEvent && (
@@ -815,12 +897,15 @@ const styles = {
     alignItems: 'center',
     marginBottom: '16px',
     flexShrink: 0,
+    position: 'relative' as const,
+    zIndex: 10,
   },
   leftGroup: {
     display: 'flex',
     alignItems: 'center',
     gap: '2px',
     minWidth: '200px',
+    position: 'relative' as const,
   },
   iconBtn: {
     width: '36px',
