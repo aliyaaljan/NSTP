@@ -231,26 +231,30 @@ export default function QRGenerationPage() {
         }
 
         .qr-box {
-          background: ${C.qrBg};
-          height: 630px;
-          border-radius: 20px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 24px;
-        }
+        background:white;
+        border:2px solid #D9DDD8;
+        border-radius:28px;
+        min-height:650px;
+        padding:40px;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+      }
 
-        .qr-card {
-          width: 380px;
-          min-height: 500px;
-          background: white;
-          border-radius: 30px;
-          box-shadow: ${C.cardShadow};
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 24px;
-        }
+
+      .qr-card {
+        width:420px;
+        min-height:560px;
+        background:#FFFFFF;
+        border-radius:28px;
+        box-shadow:0 8px 25px rgba(0,0,0,.08);
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
+        align-items:center;
+        padding:40px;
+        border:1px solid #E7E7E7;
+      }
 
         .qr-code {
           width: 220px;
@@ -270,6 +274,167 @@ export default function QRGenerationPage() {
           animation: qr-spin 0.9s linear infinite;
         }
 
+        .info-box{
+          background:#F7F8F6;
+          padding:12px;
+          border-radius:14px;
+          font-size:12px;
+          font-weight:600;
+          color:#555;
+        }
+
+        .qr-heading {
+          text-align:center;
+          margin-bottom:24px;
+        }
+
+        .qr-heading h2 {
+          font-size:22px;
+          font-weight:800;
+          color:#7B1113;
+          margin:0;
+        }
+
+        .qr-heading p {
+          font-size:13px;
+          color:#7A7A7A;
+          margin-top:8px;
+        }
+
+
+        .qr-loading {
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          gap:18px;
+        }
+
+        .qr-loading p {
+          font-size:14px;
+          font-weight:600;
+          color:#7B1113;
+          text-align:center;
+        }
+
+
+        .qr-message {
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          gap:12px;
+          text-align:center;
+        }
+
+
+        .qr-error {
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          gap:18px;
+          text-align:center;
+        }
+
+
+        .qr-error p {
+          font-size:14px;
+          font-weight:600;
+          color:#7B1113;
+          max-width:300px;
+        }
+
+
+        .qr-button {
+          background:#7FA58F;
+          border:none;
+          border-radius:40px;
+          padding:14px 28px;
+          font-size:16px;
+          font-weight:800;
+          cursor:pointer;
+          transition:.2s;
+        }
+
+
+        .qr-button:hover {
+          transform:translateY(-2px);
+        }
+
+
+        .qr-generate-button {
+          padding:18px 38px;
+          font-size:22px;
+        }
+
+
+        .qr-disabled {
+          background:#ccc;
+          cursor:not-allowed;
+          opacity:.6;
+        }
+
+
+        .qr-active {
+          background:#E4F0E7;
+          color:#7FA58F;
+          padding:6px 16px;
+          border-radius:999px;
+          font-size:12px;
+          font-weight:700;
+        }
+
+
+        .qr-display {
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          gap:16px;
+          text-align:center;
+        }
+
+
+        .qr-progress-container {
+          width:220px;
+          max-width:100%;
+        }
+
+
+        .qr-progress {
+          height:6px;
+          border-radius:999px;
+          background:#E3E8E4;
+          overflow:hidden;
+        }
+
+
+        .qr-progress-bar {
+          height:100%;
+          background:#7FA58F;
+          transition:width 1s linear;
+        }
+
+
+        .qr-countdown {
+          font-size:12px;
+          font-weight:600;
+          margin-top:6px;
+          text-align:center;
+        }
+
+
+        .qr-info {
+          background:#F7F8F6;
+          padding:12px;
+          border-radius:14px;
+          font-size:12px;
+          font-weight:600;
+          color:#555;
+        }
+
+
+        .qr-regenerate {
+          box-shadow:0 8px 20px rgba(1,68,33,.25);
+        }
+
         @keyframes qr-spin {
           to { transform: rotate(360deg); }
         }
@@ -287,8 +452,8 @@ export default function QRGenerationPage() {
           }
 
           .qr-box {
-            height: auto;
-            min-height: 550px;
+            height:auto;
+            min-height:520px;
           }
 
         }
@@ -386,7 +551,7 @@ export default function QRGenerationPage() {
             style={{
               height: 2,
               background: "#D9DDD8",
-              marginTop: 40,
+              marginTop: 10,
               marginBottom: 24
             }}
           />
@@ -395,12 +560,34 @@ export default function QRGenerationPage() {
           <div className="qr-box">
 
 
-            <div className="qr-card">
+          <div className="qr-card">
 
+          <div style={{
+            textAlign:"center",
+            marginBottom:24
+          }}>
+            
+            <h2 style={{
+              fontSize:22,
+              fontWeight:800,
+              color:C.maroon,
+              margin:0
+            }}>
+              Attendance QR
+            </h2>
+
+            <p style={{
+              fontSize:13,
+              color:"#7A7A7A",
+              marginTop:8
+            }}>
+              Scan this QR code to record attendance
+            </p>
+          </div>
 
               {loadingPhase ? (
 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
+                <div className="qr-loading">
                   <div className="qr-spinner" />
                   <p style={{ fontSize: 14, fontWeight: 600, color: C.maroon, textAlign: "center" }}>
                     {loadingPhase === "locating" ? "Getting your location…" : "Generating secure QR…"}
@@ -410,7 +597,7 @@ export default function QRGenerationPage() {
 
               ) : !generated ? (
 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                <div className="qr-message">
                   {locationDenied && (
                     <p style={{ fontSize: 13, fontWeight: 600, color: C.maroon, textAlign: "center", maxWidth: 260 }}>
                       Location access is off. Enable it for this site in your browser settings to generate a QR.
@@ -419,16 +606,9 @@ export default function QRGenerationPage() {
                   <button
                     onClick={() => runGenerate()}
                     disabled={locationDenied}
-                    style={{
-                      background: locationDenied ? "#ccc" : "#7FA58F",
-                      border: "none",
-                      borderRadius: 40,
-                      padding: "18px 38px",
-                      fontSize: 22,
-                      fontWeight: 800,
-                      cursor: locationDenied ? "not-allowed" : "pointer",
-                      opacity: locationDenied ? 0.6 : 1,
-                    }}
+                    className={`qr-button qr-generate-button ${
+                      locationDenied ? "qr-disabled" : ""
+                     }`}
                   >
                     GENERATE QR
                   </button>
@@ -437,19 +617,11 @@ export default function QRGenerationPage() {
 
               ) : error ? (
 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, textAlign: "center" }}>
+                <div className="qr-error">
                   <p style={{ fontSize: 14, fontWeight: 600, color: C.maroon, textAlign: "center", maxWidth: 300 }}>{error}</p>
                   <button
                     onClick={() => runGenerate()}
-                    style={{
-                      background: "#7FA58F",
-                      border: "none",
-                      borderRadius: 40,
-                      padding: "14px 28px",
-                      fontSize: 16,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                    }}
+                    className="qr-button"
                   >
                     REGENERATE QR
                   </button>
@@ -458,15 +630,11 @@ export default function QRGenerationPage() {
 
               ) : (
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 16,
-                    textAlign: "center",
-                  }}
-                >
+              <div className="qr-display">
+
+              <div className="qr-active">
+                ● QR ACTIVE
+              </div>
 
                   <div className="qr-code">
                     {token && !qrHidden && (
@@ -479,9 +647,12 @@ export default function QRGenerationPage() {
                   </div>
 
                   {token && (
-                    <div style={{ width: 220, maxWidth: "100%" }}>
-                      <div style={{ height: 6, borderRadius: 999, background: "#E3E8E4", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: "#7FA58F", transition: "width 1s linear" }} />
+                    <div className="qr-progress-container">
+                      <div className="qr-progress">
+                      <div 
+                        className="qr-progress-bar"
+                        style={{width:`${pct}%`}}
+                        />
                       </div>
                       <p style={{ fontSize: 12, fontWeight: 600, marginTop: 6, textAlign: "center" }}>Refreshes in {remainingSec}s</p>
                     </div>
@@ -489,7 +660,7 @@ export default function QRGenerationPage() {
 
 
                   <div>
-                    <p style={{ fontSize: 14, fontWeight: 600 }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, marginBottom: '5px' }}>
                       Location of Generation:
                       <br />
                       {locationLabel || "—"}
@@ -505,15 +676,7 @@ export default function QRGenerationPage() {
 
                   <button
                     onClick={() => runGenerate()}
-                    style={{
-                      background: "#7FA58F",
-                      border: "none",
-                      borderRadius: 40,
-                      padding: "14px 28px",
-                      fontSize: 16,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                    }}
+                    className="qr-button qr-regenerate"
                   >
                     REGENERATE QR
                   </button>
