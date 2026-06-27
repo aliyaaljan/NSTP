@@ -78,9 +78,13 @@ export default function ClassPage() {
 
 const [showFilters, setShowFilters] = useState(false)
 
-const [courseFilter, setCourseFilter] = useState("All")
-const [yearFilter, setYearFilter] = useState("All")
-const [siteFilter, setSiteFilter] = useState("All")
+const [courseFilter, setCourseFilter] = useState<string[]>([])
+const [yearFilter, setYearFilter] = useState<string[]>([])
+const [siteFilter, setSiteFilter] = useState<string[]>([])
+
+const [openCourse, setOpenCourse] = useState(false)
+const [openYear, setOpenYear] = useState(false)
+const [openSite, setOpenSite] = useState(false)
 
 const [currentPage, setCurrentPage] = useState(1)
 const [itemsPerPage, setItemsPerPage] = useState(5)
@@ -96,12 +100,10 @@ useEffect(() => {
   ])
 
 const courses = [
-    "All",
     ...Array.from(new Set(students.map(s => s.course))).sort()
 ]
   
 const years = [
-    "All",
     ...Array.from(new Set(students.map(s => s.year))).sort((a, b) => {
       const yearA = parseInt(a)
       const yearB = parseInt(b)
@@ -110,9 +112,19 @@ const years = [
 ]
   
 const sites = [
-    "All",
     ...Array.from(new Set(students.map(s => s.site))).sort()
 ]
+
+const toggleFilter = (
+    value: string,
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    setter(prev =>
+      prev.includes(value)
+        ? prev.filter(item => item !== value)
+        : [...prev, value]
+    )
+  }
 
 const filteredStudents = students.filter((student) => {
     const matchesSearch =
@@ -121,13 +133,16 @@ const filteredStudents = students.filter((student) => {
         .includes(search.toLowerCase())
   
     const matchesCourse =
-      courseFilter === "All" || student.course === courseFilter
-  
+        courseFilter.length === 0 ||
+        courseFilter.includes(student.course)
+      
     const matchesYear =
-      yearFilter === "All" || student.year === yearFilter
-  
+        yearFilter.length === 0 ||
+        yearFilter.includes(student.year)
+      
     const matchesSite =
-      siteFilter === "All" || student.site === siteFilter
+        siteFilter.length === 0 ||
+        siteFilter.includes(student.site)
   
     return (
       matchesSearch &&
@@ -393,43 +408,161 @@ useEffect(() => {
         position:absolute;
         top:90px;
         right:32px;
-        width:260px;
+        width:280px;
+        max-height:420px;
+        overflow-y:auto;
         background:#fff;
         border:1px solid #E5E7EB;
-        border-radius:16px;
-        padding:16px;
-        box-shadow:0 12px 30px rgba(0,0,0,.15);
+        border-radius:20px;
+        padding:20px;
+        box-shadow:0 12px 30px rgba(0,0,0,.12);
         z-index:9999;
 
         display:flex;
         flex-direction:column;
+        gap:8px;
+        }
+
+
+        .filter-section{
+        display:flex;
+        flex-direction:column;
+        gap:8px;
+        }
+
+
+        .filter-title{
+        font-size:11px;
+        font-weight:800;
+        letter-spacing:1px;
+        color:${C.maroon};
+        margin-bottom:4px;
+        }
+
+
+        .filter-divider{
+        height:1px;
+        background:#EAEAEA;
+        margin:12px 0;
+        }
+
+
+        .check-item{
+        display:flex;
+        align-items:center;
         gap:10px;
-        }
-
-        .filter-menu label{
-        font-size:13px;
-        font-weight:700;
-        color:#555;
-        }
-
-        .filter-menu select{
-        height:40px;
-        border:1px solid #D1D5DB;
+        padding:8px 10px;
         border-radius:10px;
-        padding:0 12px;
-        font-family:inherit;
-        outline:none;
+        font-size:13px;
+        font-weight:500;
+        color:#555;
+        cursor:pointer;
+        transition:.2s;
         }
+
+
+        .check-item:hover{
+        background:#F7F7F5;
+        }
+
+
+        .check-item input{
+        appearance:none;
+        width:16px;
+        height:16px;
+        border:1.5px solid #C9C9C9;
+        border-radius:5px;
+        cursor:pointer;
+        position:relative;
+        }
+
+
+        .check-item input:checked{
+        background:${C.maroon};
+        border-color:${C.maroon};
+        }
+
+
+        .check-item input:checked::after{
+        content:"✓";
+        position:absolute;
+        color:white;
+        font-size:11px;
+        left:3px;
+        top:-1px;
+        }
+
 
         .clear-filter{
-        margin-top:6px;
-        height:40px;
+        margin-top:14px;
+        height:38px;
         border:none;
-        border-radius:10px;
-        background:#7B1113;
-        color:#fff;
+        border-radius:12px;
+        background:${C.maroon};
+        color:white;
         font-weight:700;
         cursor:pointer;
+        transition:.2s;
+        }
+
+        .clear-filter:hover{
+        opacity:.9;
+        }
+
+        .filter-section{
+        display:flex;
+        flex-direction:column;
+        }
+
+
+        .filter-header{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        cursor:pointer;
+        padding:10px 4px;
+        font-size:12px;
+        font-weight:800;
+        letter-spacing:1px;
+        color:${C.maroon};
+        }
+
+
+        .filter-arrow{
+        font-size:14px;
+        color:${C.textMuted};
+        }
+
+
+        .filter-options{
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        padding:4px 0 8px;
+        }
+
+
+        .filter-divider{
+        height:1px;
+        background:#EAEAEA;
+        margin:8px 0;
+        }
+
+
+        .check-item{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding:8px 10px;
+        border-radius:10px;
+        font-size:13px;
+        color:#555;
+        cursor:pointer;
+        }
+
+
+        .check-item:hover{
+        background:#F7F7F5;
         }
 
         .pagination-container {
@@ -572,48 +705,140 @@ useEffect(() => {
                 ref={filterRef}
                 className="filter-menu"
                 >
-
-                    <label>Course</label>
-                    <select
-                        value={courseFilter}
-                        onChange={(e) => setCourseFilter(e.target.value)}
-                    >
-                        {courses.map((course) => (
-                        <option key={course}>{course}</option>
-                        ))}
-                    </select>
-
-                    <label>Year Level</label>
-                    <select
-                        value={yearFilter}
-                        onChange={(e) => setYearFilter(e.target.value)}
-                    >
-                        {years.map((year) => (
-                        <option key={year}>{year}</option>
-                        ))}
-                    </select>
-
-                    <label>Site</label>
-                    <select
-                        value={siteFilter}
-                        onChange={(e) => setSiteFilter(e.target.value)}
-                    >
-                        {sites.map((site) => (
-                        <option key={site}>{site}</option>
-                        ))}
-                    </select>
-
-                    <button
-                        className="clear-filter"
-                        onClick={() => {
-                        setCourseFilter("All")
-                        setYearFilter("All")
-                        setSiteFilter("All")
-                        }}
-                    >
-                        Clear Filters
-                    </button>
-
+                
+                
+                <div className="filter-section">
+                
+                <div 
+                className="filter-header"
+                onClick={()=>setOpenCourse(!openCourse)}
+                >
+                COURSE
+                <span className="filter-arrow">
+                {openCourse ? "⌃" : "⌄"}
+                </span>
+                </div>
+                
+                
+                {openCourse && (
+                <div className="filter-options">
+                
+                {courses.map((course)=>(
+                <label key={course} className="check-item">
+                
+                <input
+                type="checkbox"
+                checked={courseFilter.includes(course)}
+                onChange={() =>
+                toggleFilter(course,setCourseFilter)
+                }
+                />
+                
+                {course}
+                
+                </label>
+                ))}
+                
+                </div>
+                )}
+                
+                </div>
+                
+                
+                <div className="filter-divider"/>
+                
+                
+                <div className="filter-section">
+                
+                <div 
+                className="filter-header"
+                onClick={()=>setOpenYear(!openYear)}
+                >
+                YEAR LEVEL
+                <span className="filter-arrow">
+                {openYear ? "⌃" : "⌄"}
+                </span>
+                </div>
+                
+                
+                {openYear && (
+                <div className="filter-options">
+                
+                {years.map((year)=>(
+                <label key={year} className="check-item">
+                
+                <input
+                type="checkbox"
+                checked={yearFilter.includes(year)}
+                onChange={() =>
+                toggleFilter(year,setYearFilter)
+                }
+                />
+                
+                {year}
+                
+                </label>
+                ))}
+                
+                </div>
+                )}
+                
+                </div>
+                
+                
+                <div className="filter-divider"/>
+                
+                
+                <div className="filter-section">
+                
+                <div 
+                className="filter-header"
+                onClick={()=>setOpenSite(!openSite)}
+                >
+                SITE LOCATION
+                <span className="filter-arrow">
+                {openSite ? "⌃" : "⌄"}
+                </span>
+                </div>
+                
+                
+                {openSite && (
+                <div className="filter-options">
+                
+                {sites.map((site)=>(
+                <label key={site} className="check-item">
+                
+                <input
+                type="checkbox"
+                checked={siteFilter.includes(site)}
+                onChange={() =>
+                toggleFilter(site,setSiteFilter)
+                }
+                />
+                
+                {site}
+                
+                </label>
+                ))}
+                
+                </div>
+                )}
+                
+                </div>
+                
+                
+                <button
+                className="clear-filter"
+                onClick={()=>{
+                setCourseFilter([])
+                setYearFilter([])
+                setSiteFilter([])
+                }}
+                >
+                Clear Filters
+                </button>
+                
+                
                 </div>
             )}
 
