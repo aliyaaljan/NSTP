@@ -1015,7 +1015,7 @@ export default async function AdminDashboardPage({
           justifyContent: "space-between",
           alignItems: "flex-start",
           gap: 16,
-          marginBottom: 12,
+          marginBottom: 8,
         }}
       >
         <div>
@@ -1032,26 +1032,27 @@ export default async function AdminDashboardPage({
             Academic Year {currentSemesterMeta.academicYear} |{" "}
             {currentSemesterMeta.semester}
           </p>
-          <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-            <DashboardFilters
-              currentFilter={currentFilter}
-              sections={availableSections}
-              advisers={availableAdvisers}
-            />
-            <DashboardExportButton sections={exportSections} />
-          </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            flexShrink: 0,
-          }}
-        >
-          <ProfilePill user={currentUserMeta} />
-        </div>
+        <ProfilePill user={currentUserMeta} />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+          marginBottom: 12,
+        }}
+      >
+        <DashboardFilters
+          currentFilter={currentFilter}
+          sections={availableSections}
+          advisers={availableAdvisers}
+        />
+        <DashboardExportButton sections={exportSections} />
       </div>
 
       {/* Stat cards grid layout mapping */}
