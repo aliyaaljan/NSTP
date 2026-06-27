@@ -36,8 +36,8 @@ export interface AdviserListSectionOption {
 
 export const ADVISER_LIST_ALL_SECTIONS = "all"
 
-/** Cards per page — matches the 3×3 grid in the design. */
-export const ADVISER_LIST_PAGE_SIZE = 9
+/** Cards per page — 4 columns × 2 rows. */
+export const ADVISER_LIST_PAGE_SIZE = 8
 
 export interface AdviserListQuery {
   /** `section.section_id`, or ADVISER_LIST_ALL_SECTIONS for all. */

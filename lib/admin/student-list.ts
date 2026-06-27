@@ -45,6 +45,9 @@ export type StudentListStatusFilter = StudentProgressStatus | "all"
 /** Sentinel for "all sections" in filters / query strings. */
 export const STUDENT_LIST_ALL_SECTIONS = "all"
 
+/** Rows per page on the student list table. */
+export const STUDENT_LIST_PAGE_SIZE = 10
+
 export interface StudentListQuery {
   /** `section.section_id`, or STUDENT_LIST_ALL_SECTIONS for all. */
   sectionId: string
@@ -52,6 +55,8 @@ export interface StudentListQuery {
   search: string
   sort: StudentListSortKey
   dir: "asc" | "desc"
+  /** 1-based page index. */
+  page: number
 }
 
 export interface StudentListMeta {
@@ -159,7 +164,10 @@ export function parseStudentListQuery(params: {
   q?: string
   sort?: string
   dir?: string
+  page?: string
 }): StudentListQuery {
+  const pageNum = Math.max(1, parseInt(params.page ?? "1", 10) || 1)
+
   return {
     sectionId: params.sectionId ?? STUDENT_LIST_ALL_SECTIONS,
     progressStatus: VALID_STATUS.includes(
@@ -170,6 +178,7 @@ export function parseStudentListQuery(params: {
     search: params.q ?? "",
     sort: params.sort === "adviser" ? "adviser" : "name",
     dir: params.dir === "desc" ? "desc" : "asc",
+    page: pageNum,
   }
 }
 
@@ -217,4 +226,21 @@ export function filterStudentListRows(
   })
 
   return filtered
+}
+
+export function paginateStudentListRows<T>(
+  rows: T[],
+  page: number,
+  pageSize: number = STUDENT_LIST_PAGE_SIZE
+): { rows: T[]; totalPages: number; totalCount: number } {
+  const totalCount = rows.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const safePage = Math.min(Math.max(1, page), totalPages)
+  const start = (safePage - 1) * pageSize
+
+  return {
+    rows: rows.slice(start, start + pageSize),
+    totalPages,
+    totalCount,
+  }
 }

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { ChartStyles } from "@/components/shared/ChartModule"
+import ListPagination from "@/components/shared/ListPagination"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddAdviserModal from "@/components/admin/AddAdviserModal"
@@ -124,6 +126,7 @@ function AdviserCard({
 
   return (
     <article
+      className="anim-list-item"
       style={{
         background: COLORS.cardBg,
         border: `1px solid ${COLORS.border}`,
@@ -262,85 +265,6 @@ function StatRow({
   )
 }
 
-function Pagination({
-  page,
-  totalPages,
-  onPageChange,
-}: {
-  page: number
-  totalPages: number
-  onPageChange: (page: number) => void
-}) {
-  if (totalPages <= 1) return null
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 10,
-        marginTop: 28,
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => onPageChange(page - 1)}
-        disabled={page <= 1}
-        aria-label="Previous page"
-        style={paginationBtnStyle(page <= 1)}
-      >
-        <i className="ti ti-chevron-left" style={{ fontSize: 16 }} />
-      </button>
-
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-        <button
-          key={pageNum}
-          type="button"
-          onClick={() => onPageChange(pageNum)}
-          aria-label={`Page ${pageNum}`}
-          aria-current={pageNum === page ? "page" : undefined}
-          style={{
-            ...paginationBtnStyle(false),
-            minWidth: 36,
-            background: pageNum === page ? COLORS.maroon : "#fff",
-            color: pageNum === page ? "#fff" : COLORS.maroon,
-          }}
-        >
-          {pageNum}
-        </button>
-      ))}
-
-      <button
-        type="button"
-        onClick={() => onPageChange(page + 1)}
-        disabled={page >= totalPages}
-        aria-label="Next page"
-        style={paginationBtnStyle(page >= totalPages)}
-      >
-        <i className="ti ti-chevron-right" style={{ fontSize: 16 }} />
-      </button>
-    </div>
-  )
-}
-
-function paginationBtnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    ...TYPE.bodyBold,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    border: `1.5px solid ${COLORS.maroon}`,
-    background: "#fff",
-    color: COLORS.maroon,
-    cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.4 : 1,
-  }
-}
-
 export default function AdviserListClient({
   advisers,
   sections,
@@ -368,6 +292,7 @@ export default function AdviserListClient({
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
+  const [animKey, setAnimKey] = useState(0)
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -406,6 +331,14 @@ export default function AdviserListClient({
     [filteredAdvisers, query.page]
   )
 
+  useEffect(() => {
+    setAnimKey((k) => k + 1)
+  }, [query.page, query.search, query.sectionId])
+
+  function goToPage(nextPage: number) {
+    pushParams({ page: String(nextPage) })
+  }
+
   const sectionLabel =
     query.sectionId !== ADVISER_LIST_ALL_SECTIONS
       ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
@@ -442,6 +375,7 @@ export default function AdviserListClient({
 
   return (
     <>
+      <ChartStyles />
       <div
         style={{
           display: "flex",
@@ -565,9 +499,10 @@ export default function AdviserListClient({
         </div>
       ) : (
         <div
+          key={animKey}
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gridTemplateColumns: "repeat(4, 1fr)",
             gap: 20,
           }}
         >
@@ -583,10 +518,12 @@ export default function AdviserListClient({
         </div>
       )}
 
-      <Pagination
+      <ListPagination
         page={query.page}
         totalPages={totalPages}
-        onPageChange={(nextPage) => pushParams({ page: String(nextPage) })}
+        totalCount={totalCount}
+        pageSize={ADVISER_LIST_PAGE_SIZE}
+        onPageChange={goToPage}
       />
 
       <AddChoiceModal

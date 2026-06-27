@@ -14,6 +14,7 @@ async function StudentListContent({
     q?: string
     sort?: string
     dir?: string
+    page?: string
   }>
 }) {
   const params = await searchParams
@@ -40,6 +41,7 @@ export default function AdminStudentsPage({
     q?: string
     sort?: string
     dir?: string
+    page?: string
   }>
 }) {
   return (

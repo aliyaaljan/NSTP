@@ -13,6 +13,7 @@ async function FormListContent({
     q?: string
     sort?: string
     dir?: string
+    page?: string
   }>
 }) {
   const params = await searchParams
@@ -38,6 +39,7 @@ export default function AdminFormsPage({
     q?: string
     sort?: string
     dir?: string
+    page?: string
   }>
 }) {
   return (

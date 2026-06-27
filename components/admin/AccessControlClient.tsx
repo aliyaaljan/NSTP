@@ -2,26 +2,31 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import EditAccessUserModal from "@/components/admin/EditAccessUserModal"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
-import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
-import CreateFormModal from "@/components/admin/CreateFormModal"
-import ImportFormsModal from "@/components/admin/ImportFormsModal"
-import { deleteForm } from "@/lib/admin/form-list-actions"
-import { formRowToEditPayload } from "@/lib/admin/form-edit"
 import {
-  FORM_LIST_ALL_SECTIONS,
-  FORM_LIST_PAGE_SIZE,
-  filterFormListRows,
-  formatFormDeadline,
-  paginateFormListRows,
-  type AdminCurrentUser,
-  type FormListMeta,
-  type FormListQuery,
-  type FormListRow,
-  type FormListSectionOption,
-  type FormListSortKey,
-} from "@/lib/admin/form-list"
+  deactivateAccessUser,
+} from "@/lib/admin/access-control-actions"
+import type {
+  AccessControlMeta,
+  AccessControlQuery,
+  AccessControlRoleOption,
+  AccessControlRow,
+  AccessControlSortKey,
+  AccessControlSummary,
+  AdminCurrentUser,
+} from "@/lib/admin/access-control"
+import {
+  ACCESS_CONTROL_ALL_ROLES,
+  ACCESS_CONTROL_PAGE_SIZE,
+  ACCESS_CONTROL_STATUS_FILTER_OPTIONS,
+  ROLE_CODE_LABELS,
+  ROLE_COLOR_STYLES,
+  filterAccessControlRows,
+  paginateAccessControlRows,
+} from "@/lib/admin/access-control"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
@@ -86,7 +91,7 @@ function FilterDropdown({
         ...TYPE.bodyBold,
         fontFamily: FONT_BODY,
         color: "#fff",
-        background: COLORS.green,
+        background: COLORS.maroon,
         borderRadius: 20,
         padding: "5px 13px",
         fontSize: "12.5px",
@@ -112,7 +117,44 @@ function FilterDropdown({
   )
 }
 
-const TABLE_COL_WIDTHS = ["28%", "22%", "18%", "22%", "10%"]
+function SummaryCard({
+  label,
+  value,
+  accent,
+}: {
+  label: string
+  value: number
+  accent?: string
+}) {
+  return (
+    <div
+      style={{
+        flex: "1 1 120px",
+        minWidth: 120,
+        background: COLORS.white,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: COLORS.radius,
+        padding: "14px 16px",
+        boxShadow: COLORS.cardShadow,
+      }}
+    >
+      <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 6 }}>
+        {label}
+      </div>
+      <div
+        style={{
+          ...TYPE.h1,
+          fontSize: "22px",
+          color: accent ?? COLORS.textDark,
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  )
+}
+
+const TABLE_COL_WIDTHS = ["30%", "14%", "18%", "12%", "14%", "12%"]
 
 function TableColGroup() {
   return (
@@ -185,25 +227,49 @@ function ColumnHeader({
   )
 }
 
-export default function FormListClient({
-  forms,
-  sections,
+function RoleBadge({ roleCode }: { roleCode: AccessControlRow["roleCode"] }) {
+  const roleStyle = ROLE_COLOR_STYLES[roleCode]
+
+  return (
+    <span
+      style={{
+        ...TYPE.bodyBold,
+        display: "inline-block",
+        padding: "4px 12px",
+        borderRadius: 999,
+        background: roleStyle.bg,
+        color: roleStyle.color,
+        fontSize: "12px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {ROLE_CODE_LABELS[roleCode]}
+    </span>
+  )
+}
+
+export default function AccessControlClient({
+  users,
+  roles,
+  summary,
   meta,
   currentUser,
   query,
 }: {
-  forms: FormListRow[]
-  sections: FormListSectionOption[]
-  meta: FormListMeta
+  users: AccessControlRow[]
+  roles: AccessControlRoleOption[]
+  summary: AccessControlSummary
+  meta: AccessControlMeta
   currentUser: AdminCurrentUser
-  query: FormListQuery
+  query: AccessControlQuery
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [importOpen, setImportOpen] = useState(false)
-  const [editForm, setEditForm] = useState<FormListRow | null>(null)
-  const [viewForm, setViewForm] = useState<FormListRow | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<FormListRow | null>(null)
+  const [editUser, setEditUser] = useState<AccessControlRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -217,13 +283,13 @@ export default function FormListClient({
   function pushParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString())
     Object.entries(updates).forEach(([key, value]) => {
-      if (!value || value === FORM_LIST_ALL_SECTIONS) params.delete(key)
+      if (!value || value === ACCESS_CONTROL_ALL_ROLES) params.delete(key)
       else params.set(key, value)
     })
-    router.push(`/admin/forms?${params.toString()}`)
+    router.push(`/admin/access-control?${params.toString()}`)
   }
 
-  function toggleSort(key: FormListSortKey) {
+  function toggleSort(key: AccessControlSortKey) {
     const nextDir =
       query.sort === key ? (query.dir === "asc" ? "desc" : "asc") : "asc"
     pushParams({ sort: key, dir: nextDir, page: "1" })
@@ -238,36 +304,39 @@ export default function FormListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleForms = useMemo(
-    () => filterFormListRows(forms, { ...query, search: searchInput }),
-    [forms, query, searchInput]
+  const visibleUsers = useMemo(
+    () => filterAccessControlRows(users, { ...query, search: searchInput }),
+    [users, query, searchInput]
   )
 
   const {
-    rows: pageForms,
+    rows: pageUsers,
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateFormListRows(visibleForms, query.page),
-    [visibleForms, query.page]
+    () => paginateAccessControlRows(visibleUsers, query.page),
+    [visibleUsers, query.page]
   )
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sectionId, query.sort, query.dir])
+  }, [query.page, query.search, query.role, query.status, query.sort, query.dir])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const sectionLabel =
-    query.sectionId !== FORM_LIST_ALL_SECTIONS
-      ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
-      : "All Sections"
+  const roleLabel =
+    query.role !== ACCESS_CONTROL_ALL_ROLES
+      ? ROLE_CODE_LABELS[query.role]
+      : "All Roles"
+  const statusLabel =
+    ACCESS_CONTROL_STATUS_FILTER_OPTIONS.find((o) => o.value === query.status)?.label ??
+    "All Status"
 
-  function openDeleteConfirm(form: FormListRow) {
+  function openDeleteConfirm(appUserId: string, name: string) {
     setDeleteError(null)
-    setDeleteTarget(form)
+    setDeleteTarget({ id: appUserId, name })
   }
 
   function closeDeleteConfirm() {
@@ -280,14 +349,10 @@ export default function FormListClient({
     if (!deleteTarget) return
 
     setDeleteError(null)
-    setDeletingId(deleteTarget.rowId)
+    setDeletingId(deleteTarget.id)
 
     startDeleteTransition(async () => {
-      const result = await deleteForm(
-        deleteTarget.formRequirementId,
-        deleteTarget.sectionId,
-        deleteTarget.isGlobal
-      )
+      const result = await deactivateAccessUser(deleteTarget.id)
       setDeletingId(null)
       if (!result.ok) {
         setDeleteError(result.error)
@@ -302,9 +367,9 @@ export default function FormListClient({
     <>
       <ChartStyles />
       <style>{`
-        .form-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .form-list-scroll::-webkit-scrollbar { width: 5px; }
-        .form-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
+        .access-control-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
+        .access-control-scroll::-webkit-scrollbar { width: 5px; }
+        .access-control-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
       `}</style>
 
       <div
@@ -317,15 +382,47 @@ export default function FormListClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Forms</h1>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Access Control</h1>
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
-            Academic Year {meta.academicYear} | {meta.semester}
+            Manage roles &amp; user access
           </p>
-          <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {filteredCount} total forms
+          <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "4px 0 0" }}>
+            Academic Year {meta.academicYear} | {meta.semester}
           </p>
         </div>
         <ProfilePill user={currentUser} />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <SummaryCard label="Total Users" value={summary.totalUsers} />
+        <SummaryCard
+          label="Administrators"
+          value={summary.adminCount}
+          accent={ROLE_COLOR_STYLES.admin.color}
+        />
+        <SummaryCard
+          label="Advisers"
+          value={summary.adviserCount}
+          accent={ROLE_COLOR_STYLES.adviser.color}
+        />
+        <SummaryCard
+          label="Students"
+          value={summary.studentCount}
+          accent={ROLE_COLOR_STYLES.student.color}
+        />
+        <SummaryCard label="Active" value={summary.activeCount} accent={COLORS.green} />
+        <SummaryCard
+          label="Inactive"
+          value={summary.inactiveCount}
+          accent={COLORS.textGray}
+        />
       </div>
 
       <div style={{ marginBottom: 12 }}>
@@ -338,20 +435,20 @@ export default function FormListClient({
               top: "50%",
               transform: "translateY(-50%)",
               fontSize: 14,
-              color: COLORS.light,
+              color: COLORS.maroon,
             }}
           />
           <input
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search forms"
+            placeholder="Search by name, email, or ID"
             style={{
               width: "100%",
               fontFamily: FONT_BODY,
               fontSize: "13.5px",
               color: COLORS.text,
-              border: `1.5px solid ${COLORS.border}`,
+              border: `1.5px solid ${COLORS.maroon}`,
               borderRadius: 24,
               padding: "8px 16px 8px 40px",
               outline: "none",
@@ -368,48 +465,39 @@ export default function FormListClient({
           gap: 12,
           marginBottom: 12,
           alignItems: "center",
-          justifyContent: "space-between",
         }}
       >
         <FilterDropdown
-          label={sectionLabel}
-          value={query.sectionId}
+          label={roleLabel}
+          value={query.role}
           onChange={(value) =>
             pushParams({
-              sectionId: value === FORM_LIST_ALL_SECTIONS ? null : value,
+              role: value === ACCESS_CONTROL_ALL_ROLES ? null : value,
               page: "1",
             })
           }
         >
-          <option value={FORM_LIST_ALL_SECTIONS}>All Sections</option>
-          {sections.map((section) => (
-            <option key={section.sectionId} value={section.sectionId}>
-              Section {section.name}
+          <option value={ACCESS_CONTROL_ALL_ROLES}>All Roles</option>
+          {roles.map((role) => (
+            <option key={role.roleId} value={role.code}>
+              {ROLE_CODE_LABELS[role.code]}
             </option>
           ))}
         </FilterDropdown>
 
-        <button
-          type="button"
-          onClick={() => setImportOpen(true)}
-          aria-label="Import form"
-          title="Import form"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "none",
-            background: COLORS.green,
-            color: "#fff",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
+        <FilterDropdown
+          label={statusLabel}
+          value={query.status}
+          onChange={(value) =>
+            pushParams({ status: value === "all" ? null : value, page: "1" })
+          }
         >
-          <i className="ti ti-plus" style={{ fontSize: 18 }} />
-        </button>
+          {ACCESS_CONTROL_STATUS_FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </FilterDropdown>
       </div>
 
       <div
@@ -425,7 +513,7 @@ export default function FormListClient({
           <table
             style={{
               width: "100%",
-              minWidth: 880,
+              minWidth: 860,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
@@ -435,7 +523,7 @@ export default function FormListClient({
               <tr style={{ background: COLORS.tableHeadBg }}>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Form Name"
+                    label="Name"
                     sortable
                     sortActive={query.sort === "name"}
                     sortDirection={query.dir}
@@ -444,30 +532,27 @@ export default function FormListClient({
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Section"
+                    label="ID"
                     sortable
-                    sortActive={query.sort === "section"}
+                    sortActive={query.sort === "id"}
                     sortDirection={query.dir}
-                    onSort={() => toggleSort("section")}
+                    onSort={() => toggleSort("id")}
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Analytics"
+                    label="Role"
                     sortable
-                    sortActive={query.sort === "analytics"}
+                    sortActive={query.sort === "role"}
                     sortDirection={query.dir}
-                    onSort={() => toggleSort("analytics")}
+                    onSort={() => toggleSort("role")}
                   />
                 </th>
+                <th style={{ padding: "14px 18px", textAlign: "center" }}>
+                  <ColumnHeader label="Status" align="center" />
+                </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
-                    label="Deadline"
-                    sortable
-                    sortActive={query.sort === "deadline"}
-                    sortDirection={query.dir}
-                    onSort={() => toggleSort("deadline")}
-                  />
+                  <ColumnHeader label="Last Updated" />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader label="Actions" />
@@ -478,23 +563,23 @@ export default function FormListClient({
         </div>
 
         <div
-          className="form-list-scroll"
-          style={{ overflowX: "auto", overflowY: "auto" }}
+          className="access-control-scroll"
+          style={{ overflowX: "auto", overflowY: "auto", maxHeight: 480 }}
         >
           <table
             style={{
               width: "100%",
-              minWidth: 880,
+              minWidth: 860,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
           >
             <TableColGroup />
             <tbody key={animKey}>
-              {pageForms.length === 0 ? (
+              {pageUsers.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     style={{
                       ...TYPE.body,
                       color: COLORS.textGray,
@@ -502,67 +587,93 @@ export default function FormListClient({
                       padding: "40px 18px",
                     }}
                   >
-                    No forms match your filters.
+                    No users match your filters.
                   </td>
                 </tr>
               ) : (
-                pageForms.map((form) => {
-                  const deadline = formatFormDeadline(form.dueDate)
+                pageUsers.map((user) => {
+                  const statusBadge = user.isActive
+                    ? { bg: COLORS.greenBgLight, color: COLORS.green, label: "Active" }
+                    : {
+                        bg: COLORS.maroonDarkBgLight,
+                        color: COLORS.maroonDark,
+                        label: "Inactive",
+                      }
+                  const lastUpdated = user.updatedAt
+                    ? new Date(user.updatedAt).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "—"
+
                   return (
                     <tr
-                      key={form.rowId}
+                      key={user.appUserId}
                       className="anim-list-item"
                       style={{ borderTop: `1px solid ${COLORS.border}` }}
                     >
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {form.formName}
-                        </div>
-                        {form.isSample ? (
-                          <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                            Sample data
-                          </div>
-                        ) : (
-                          form.isGlobal && (
-                            <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                              Global default
-                            </div>
-                          )
-                        )}
-                      </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {form.sectionName} Section
+                          {user.fullName}
+                          {user.isSample && (
+                            <span
+                              style={{
+                                ...TYPE.caption,
+                                color: COLORS.textGray,
+                                fontWeight: 400,
+                                marginLeft: 8,
+                              }}
+                            >
+                              (preview)
+                            </span>
+                          )}
                         </div>
                         <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          {form.adviserName}
+                          {user.email}
                         </div>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {form.submittedCount}/{form.totalStudents}
-                        </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          students submitted
+                          {user.displayId}
                         </div>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {deadline.date}
+                        <RoleBadge roleCode={user.roleCode} />
+                      </td>
+                      <td
+                        style={{
+                          padding: "16px 18px",
+                          verticalAlign: "middle",
+                          textAlign: "center",
+                        }}
+                      >
+                        <span
+                          style={{
+                            ...TYPE.bodyBold,
+                            display: "inline-block",
+                            padding: "4px 12px",
+                            borderRadius: 999,
+                            background: statusBadge.bg,
+                            color: statusBadge.color,
+                            fontSize: "12px",
+                          }}
+                        >
+                          {statusBadge.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <div style={{ ...TYPE.caption, color: COLORS.textGray }}>
+                          {lastUpdated}
                         </div>
-                        {deadline.time && (
-                          <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                            {deadline.time}
-                          </div>
-                        )}
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <button
                             type="button"
-                            aria-label={`View ${form.formName}`}
-                            title="View submissions"
-                            onClick={() => setViewForm(form)}
+                            aria-label={`Edit ${user.fullName}`}
+                            title="Edit user"
+                            onClick={() => setEditUser(user)}
                             style={{
                               background: "none",
                               border: "none",
@@ -571,46 +682,25 @@ export default function FormListClient({
                               color: COLORS.maroon,
                             }}
                           >
-                            <i className="ti ti-eye" style={{ fontSize: 18 }} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Edit ${form.formName}`}
-                            title={form.isSample ? "Sample rows cannot be edited" : "Edit form"}
-                            disabled={form.isSample}
-                            onClick={() => !form.isSample && setEditForm(form)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor: form.isSample ? "not-allowed" : "pointer",
-                              color: COLORS.maroon,
-                              opacity: form.isSample ? 0.35 : 1,
-                            }}
-                          >
                             <i className="ti ti-pencil" style={{ fontSize: 18 }} />
                           </button>
                           <button
                             type="button"
-                            aria-label={`Delete ${form.formName}`}
-                            title={form.isSample ? "Sample rows cannot be deleted" : "Delete form"}
-                            disabled={
-                              form.isSample || (isDeleting && deletingId === form.rowId)
-                            }
-                            onClick={() => !form.isSample && openDeleteConfirm(form)}
+                            aria-label={`Deactivate ${user.fullName}`}
+                            title="Deactivate user"
+                            disabled={isDeleting && deletingId === user.appUserId}
+                            onClick={() => openDeleteConfirm(user.appUserId, user.fullName)}
                             style={{
                               background: "none",
                               border: "none",
                               padding: 4,
                               cursor:
-                                form.isSample || (isDeleting && deletingId === form.rowId)
+                                isDeleting && deletingId === user.appUserId
                                   ? "not-allowed"
                                   : "pointer",
                               color: COLORS.maroon,
                               opacity:
-                                form.isSample || (isDeleting && deletingId === form.rowId)
-                                  ? 0.35
-                                  : 1,
+                                isDeleting && deletingId === user.appUserId ? 0.5 : 1,
                             }}
                           >
                             <i className="ti ti-trash" style={{ fontSize: 18 }} />
@@ -629,106 +719,24 @@ export default function FormListClient({
           page={query.page}
           totalPages={totalPages}
           totalCount={filteredCount}
-          pageSize={FORM_LIST_PAGE_SIZE}
+          pageSize={ACCESS_CONTROL_PAGE_SIZE}
           onPageChange={goToPage}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />
       </div>
 
-      <ImportFormsModal
-        open={importOpen}
-        sections={sections}
-        onClose={() => setImportOpen(false)}
+      <EditAccessUserModal
+        open={editUser !== null}
+        user={editUser}
+        roles={roles}
+        onClose={() => setEditUser(null)}
       />
-      <CreateFormModal
-        open={editForm !== null}
-        mode="edit"
-        sections={sections}
-        initialEdit={editForm ? formRowToEditPayload(editForm) : null}
-        onClose={() => setEditForm(null)}
-      />
-
-      {viewForm && (
-        <div
-          role="presentation"
-          onClick={() => setViewForm(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 24,
-            background: "rgba(44, 44, 42, 0.35)",
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 440,
-              borderRadius: 16,
-              overflow: "hidden",
-              background: "#fff",
-              padding: "24px",
-            }}
-          >
-            <h2 style={{ ...TYPE.h1, color: COLORS.textDark, margin: "0 0 8px" }}>
-              {viewForm.formName}
-            </h2>
-            <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "0 0 16px" }}>
-              {viewForm.sectionName} Section · {viewForm.adviserName}
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
-                <strong>Submissions:</strong> {viewForm.submittedCount} of{" "}
-                {viewForm.totalStudents} students
-              </div>
-              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
-                <strong>Deadline:</strong>{" "}
-                {formatFormDeadline(viewForm.dueDate).date}
-                {viewForm.dueDate ? ` at ${formatFormDeadline(viewForm.dueDate).time}` : ""}
-              </div>
-              <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 8 }}>
-                {viewForm.isSample
-                  ? "Sample preview row — not stored in the database."
-                  : `Requirement ID: ${viewForm.formRequirementId}`}
-              </div>
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-              <button
-                type="button"
-                onClick={() => setViewForm(null)}
-                style={{
-                  ...TYPE.bodyBold,
-                  background: COLORS.green,
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "10px 20px",
-                  cursor: "pointer",
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <ConfirmDeleteModal
         open={deleteTarget !== null}
-        title="Remove Form"
-        subjectName={deleteTarget?.formName}
-        message={
-          deleteTarget?.isGlobal
-            ? "Remove this global form from the selected section? Other sections will not be affected."
-            : "Remove this form? Students will no longer be required to submit it."
-        }
+        title="Deactivate User"
+        subjectName={deleteTarget?.name}
+        message="Deactivate this user account? They will lose portal access. This action can be reversed by editing the account."
+        confirmLabel="Deactivate"
         isPending={isDeleting}
         error={deleteError}
         onClose={closeDeleteConfirm}

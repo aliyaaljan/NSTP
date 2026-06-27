@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import { ChartStyles } from "@/components/shared/ChartModule"
+import ListPagination from "@/components/shared/ListPagination"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddStudentModal from "@/components/admin/AddStudentModal"
+import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import EditStudentModal from "@/components/admin/EditStudentModal"
 import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
 import { deleteStudent } from "@/lib/admin/student-list-actions"
@@ -21,7 +23,12 @@ import type {
   StudentListSectionOption,
   StudentListSortKey,
 } from "@/lib/admin/student-list"
-import { STUDENT_LIST_ALL_SECTIONS, filterStudentListRows } from "@/lib/admin/student-list"
+import {
+  STUDENT_LIST_ALL_SECTIONS,
+  STUDENT_LIST_PAGE_SIZE,
+  filterStudentListRows,
+  paginateStudentListRows,
+} from "@/lib/admin/student-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
@@ -223,6 +230,7 @@ export default function StudentListClient({
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
+  const [animKey, setAnimKey] = useState(0)
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -240,13 +248,13 @@ export default function StudentListClient({
   function toggleSort(key: StudentListSortKey) {
     const nextDir =
       query.sort === key ? (query.dir === "asc" ? "desc" : "asc") : "asc"
-    pushParams({ sort: key, dir: nextDir })
+    pushParams({ sort: key, dir: nextDir, page: "1" })
   }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (searchInput === query.search) return
-      pushParams({ q: searchInput.trim() || null })
+      pushParams({ q: searchInput.trim() || null, page: "1" })
     }, 300)
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -256,6 +264,30 @@ export default function StudentListClient({
     () => filterStudentListRows(students, { ...query, search: searchInput }),
     [students, query, searchInput]
   )
+
+  const {
+    rows: pageStudents,
+    totalPages,
+    totalCount: filteredCount,
+  } = useMemo(
+    () => paginateStudentListRows(visibleStudents, query.page),
+    [visibleStudents, query.page]
+  )
+
+  useEffect(() => {
+    setAnimKey((k) => k + 1)
+  }, [
+    query.page,
+    query.search,
+    query.sectionId,
+    query.progressStatus,
+    query.sort,
+    query.dir,
+  ])
+
+  function goToPage(nextPage: number) {
+    pushParams({ page: String(nextPage) })
+  }
 
   const sectionLabel =
     query.sectionId !== STUDENT_LIST_ALL_SECTIONS
@@ -296,6 +328,7 @@ export default function StudentListClient({
 
   return (
     <>
+      <ChartStyles />
       <style>{`
         .student-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
         .student-list-scroll::-webkit-scrollbar { width: 5px; }
@@ -317,7 +350,7 @@ export default function StudentListClient({
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
           <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {visibleStudents.length} total students
+            {filteredCount} total students
           </p>
         </div>
         <ProfilePill user={currentUser} />
@@ -373,6 +406,7 @@ export default function StudentListClient({
             onChange={(value) =>
               pushParams({
                 sectionId: value === STUDENT_LIST_ALL_SECTIONS ? null : value,
+                page: "1",
               })
             }
           >
@@ -388,7 +422,7 @@ export default function StudentListClient({
             label={statusLabel}
             value={query.progressStatus}
             onChange={(value) =>
-              pushParams({ status: value === "all" ? null : value })
+              pushParams({ status: value === "all" ? null : value, page: "1" })
             }
           >
             {PROGRESS_STATUS_FILTER_OPTIONS.map((opt) => (
@@ -483,7 +517,7 @@ export default function StudentListClient({
 
         <div
           className="student-list-scroll"
-          style={{ overflowX: "auto", overflowY: "auto", maxHeight: 520 }}
+          style={{ overflowX: "auto", overflowY: "auto" }}
         >
           <table
             style={{
@@ -494,8 +528,8 @@ export default function StudentListClient({
             }}
           >
             <TableColGroup />
-            <tbody>
-              {visibleStudents.length === 0 ? (
+            <tbody key={animKey}>
+              {pageStudents.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
@@ -510,11 +544,12 @@ export default function StudentListClient({
                   </td>
                 </tr>
               ) : (
-                visibleStudents.map((student) => {
+                pageStudents.map((student) => {
                   const badge = STATUS_BADGE[student.progressStatus]
                   return (
                     <tr
                       key={student.enrollmentId}
+                      className="anim-list-item"
                       style={{ borderTop: `1px solid ${COLORS.border}` }}
                     >
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
@@ -616,6 +651,15 @@ export default function StudentListClient({
             </tbody>
           </table>
         </div>
+
+        <ListPagination
+          page={query.page}
+          totalPages={totalPages}
+          totalCount={filteredCount}
+          pageSize={STUDENT_LIST_PAGE_SIZE}
+          onPageChange={goToPage}
+          containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
+        />
       </div>
 
       <AddChoiceModal

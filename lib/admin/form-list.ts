@@ -50,12 +50,17 @@ export type FormListSortKey = "name" | "section" | "deadline" | "analytics"
 
 export const FORM_LIST_ALL_SECTIONS = "all"
 
+/** Rows per page on the forms list table. */
+export const FORM_LIST_PAGE_SIZE = 10
+
 export interface FormListQuery {
   /** `section.section_id`, or FORM_LIST_ALL_SECTIONS for all. */
   sectionId: string
   search: string
   sort: FormListSortKey
   dir: "asc" | "desc"
+  /** 1-based page index. */
+  page: number
 }
 
 export interface FormListMeta {
@@ -139,7 +144,9 @@ export function parseFormListQuery(params: {
   q?: string
   sort?: string
   dir?: string
+  page?: string
 }): FormListQuery {
+  const pageNum = Math.max(1, parseInt(params.page ?? "1", 10) || 1)
   const sort = VALID_SORT.includes(params.sort as FormListSortKey)
     ? (params.sort as FormListSortKey)
     : "name"
@@ -149,6 +156,7 @@ export function parseFormListQuery(params: {
     search: params.q ?? "",
     sort,
     dir: params.dir === "desc" ? "desc" : "asc",
+    page: pageNum,
   }
 }
 
@@ -275,6 +283,23 @@ export function filterFormListRows(
   })
 
   return filtered
+}
+
+export function paginateFormListRows<T>(
+  rows: T[],
+  page: number,
+  pageSize: number = FORM_LIST_PAGE_SIZE
+): { rows: T[]; totalPages: number; totalCount: number } {
+  const totalCount = rows.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const safePage = Math.min(Math.max(1, page), totalPages)
+  const start = (safePage - 1) * pageSize
+
+  return {
+    rows: rows.slice(start, start + pageSize),
+    totalPages,
+    totalCount,
+  }
 }
 
 /** Preview rows for UI reference — remove when live data is seeded. */

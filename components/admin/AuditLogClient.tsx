@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import AuditLogExportButton from "@/components/admin/AuditLogExportButton"
+import { ChartStyles } from "@/components/shared/ChartModule"
+import ListPagination from "@/components/shared/ListPagination"
 import {
   AUDIT_ACTION_FILTER_OPTIONS,
   AUDIT_DATE_RANGE_OPTIONS,
@@ -81,7 +83,7 @@ function FilterDropdown({
         ...TYPE.bodyBold,
         fontFamily: FONT_BODY,
         color: "#fff",
-        background: COLORS.green,
+        background: COLORS.maroon,
         borderRadius: 20,
         padding: "5px 13px",
         fontSize: "12.5px",
@@ -354,105 +356,6 @@ function DetailModal({
   )
 }
 
-function paginationNavBtnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    background: "none",
-    border: "none",
-    padding: "2px 6px",
-    color: disabled ? COLORS.light : COLORS.textGray,
-    fontSize: 15,
-    lineHeight: 1,
-    cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.4 : 1,
-    fontFamily: FONT_BODY,
-  }
-}
-
-function paginationPageNumStyle(active: boolean): React.CSSProperties {
-  return {
-    background: "none",
-    border: "none",
-    minWidth: 22,
-    padding: "2px 4px",
-    color: active ? COLORS.textDark : COLORS.textGray,
-    fontSize: 12,
-    fontWeight: active ? 600 : 400,
-    cursor: "pointer",
-    fontFamily: FONT_BODY,
-    opacity: active ? 1 : 0.75,
-  }
-}
-
-function AuditLogPagination({
-  page,
-  totalPages,
-  rangeLabel,
-  onPageChange,
-}: {
-  page: number
-  totalPages: number
-  rangeLabel: string
-  onPageChange: (page: number) => void
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "16px 20px",
-        borderTop: `1px solid ${COLORS.border}`,
-        gap: 12,
-        flexWrap: "wrap",
-      }}
-    >
-      <span style={{ ...TYPE.caption, color: COLORS.textGray }}>
-        {rangeLabel} · Page {page} of {totalPages}
-      </span>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-          marginLeft: "auto",
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => onPageChange(page - 1)}
-          disabled={page <= 1}
-          style={paginationNavBtnStyle(page <= 1)}
-          aria-label="Previous page"
-        >
-          ‹
-        </button>
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-          <button
-            key={pageNum}
-            type="button"
-            onClick={() => onPageChange(pageNum)}
-            style={paginationPageNumStyle(pageNum === page)}
-            aria-label={`Page ${pageNum}`}
-            aria-current={pageNum === page ? "page" : undefined}
-          >
-            {pageNum}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => onPageChange(page + 1)}
-          disabled={page >= totalPages}
-          style={paginationNavBtnStyle(page >= totalPages)}
-          aria-label="Next page"
-        >
-          ›
-        </button>
-      </div>
-    </div>
-  )
-}
-
 function LogEntryRow({
   entry,
   isLast,
@@ -464,6 +367,7 @@ function LogEntryRow({
 }) {
   return (
     <div
+      className="anim-list-item"
       style={{
         display: "flex",
         alignItems: "flex-start",
@@ -556,6 +460,7 @@ export default function AuditLogClient({
   const searchParams = useSearchParams()
   const [searchInput, setSearchInput] = useState(query.search)
   const [detailEntry, setDetailEntry] = useState<AuditLogRow | null>(null)
+  const [animKey, setAnimKey] = useState(0)
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -578,6 +483,10 @@ export default function AuditLogClient({
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
+
+  useEffect(() => {
+    setAnimKey((k) => k + 1)
+  }, [query.page, query.search, query.action, query.dateRange])
 
   const filteredEntries = useMemo(
     () => filterAuditLogRows(entries, { ...query, search: searchInput }),
@@ -602,18 +511,13 @@ export default function AuditLogClient({
 
   const showingSampleOnly = entries.every((e) => e.isSample)
 
-  const listStart =
-    filteredCount === 0 ? 0 : (query.page - 1) * AUDIT_LOG_PAGE_SIZE + 1
-  const listEnd = Math.min(query.page * AUDIT_LOG_PAGE_SIZE, filteredCount)
-  const listRangeLabel =
-    filteredCount === 0
-      ? "No events to show"
-      : filteredCount === 1
-        ? "Showing 1 of 1 event"
-        : `Showing ${listStart}–${listEnd} of ${filteredCount} events`
+  function goToPage(nextPage: number) {
+    pushParams({ page: String(nextPage) })
+  }
 
   return (
     <>
+      <ChartStyles />
       <style>{`
         .audit-log-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
         .audit-log-scroll::-webkit-scrollbar { width: 5px; }
@@ -750,25 +654,27 @@ export default function AuditLogClient({
               No audit events match your filters.
             </div>
           ) : (
-            pageEntries.map((entry, index) => (
-              <LogEntryRow
-                key={entry.auditLogId}
-                entry={entry}
-                isLast={index === pageEntries.length - 1}
-                onViewDetails={() => setDetailEntry(entry)}
-              />
-            ))
+            <div key={animKey}>
+              {pageEntries.map((entry, index) => (
+                <LogEntryRow
+                  key={entry.auditLogId}
+                  entry={entry}
+                  isLast={index === pageEntries.length - 1}
+                  onViewDetails={() => setDetailEntry(entry)}
+                />
+              ))}
+            </div>
           )}
         </div>
 
-        {filteredCount > 0 && (
-          <AuditLogPagination
-            page={query.page}
-            totalPages={totalPages}
-            rangeLabel={listRangeLabel}
-            onPageChange={(nextPage) => pushParams({ page: String(nextPage) })}
-          />
-        )}
+        <ListPagination
+          page={query.page}
+          totalPages={totalPages}
+          totalCount={filteredCount}
+          pageSize={AUDIT_LOG_PAGE_SIZE}
+          onPageChange={goToPage}
+          containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
+        />
       </div>
 
       {detailEntry && (
