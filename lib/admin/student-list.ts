@@ -64,6 +64,13 @@ export interface StudentListMeta {
   semester: string
 }
 
+export interface StudentListSummary {
+  total: number
+  onTrack: number
+  inProgress: number
+  atRisk: number
+}
+
 export interface AdminCurrentUser {
   name: string
   role: string
@@ -74,6 +81,7 @@ export interface AdminCurrentUser {
 export interface StudentListPageData {
   students: StudentListRow[]
   sections: StudentListSectionOption[]
+  summary: StudentListSummary
   meta: StudentListMeta
   currentUser: AdminCurrentUser
   query: StudentListQuery
@@ -149,6 +157,23 @@ export function mapEnrollmentToStudentListRow(
     completionPct: pct,
     progressStatus: progressStatusFromPct(pct),
   }
+}
+
+export function buildStudentListSummary(rows: StudentListRow[]): StudentListSummary {
+  const summary: StudentListSummary = {
+    total: rows.length,
+    onTrack: 0,
+    inProgress: 0,
+    atRisk: 0,
+  }
+
+  for (const row of rows) {
+    if (row.progressStatus === "on_track") summary.onTrack += 1
+    else if (row.progressStatus === "in_progress") summary.inProgress += 1
+    else summary.atRisk += 1
+  }
+
+  return summary
 }
 
 const VALID_STATUS: StudentListStatusFilter[] = [

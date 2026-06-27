@@ -21,6 +21,7 @@ import {
   type FormListRow,
   type FormListSectionOption,
   type FormListSortKey,
+  type FormListSummary,
 } from "@/lib/admin/form-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
@@ -185,15 +186,127 @@ function ColumnHeader({
   )
 }
 
+function StatCard({
+  icon,
+  label,
+  value,
+  valueSuffix,
+  valueColor,
+  badge,
+  note,
+}: {
+  icon: string
+  label: string
+  value: string | number
+  valueSuffix?: string
+  valueColor?: string
+  badge?: { text: string; bg: string; color: string }
+  note: string
+}) {
+  return (
+    <div
+      style={{
+        background: COLORS.cardBg,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: COLORS.radius,
+        padding: "12px 14px",
+        boxShadow: COLORS.cardShadow,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              background: COLORS.iconBg,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <i className={`ti ${icon}`} style={{ fontSize: 17, color: COLORS.maroon }} />
+          </div>
+          <div
+            style={{
+              fontFamily: FONT_BODY,
+              fontSize: "11.5px",
+              fontWeight: 600,
+              color: COLORS.textGray,
+              lineHeight: 1.3,
+            }}
+          >
+            {label}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {badge && (
+            <span
+              style={{
+                ...TYPE.bodyBold,
+                color: badge.color,
+                background: badge.bg,
+                borderRadius: 12,
+                padding: "2px 8px",
+              }}
+            >
+              {badge.text}
+            </span>
+          )}
+          <span style={{ ...TYPE.caption, color: COLORS.textGray }}>{note}</span>
+        </div>
+      </div>
+      <div
+        style={{
+          fontFamily: FONT_BODY,
+          fontSize: "34px",
+          fontWeight: 800,
+          lineHeight: 1,
+          letterSpacing: "-0.02em",
+          color: valueColor ?? COLORS.textDark,
+          display: "flex",
+          alignItems: "baseline",
+          gap: 4,
+          flexShrink: 0,
+          marginLeft: "auto",
+          marginRight: 16,
+        }}
+      >
+        {value}
+        {valueSuffix && (
+          <span style={{ fontSize: "15px", fontWeight: 600, color: COLORS.textGray }}>
+            {valueSuffix}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function FormListClient({
   forms,
   sections,
+  summary,
   meta,
   currentUser,
   query,
 }: {
   forms: FormListRow[]
   sections: FormListSectionOption[]
+  summary: FormListSummary
   meta: FormListMeta
   currentUser: AdminCurrentUser
   query: FormListQuery
@@ -298,6 +411,49 @@ export default function FormListClient({
     })
   }
 
+  const pctOfTotal = (count: number) =>
+    summary.total > 0 ? `${Math.round((count / summary.total) * 100)}%` : "0%"
+
+  const statCards: Array<React.ComponentProps<typeof StatCard>> = [
+    {
+      icon: "ti-clipboard-check",
+      label: "Total Forms",
+      value: summary.total,
+      note: "active requirements",
+    },
+    {
+      icon: "ti-world",
+      label: "Global Forms",
+      value: summary.global,
+      valueColor: COLORS.green,
+      badge: {
+        text: pctOfTotal(summary.global),
+        bg: COLORS.greenBgLight,
+        color: COLORS.green,
+      },
+      note: "of all forms",
+    },
+    {
+      icon: "ti-layout-grid",
+      label: "Section Forms",
+      value: summary.sectionSpecific,
+      valueColor: COLORS.maroon,
+      badge: {
+        text: pctOfTotal(summary.sectionSpecific),
+        bg: COLORS.maroonBgLight,
+        color: COLORS.maroon,
+      },
+      note: "of all forms",
+    },
+    {
+      icon: "ti-chart-bar",
+      label: "Avg. Submission",
+      value: summary.avgSubmissionPct,
+      valueSuffix: "%",
+      note: "across all forms",
+    },
+  ]
+
   return (
     <>
       <ChartStyles />
@@ -326,6 +482,19 @@ export default function FormListClient({
           </p>
         </div>
         <ProfilePill user={currentUser} />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 20,
+          marginBottom: 20,
+        }}
+      >
+        {statCards.map((card, index) => (
+          <StatCard key={index} {...card} />
+        ))}
       </div>
 
       <div style={{ marginBottom: 12 }}>
@@ -539,8 +708,34 @@ export default function FormListClient({
                         </div>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {form.submittedCount}/{form.totalStudents}
+                        <div
+                          style={{
+                            fontFamily: FONT_BODY,
+                            display: "flex",
+                            alignItems: "baseline",
+                            gap: 2,
+                            lineHeight: 1,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "18px",
+                              fontWeight: 800,
+                              letterSpacing: "-0.02em",
+                              color: COLORS.textDark,
+                            }}
+                          >
+                            {form.submittedCount}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              color: COLORS.textGray,
+                            }}
+                          >
+                            /{form.totalStudents}
+                          </span>
                         </div>
                         <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
                           students submitted

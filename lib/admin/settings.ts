@@ -14,22 +14,14 @@
  *   end_date             → AcademicConfig.schoolYearEndDate
  *   required_hour_total  → AcademicConfig.requiredNstpHours (suggested: `system_settings` or section default)
  *
- * GPS sites → `section_geofence` joined with `section` → `app_user` (adviser)
- *   section_geofence_id  → GpsSite.geofenceId
- *   label                → GpsSite.siteName
- *   radius_meter         → GpsSite.radiusMeters
- *   center_latitude      → GpsSite.centerLatitude
- *   center_longitude     → GpsSite.centerLongitude
- *   section_id           → GpsSite.sectionId
- *   section.name         → GpsSite.sectionName
- *   adviser.full_name    → GpsSite.supervisorName
- *
  * Holidays → suggested new table `holiday`:
  *   holiday_id           → HolidayRow.holidayId
  *   term_id              → HolidayRow.termId (FK to active term)
  *   name                 → HolidayRow.name
  *   holiday_date         → HolidayRow.date  (ISO date YYYY-MM-DD)
  *   description          → HolidayRow.description
+ *
+ * GPS sites are managed on the Site List page — see `lib/admin/site-list.ts`.
  */
 
 export type TermSemesterCode = "first" | "second" | "midyear"
@@ -67,29 +59,6 @@ export interface SemesterOption {
   label: string
 }
 
-export interface GpsSite {
-  /** `section_geofence.section_geofence_id` */
-  geofenceId: string
-  /** `section_geofence.label` */
-  siteName: string
-  /** `section_geofence.radius_meter` */
-  radiusMeters: number
-  /** `section_geofence.center_latitude` */
-  centerLatitude: number
-  /** `section_geofence.center_longitude` */
-  centerLongitude: number
-  /** `section.section_id` */
-  sectionId: string
-  /** `section.name` */
-  sectionName: string
-  /** `app_user.full_name` via section.adviser_user_id */
-  supervisorName: string
-  /** `section_geofence.is_active` */
-  isActive: boolean
-  /** Preview row — not persisted */
-  isSample?: boolean
-}
-
 export interface HolidayRow {
   /** `holiday.holiday_id` */
   holidayId: string
@@ -116,27 +85,16 @@ export interface AdminCurrentUser {
   avatarUrl?: string
 }
 
-export interface GpsSectionOption {
-  /** `section.section_id` */
-  sectionId: string
-  /** Display label e.g. "CWTS — CWTS-2526A" */
-  label: string
-  /** `app_user.full_name` via `section.adviser_user_id` */
-  supervisorName: string
-}
-
 export interface SettingsPageData {
   academic: AcademicConfig
   schoolYearOptions: SchoolYearOption[]
   semesterOptions: SemesterOption[]
-  gpsSites: GpsSite[]
-  gpsSections: GpsSectionOption[]
   holidays: HolidayRow[]
   meta: SettingsMeta
   currentUser: AdminCurrentUser
 }
 
-/** Rows per page for GPS sites and holidays lists. */
+/** Rows per page for holidays list. */
 export const SETTINGS_LIST_PAGE_SIZE = 5
 
 export const SEMESTER_OPTIONS: SemesterOption[] = [
@@ -149,35 +107,6 @@ export const SEMESTER_LABELS: Record<TermSemesterCode, string> = {
   first: "1st Semester",
   second: "2nd Semester",
   midyear: "Midyear",
-}
-
-/** Supabase select for geofence list with section + adviser. */
-export const GPS_SITE_SELECT = `
-  section_geofence_id,
-  label,
-  center_latitude,
-  center_longitude,
-  radius_meter,
-  is_active,
-  section:section_id(
-    section_id,
-    name,
-    adviser:adviser_user_id(full_name)
-  )
-` as const
-
-export interface GpsSiteDbRow {
-  section_geofence_id: string
-  label: string | null
-  center_latitude: number
-  center_longitude: number
-  radius_meter: number
-  is_active: boolean
-  section: {
-    section_id: string
-    name: string
-    adviser: { full_name: string } | null
-  } | null
 }
 
 export interface TermDbRow {
@@ -210,23 +139,6 @@ function isTermSemesterCode(value: string): value is TermSemesterCode {
   return value === "first" || value === "second" || value === "midyear"
 }
 
-export function mapGpsSiteDbRow(row: GpsSiteDbRow): GpsSite | null {
-  const section = row.section
-  if (!section) return null
-
-  return {
-    geofenceId: row.section_geofence_id,
-    siteName: row.label?.trim() || section.name,
-    radiusMeters: row.radius_meter,
-    centerLatitude: Number(row.center_latitude),
-    centerLongitude: Number(row.center_longitude),
-    sectionId: section.section_id,
-    sectionName: section.name,
-    supervisorName: section.adviser?.full_name ?? "Unassigned",
-    isActive: row.is_active,
-  }
-}
-
 export function mapTermToAcademicConfig(
   term: TermDbRow,
   requiredNstpHours: number = 60
@@ -240,67 +152,6 @@ export function mapTermToAcademicConfig(
     schoolYearEndDate: term.end_date ?? "",
     requiredNstpHours,
   }
-}
-
-export function buildSampleGpsSections(): GpsSectionOption[] {
-  return [
-    {
-      sectionId: "sample-section-001",
-      label: "CWTS — CWTS-2526A",
-      supervisorName: "Ana Reyes",
-    },
-    {
-      sectionId: "sample-section-002",
-      label: "CWTS — CWTS-2526B",
-      supervisorName: "Ben Santos",
-    },
-    {
-      sectionId: "sample-section-003",
-      label: "ROTC — ROTC-2526A",
-      supervisorName: "Clara Lim",
-    },
-  ]
-}
-
-export function buildSampleGpsSites(): GpsSite[] {
-  return [
-    {
-      geofenceId: "sample-geofence-001",
-      siteName: "Baguio City — Main Campus",
-      radiusMeters: 300,
-      centerLatitude: 16.4111,
-      centerLongitude: 120.5966,
-      sectionId: "sample-section-001",
-      sectionName: "CWTS-2526A",
-      supervisorName: "Ana Reyes",
-      isActive: true,
-      isSample: true,
-    },
-    {
-      geofenceId: "sample-geofence-002",
-      siteName: "Baguio City — Social Hall",
-      radiusMeters: 200,
-      centerLatitude: 16.4108,
-      centerLongitude: 120.5962,
-      sectionId: "sample-section-002",
-      sectionName: "CWTS-2526B",
-      supervisorName: "Ben Santos",
-      isActive: true,
-      isSample: true,
-    },
-    {
-      geofenceId: "sample-geofence-003",
-      siteName: "Baguio City — Gymnasium",
-      radiusMeters: 250,
-      centerLatitude: 16.412,
-      centerLongitude: 120.597,
-      sectionId: "sample-section-003",
-      sectionName: "ROTC-2526A",
-      supervisorName: "Clara Lim",
-      isActive: true,
-      isSample: true,
-    },
-  ]
 }
 
 export function buildSampleHolidays(termId: string): HolidayRow[] {

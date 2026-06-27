@@ -68,6 +68,14 @@ export interface FormListMeta {
   semester: string
 }
 
+export interface FormListSummary {
+  total: number
+  global: number
+  sectionSpecific: number
+  /** Mean submission rate across rows with enrolled students (0–100). */
+  avgSubmissionPct: number
+}
+
 export interface AdminCurrentUser {
   name: string
   role: string
@@ -78,6 +86,7 @@ export interface AdminCurrentUser {
 export interface FormListPageData {
   forms: FormListRow[]
   sections: FormListSectionOption[]
+  summary: FormListSummary
   meta: FormListMeta
   currentUser: AdminCurrentUser
   query: FormListQuery
@@ -234,6 +243,31 @@ export function buildFormListRows(
   }
 
   return rows
+}
+
+export function buildFormListSummary(rows: FormListRow[]): FormListSummary {
+  let global = 0
+  let sectionSpecific = 0
+  let submissionSum = 0
+  let submissionCount = 0
+
+  for (const row of rows) {
+    if (row.isGlobal) global += 1
+    else sectionSpecific += 1
+
+    if (row.totalStudents > 0) {
+      submissionSum += (row.submittedCount / row.totalStudents) * 100
+      submissionCount += 1
+    }
+  }
+
+  return {
+    total: rows.length,
+    global,
+    sectionSpecific,
+    avgSubmissionPct:
+      submissionCount > 0 ? Math.round(submissionSum / submissionCount) : 0,
+  }
 }
 
 /**

@@ -42,6 +42,42 @@ export type UpdateUserRoleResult = UpdateAccessUserResult
 
 export type DeactivateAccessUserResult = UpdateAccessUserResult
 
+export interface AccessUserCreatePayload {
+  /** `app_user.full_name` */
+  fullName: string
+  /** `app_user.email` */
+  email: string
+  /** `app_user.student_number` */
+  studentNumber: string | null
+  /** `app_user.sais_id` */
+  saisId: string | null
+  /** `app_user.is_active` */
+  isActive: boolean
+  /** `role.role_id` */
+  roleId: string
+  /** `role.code` */
+  roleCode: AppRoleCode
+}
+
+export type CreateAccessUserResult = UpdateAccessUserResult
+
+export function emptyAccessUserCreatePayload(
+  roles: Array<{ roleId: string; code: AppRoleCode }>
+): AccessUserCreatePayload {
+  const defaultRole =
+    roles.find((role) => role.code === "student") ?? roles[0] ?? { roleId: "", code: "student" as const }
+
+  return {
+    fullName: "",
+    email: "",
+    studentNumber: null,
+    saisId: null,
+    isActive: true,
+    roleId: defaultRole.roleId,
+    roleCode: defaultRole.code,
+  }
+}
+
 /** Build the edit form payload from a list row. */
 export function accessUserRowToEditPayload(row: AccessControlRow): AccessUserEditPayload {
   return {
@@ -63,6 +99,28 @@ export function validateAccessUserEditPayload(
   if (!payload.appUserId.trim()) {
     return "User ID is required."
   }
+  if (!payload.fullName.trim()) {
+    return "Full name is required."
+  }
+  if (!payload.email.trim()) {
+    return "Email is required."
+  }
+  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
+    return "Email must be a valid UP address (@up.edu.ph)."
+  }
+  if (!payload.roleId.trim()) {
+    return "Role is required."
+  }
+  if (!["admin", "adviser", "student"].includes(payload.roleCode)) {
+    return "Invalid role selected."
+  }
+  return null
+}
+
+/** Shared client/server validation before calling `createAccessUser()`. */
+export function validateAccessUserCreatePayload(
+  payload: AccessUserCreatePayload
+): string | null {
   if (!payload.fullName.trim()) {
     return "Full name is required."
   }

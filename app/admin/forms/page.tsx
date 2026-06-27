@@ -24,6 +24,7 @@ async function FormListContent({
     <FormListClient
       forms={data.forms}
       sections={data.sections}
+      summary={data.summary}
       meta={data.meta}
       currentUser={data.currentUser}
       query={query}

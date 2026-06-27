@@ -1,0 +1,56 @@
+import { Suspense } from "react"
+import SiteListClient from "@/components/admin/SiteListClient"
+import { parseSiteListQuery } from "@/lib/admin/site-list"
+import { getSiteListData } from "@/lib/admin/site-list-actions"
+
+export const revalidate = 0
+
+async function SiteListContent({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    status?: string
+    sectionId?: string
+    adviserId?: string
+    q?: string
+    sort?: string
+    dir?: string
+    page?: string
+  }>
+}) {
+  const params = await searchParams
+  const query = parseSiteListQuery(params)
+  const data = await getSiteListData(query)
+
+  return (
+    <SiteListClient
+      sites={data.sites}
+      sections={data.sections}
+      advisers={data.advisers}
+      summary={data.summary}
+      meta={data.meta}
+      currentUser={data.currentUser}
+      query={query}
+    />
+  )
+}
+
+export default function AdminSitesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    status?: string
+    sectionId?: string
+    adviserId?: string
+    q?: string
+    sort?: string
+    dir?: string
+    page?: string
+  }>
+}) {
+  return (
+    <Suspense fallback={<div style={{ padding: 24 }}>Loading sites…</div>}>
+      <SiteListContent searchParams={searchParams} />
+    </Suspense>
+  )
+}

@@ -25,6 +25,7 @@ async function StudentListContent({
     <StudentListClient
       students={data.students}
       sections={data.sections}
+      summary={data.summary}
       meta={data.meta}
       currentUser={data.currentUser}
       query={query}

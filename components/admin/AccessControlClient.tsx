@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AddAccessUserModal from "@/components/admin/AddAccessUserModal"
 import EditAccessUserModal from "@/components/admin/EditAccessUserModal"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
@@ -91,7 +92,7 @@ function FilterDropdown({
         ...TYPE.bodyBold,
         fontFamily: FONT_BODY,
         color: "#fff",
-        background: COLORS.maroon,
+        background: COLORS.green,
         borderRadius: 20,
         padding: "5px 13px",
         fontSize: "12.5px",
@@ -117,38 +118,121 @@ function FilterDropdown({
   )
 }
 
-function SummaryCard({
+function StatCard({
+  icon,
   label,
   value,
-  accent,
+  valueSuffix,
+  valueColor,
+  badge,
+  note,
 }: {
+  icon: string
   label: string
-  value: number
-  accent?: string
+  value: string | number
+  valueSuffix?: string
+  valueColor?: string
+  badge?: { text: string; bg: string; color: string }
+  note: string
 }) {
   return (
     <div
       style={{
-        flex: "1 1 120px",
-        minWidth: 120,
-        background: COLORS.white,
+        background: COLORS.cardBg,
         border: `1px solid ${COLORS.border}`,
         borderRadius: COLORS.radius,
-        padding: "14px 16px",
+        padding: "12px 14px",
         boxShadow: COLORS.cardShadow,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        minWidth: 0,
       }}
     >
-      <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 6 }}>
-        {label}
-      </div>
       <div
         style={{
-          ...TYPE.h1,
-          fontSize: "22px",
-          color: accent ?? COLORS.textDark,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              background: COLORS.iconBg,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <i className={`ti ${icon}`} style={{ fontSize: 17, color: COLORS.maroon }} />
+          </div>
+
+          <div
+            style={{
+              fontFamily: FONT_BODY,
+              fontSize: "11.5px",
+              fontWeight: 600,
+              color: COLORS.textGray,
+              lineHeight: 1.3,
+            }}
+          >
+            {label}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {badge && (
+            <span
+              style={{
+                ...TYPE.bodyBold,
+                color: badge.color,
+                background: badge.bg,
+                borderRadius: 12,
+                padding: "2px 8px",
+              }}
+            >
+              {badge.text}
+            </span>
+          )}
+          <span style={{ ...TYPE.caption, color: COLORS.textGray }}>{note}</span>
+        </div>
+      </div>
+
+      <div
+        style={{
+          fontFamily: FONT_BODY,
+          fontSize: "34px",
+          fontWeight: 800,
+          lineHeight: 1,
+          letterSpacing: "-0.02em",
+          color: valueColor ?? COLORS.textDark,
+          display: "flex",
+          alignItems: "baseline",
+          gap: 4,
+          flexShrink: 0,
+          marginLeft: "auto",
+          marginRight: 16,
         }}
       >
         {value}
+        {valueSuffix && (
+          <span
+            style={{
+              fontSize: "15px",
+              fontWeight: 600,
+              color: COLORS.textGray,
+            }}
+          >
+            {valueSuffix}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -266,6 +350,7 @@ export default function AccessControlClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [editUser, setEditUser] = useState<AccessControlRow | null>(null)
+  const [addUserOpen, setAddUserOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string
     name: string
@@ -363,6 +448,54 @@ export default function AccessControlClient({
     })
   }
 
+  const pctOfTotal = (count: number) =>
+    summary.totalUsers > 0 ? `${Math.round((count / summary.totalUsers) * 100)}%` : "0%"
+
+  const statCards: Array<React.ComponentProps<typeof StatCard>> = [
+    {
+      icon: "ti-users",
+      label: "Total Users",
+      value: summary.totalUsers,
+      note: "registered accounts",
+    },
+    {
+      icon: "ti-shield",
+      label: "Administrators",
+      value: summary.adminCount,
+      valueColor: ROLE_COLOR_STYLES.admin.color,
+      badge: {
+        text: pctOfTotal(summary.adminCount),
+        bg: ROLE_COLOR_STYLES.admin.bg,
+        color: ROLE_COLOR_STYLES.admin.color,
+      },
+      note: "of all users",
+    },
+    {
+      icon: "ti-user-check",
+      label: "Advisers",
+      value: summary.adviserCount,
+      valueColor: ROLE_COLOR_STYLES.adviser.color,
+      badge: {
+        text: pctOfTotal(summary.adviserCount),
+        bg: ROLE_COLOR_STYLES.adviser.bg,
+        color: ROLE_COLOR_STYLES.adviser.color,
+      },
+      note: "of all users",
+    },
+    {
+      icon: "ti-school",
+      label: "Students",
+      value: summary.studentCount,
+      valueColor: ROLE_COLOR_STYLES.student.color,
+      badge: {
+        text: pctOfTotal(summary.studentCount),
+        bg: ROLE_COLOR_STYLES.student.bg,
+        color: ROLE_COLOR_STYLES.student.color,
+      },
+      note: "of all users",
+    },
+  ]
+
   return (
     <>
       <ChartStyles />
@@ -395,34 +528,15 @@ export default function AccessControlClient({
 
       <div
         style={{
-          display: "flex",
-          flexWrap: "wrap",
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
           gap: 12,
-          marginBottom: 16,
+          marginBottom: 20,
         }}
       >
-        <SummaryCard label="Total Users" value={summary.totalUsers} />
-        <SummaryCard
-          label="Administrators"
-          value={summary.adminCount}
-          accent={ROLE_COLOR_STYLES.admin.color}
-        />
-        <SummaryCard
-          label="Advisers"
-          value={summary.adviserCount}
-          accent={ROLE_COLOR_STYLES.adviser.color}
-        />
-        <SummaryCard
-          label="Students"
-          value={summary.studentCount}
-          accent={ROLE_COLOR_STYLES.student.color}
-        />
-        <SummaryCard label="Active" value={summary.activeCount} accent={COLORS.green} />
-        <SummaryCard
-          label="Inactive"
-          value={summary.inactiveCount}
-          accent={COLORS.textGray}
-        />
+        {statCards.map((card, index) => (
+          <StatCard key={index} {...card} />
+        ))}
       </div>
 
       <div style={{ marginBottom: 12 }}>
@@ -435,7 +549,7 @@ export default function AccessControlClient({
               top: "50%",
               transform: "translateY(-50%)",
               fontSize: 14,
-              color: COLORS.maroon,
+              color: COLORS.light,
             }}
           />
           <input
@@ -448,7 +562,7 @@ export default function AccessControlClient({
               fontFamily: FONT_BODY,
               fontSize: "13.5px",
               color: COLORS.text,
-              border: `1.5px solid ${COLORS.maroon}`,
+              border: `1.5px solid ${COLORS.border}`,
               borderRadius: 24,
               padding: "8px 16px 8px 40px",
               outline: "none",
@@ -465,39 +579,64 @@ export default function AccessControlClient({
           gap: 12,
           marginBottom: 12,
           alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
-        <FilterDropdown
-          label={roleLabel}
-          value={query.role}
-          onChange={(value) =>
-            pushParams({
-              role: value === ACCESS_CONTROL_ALL_ROLES ? null : value,
-              page: "1",
-            })
-          }
-        >
-          <option value={ACCESS_CONTROL_ALL_ROLES}>All Roles</option>
-          {roles.map((role) => (
-            <option key={role.roleId} value={role.code}>
-              {ROLE_CODE_LABELS[role.code]}
-            </option>
-          ))}
-        </FilterDropdown>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <FilterDropdown
+            label={roleLabel}
+            value={query.role}
+            onChange={(value) =>
+              pushParams({
+                role: value === ACCESS_CONTROL_ALL_ROLES ? null : value,
+                page: "1",
+              })
+            }
+          >
+            <option value={ACCESS_CONTROL_ALL_ROLES}>All Roles</option>
+            {roles.map((role) => (
+              <option key={role.roleId} value={role.code}>
+                {ROLE_CODE_LABELS[role.code]}
+              </option>
+            ))}
+          </FilterDropdown>
 
-        <FilterDropdown
-          label={statusLabel}
-          value={query.status}
-          onChange={(value) =>
-            pushParams({ status: value === "all" ? null : value, page: "1" })
-          }
+          <FilterDropdown
+            label={statusLabel}
+            value={query.status}
+            onChange={(value) =>
+              pushParams({ status: value === "all" ? null : value, page: "1" })
+            }
+          >
+            {ACCESS_CONTROL_STATUS_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </FilterDropdown>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setAddUserOpen(true)}
+          aria-label="Add user"
+          title="Add user"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            border: "none",
+            background: COLORS.green,
+            color: "#fff",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
         >
-          {ACCESS_CONTROL_STATUS_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </FilterDropdown>
+          <i className="ti ti-plus" style={{ fontSize: 18 }} />
+        </button>
       </div>
 
       <div
@@ -725,6 +864,11 @@ export default function AccessControlClient({
         />
       </div>
 
+      <AddAccessUserModal
+        open={addUserOpen}
+        roles={roles}
+        onClose={() => setAddUserOpen(false)}
+      />
       <EditAccessUserModal
         open={editUser !== null}
         user={editUser}

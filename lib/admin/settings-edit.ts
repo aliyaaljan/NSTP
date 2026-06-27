@@ -3,14 +3,11 @@
  *
  * Backend devs: implement mutations in `lib/admin/settings-actions.ts`.
  * The UI submits these payload shapes only.
+ *
+ * GPS site payloads live in `lib/admin/site-edit.ts` (Site List page).
  */
 
-import type {
-  AcademicConfig,
-  GpsSite,
-  HolidayRow,
-  TermSemesterCode,
-} from "@/lib/admin/settings"
+import type { AcademicConfig, HolidayRow, TermSemesterCode } from "@/lib/admin/settings"
 
 /** Payload for saving academic configuration. Maps to `term` + optional `system_settings`. */
 export interface AcademicConfigPayload {
@@ -26,32 +23,6 @@ export interface AcademicConfigPayload {
   schoolYearEndDate: string
   /** Default NSTP hours — suggest `system_settings.key = 'default_nstp_hours'` */
   requiredNstpHours: number
-}
-
-/** Payload for creating a GPS geofence site. Maps to `section_geofence`. */
-export interface GpsSiteCreatePayload {
-  /** `section_geofence.label` */
-  siteName: string
-  /** `section_geofence.section_id` */
-  sectionId: string
-  /** `section_geofence.radius_meter` */
-  radiusMeters: number
-  /** `section_geofence.center_latitude` */
-  centerLatitude: number
-  /** `section_geofence.center_longitude` */
-  centerLongitude: number
-}
-
-/** Payload for updating an existing GPS geofence. */
-export interface GpsSiteUpdatePayload {
-  /** `section_geofence.section_geofence_id` */
-  geofenceId: string
-  /** `section_geofence.section_id` — supervisor is derived from this section's adviser */
-  sectionId: string
-  /** `section_geofence.label` */
-  siteName: string
-  /** `section_geofence.radius_meter` */
-  radiusMeters: number
 }
 
 /** Payload for creating a holiday. Maps to suggested `holiday` table. */
@@ -78,28 +49,6 @@ export function academicConfigToPayload(config: AcademicConfig): AcademicConfigP
     schoolYearStartDate: config.schoolYearStartDate,
     schoolYearEndDate: config.schoolYearEndDate,
     requiredNstpHours: config.requiredNstpHours,
-  }
-}
-
-export function gpsSiteToUpdatePayload(
-  site: GpsSite,
-  sectionId?: string
-): GpsSiteUpdatePayload {
-  return {
-    geofenceId: site.geofenceId,
-    sectionId: sectionId ?? site.sectionId,
-    siteName: site.siteName,
-    radiusMeters: site.radiusMeters,
-  }
-}
-
-export function emptyGpsSiteCreatePayload(): GpsSiteCreatePayload {
-  return {
-    siteName: "",
-    sectionId: "",
-    radiusMeters: 200,
-    centerLatitude: 16.4111,
-    centerLongitude: 120.5966,
   }
 }
 
@@ -137,31 +86,6 @@ export function validateAcademicConfigPayload(
   }
   if (!Number.isFinite(payload.requiredNstpHours) || payload.requiredNstpHours < 1) {
     return "Required NSTP hours must be at least 1."
-  }
-  return null
-}
-
-export function validateGpsSiteCreatePayload(
-  payload: GpsSiteCreatePayload
-): string | null {
-  if (!payload.siteName.trim()) return "Site name is required."
-  if (!payload.sectionId.trim()) return "Section is required."
-  if (!Number.isFinite(payload.radiusMeters) || payload.radiusMeters < 1) {
-    return "Radius must be at least 1 meter."
-  }
-  if (!Number.isFinite(payload.centerLatitude)) return "Latitude is required."
-  if (!Number.isFinite(payload.centerLongitude)) return "Longitude is required."
-  return null
-}
-
-export function validateGpsSiteUpdatePayload(
-  payload: GpsSiteUpdatePayload
-): string | null {
-  if (!payload.geofenceId.trim()) return "Site ID is required."
-  if (!payload.sectionId.trim()) return "Section is required."
-  if (!payload.siteName.trim()) return "Site name is required."
-  if (!Number.isFinite(payload.radiusMeters) || payload.radiusMeters < 1) {
-    return "Radius must be at least 1 meter."
   }
   return null
 }

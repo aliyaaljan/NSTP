@@ -7,7 +7,7 @@ import {
   validateAdviserEditPayload,
   type AdviserEditPayload,
 } from "@/lib/admin/adviser-edit"
-import type { AdviserListRow, AdviserListSectionOption } from "@/lib/admin/adviser-list"
+import type { AdviserListRow } from "@/lib/admin/adviser-list"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
@@ -17,7 +17,6 @@ const COLORS = {
   fieldBg: "#EBEBE8",
   error: "#7B1113",
   border: "#ECECEA",
-  maroon: "#7B1113",
 }
 
 function FormField({
@@ -84,85 +83,13 @@ function TextInput({
   )
 }
 
-function SectionCheckboxList({
-  selectedIds,
-  sections,
-  onChange,
-}: {
-  selectedIds: string[]
-  sections: AdviserListSectionOption[]
-  onChange: (sectionIds: string[]) => void
-}) {
-  function toggleSection(sectionId: string) {
-    if (selectedIds.includes(sectionId)) {
-      onChange(selectedIds.filter((id) => id !== sectionId))
-      return
-    }
-    onChange([...selectedIds, sectionId])
-  }
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        maxHeight: 180,
-        overflowY: "auto",
-        background: COLORS.fieldBg,
-        borderRadius: 6,
-        padding: "10px 12px",
-      }}
-    >
-      {sections.length === 0 ? (
-        <p style={{ ...TYPE.body, color: COLORS.textGray, margin: 0 }}>
-          No sections available.
-        </p>
-      ) : (
-        sections.map((section) => {
-          const checked = selectedIds.includes(section.sectionId)
-          return (
-            <label
-              key={section.sectionId}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                cursor: "pointer",
-                ...TYPE.body,
-                fontStyle: "normal",
-                color: COLORS.textDark,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => toggleSection(section.sectionId)}
-                style={{
-                  width: 16,
-                  height: 16,
-                  accentColor: COLORS.headerGreen,
-                  cursor: "pointer",
-                }}
-              />
-              Section {section.name}
-            </label>
-          )
-        })
-      )}
-    </div>
-  )
-}
-
 export default function EditAdviserModal({
   open,
   adviser,
-  sections,
   onClose,
 }: {
   open: boolean
   adviser: AdviserListRow | null
-  sections: AdviserListSectionOption[]
   onClose: () => void
 }) {
   const [form, setForm] = useState<AdviserEditPayload | null>(null)
@@ -228,9 +155,11 @@ export default function EditAdviserModal({
 
   if (!open || !adviser || !form) return null
 
+  const sectionsLabel =
+    adviser.sectionNames.length > 0 ? adviser.sectionNames.join(", ") : "—"
+
   const canSave =
-    !isPending &&
-    Boolean(form.fullName.trim() && form.email.trim() && form.sectionIds.length > 0)
+    !isPending && Boolean(form.fullName.trim() && form.email.trim())
 
   return (
     <div
@@ -318,6 +247,7 @@ export default function EditAdviserModal({
               {adviser.pendingRequestCount} pending request
               {adviser.pendingRequestCount === 1 ? "" : "s"}
             </div>
+            <div style={{ marginTop: 4 }}>Section/s: {sectionsLabel}</div>
           </div>
 
           <FormField label="Full Name">
@@ -334,17 +264,6 @@ export default function EditAdviserModal({
               value={form.email}
               onChange={(email) => patchForm({ email })}
               placeholder="name@up.edu.ph"
-            />
-          </FormField>
-
-          <FormField
-            label="Assigned Section/s"
-            hint="Select every section this adviser facilitates."
-          >
-            <SectionCheckboxList
-              selectedIds={form.sectionIds}
-              sections={sections}
-              onChange={(sectionIds) => patchForm({ sectionIds })}
             />
           </FormField>
 

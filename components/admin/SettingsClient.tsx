@@ -1,28 +1,22 @@
 "use client"
 
 import { useEffect, useMemo, useState, useTransition } from "react"
-import AddGpsSiteModal from "@/components/admin/AddGpsSiteModal"
 import AddHolidayModal from "@/components/admin/AddHolidayModal"
-import GpsSiteDetailModal from "@/components/admin/GpsSiteDetailModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import ListPagination from "@/components/shared/ListPagination"
 import {
   deleteHoliday,
   updateAcademicConfig,
-  updateGpsSite,
 } from "@/lib/admin/settings-actions"
 import {
   academicConfigToPayload,
   validateAcademicConfigPayload,
-  validateGpsSiteUpdatePayload,
   validateHolidayDelete,
   type AcademicConfigPayload,
 } from "@/lib/admin/settings-edit"
 import type {
   AcademicConfig,
   AdminCurrentUser,
-  GpsSectionOption,
-  GpsSite,
   HolidayRow,
   SchoolYearOption,
   SemesterOption,
@@ -241,43 +235,6 @@ const fieldInputStyle: React.CSSProperties = {
   outline: "none",
 }
 
-function MaroonButton({
-  children,
-  onClick,
-  disabled,
-  type = "button",
-}: {
-  children: React.ReactNode
-  onClick?: () => void
-  disabled?: boolean
-  type?: "button" | "submit"
-}) {
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        ...TYPE.bodyBold,
-        fontFamily: FONT_BODY,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        background: COLORS.maroon,
-        color: "#fff",
-        border: "none",
-        borderRadius: 20,
-        padding: "6px 14px",
-        fontSize: "12.5px",
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
 function GreenButton({
   children,
   onClick,
@@ -329,8 +286,6 @@ export default function SettingsClient({
   academic,
   schoolYearOptions,
   semesterOptions,
-  gpsSites,
-  gpsSections,
   holidays,
   meta,
   currentUser,
@@ -338,8 +293,6 @@ export default function SettingsClient({
   academic: AcademicConfig
   schoolYearOptions: SchoolYearOption[]
   semesterOptions: SemesterOption[]
-  gpsSites: GpsSite[]
-  gpsSections: GpsSectionOption[]
   holidays: HolidayRow[]
   meta: SettingsMeta
   currentUser: AdminCurrentUser
@@ -351,37 +304,11 @@ export default function SettingsClient({
   const [academicSuccess, setAcademicSuccess] = useState(false)
   const [isSavingAcademic, startSaveAcademic] = useTransition()
 
-  const [selectedGpsId, setSelectedGpsId] = useState(gpsSites[0]?.geofenceId ?? "")
-  const [gpsConfigSectionId, setGpsConfigSectionId] = useState(
-    gpsSites[0]?.sectionId ?? ""
-  )
-  const [gpsConfigRadius, setGpsConfigRadius] = useState(gpsSites[0]?.radiusMeters ?? 0)
-  const [gpsError, setGpsError] = useState<string | null>(null)
-  const [gpsSuccess, setGpsSuccess] = useState(false)
-  const [isSavingGps, startSaveGps] = useTransition()
-
-  const [gpsPage, setGpsPage] = useState(1)
   const [holidayPage, setHolidayPage] = useState(1)
-  const [detailGpsSite, setDetailGpsSite] = useState<GpsSite | null>(null)
-
-  const [addGpsOpen, setAddGpsOpen] = useState(false)
   const [addHolidayOpen, setAddHolidayOpen] = useState(false)
   const [deleteHolidayTarget, setDeleteHolidayTarget] = useState<HolidayRow | null>(null)
-
-  const selectedGpsSite = useMemo(
-    () => gpsSites.find((s) => s.geofenceId === selectedGpsId) ?? null,
-    [gpsSites, selectedGpsId]
-  )
-
-  const selectedGpsSupervisor = useMemo(() => {
-    const section = gpsSections.find((s) => s.sectionId === gpsConfigSectionId)
-    return section?.supervisorName ?? ""
-  }, [gpsSections, gpsConfigSectionId])
-
-  const gpsPagination = useMemo(
-    () => paginateSettingsList(gpsSites, gpsPage, SETTINGS_LIST_PAGE_SIZE),
-    [gpsSites, gpsPage]
-  )
+  const [holidayDeleteError, setHolidayDeleteError] = useState<string | null>(null)
+  const [isDeletingHoliday, startDeleteHoliday] = useTransition()
 
   const sortedHolidays = useMemo(
     () => [...holidays].sort((a, b) => a.date.localeCompare(b.date)),
@@ -396,13 +323,6 @@ export default function SettingsClient({
   useEffect(() => {
     setAcademicForm(academicConfigToPayload(academic))
   }, [academic])
-
-  useEffect(() => {
-    if (selectedGpsSite) {
-      setGpsConfigSectionId(selectedGpsSite.sectionId)
-      setGpsConfigRadius(selectedGpsSite.radiusMeters)
-    }
-  }, [selectedGpsSite])
 
   function patchAcademic(updates: Partial<AcademicConfigPayload>) {
     setAcademicForm((prev) => ({ ...prev, ...updates }))
@@ -440,52 +360,22 @@ export default function SettingsClient({
     })
   }
 
-  function handleSaveGps() {
-    if (!selectedGpsSite) return
-
-    const payload = {
-      geofenceId: selectedGpsSite.geofenceId,
-      sectionId: gpsConfigSectionId,
-      siteName: selectedGpsSite.siteName,
-      radiusMeters: gpsConfigRadius,
-    }
-
-    const validationError = validateGpsSiteUpdatePayload(payload)
-    if (validationError) {
-      setGpsError(validationError)
-      setGpsSuccess(false)
-      return
-    }
-
-    setGpsError(null)
-    startSaveGps(async () => {
-      const result = await updateGpsSite(payload)
-      if (!result.ok) {
-        setGpsError(result.error)
-        setGpsSuccess(false)
-        return
-      }
-      setGpsSuccess(true)
-      window.location.reload()
-    })
-  }
-
   function handleConfirmDeleteHoliday() {
     if (!deleteHolidayTarget) return
     const validationError = validateHolidayDelete(deleteHolidayTarget)
     if (validationError) {
-      setGpsError(validationError)
-      setDeleteHolidayTarget(null)
+      setHolidayDeleteError(validationError)
       return
     }
 
-    startSaveGps(async () => {
+    setHolidayDeleteError(null)
+    startDeleteHoliday(async () => {
       const result = await deleteHoliday(deleteHolidayTarget.holidayId)
-      setDeleteHolidayTarget(null)
       if (!result.ok) {
-        setGpsError(result.error)
+        setHolidayDeleteError(result.error)
         return
       }
+      setDeleteHolidayTarget(null)
       window.location.reload()
     })
   }
@@ -519,7 +409,6 @@ export default function SettingsClient({
           gap: 20,
         }}
       >
-        {/* Academic Configuration */}
         <SettingsCard title="Academic Configuration">
           <form
             id="academic_config_form"
@@ -663,15 +552,14 @@ export default function SettingsClient({
           </form>
         </SettingsCard>
 
-        {/* Holidays */}
         <SettingsCard
           title="Holidays"
           icon="ti-calendar-event"
           action={
-            <MaroonButton onClick={() => setAddHolidayOpen(true)}>
+            <GreenButton onClick={() => setAddHolidayOpen(true)}>
               <i className="ti ti-plus" style={{ fontSize: 14 }} />
               Add Holiday
-            </MaroonButton>
+            </GreenButton>
           }
         >
           <SettingsListPanel>
@@ -748,251 +636,7 @@ export default function SettingsClient({
             />
           </SettingsListPanel>
         </SettingsCard>
-
-        {/* GPS Sites */}
-        <SettingsCard
-          title="GPS Sites"
-          icon="ti-map-pin"
-          action={
-            <MaroonButton onClick={() => setAddGpsOpen(true)}>
-              <i className="ti ti-plus" style={{ fontSize: 14 }} />
-              Add Site
-            </MaroonButton>
-          }
-        >
-          <SettingsListPanel>
-            <FixedListBody
-              empty={gpsPagination.totalCount === 0}
-              emptyMessage="No GPS sites configured."
-            >
-              <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {padToPageSize(gpsPagination.rows, SETTINGS_LIST_PAGE_SIZE).map((site, index) => {
-                  if (!site) {
-                    return <ListPlaceholderRow key={`gps-pad-${index}`} index={index} />
-                  }
-
-                  return (
-                    <li
-                      key={site.geofenceId}
-                      style={{ boxSizing: "border-box", ...settingsListRowBorder(index) }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setDetailGpsSite(site)}
-                        aria-label={`View details for ${site.siteName}`}
-                        style={{
-                          width: "100%",
-                          height: SETTINGS_LIST_ROW_HEIGHT,
-                          minHeight: SETTINGS_LIST_ROW_HEIGHT,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          padding: "0 18px",
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          textAlign: "left",
-                          fontFamily: FONT_BODY,
-                          boxSizing: "border-box",
-                        }}
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              ...TYPE.bodyBold,
-                              color: COLORS.textDark,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {site.siteName}
-                          </div>
-                          <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                            Radius: {site.radiusMeters} m · Supervisor: {site.supervisorName}
-                          </div>
-                        </div>
-                        <i
-                          className="ti ti-eye"
-                          style={{ fontSize: 16, color: COLORS.textGray, flexShrink: 0 }}
-                        />
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            </FixedListBody>
-
-            <ListPagination
-              page={gpsPage}
-              totalPages={gpsPagination.totalPages}
-              totalCount={gpsPagination.totalCount}
-              pageSize={SETTINGS_LIST_PAGE_SIZE}
-              onPageChange={setGpsPage}
-              containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
-            />
-          </SettingsListPanel>
-        </SettingsCard>
-
-        {/* GPS Configuration */}
-        <SettingsCard title="GPS Configuration" icon="ti-current-location">
-          <form
-            id="gps_config_form"
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleSaveGps()
-            }}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 14,
-              flex: 1,
-              height: "100%",
-            }}
-          >
-              <div>
-                <FieldLabel htmlFor="gps_site_select">NSTP Site</FieldLabel>
-                <div style={{ position: "relative" }}>
-                  <select
-                    id="gps_site_select"
-                    name="gps_site_id"
-                    value={selectedGpsId}
-                    onChange={(e) => setSelectedGpsId(e.target.value)}
-                    style={{ ...fieldInputStyle, appearance: "none", paddingRight: 36 }}
-                  >
-                    <option value="" disabled>
-                      Select Site
-                    </option>
-                    {gpsSites.map((site) => (
-                      <option key={site.geofenceId} value={site.geofenceId}>
-                        {site.siteName}
-                      </option>
-                    ))}
-                  </select>
-                  <i
-                    className="ti ti-chevron-down"
-                    style={{
-                      position: "absolute",
-                      right: 12,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      pointerEvents: "none",
-                      color: COLORS.textGray,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="gps_section_id">Section</FieldLabel>
-                <div style={{ position: "relative" }}>
-                  <select
-                    id="gps_section_id"
-                    name="section_id"
-                    value={gpsConfigSectionId}
-                    onChange={(e) => setGpsConfigSectionId(e.target.value)}
-                    disabled={!selectedGpsSite}
-                    style={{ ...fieldInputStyle, appearance: "none", paddingRight: 36 }}
-                  >
-                    <option value="" disabled>
-                      Select Section
-                    </option>
-                    {gpsSections.map((section) => (
-                      <option key={section.sectionId} value={section.sectionId}>
-                        {section.label}
-                      </option>
-                    ))}
-                  </select>
-                  <i
-                    className="ti ti-chevron-down"
-                    style={{
-                      position: "absolute",
-                      right: 12,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      pointerEvents: "none",
-                      color: COLORS.textGray,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ ...TYPE.caption, color: COLORS.textGray, marginBottom: 4 }}>
-                  Supervisor
-                </div>
-                <p
-                  style={{
-                    ...TYPE.body,
-                    color: COLORS.textDark,
-                    fontWeight: 600,
-                    margin: 0,
-                    minHeight: 20,
-                  }}
-                >
-                  {selectedGpsSupervisor || "—"}
-                </p>
-                <p style={{ ...TYPE.caption, color: COLORS.light, margin: "6px 0 0" }}>
-                  Assigned automatically from the selected section&apos;s adviser.
-                </p>
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="gps_current_radius">Current Radius (m)</FieldLabel>
-                <input
-                  id="gps_current_radius"
-                  name="gps_current_radius"
-                  type="number"
-                  min={1}
-                  value={gpsConfigRadius}
-                  onChange={(e) =>
-                    setGpsConfigRadius(parseInt(e.target.value, 10) || 0)
-                  }
-                  style={fieldInputStyle}
-                  disabled={!selectedGpsSite}
-                />
-              </div>
-
-            {(gpsError || gpsSuccess) && (
-              <div>
-                {gpsError && (
-                  <p style={{ ...TYPE.caption, color: COLORS.maroon, margin: 0 }}>
-                    {gpsError}
-                  </p>
-                )}
-                {gpsSuccess && (
-                  <p style={{ ...TYPE.caption, color: COLORS.green, margin: 0 }}>
-                    GPS site updated.
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div style={{ marginTop: "auto", paddingTop: 4 }}>
-              <GreenButton
-                type="submit"
-                disabled={!selectedGpsSite || !gpsConfigSectionId || isSavingGps}
-              >
-                <i className="ti ti-device-floppy" style={{ fontSize: 16 }} />
-                {isSavingGps ? "Saving…" : "Update Site"}
-              </GreenButton>
-            </div>
-          </form>
-        </SettingsCard>
       </div>
-
-      <AddGpsSiteModal
-        open={addGpsOpen}
-        gpsSections={gpsSections}
-        onClose={() => setAddGpsOpen(false)}
-      />
-
-      <GpsSiteDetailModal
-        open={detailGpsSite !== null}
-        site={detailGpsSite}
-        onClose={() => setDetailGpsSite(null)}
-      />
 
       <AddHolidayModal
         open={addHolidayOpen}
@@ -1008,8 +652,14 @@ export default function SettingsClient({
             ? `Remove "${deleteHolidayTarget.name}" (${formatDisplayDate(deleteHolidayTarget.date)}) from the holiday list?`
             : ""
         }
+        isPending={isDeletingHoliday}
+        error={holidayDeleteError}
         onConfirm={handleConfirmDeleteHoliday}
-        onClose={() => setDeleteHolidayTarget(null)}
+        onClose={() => {
+          if (isDeletingHoliday) return
+          setDeleteHolidayTarget(null)
+          setHolidayDeleteError(null)
+        }}
       />
     </div>
   )

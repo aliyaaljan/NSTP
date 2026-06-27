@@ -15,9 +15,12 @@ import {
   type AppRoleCode,
 } from "@/lib/admin/access-control"
 import {
+  validateAccessUserCreatePayload,
   validateAccessUserEditPayload,
   validateUpdateUserRolePayload,
+  type AccessUserCreatePayload,
   type AccessUserEditPayload,
+  type CreateAccessUserResult,
   type DeactivateAccessUserResult,
   type UpdateAccessUserResult,
   type UpdateUserRolePayload,
@@ -191,6 +194,41 @@ export async function updateAccessUser(
     ok: false,
     error:
       "Edit is not available yet. Backend handler still needs to be implemented.",
+  }
+}
+
+/**
+ * Create a new user account from the add user modal.
+ *
+ * Backend checklist:
+ * 1. Validate admin role (already done below).
+ * 2. Create `auth.users` row via Supabase Admin API (or invite flow).
+ * 3. Insert into `app_user` with full_name, email, student_number, sais_id, role_id, is_active.
+ * 4. Return `{ ok: true }` on success.
+ */
+export async function createAccessUser(
+  payload: AccessUserCreatePayload
+): Promise<CreateAccessUserResult> {
+  const role = await getAppUserRole()
+  if (role !== "admin") {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  const validationError = validateAccessUserCreatePayload(payload)
+  if (validationError) {
+    return { ok: false, error: validationError }
+  }
+
+  // TODO(backend): implement user creation.
+  console.info("[createAccessUser] pending implementation", {
+    email: payload.email,
+    roleCode: payload.roleCode,
+  })
+
+  return {
+    ok: false,
+    error:
+      "Add is not available yet. Backend handler still needs to be implemented.",
   }
 }
 

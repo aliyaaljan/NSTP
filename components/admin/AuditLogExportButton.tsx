@@ -224,7 +224,7 @@ export default function AuditLogExportButton({
           fontSize: "12.5px",
           fontWeight: 600,
           color: "#fff",
-          background: ADMIN_COLORS.maroon,
+          background: ADMIN_COLORS.green,
           border: "none",
           borderRadius: 20,
           padding: "5px 13px",

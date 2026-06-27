@@ -4,47 +4,31 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
-import AddChoiceModal from "@/components/admin/AddChoiceModal"
-import AddStudentModal from "@/components/admin/AddStudentModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
-import EditStudentModal from "@/components/admin/EditStudentModal"
-import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
-import { deleteStudent } from "@/lib/admin/student-list-actions"
+import SectionFormModal from "@/components/admin/SectionFormModal"
+import { deleteSection } from "@/lib/admin/section-list-actions"
+import { sectionRowToEditPayload } from "@/lib/admin/section-edit"
 import {
-  PROGRESS_STATUS_FILTER_OPTIONS,
-  PROGRESS_STATUS_LABELS,
-  type StudentProgressStatus,
-} from "@/lib/admin/student-progress"
-import type {
-  AdminCurrentUser,
-  StudentListMeta,
-  StudentListQuery,
-  StudentListRow,
-  StudentListSectionOption,
-  StudentListSortKey,
-  StudentListSummary,
-} from "@/lib/admin/student-list"
-import {
-  STUDENT_LIST_ALL_SECTIONS,
-  STUDENT_LIST_PAGE_SIZE,
-  filterStudentListRows,
-  paginateStudentListRows,
-} from "@/lib/admin/student-list"
+  SECTION_LIST_ALL_ADVISERS,
+  SECTION_LIST_ALL_STATUSES,
+  SECTION_LIST_PAGE_SIZE,
+  SECTION_STATUS_BADGE,
+  SECTION_STATUS_FILTER_OPTIONS,
+  filterSectionListRows,
+  paginateSectionListRows,
+  type AdminCurrentUser,
+  type SectionListAdviserOption,
+  type SectionListMeta,
+  type SectionListQuery,
+  type SectionListRow,
+  type SectionListSortKey,
+  type SectionListStatusOption,
+  type SectionListSummary,
+} from "@/lib/admin/section-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
-const STATUS_BADGE: Record<
-  StudentProgressStatus,
-  { bg: string; color: string }
-> = {
-  on_track: { bg: COLORS.greenBgLight, color: COLORS.green },
-  in_progress: { bg: COLORS.amberBgLight, color: COLORS.amber },
-  at_risk: { bg: COLORS.maroonDarkBgLight, color: COLORS.maroonDark },
-}
-
-interface CurrentUser extends AdminCurrentUser {}
-
-function ProfilePill({ user }: { user: CurrentUser }) {
+function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
     <div
       style={{
@@ -185,6 +169,7 @@ function StatCard({
           >
             <i className={`ti ${icon}`} style={{ fontSize: 17, color: COLORS.maroon }} />
           </div>
+
           <div
             style={{
               fontFamily: FONT_BODY,
@@ -197,6 +182,7 @@ function StatCard({
             {label}
           </div>
         </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {badge && (
             <span
@@ -214,6 +200,7 @@ function StatCard({
           <span style={{ ...TYPE.caption, color: COLORS.textGray }}>{note}</span>
         </div>
       </div>
+
       <div
         style={{
           fontFamily: FONT_BODY,
@@ -232,7 +219,13 @@ function StatCard({
       >
         {value}
         {valueSuffix && (
-          <span style={{ fontSize: "15px", fontWeight: 600, color: COLORS.textGray }}>
+          <span
+            style={{
+              fontSize: "15px",
+              fontWeight: 600,
+              color: COLORS.textGray,
+            }}
+          >
             {valueSuffix}
           </span>
         )}
@@ -241,7 +234,7 @@ function StatCard({
   )
 }
 
-const TABLE_COL_WIDTHS = ["28%", "14%", "22%", "10%", "18%", "8%"]
+const TABLE_COL_WIDTHS = ["22%", "18%", "24%", "14%", "14%", "8%"]
 
 function TableColGroup() {
   return (
@@ -314,34 +307,31 @@ function ColumnHeader({
   )
 }
 
-export default function StudentListClient({
-  students,
+export default function SectionListClient({
   sections,
+  advisers,
+  statuses,
   summary,
   meta,
   currentUser,
   query,
 }: {
-  students: StudentListRow[]
-  sections: StudentListSectionOption[]
-  summary: StudentListSummary
-  meta: StudentListMeta
-  currentUser: CurrentUser
-  query: StudentListQuery
+  sections: SectionListRow[]
+  advisers: SectionListAdviserOption[]
+  statuses: SectionListStatusOption[]
+  summary: SectionListSummary
+  meta: SectionListMeta
+  currentUser: AdminCurrentUser
+  query: SectionListQuery
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [addChoiceOpen, setAddChoiceOpen] = useState(false)
-  const [addManualOpen, setAddManualOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [editStudent, setEditStudent] = useState<StudentListRow | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: string
-    name: string
-  } | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [formMode, setFormMode] = useState<"create" | "edit">("create")
+  const [editSection, setEditSection] = useState<SectionListRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<SectionListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
 
@@ -352,13 +342,20 @@ export default function StudentListClient({
   function pushParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString())
     Object.entries(updates).forEach(([key, value]) => {
-      if (!value || value === STUDENT_LIST_ALL_SECTIONS) params.delete(key)
-      else params.set(key, value)
+      if (
+        !value ||
+        value === SECTION_LIST_ALL_STATUSES ||
+        value === SECTION_LIST_ALL_ADVISERS
+      ) {
+        params.delete(key)
+      } else {
+        params.set(key, value)
+      }
     })
-    router.push(`/admin/students?${params.toString()}`)
+    router.push(`/admin/sections?${params.toString()}`)
   }
 
-  function toggleSort(key: StudentListSortKey) {
+  function toggleSort(key: SectionListSortKey) {
     const nextDir =
       query.sort === key ? (query.dir === "asc" ? "desc" : "asc") : "asc"
     pushParams({ sort: key, dir: nextDir, page: "1" })
@@ -373,46 +370,57 @@ export default function StudentListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleStudents = useMemo(
-    () => filterStudentListRows(students, { ...query, search: searchInput }),
-    [students, query, searchInput]
+  const visibleSections = useMemo(
+    () => filterSectionListRows(sections, { ...query, search: searchInput }),
+    [sections, query, searchInput]
   )
 
   const {
-    rows: pageStudents,
+    rows: pageSections,
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateStudentListRows(visibleStudents, query.page),
-    [visibleStudents, query.page]
+    () => paginateSectionListRows(visibleSections, query.page),
+    [visibleSections, query.page]
   )
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [
-    query.page,
-    query.search,
-    query.sectionId,
-    query.progressStatus,
-    query.sort,
-    query.dir,
-  ])
+  }, [query.page, query.search, query.status, query.adviserId, query.sort, query.dir])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const sectionLabel =
-    query.sectionId !== STUDENT_LIST_ALL_SECTIONS
-      ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
-      : "All Sections"
   const statusLabel =
-    PROGRESS_STATUS_FILTER_OPTIONS.find((o) => o.value === query.progressStatus)
-      ?.label ?? "All Status"
+    SECTION_STATUS_FILTER_OPTIONS.find((o) => o.value === query.status)?.label ??
+    "All Status"
 
-  function openDeleteConfirm(enrollmentId: string, name: string) {
+  const adviserLabel =
+    query.adviserId !== SECTION_LIST_ALL_ADVISERS
+      ? advisers.find((a) => a.adviserUserId === query.adviserId)?.fullName ?? "All Advisers"
+      : "All Advisers"
+
+  function openCreate() {
+    setFormMode("create")
+    setEditSection(null)
+    setFormOpen(true)
+  }
+
+  function openEdit(section: SectionListRow) {
+    setFormMode("edit")
+    setEditSection(section)
+    setFormOpen(true)
+  }
+
+  function closeForm() {
+    setFormOpen(false)
+    setEditSection(null)
+  }
+
+  function openDeleteConfirm(section: SectionListRow) {
     setDeleteError(null)
-    setDeleteTarget({ id: enrollmentId, name })
+    setDeleteTarget(section)
   }
 
   function closeDeleteConfirm() {
@@ -425,11 +433,9 @@ export default function StudentListClient({
     if (!deleteTarget) return
 
     setDeleteError(null)
-    setDeletingId(deleteTarget.id)
 
     startDeleteTransition(async () => {
-      const result = await deleteStudent(deleteTarget.id)
-      setDeletingId(null)
+      const result = await deleteSection(deleteTarget.sectionId)
       if (!result.ok) {
         setDeleteError(result.error)
         return
@@ -439,51 +445,55 @@ export default function StudentListClient({
     })
   }
 
+  const deleteMessage = deleteTarget?.studentCount
+    ? "This section has enrolled students and will be archived instead of permanently deleted. You can restore it later by changing its status."
+    : "This section has no enrolled students and will be permanently removed. This action cannot be undone."
+
   const pctOfTotal = (count: number) =>
     summary.total > 0 ? `${Math.round((count / summary.total) * 100)}%` : "0%"
 
   const statCards: Array<React.ComponentProps<typeof StatCard>> = [
     {
-      icon: "ti-users",
-      label: "Total Students",
+      icon: "ti-layout-grid",
+      label: "Total Sections",
       value: summary.total,
-      note: "active enrollments",
+      note: "this term",
     },
     {
       icon: "ti-circle-check",
-      label: "On Track",
-      value: summary.onTrack,
+      label: "Active Sections",
+      value: summary.active,
       valueColor: COLORS.green,
       badge: {
-        text: pctOfTotal(summary.onTrack),
+        text: pctOfTotal(summary.active),
         bg: COLORS.greenBgLight,
         color: COLORS.green,
       },
-      note: "of all students",
+      note: "of all sections",
     },
     {
-      icon: "ti-clock",
-      label: "In Progress",
-      value: summary.inProgress,
-      valueColor: COLORS.amber,
+      icon: "ti-flag",
+      label: "Completed Sections",
+      value: summary.completed,
+      valueColor: COLORS.maroon,
       badge: {
-        text: pctOfTotal(summary.inProgress),
-        bg: COLORS.amberBgLight,
-        color: COLORS.amber,
+        text: pctOfTotal(summary.completed),
+        bg: COLORS.maroonBgLight,
+        color: COLORS.maroon,
       },
-      note: "of all students",
+      note: "of all sections",
     },
     {
-      icon: "ti-alert-triangle",
-      label: "At Risk",
-      value: summary.atRisk,
-      valueColor: COLORS.maroonDark,
+      icon: "ti-archive",
+      label: "Archived Sections",
+      value: summary.archived,
+      valueColor: COLORS.light,
       badge: {
-        text: pctOfTotal(summary.atRisk),
-        bg: COLORS.maroonDarkBgLight,
-        color: COLORS.maroonDark,
+        text: pctOfTotal(summary.archived),
+        bg: COLORS.iconBg,
+        color: COLORS.textGray,
       },
-      note: "of all students",
+      note: "of all sections",
     },
   ]
 
@@ -491,9 +501,9 @@ export default function StudentListClient({
     <>
       <ChartStyles />
       <style>{`
-        .student-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .student-list-scroll::-webkit-scrollbar { width: 5px; }
-        .student-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
+        .section-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
+        .section-list-scroll::-webkit-scrollbar { width: 5px; }
+        .section-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
       `}</style>
 
       <div
@@ -506,12 +516,12 @@ export default function StudentListClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Student List</h1>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Section List</h1>
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
           <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {filteredCount} total students
+            {filteredCount} total sections
           </p>
         </div>
         <ProfilePill user={currentUser} />
@@ -547,7 +557,7 @@ export default function StudentListClient({
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search students"
+            placeholder="Search sections, course codes, or advisers"
             style={{
               width: "100%",
               fontFamily: FONT_BODY,
@@ -575,33 +585,36 @@ export default function StudentListClient({
       >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           <FilterDropdown
-            label={sectionLabel}
-            value={query.sectionId}
+            label={statusLabel}
+            value={query.status}
             onChange={(value) =>
               pushParams({
-                sectionId: value === STUDENT_LIST_ALL_SECTIONS ? null : value,
+                status: value === SECTION_LIST_ALL_STATUSES ? null : value,
                 page: "1",
               })
             }
           >
-            <option value={STUDENT_LIST_ALL_SECTIONS}>All Sections</option>
-            {sections.map((section) => (
-              <option key={section.sectionId} value={section.sectionId}>
-                Section {section.name}
+            {SECTION_STATUS_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </FilterDropdown>
 
           <FilterDropdown
-            label={statusLabel}
-            value={query.progressStatus}
+            label={adviserLabel}
+            value={query.adviserId}
             onChange={(value) =>
-              pushParams({ status: value === "all" ? null : value, page: "1" })
+              pushParams({
+                adviserId: value === SECTION_LIST_ALL_ADVISERS ? null : value,
+                page: "1",
+              })
             }
           >
-            {PROGRESS_STATUS_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            <option value={SECTION_LIST_ALL_ADVISERS}>All Advisers</option>
+            {advisers.map((adviser) => (
+              <option key={adviser.adviserUserId} value={adviser.adviserUserId}>
+                {adviser.fullName}
               </option>
             ))}
           </FilterDropdown>
@@ -609,9 +622,9 @@ export default function StudentListClient({
 
         <button
           type="button"
-          onClick={() => setAddChoiceOpen(true)}
-          aria-label="Add student"
-          title="Add student"
+          onClick={openCreate}
+          aria-label="Add section"
+          title="Add section"
           style={{
             width: 36,
             height: 36,
@@ -643,7 +656,7 @@ export default function StudentListClient({
           <table
             style={{
               width: "100%",
-              minWidth: 920,
+              minWidth: 880,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
@@ -653,7 +666,7 @@ export default function StudentListClient({
               <tr style={{ background: COLORS.tableHeadBg }}>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Student Name"
+                    label="Section"
                     sortable
                     sortActive={query.sort === "name"}
                     sortDirection={query.dir}
@@ -661,11 +674,17 @@ export default function StudentListClient({
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Student ID" />
+                  <ColumnHeader
+                    label="Course"
+                    sortable
+                    sortActive={query.sort === "course"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("course")}
+                  />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Section Adviser"
+                    label="Adviser"
                     sortable
                     sortActive={query.sort === "adviser"}
                     sortDirection={query.dir}
@@ -673,15 +692,24 @@ export default function StudentListClient({
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Hours" />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "center" }}>
                   <ColumnHeader
-                    label="Progress & Status"
-                    align="center"
+                    label="Students"
+                    sortable
+                    sortActive={query.sort === "students"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("students")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left", width: 80 }}>
+                <th style={{ padding: "14px 18px", textAlign: "left" }}>
+                  <ColumnHeader
+                    label="Status"
+                    sortable
+                    sortActive={query.sort === "status"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("status")}
+                  />
+                </th>
+                <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader label="Actions" />
                 </th>
               </tr>
@@ -690,20 +718,20 @@ export default function StudentListClient({
         </div>
 
         <div
-          className="student-list-scroll"
+          className="section-list-scroll"
           style={{ overflowX: "auto", overflowY: "auto" }}
         >
           <table
             style={{
               width: "100%",
-              minWidth: 920,
+              minWidth: 880,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
           >
             <TableColGroup />
             <tbody key={animKey}>
-              {pageStudents.length === 0 ? (
+              {pageSections.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
@@ -714,75 +742,63 @@ export default function StudentListClient({
                       padding: "40px 18px",
                     }}
                   >
-                    No students match your filters.
+                    No sections match your filters.
                   </td>
                 </tr>
               ) : (
-                pageStudents.map((student) => {
-                  const badge = STATUS_BADGE[student.progressStatus]
+                pageSections.map((section) => {
+                  const badge = SECTION_STATUS_BADGE[section.statusCode]
                   return (
                     <tr
-                      key={student.enrollmentId}
+                      key={section.sectionId}
                       className="anim-list-item"
                       style={{ borderTop: `1px solid ${COLORS.border}` }}
                     >
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.fullName}
+                          Section {section.name}
+                        </div>
+                      </td>
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                          {section.courseCode}
+                        </div>
+                      </td>
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                          {section.adviserName}
+                        </div>
+                      </td>
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                          {section.studentCount}
                         </div>
                         <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          {student.email}
+                          enrolled
                         </div>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.studentNumber ?? "—"}
-                        </div>
-                      </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.sectionName}
-                        </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          {student.adviserName}
-                        </div>
-                      </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.hoursCompleted}/{student.hoursRequired}
-                        </div>
-                      </td>
-                      <td
-                        style={{
-                          padding: "16px 18px",
-                          verticalAlign: "middle",
-                          textAlign: "center",
-                        }}
-                      >
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.completionPct}%
-                        </div>
                         <span
                           style={{
-                            ...TYPE.bodyBold,
+                            ...TYPE.caption,
+                            fontWeight: 600,
                             display: "inline-block",
-                            marginTop: 6,
-                            padding: "4px 12px",
+                            padding: "4px 10px",
                             borderRadius: 999,
                             background: badge.bg,
                             color: badge.color,
                           }}
                         >
-                          {PROGRESS_STATUS_LABELS[student.progressStatus]}
+                          {section.statusLabel}
                         </span>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <button
                             type="button"
-                            aria-label={`Edit ${student.fullName}`}
-                            title="Edit student"
-                            onClick={() => setEditStudent(student)}
+                            onClick={() => openEdit(section)}
+                            aria-label={`Edit section ${section.name}`}
+                            title="Edit section"
                             style={{
                               background: "none",
                               border: "none",
@@ -795,23 +811,17 @@ export default function StudentListClient({
                           </button>
                           <button
                             type="button"
-                            aria-label={`Delete ${student.fullName}`}
-                            title="Delete student"
-                            disabled={isDeleting && deletingId === student.enrollmentId}
-                            onClick={() =>
-                              openDeleteConfirm(student.enrollmentId, student.fullName)
-                            }
+                            onClick={() => openDeleteConfirm(section)}
+                            aria-label={`Delete section ${section.name}`}
+                            title="Delete section"
+                            disabled={isDeleting}
                             style={{
                               background: "none",
                               border: "none",
                               padding: 4,
-                              cursor:
-                                isDeleting && deletingId === student.enrollmentId
-                                  ? "not-allowed"
-                                  : "pointer",
+                              cursor: isDeleting ? "not-allowed" : "pointer",
                               color: COLORS.maroon,
-                              opacity:
-                                isDeleting && deletingId === student.enrollmentId ? 0.5 : 1,
+                              opacity: isDeleting ? 0.5 : 1,
                             }}
                           >
                             <i className="ti ti-trash" style={{ fontSize: 18 }} />
@@ -829,38 +839,33 @@ export default function StudentListClient({
         <ListPagination
           page={query.page}
           totalPages={totalPages}
+          pageSize={SECTION_LIST_PAGE_SIZE}
           totalCount={filteredCount}
-          pageSize={STUDENT_LIST_PAGE_SIZE}
           onPageChange={goToPage}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />
       </div>
 
-      <AddChoiceModal
-        open={addChoiceOpen}
-        onClose={() => setAddChoiceOpen(false)}
-        title="Add Student"
-        entityLabel="student"
-        onAddManually={() => setAddManualOpen(true)}
-        onImport={() => setImportOpen(true)}
+      <SectionFormModal
+        open={formOpen}
+        mode={formMode}
+        advisers={advisers}
+        statuses={statuses}
+        activeTermId={meta.activeTermId}
+        initialEdit={editSection ? sectionRowToEditPayload(editSection) : null}
+        onClose={closeForm}
       />
-      <AddStudentModal
-        open={addManualOpen}
-        sections={sections}
-        onClose={() => setAddManualOpen(false)}
-      />
-      <ImportStudentsModal open={importOpen} onClose={() => setImportOpen(false)} />
-      <EditStudentModal
-        open={editStudent !== null}
-        student={editStudent}
-        sections={sections}
-        onClose={() => setEditStudent(null)}
-      />
+
       <ConfirmDeleteModal
-        open={deleteTarget !== null}
-        title="Remove Student"
-        subjectName={deleteTarget?.name}
-        message="Remove this student from the list? This action cannot be undone."
+        open={Boolean(deleteTarget)}
+        title="Delete Section"
+        message={deleteMessage}
+        subjectName={
+          deleteTarget
+            ? `Section ${deleteTarget.name} — ${deleteTarget.courseCode}`
+            : undefined
+        }
+        confirmLabel={deleteTarget?.studentCount ? "Archive Section" : "Delete Section"}
         isPending={isDeleting}
         error={deleteError}
         onClose={closeDeleteConfirm}

@@ -9,8 +9,8 @@
  *   fullName      → `app_user.full_name`
  *   email         → `app_user.email` (must satisfy @up.edu.ph check constraint)
  *   isActive      → `app_user.is_active`
- *   sectionIds    → set `section.adviser_user_id` for each listed section;
- *                   clear `adviser_user_id` on sections previously assigned but removed
+ *
+ * Section assignment is managed on the Section List page (`section.adviser_user_id`).
  */
 
 import type { AdviserListRow } from "@/lib/admin/adviser-list"
@@ -24,8 +24,6 @@ export interface AdviserEditPayload {
   email: string
   /** `app_user.is_active` */
   isActive: boolean
-  /** `section.section_id` values to assign to this adviser */
-  sectionIds: string[]
 }
 
 export type UpdateAdviserResult =
@@ -39,8 +37,6 @@ export interface AdviserCreatePayload {
   email: string
   /** `app_user.is_active` */
   isActive: boolean
-  /** `section.section_id` values to assign to this adviser */
-  sectionIds: string[]
 }
 
 export type CreateAdviserResult = UpdateAdviserResult
@@ -50,7 +46,6 @@ export function emptyAdviserCreatePayload(): AdviserCreatePayload {
     fullName: "",
     email: "",
     isActive: true,
-    sectionIds: [],
   }
 }
 
@@ -61,7 +56,6 @@ export function adviserRowToEditPayload(row: AdviserListRow): AdviserEditPayload
     fullName: row.fullName,
     email: row.email,
     isActive: row.isActive,
-    sectionIds: [...row.sectionIds],
   }
 }
 
@@ -81,9 +75,6 @@ export function validateAdviserEditPayload(
   if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
     return "Email must be a UP email (@up.edu.ph)."
   }
-  if (payload.sectionIds.length === 0) {
-    return "At least one section must be assigned."
-  }
   return null
 }
 
@@ -99,9 +90,6 @@ export function validateAdviserCreatePayload(
   }
   if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
     return "Email must be a UP email (@up.edu.ph)."
-  }
-  if (payload.sectionIds.length === 0) {
-    return "At least one section must be assigned."
   }
   return null
 }

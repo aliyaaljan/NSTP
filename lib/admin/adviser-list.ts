@@ -52,6 +52,14 @@ export interface AdviserListMeta {
   semester: string
 }
 
+export interface AdviserListSummary {
+  total: number
+  active: number
+  inactive: number
+  studentsSupervised: number
+  pendingRequests: number
+}
+
 export interface AdminCurrentUser {
   name: string
   role: string
@@ -62,6 +70,7 @@ export interface AdminCurrentUser {
 export interface AdviserListPageData {
   advisers: AdviserListRow[]
   sections: AdviserListSectionOption[]
+  summary: AdviserListSummary
   meta: AdviserListMeta
   currentUser: AdminCurrentUser
   query: AdviserListQuery
@@ -172,6 +181,25 @@ export function mapAdviserDbRowToListRow(
     pendingRequestCount: pendingCount,
     isActive: row.is_active,
   }
+}
+
+export function buildAdviserListSummary(rows: AdviserListRow[]): AdviserListSummary {
+  const summary: AdviserListSummary = {
+    total: rows.length,
+    active: 0,
+    inactive: 0,
+    studentsSupervised: 0,
+    pendingRequests: 0,
+  }
+
+  for (const row of rows) {
+    if (row.isActive) summary.active += 1
+    else summary.inactive += 1
+    summary.studentsSupervised += row.studentCount
+    summary.pendingRequests += row.pendingRequestCount
+  }
+
+  return summary
 }
 
 export function buildPendingAppealCounts(

@@ -1,13 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
-import { createSite } from "@/lib/admin/site-list-actions"
+import { updateSite } from "@/lib/admin/site-list-actions"
 import {
-  emptySiteCreatePayload,
-  validateSiteCreatePayload,
-  type SiteCreatePayload,
+  siteRowToUpdatePayload,
+  validateSiteUpdatePayload,
+  type SiteUpdatePayload,
 } from "@/lib/admin/site-edit"
-import type { SiteListSectionOption } from "@/lib/admin/site-list"
+import type { SiteListRow, SiteListSectionOption } from "@/lib/admin/site-list"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
@@ -84,28 +84,31 @@ function TextInput({
   )
 }
 
-export default function AddGpsSiteModal({
+export default function EditGpsSiteModal({
   open,
+  site,
   gpsSections,
   onClose,
 }: {
   open: boolean
+  site: SiteListRow | null
   gpsSections: SiteListSectionOption[]
   onClose: () => void
 }) {
-  const [form, setForm] = useState<SiteCreatePayload>(emptySiteCreatePayload())
+  const [form, setForm] = useState<SiteUpdatePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const selectedSupervisor = useMemo(() => {
+    if (!form) return ""
     const section = gpsSections.find((s) => s.sectionId === form.sectionId)
-    return section?.supervisorName ?? ""
-  }, [gpsSections, form.sectionId])
+    return section?.supervisorName ?? site?.supervisorName ?? ""
+  }, [gpsSections, form, site?.supervisorName])
 
   const reset = useCallback(() => {
-    setForm(emptySiteCreatePayload())
+    setForm(site ? siteRowToUpdatePayload(site) : null)
     setError(null)
-  }, [])
+  }, [site])
 
   const close = useCallback(() => {
     reset()
@@ -113,11 +116,11 @@ export default function AddGpsSiteModal({
   }, [onClose, reset])
 
   useEffect(() => {
-    if (open) {
-      setForm(emptySiteCreatePayload())
+    if (open && site) {
+      setForm(siteRowToUpdatePayload(site))
       setError(null)
     }
-  }, [open])
+  }, [open, site])
 
   useEffect(() => {
     if (!open) return
@@ -134,12 +137,14 @@ export default function AddGpsSiteModal({
     }
   }, [open, close])
 
-  function patchForm(updates: Partial<SiteCreatePayload>) {
-    setForm((prev) => ({ ...prev, ...updates }))
+  function patchForm(updates: Partial<SiteUpdatePayload>) {
+    setForm((prev) => (prev ? { ...prev, ...updates } : prev))
   }
 
-  function handleAdd() {
-    const validationError = validateSiteCreatePayload(form)
+  function handleSave() {
+    if (!form) return
+
+    const validationError = validateSiteUpdatePayload(form)
     if (validationError) {
       setError(validationError)
       return
@@ -147,7 +152,7 @@ export default function AddGpsSiteModal({
 
     setError(null)
     startTransition(async () => {
-      const result = await createSite(form)
+      const result = await updateSite(form)
       if (!result.ok) {
         setError(result.error)
         return
@@ -157,9 +162,9 @@ export default function AddGpsSiteModal({
     })
   }
 
-  if (!open) return null
+  if (!open || !site || !form) return null
 
-  const canAdd =
+  const canSave =
     !isPending &&
     Boolean(form.siteName.trim() && form.sectionId && form.radiusMeters > 0)
 
@@ -182,7 +187,7 @@ export default function AddGpsSiteModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="add-gps-site-title"
+        aria-labelledby="edit-gps-site-title"
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
@@ -203,10 +208,10 @@ export default function AddGpsSiteModal({
           }}
         >
           <h2
-            id="add-gps-site-title"
+            id="edit-gps-site-title"
             style={{ ...TYPE.h2, fontFamily: FONT_HEADING, color: "#fff", margin: 0 }}
           >
-            Add Site
+            Edit GPS Site
           </h2>
           <button
             type="button"
@@ -228,7 +233,7 @@ export default function AddGpsSiteModal({
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            handleAdd()
+            handleSave()
           }}
           style={{
             padding: "24px 22px 20px",
@@ -237,9 +242,9 @@ export default function AddGpsSiteModal({
             gap: 18,
           }}
         >
-          <FormField label="Site Name:" htmlFor="gps_site_name">
+          <FormField label="NSTP Site:" htmlFor="edit_gps_site_name">
             <TextInput
-              id="gps_site_name"
+              id="edit_gps_site_name"
               name="site_name"
               value={form.siteName}
               onChange={(siteName) => patchForm({ siteName })}
@@ -247,10 +252,10 @@ export default function AddGpsSiteModal({
             />
           </FormField>
 
-          <FormField label="Section:" htmlFor="gps_section_id">
+          <FormField label="Section:" htmlFor="edit_gps_section_id">
             <div style={{ position: "relative" }}>
               <select
-                id="gps_section_id"
+                id="edit_gps_section_id"
                 name="section_id"
                 value={form.sectionId}
                 onChange={(e) => patchForm({ sectionId: e.target.value })}
@@ -319,9 +324,9 @@ export default function AddGpsSiteModal({
             </p>
           </div>
 
-          <FormField label="Site Radius (meters):" htmlFor="gps_site_radius">
+          <FormField label="Radius (meters):" htmlFor="edit_gps_site_radius">
             <TextInput
-              id="gps_site_radius"
+              id="edit_gps_site_radius"
               name="site_radius"
               type="number"
               value={String(form.radiusMeters)}
@@ -330,9 +335,9 @@ export default function AddGpsSiteModal({
             />
           </FormField>
 
-          <FormField label="Latitude:" htmlFor="gps_center_latitude">
+          <FormField label="Latitude:" htmlFor="edit_gps_center_latitude">
             <TextInput
-              id="gps_center_latitude"
+              id="edit_gps_center_latitude"
               name="center_latitude"
               type="number"
               value={String(form.centerLatitude)}
@@ -341,9 +346,9 @@ export default function AddGpsSiteModal({
             />
           </FormField>
 
-          <FormField label="Longitude:" htmlFor="gps_center_longitude">
+          <FormField label="Longitude:" htmlFor="edit_gps_center_longitude">
             <TextInput
-              id="gps_center_longitude"
+              id="edit_gps_center_longitude"
               name="center_longitude"
               type="number"
               value={String(form.centerLongitude)}
@@ -352,6 +357,30 @@ export default function AddGpsSiteModal({
             />
           </FormField>
 
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              cursor: "pointer",
+              ...TYPE.body,
+              color: COLORS.textDark,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(e) => patchForm({ isActive: e.target.checked })}
+              style={{
+                width: 16,
+                height: 16,
+                accentColor: COLORS.headerGreen,
+                cursor: "pointer",
+              }}
+            />
+            Site is active
+          </label>
+
           {error && (
             <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{error}</p>
           )}
@@ -359,7 +388,7 @@ export default function AddGpsSiteModal({
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
             <button
               type="submit"
-              disabled={!canAdd}
+              disabled={!canSave}
               style={{
                 ...TYPE.bodyBold,
                 fontFamily: FONT_HEADING,
@@ -371,12 +400,12 @@ export default function AddGpsSiteModal({
                 border: "none",
                 borderRadius: 24,
                 padding: "10px 22px",
-                cursor: canAdd ? "pointer" : "not-allowed",
-                opacity: canAdd ? 1 : 0.5,
+                cursor: canSave ? "pointer" : "not-allowed",
+                opacity: canSave ? 1 : 0.5,
               }}
             >
-              <i className="ti ti-plus" style={{ fontSize: 16 }} />
-              {isPending ? "Adding…" : "Add"}
+              <i className="ti ti-device-floppy" style={{ fontSize: 16 }} />
+              {isPending ? "Saving…" : "Save Changes"}
             </button>
           </div>
         </form>
