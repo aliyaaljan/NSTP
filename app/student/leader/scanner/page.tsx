@@ -438,7 +438,7 @@ export default function LeaderScannerPage() {
     if (months.length > 0 && !selectedMonth) {
       setSelectedMonth(months[0])
     }
-  }, [months, selectedMonth]) // Reference is now stable, stopping re-render loops
+  }, [months, selectedMonth])
 
   return (
     <div
@@ -507,32 +507,16 @@ export default function LeaderScannerPage() {
         {scannerOpen && (
           <QrScanner
             onClose={() => setScannerOpen(false)}
-            onScan={async (decodedToken) => {
+            onScanSuccess={() => {
               console.log(
-                "[Backend Ingestion] Decoded camera string received:",
-                decodedToken
+                "[Attendance Sync] Scan completed. Refreshing logs window..."
               )
 
-              try {
-                const res = await recordScan(decodedToken, scannerGeo)
+              // close scanner modal window after validation
+              setScannerOpen(false)
 
-                if (!res.ok) {
-                  alert(`Scan Ingestion Denied: ${res.error}`)
-                  return
-                }
-
-                alert(
-                  `Attendance Confirmed! Event logged as: ${res.result.event_type.replace(
-                    "_",
-                    " "
-                  )}`
-                )
-                setScannerOpen(false)
-              } catch (err) {
-                alert(
-                  "Handshake failure. Secure connection to server endpoint failed."
-                )
-              }
+              // re-fetch the live scan entries to update the statistics and list history data
+              loadDatabaseScans()
             }}
           />
         )}
