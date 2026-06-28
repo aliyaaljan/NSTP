@@ -1,89 +1,100 @@
-"use client";
+"use client"
 
-import { useState, useEffect, useRef } from "react";
-import { IconX, IconCamera } from "@tabler/icons-react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCameraRotate } from "@fortawesome/free-solid-svg-icons";
+import { useState, useEffect, useRef } from "react"
+import { IconX, IconCamera, IconCameraRotate } from "@tabler/icons-react"
 
 interface QrScannerProps {
-  onClose: () => void;
-  onScan?: (data: string) => void;
+  onClose: () => void
+  onScan?: (data: string) => void
 }
 
 export function QrScanner({ onClose, onScan }: QrScannerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [facingMode, setFacingMode] = useState<"environment" | "user">(
+    "environment"
+  )
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     // Check if mobile
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   const startCamera = async () => {
     try {
       // Stop existing stream
       if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-        setStream(null);
+        stream.getTracks().forEach((t) => t.stop())
+        setStream(null)
       }
 
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
+        video: {
           facingMode: facingMode,
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
-      });
-      
-      setStream(newStream);
+      })
+
+      setStream(newStream)
       if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
-        await videoRef.current.play();
-        setScanning(true);
-        setError(null);
+        videoRef.current.srcObject = newStream
+        await videoRef.current.play()
+        setScanning(true)
+        setError(null)
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unable to access camera";
-      if (errorMessage.includes("Permission denied") || errorMessage.includes("NotAllowedError")) {
-        setError("Camera access denied. Please allow camera permissions.");
-      } else if (errorMessage.includes("NotFoundError") || errorMessage.includes("No device")) {
-        setError("No camera found. Please connect a camera.");
+      const errorMessage =
+        err instanceof Error ? err.message : "Unable to access camera"
+      if (
+        errorMessage.includes("Permission denied") ||
+        errorMessage.includes("NotAllowedError")
+      ) {
+        setError("Camera access denied. Please allow camera permissions.")
+      } else if (
+        errorMessage.includes("NotFoundError") ||
+        errorMessage.includes("No device")
+      ) {
+        setError("No camera found. Please connect a camera.")
       } else {
-        setError("Unable to access camera. Please check your camera.");
+        setError("Unable to access camera. Please check your camera.")
       }
-      setScanning(false);
+      setScanning(false)
     }
-  };
+  }
 
   useEffect(() => {
-    startCamera();
+    startCamera()
     return () => {
       if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-        setStream(null);
+        stream.getTracks().forEach((t) => t.stop())
+        setStream(null)
       }
-    };
-  }, [facingMode]);
+    }
+  }, [facingMode])
 
   const flipCamera = () => {
-    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
-  };
+    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"))
+  }
 
   return (
     <div className="scanner-backdrop" onClick={onClose}>
       <div className="scanner-modal" onClick={(e) => e.stopPropagation()}>
         <div className="scanner-header">
           <span className="scanner-title">Scan QR Code</span>
-          <button className="scanner-close" onClick={onClose} aria-label="Close">
+          <button
+            className="scanner-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
             <IconX size={20} stroke={1.75} />
           </button>
         </div>
@@ -92,7 +103,7 @@ export function QrScanner({ onClose, onScan }: QrScannerProps) {
             <div className="scanner-error">
               <IconCamera size={40} stroke={1.5} />
               <p>{error}</p>
-              <button 
+              <button
                 onClick={startCamera}
                 style={{
                   marginTop: "12px",
@@ -126,40 +137,36 @@ export function QrScanner({ onClose, onScan }: QrScannerProps) {
                 <div className="scanner-corner br" />
                 {scanning && <div className="scanner-line" />}
               </div>
-              
+
               {/* Camera Flip Button */}
               {isMobile && (
                 <button
                   onClick={(e) => {
-                    e.stopPropagation();
-                    flipCamera();
+                    e.stopPropagation()
+                    flipCamera()
                   }}
                   className="scanner-flip-btn"
                   aria-label="Flip camera"
                 >
-                  <FontAwesomeIcon 
-                    icon={faCameraRotate} 
-                    size="lg"
-                    style={{ 
-                      width: "24px", 
-                      height: "24px",
-                      color: "#fff",
-                    }}
-                  />
+                  <IconCameraRotate size={24} stroke={1.75} color="#fff" />
                 </button>
               )}
 
               {/* Camera mode indicator */}
               {isMobile && (
                 <div className="camera-mode-indicator">
-                  {facingMode === "environment" ? "Back Camera" : "Front Camera"}
+                  {facingMode === "environment"
+                    ? "Back Camera"
+                    : "Front Camera"}
                 </div>
               )}
             </>
           )}
         </div>
         <p className="scanner-hint">
-          {error ? "Tap retry to try again" : (
+          {error ? (
+            "Tap retry to try again"
+          ) : (
             <>
               Point your camera at a QR code
               <br />
@@ -421,5 +428,5 @@ export function QrScanner({ onClose, onScan }: QrScannerProps) {
         }
       `}</style>
     </div>
-  );
+  )
 }
