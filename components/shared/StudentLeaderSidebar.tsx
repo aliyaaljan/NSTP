@@ -37,7 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { icon: "ti-presentation", label: "My Class", href: "/student/leader/class" },
   { icon: "ti-scan", label: "Scanner", href: "/student/leader/scanner" },
   { icon: "ti-users", label: "Attendance", href: "/student/leader/attendance" },
-  { icon: "ti-clipboard-check", label: "Documents", href: "/student/leader/documents" },
+  { icon: "ti-clipboard-check", label: "Files", href: "/student/leader/documents" },
   { icon: "ti-pencil", label: "Submit Request", href: "/student/leader/submit-request" },
 ]
 
