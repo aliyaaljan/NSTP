@@ -4,6 +4,7 @@ import { getAppUserRole } from "@/lib/auth-actions"
 import { lookupId } from "@/lib/lookups"
 import {
   buildFormListRows,
+  buildFormListSummary,
   buildSampleFormRows,
   FORM_REQUIREMENT_LIST_SELECT,
   type AdminCurrentUser,
@@ -125,6 +126,7 @@ export async function getFormListData(query: FormListQuery): Promise<FormListPag
   return {
     forms,
     sections: sectionOptions,
+    summary: buildFormListSummary(forms),
     meta,
     currentUser,
     query,

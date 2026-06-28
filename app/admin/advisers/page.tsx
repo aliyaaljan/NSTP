@@ -22,6 +22,7 @@ async function AdviserListContent({
     <AdviserListClient
       advisers={data.advisers}
       sections={data.sections}
+      summary={data.summary}
       meta={data.meta}
       currentUser={data.currentUser}
       query={query}

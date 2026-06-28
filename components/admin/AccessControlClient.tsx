@@ -2,49 +2,36 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AddAccessUserModal from "@/components/admin/AddAccessUserModal"
+import EditAccessUserModal from "@/components/admin/EditAccessUserModal"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
-import AddChoiceModal from "@/components/admin/AddChoiceModal"
-import AddStudentModal from "@/components/admin/AddStudentModal"
-import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
-import EditStudentModal from "@/components/admin/EditStudentModal"
-import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
-import { deleteStudent } from "@/lib/admin/student-list-actions"
 import {
-  PROGRESS_STATUS_FILTER_OPTIONS,
-  PROGRESS_STATUS_LABELS,
-  type StudentProgressStatus,
-} from "@/lib/admin/student-progress"
+  deactivateAccessUser,
+} from "@/lib/admin/access-control-actions"
 import type {
+  AccessControlMeta,
+  AccessControlQuery,
+  AccessControlRoleOption,
+  AccessControlRow,
+  AccessControlSortKey,
+  AccessControlSummary,
   AdminCurrentUser,
-  StudentListMeta,
-  StudentListQuery,
-  StudentListRow,
-  StudentListSectionOption,
-  StudentListSortKey,
-  StudentListSummary,
-} from "@/lib/admin/student-list"
+} from "@/lib/admin/access-control"
 import {
-  STUDENT_LIST_ALL_SECTIONS,
-  STUDENT_LIST_PAGE_SIZE,
-  filterStudentListRows,
-  paginateStudentListRows,
-} from "@/lib/admin/student-list"
+  ACCESS_CONTROL_ALL_ROLES,
+  ACCESS_CONTROL_PAGE_SIZE,
+  ACCESS_CONTROL_STATUS_FILTER_OPTIONS,
+  ROLE_CODE_LABELS,
+  ROLE_COLOR_STYLES,
+  filterAccessControlRows,
+  paginateAccessControlRows,
+} from "@/lib/admin/access-control"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
-const STATUS_BADGE: Record<
-  StudentProgressStatus,
-  { bg: string; color: string }
-> = {
-  on_track: { bg: COLORS.greenBgLight, color: COLORS.green },
-  in_progress: { bg: COLORS.amberBgLight, color: COLORS.amber },
-  at_risk: { bg: COLORS.maroonDarkBgLight, color: COLORS.maroonDark },
-}
-
-interface CurrentUser extends AdminCurrentUser {}
-
-function ProfilePill({ user }: { user: CurrentUser }) {
+function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
     <div
       style={{
@@ -159,6 +146,7 @@ function StatCard({
         display: "flex",
         alignItems: "center",
         gap: 12,
+        minWidth: 0,
       }}
     >
       <div
@@ -185,6 +173,7 @@ function StatCard({
           >
             <i className={`ti ${icon}`} style={{ fontSize: 17, color: COLORS.maroon }} />
           </div>
+
           <div
             style={{
               fontFamily: FONT_BODY,
@@ -197,6 +186,7 @@ function StatCard({
             {label}
           </div>
         </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {badge && (
             <span
@@ -214,6 +204,7 @@ function StatCard({
           <span style={{ ...TYPE.caption, color: COLORS.textGray }}>{note}</span>
         </div>
       </div>
+
       <div
         style={{
           fontFamily: FONT_BODY,
@@ -232,7 +223,13 @@ function StatCard({
       >
         {value}
         {valueSuffix && (
-          <span style={{ fontSize: "15px", fontWeight: 600, color: COLORS.textGray }}>
+          <span
+            style={{
+              fontSize: "15px",
+              fontWeight: 600,
+              color: COLORS.textGray,
+            }}
+          >
             {valueSuffix}
           </span>
         )}
@@ -241,7 +238,7 @@ function StatCard({
   )
 }
 
-const TABLE_COL_WIDTHS = ["28%", "14%", "22%", "10%", "18%", "8%"]
+const TABLE_COL_WIDTHS = ["30%", "14%", "18%", "12%", "14%", "12%"]
 
 function TableColGroup() {
   return (
@@ -314,27 +311,46 @@ function ColumnHeader({
   )
 }
 
-export default function StudentListClient({
-  students,
-  sections,
+function RoleBadge({ roleCode }: { roleCode: AccessControlRow["roleCode"] }) {
+  const roleStyle = ROLE_COLOR_STYLES[roleCode]
+
+  return (
+    <span
+      style={{
+        ...TYPE.bodyBold,
+        display: "inline-block",
+        padding: "4px 12px",
+        borderRadius: 999,
+        background: roleStyle.bg,
+        color: roleStyle.color,
+        fontSize: "12px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {ROLE_CODE_LABELS[roleCode]}
+    </span>
+  )
+}
+
+export default function AccessControlClient({
+  users,
+  roles,
   summary,
   meta,
   currentUser,
   query,
 }: {
-  students: StudentListRow[]
-  sections: StudentListSectionOption[]
-  summary: StudentListSummary
-  meta: StudentListMeta
-  currentUser: CurrentUser
-  query: StudentListQuery
+  users: AccessControlRow[]
+  roles: AccessControlRoleOption[]
+  summary: AccessControlSummary
+  meta: AccessControlMeta
+  currentUser: AdminCurrentUser
+  query: AccessControlQuery
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [addChoiceOpen, setAddChoiceOpen] = useState(false)
-  const [addManualOpen, setAddManualOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [editStudent, setEditStudent] = useState<StudentListRow | null>(null)
+  const [editUser, setEditUser] = useState<AccessControlRow | null>(null)
+  const [addUserOpen, setAddUserOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string
     name: string
@@ -352,13 +368,13 @@ export default function StudentListClient({
   function pushParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString())
     Object.entries(updates).forEach(([key, value]) => {
-      if (!value || value === STUDENT_LIST_ALL_SECTIONS) params.delete(key)
+      if (!value || value === ACCESS_CONTROL_ALL_ROLES) params.delete(key)
       else params.set(key, value)
     })
-    router.push(`/admin/students?${params.toString()}`)
+    router.push(`/admin/access-control?${params.toString()}`)
   }
 
-  function toggleSort(key: StudentListSortKey) {
+  function toggleSort(key: AccessControlSortKey) {
     const nextDir =
       query.sort === key ? (query.dir === "asc" ? "desc" : "asc") : "asc"
     pushParams({ sort: key, dir: nextDir, page: "1" })
@@ -373,46 +389,39 @@ export default function StudentListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleStudents = useMemo(
-    () => filterStudentListRows(students, { ...query, search: searchInput }),
-    [students, query, searchInput]
+  const visibleUsers = useMemo(
+    () => filterAccessControlRows(users, { ...query, search: searchInput }),
+    [users, query, searchInput]
   )
 
   const {
-    rows: pageStudents,
+    rows: pageUsers,
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateStudentListRows(visibleStudents, query.page),
-    [visibleStudents, query.page]
+    () => paginateAccessControlRows(visibleUsers, query.page),
+    [visibleUsers, query.page]
   )
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [
-    query.page,
-    query.search,
-    query.sectionId,
-    query.progressStatus,
-    query.sort,
-    query.dir,
-  ])
+  }, [query.page, query.search, query.role, query.status, query.sort, query.dir])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const sectionLabel =
-    query.sectionId !== STUDENT_LIST_ALL_SECTIONS
-      ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
-      : "All Sections"
+  const roleLabel =
+    query.role !== ACCESS_CONTROL_ALL_ROLES
+      ? ROLE_CODE_LABELS[query.role]
+      : "All Roles"
   const statusLabel =
-    PROGRESS_STATUS_FILTER_OPTIONS.find((o) => o.value === query.progressStatus)
-      ?.label ?? "All Status"
+    ACCESS_CONTROL_STATUS_FILTER_OPTIONS.find((o) => o.value === query.status)?.label ??
+    "All Status"
 
-  function openDeleteConfirm(enrollmentId: string, name: string) {
+  function openDeleteConfirm(appUserId: string, name: string) {
     setDeleteError(null)
-    setDeleteTarget({ id: enrollmentId, name })
+    setDeleteTarget({ id: appUserId, name })
   }
 
   function closeDeleteConfirm() {
@@ -428,7 +437,7 @@ export default function StudentListClient({
     setDeletingId(deleteTarget.id)
 
     startDeleteTransition(async () => {
-      const result = await deleteStudent(deleteTarget.id)
+      const result = await deactivateAccessUser(deleteTarget.id)
       setDeletingId(null)
       if (!result.ok) {
         setDeleteError(result.error)
@@ -440,50 +449,50 @@ export default function StudentListClient({
   }
 
   const pctOfTotal = (count: number) =>
-    summary.total > 0 ? `${Math.round((count / summary.total) * 100)}%` : "0%"
+    summary.totalUsers > 0 ? `${Math.round((count / summary.totalUsers) * 100)}%` : "0%"
 
   const statCards: Array<React.ComponentProps<typeof StatCard>> = [
     {
       icon: "ti-users",
-      label: "Total Students",
-      value: summary.total,
-      note: "active enrollments",
+      label: "Total Users",
+      value: summary.totalUsers,
+      note: "registered accounts",
     },
     {
-      icon: "ti-circle-check",
-      label: "On Track",
-      value: summary.onTrack,
-      valueColor: COLORS.green,
+      icon: "ti-shield",
+      label: "Administrators",
+      value: summary.adminCount,
+      valueColor: ROLE_COLOR_STYLES.admin.color,
       badge: {
-        text: pctOfTotal(summary.onTrack),
-        bg: COLORS.greenBgLight,
-        color: COLORS.green,
+        text: pctOfTotal(summary.adminCount),
+        bg: ROLE_COLOR_STYLES.admin.bg,
+        color: ROLE_COLOR_STYLES.admin.color,
       },
-      note: "of all students",
+      note: "of all users",
     },
     {
-      icon: "ti-clock",
-      label: "In Progress",
-      value: summary.inProgress,
-      valueColor: COLORS.amber,
+      icon: "ti-user-check",
+      label: "Advisers",
+      value: summary.adviserCount,
+      valueColor: ROLE_COLOR_STYLES.adviser.color,
       badge: {
-        text: pctOfTotal(summary.inProgress),
-        bg: COLORS.amberBgLight,
-        color: COLORS.amber,
+        text: pctOfTotal(summary.adviserCount),
+        bg: ROLE_COLOR_STYLES.adviser.bg,
+        color: ROLE_COLOR_STYLES.adviser.color,
       },
-      note: "of all students",
+      note: "of all users",
     },
     {
-      icon: "ti-alert-triangle",
-      label: "At Risk",
-      value: summary.atRisk,
-      valueColor: COLORS.maroonDark,
+      icon: "ti-school",
+      label: "Students",
+      value: summary.studentCount,
+      valueColor: ROLE_COLOR_STYLES.student.color,
       badge: {
-        text: pctOfTotal(summary.atRisk),
-        bg: COLORS.maroonDarkBgLight,
-        color: COLORS.maroonDark,
+        text: pctOfTotal(summary.studentCount),
+        bg: ROLE_COLOR_STYLES.student.bg,
+        color: ROLE_COLOR_STYLES.student.color,
       },
-      note: "of all students",
+      note: "of all users",
     },
   ]
 
@@ -491,9 +500,9 @@ export default function StudentListClient({
     <>
       <ChartStyles />
       <style>{`
-        .student-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .student-list-scroll::-webkit-scrollbar { width: 5px; }
-        .student-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
+        .access-control-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
+        .access-control-scroll::-webkit-scrollbar { width: 5px; }
+        .access-control-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
       `}</style>
 
       <div
@@ -506,12 +515,12 @@ export default function StudentListClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Student List</h1>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Access Control</h1>
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
-            Academic Year {meta.academicYear} | {meta.semester}
+            Manage roles &amp; user access
           </p>
-          <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {filteredCount} total students
+          <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "4px 0 0" }}>
+            Academic Year {meta.academicYear} | {meta.semester}
           </p>
         </div>
         <ProfilePill user={currentUser} />
@@ -520,8 +529,8 @@ export default function StudentListClient({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 20,
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gap: 12,
           marginBottom: 20,
         }}
       >
@@ -547,7 +556,7 @@ export default function StudentListClient({
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search students"
+            placeholder="Search by name, email, or ID"
             style={{
               width: "100%",
               fontFamily: FONT_BODY,
@@ -575,31 +584,31 @@ export default function StudentListClient({
       >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           <FilterDropdown
-            label={sectionLabel}
-            value={query.sectionId}
+            label={roleLabel}
+            value={query.role}
             onChange={(value) =>
               pushParams({
-                sectionId: value === STUDENT_LIST_ALL_SECTIONS ? null : value,
+                role: value === ACCESS_CONTROL_ALL_ROLES ? null : value,
                 page: "1",
               })
             }
           >
-            <option value={STUDENT_LIST_ALL_SECTIONS}>All Sections</option>
-            {sections.map((section) => (
-              <option key={section.sectionId} value={section.sectionId}>
-                Section {section.name}
+            <option value={ACCESS_CONTROL_ALL_ROLES}>All Roles</option>
+            {roles.map((role) => (
+              <option key={role.roleId} value={role.code}>
+                {ROLE_CODE_LABELS[role.code]}
               </option>
             ))}
           </FilterDropdown>
 
           <FilterDropdown
             label={statusLabel}
-            value={query.progressStatus}
+            value={query.status}
             onChange={(value) =>
               pushParams({ status: value === "all" ? null : value, page: "1" })
             }
           >
-            {PROGRESS_STATUS_FILTER_OPTIONS.map((opt) => (
+            {ACCESS_CONTROL_STATUS_FILTER_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -609,9 +618,9 @@ export default function StudentListClient({
 
         <button
           type="button"
-          onClick={() => setAddChoiceOpen(true)}
-          aria-label="Add student"
-          title="Add student"
+          onClick={() => setAddUserOpen(true)}
+          aria-label="Add user"
+          title="Add user"
           style={{
             width: 36,
             height: 36,
@@ -643,7 +652,7 @@ export default function StudentListClient({
           <table
             style={{
               width: "100%",
-              minWidth: 920,
+              minWidth: 860,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
@@ -653,7 +662,7 @@ export default function StudentListClient({
               <tr style={{ background: COLORS.tableHeadBg }}>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Student Name"
+                    label="Name"
                     sortable
                     sortActive={query.sort === "name"}
                     sortDirection={query.dir}
@@ -661,27 +670,30 @@ export default function StudentListClient({
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Student ID" />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Section Adviser"
+                    label="ID"
                     sortable
-                    sortActive={query.sort === "adviser"}
+                    sortActive={query.sort === "id"}
                     sortDirection={query.dir}
-                    onSort={() => toggleSort("adviser")}
+                    onSort={() => toggleSort("id")}
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Hours" />
+                  <ColumnHeader
+                    label="Role"
+                    sortable
+                    sortActive={query.sort === "role"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("role")}
+                  />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "center" }}>
-                  <ColumnHeader
-                    label="Progress & Status"
-                    align="center"
-                  />
+                  <ColumnHeader label="Status" align="center" />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left", width: 80 }}>
+                <th style={{ padding: "14px 18px", textAlign: "left" }}>
+                  <ColumnHeader label="Last Updated" />
+                </th>
+                <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader label="Actions" />
                 </th>
               </tr>
@@ -690,20 +702,20 @@ export default function StudentListClient({
         </div>
 
         <div
-          className="student-list-scroll"
-          style={{ overflowX: "auto", overflowY: "auto" }}
+          className="access-control-scroll"
+          style={{ overflowX: "auto", overflowY: "auto", maxHeight: 480 }}
         >
           <table
             style={{
               width: "100%",
-              minWidth: 920,
+              minWidth: 860,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
           >
             <TableColGroup />
             <tbody key={animKey}>
-              {pageStudents.length === 0 ? (
+              {pageUsers.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
@@ -714,43 +726,59 @@ export default function StudentListClient({
                       padding: "40px 18px",
                     }}
                   >
-                    No students match your filters.
+                    No users match your filters.
                   </td>
                 </tr>
               ) : (
-                pageStudents.map((student) => {
-                  const badge = STATUS_BADGE[student.progressStatus]
+                pageUsers.map((user) => {
+                  const statusBadge = user.isActive
+                    ? { bg: COLORS.greenBgLight, color: COLORS.green, label: "Active" }
+                    : {
+                        bg: COLORS.maroonDarkBgLight,
+                        color: COLORS.maroonDark,
+                        label: "Inactive",
+                      }
+                  const lastUpdated = user.updatedAt
+                    ? new Date(user.updatedAt).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "—"
+
                   return (
                     <tr
-                      key={student.enrollmentId}
+                      key={user.appUserId}
                       className="anim-list-item"
                       style={{ borderTop: `1px solid ${COLORS.border}` }}
                     >
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.fullName}
+                          {user.fullName}
+                          {user.isSample && (
+                            <span
+                              style={{
+                                ...TYPE.caption,
+                                color: COLORS.textGray,
+                                fontWeight: 400,
+                                marginLeft: 8,
+                              }}
+                            >
+                              (preview)
+                            </span>
+                          )}
                         </div>
                         <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          {student.email}
+                          {user.email}
                         </div>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.studentNumber ?? "—"}
+                          {user.displayId}
                         </div>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.sectionName}
-                        </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          {student.adviserName}
-                        </div>
-                      </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.hoursCompleted}/{student.hoursRequired}
-                        </div>
+                        <RoleBadge roleCode={user.roleCode} />
                       </td>
                       <td
                         style={{
@@ -759,30 +787,32 @@ export default function StudentListClient({
                           textAlign: "center",
                         }}
                       >
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.completionPct}%
-                        </div>
                         <span
                           style={{
                             ...TYPE.bodyBold,
                             display: "inline-block",
-                            marginTop: 6,
                             padding: "4px 12px",
                             borderRadius: 999,
-                            background: badge.bg,
-                            color: badge.color,
+                            background: statusBadge.bg,
+                            color: statusBadge.color,
+                            fontSize: "12px",
                           }}
                         >
-                          {PROGRESS_STATUS_LABELS[student.progressStatus]}
+                          {statusBadge.label}
                         </span>
+                      </td>
+                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                        <div style={{ ...TYPE.caption, color: COLORS.textGray }}>
+                          {lastUpdated}
+                        </div>
                       </td>
                       <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <button
                             type="button"
-                            aria-label={`Edit ${student.fullName}`}
-                            title="Edit student"
-                            onClick={() => setEditStudent(student)}
+                            aria-label={`Edit ${user.fullName}`}
+                            title="Edit user"
+                            onClick={() => setEditUser(user)}
                             style={{
                               background: "none",
                               border: "none",
@@ -795,23 +825,21 @@ export default function StudentListClient({
                           </button>
                           <button
                             type="button"
-                            aria-label={`Delete ${student.fullName}`}
-                            title="Delete student"
-                            disabled={isDeleting && deletingId === student.enrollmentId}
-                            onClick={() =>
-                              openDeleteConfirm(student.enrollmentId, student.fullName)
-                            }
+                            aria-label={`Deactivate ${user.fullName}`}
+                            title="Deactivate user"
+                            disabled={isDeleting && deletingId === user.appUserId}
+                            onClick={() => openDeleteConfirm(user.appUserId, user.fullName)}
                             style={{
                               background: "none",
                               border: "none",
                               padding: 4,
                               cursor:
-                                isDeleting && deletingId === student.enrollmentId
+                                isDeleting && deletingId === user.appUserId
                                   ? "not-allowed"
                                   : "pointer",
                               color: COLORS.maroon,
                               opacity:
-                                isDeleting && deletingId === student.enrollmentId ? 0.5 : 1,
+                                isDeleting && deletingId === user.appUserId ? 0.5 : 1,
                             }}
                           >
                             <i className="ti ti-trash" style={{ fontSize: 18 }} />
@@ -830,37 +858,29 @@ export default function StudentListClient({
           page={query.page}
           totalPages={totalPages}
           totalCount={filteredCount}
-          pageSize={STUDENT_LIST_PAGE_SIZE}
+          pageSize={ACCESS_CONTROL_PAGE_SIZE}
           onPageChange={goToPage}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />
       </div>
 
-      <AddChoiceModal
-        open={addChoiceOpen}
-        onClose={() => setAddChoiceOpen(false)}
-        title="Add Student"
-        entityLabel="student"
-        onAddManually={() => setAddManualOpen(true)}
-        onImport={() => setImportOpen(true)}
+      <AddAccessUserModal
+        open={addUserOpen}
+        roles={roles}
+        onClose={() => setAddUserOpen(false)}
       />
-      <AddStudentModal
-        open={addManualOpen}
-        sections={sections}
-        onClose={() => setAddManualOpen(false)}
-      />
-      <ImportStudentsModal open={importOpen} onClose={() => setImportOpen(false)} />
-      <EditStudentModal
-        open={editStudent !== null}
-        student={editStudent}
-        sections={sections}
-        onClose={() => setEditStudent(null)}
+      <EditAccessUserModal
+        open={editUser !== null}
+        user={editUser}
+        roles={roles}
+        onClose={() => setEditUser(null)}
       />
       <ConfirmDeleteModal
         open={deleteTarget !== null}
-        title="Remove Student"
+        title="Deactivate User"
         subjectName={deleteTarget?.name}
-        message="Remove this student from the list? This action cannot be undone."
+        message="Deactivate this user account? They will lose portal access. This action can be reversed by editing the account."
+        confirmLabel="Deactivate"
         isPending={isDeleting}
         error={deleteError}
         onClose={closeDeleteConfirm}

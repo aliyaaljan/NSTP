@@ -50,17 +50,30 @@ export type FormListSortKey = "name" | "section" | "deadline" | "analytics"
 
 export const FORM_LIST_ALL_SECTIONS = "all"
 
+/** Rows per page on the forms list table. */
+export const FORM_LIST_PAGE_SIZE = 10
+
 export interface FormListQuery {
   /** `section.section_id`, or FORM_LIST_ALL_SECTIONS for all. */
   sectionId: string
   search: string
   sort: FormListSortKey
   dir: "asc" | "desc"
+  /** 1-based page index. */
+  page: number
 }
 
 export interface FormListMeta {
   academicYear: string
   semester: string
+}
+
+export interface FormListSummary {
+  total: number
+  global: number
+  sectionSpecific: number
+  /** Mean submission rate across rows with enrolled students (0–100). */
+  avgSubmissionPct: number
 }
 
 export interface AdminCurrentUser {
@@ -73,6 +86,7 @@ export interface AdminCurrentUser {
 export interface FormListPageData {
   forms: FormListRow[]
   sections: FormListSectionOption[]
+  summary: FormListSummary
   meta: FormListMeta
   currentUser: AdminCurrentUser
   query: FormListQuery
@@ -139,7 +153,9 @@ export function parseFormListQuery(params: {
   q?: string
   sort?: string
   dir?: string
+  page?: string
 }): FormListQuery {
+  const pageNum = Math.max(1, parseInt(params.page ?? "1", 10) || 1)
   const sort = VALID_SORT.includes(params.sort as FormListSortKey)
     ? (params.sort as FormListSortKey)
     : "name"
@@ -149,6 +165,7 @@ export function parseFormListQuery(params: {
     search: params.q ?? "",
     sort,
     dir: params.dir === "desc" ? "desc" : "asc",
+    page: pageNum,
   }
 }
 
@@ -228,6 +245,31 @@ export function buildFormListRows(
   return rows
 }
 
+export function buildFormListSummary(rows: FormListRow[]): FormListSummary {
+  let global = 0
+  let sectionSpecific = 0
+  let submissionSum = 0
+  let submissionCount = 0
+
+  for (const row of rows) {
+    if (row.isGlobal) global += 1
+    else sectionSpecific += 1
+
+    if (row.totalStudents > 0) {
+      submissionSum += (row.submittedCount / row.totalStudents) * 100
+      submissionCount += 1
+    }
+  }
+
+  return {
+    total: rows.length,
+    global,
+    sectionSpecific,
+    avgSubmissionPct:
+      submissionCount > 0 ? Math.round(submissionSum / submissionCount) : 0,
+  }
+}
+
 /**
  * Client/server-safe row filtering & sorting.
  * Backend can delete this and push equivalent logic into the SQL query.
@@ -275,6 +317,23 @@ export function filterFormListRows(
   })
 
   return filtered
+}
+
+export function paginateFormListRows<T>(
+  rows: T[],
+  page: number,
+  pageSize: number = FORM_LIST_PAGE_SIZE
+): { rows: T[]; totalPages: number; totalCount: number } {
+  const totalCount = rows.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const safePage = Math.min(Math.max(1, page), totalPages)
+  const start = (safePage - 1) * pageSize
+
+  return {
+    rows: rows.slice(start, start + pageSize),
+    totalPages,
+    totalCount,
+  }
 }
 
 /** Preview rows for UI reference — remove when live data is seeded. */

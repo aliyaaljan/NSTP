@@ -13,6 +13,7 @@ async function FormListContent({
     q?: string
     sort?: string
     dir?: string
+    page?: string
   }>
 }) {
   const params = await searchParams
@@ -23,6 +24,7 @@ async function FormListContent({
     <FormListClient
       forms={data.forms}
       sections={data.sections}
+      summary={data.summary}
       meta={data.meta}
       currentUser={data.currentUser}
       query={query}
@@ -38,6 +40,7 @@ export default function AdminFormsPage({
     q?: string
     sort?: string
     dir?: string
+    page?: string
   }>
 }) {
   return (

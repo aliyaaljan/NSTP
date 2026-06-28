@@ -34,17 +34,14 @@ export function formsToCalendarEvents(
       const d = new Date(v.due_date + "T00:00:00")
       const isSubmitted =
         v.status === "submitted" || v.status === "approved"
-      return {
+      const event: CalendarEvent = {
         day: d.getDate(),
         month: d.getMonth(),
         title: v.title,
-        type: isSubmitted ? ("submitted" as const) : ("deadline" as const),
-        status: isSubmitted
-          ? ("submitted" as const)
-          : ("pending" as const),
-        note: v.due_date
-          ? `Due ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-          : undefined,
+        type: isSubmitted ? "submitted" : "deadline",
+        status: isSubmitted ? "submitted" : "pending",
+        note: `Due ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
       }
+      return event
     })
 }

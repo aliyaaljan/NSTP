@@ -4,6 +4,7 @@ import { getAppUserRole } from "@/lib/auth-actions"
 import { lookupId } from "@/lib/lookups"
 import {
   ENROLLMENT_LIST_SELECT,
+  buildStudentListSummary,
   mapEnrollmentToStudentListRow,
   STUDENT_LIST_ALL_SECTIONS,
   type AdminCurrentUser,
@@ -82,6 +83,7 @@ export async function getStudentListData(
   return {
     students,
     sections,
+    summary: buildStudentListSummary(students),
     meta,
     currentUser,
     query,

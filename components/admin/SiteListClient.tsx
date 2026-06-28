@@ -4,47 +4,33 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
-import AddChoiceModal from "@/components/admin/AddChoiceModal"
-import AddStudentModal from "@/components/admin/AddStudentModal"
+import AddGpsSiteModal from "@/components/admin/AddGpsSiteModal"
+import EditGpsSiteModal from "@/components/admin/EditGpsSiteModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
-import EditStudentModal from "@/components/admin/EditStudentModal"
-import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
-import { deleteStudent } from "@/lib/admin/student-list-actions"
+import { deleteSite } from "@/lib/admin/site-list-actions"
+import { validateSiteDelete } from "@/lib/admin/site-edit"
 import {
-  PROGRESS_STATUS_FILTER_OPTIONS,
-  PROGRESS_STATUS_LABELS,
-  type StudentProgressStatus,
-} from "@/lib/admin/student-progress"
-import type {
-  AdminCurrentUser,
-  StudentListMeta,
-  StudentListQuery,
-  StudentListRow,
-  StudentListSectionOption,
-  StudentListSortKey,
-  StudentListSummary,
-} from "@/lib/admin/student-list"
-import {
-  STUDENT_LIST_ALL_SECTIONS,
-  STUDENT_LIST_PAGE_SIZE,
-  filterStudentListRows,
-  paginateStudentListRows,
-} from "@/lib/admin/student-list"
+  SITE_LIST_ALL_ADVISERS,
+  SITE_LIST_ALL_SECTIONS,
+  SITE_LIST_ALL_STATUSES,
+  SITE_LIST_PAGE_SIZE,
+  SITE_STATUS_FILTER_OPTIONS,
+  filterSiteListRows,
+  formatSiteCoordinates,
+  paginateSiteListRows,
+  type AdminCurrentUser,
+  type SiteListAdviserOption,
+  type SiteListMeta,
+  type SiteListQuery,
+  type SiteListRow,
+  type SiteListSectionOption,
+  type SiteListSortKey,
+  type SiteListSummary,
+} from "@/lib/admin/site-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
-const STATUS_BADGE: Record<
-  StudentProgressStatus,
-  { bg: string; color: string }
-> = {
-  on_track: { bg: COLORS.greenBgLight, color: COLORS.green },
-  in_progress: { bg: COLORS.amberBgLight, color: COLORS.amber },
-  at_risk: { bg: COLORS.maroonDarkBgLight, color: COLORS.maroonDark },
-}
-
-interface CurrentUser extends AdminCurrentUser {}
-
-function ProfilePill({ user }: { user: CurrentUser }) {
+function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
     <div
       style={{
@@ -241,7 +227,7 @@ function StatCard({
   )
 }
 
-const TABLE_COL_WIDTHS = ["28%", "14%", "22%", "10%", "18%", "8%"]
+const TABLE_COL_WIDTHS = ["22%", "26%", "10%", "20%", "10%", "12%"]
 
 function TableColGroup() {
   return (
@@ -262,7 +248,7 @@ function ColumnHeader({
   onSort,
 }: {
   label: string
-  align?: "left" | "center"
+  align?: "left" | "center" | "right"
   sortable?: boolean
   sortActive?: boolean
   sortDirection?: "asc" | "desc"
@@ -274,8 +260,9 @@ function ColumnHeader({
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
-        justifyContent: align === "center" ? "center" : "flex-start",
-        width: align === "center" ? "100%" : undefined,
+        justifyContent:
+          align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start",
+        width: align !== "left" ? "100%" : undefined,
       }}
     >
       <span style={{ ...TYPE.sectionLabel, color: COLORS.textGray }}>{label}</span>
@@ -314,36 +301,59 @@ function ColumnHeader({
   )
 }
 
-export default function StudentListClient({
-  students,
+function SiteStatusBadge({ isActive }: { isActive: boolean }) {
+  return (
+    <span
+      style={{
+        ...TYPE.caption,
+        fontWeight: 700,
+        display: "inline-block",
+        padding: "4px 12px",
+        borderRadius: 999,
+        background: isActive ? COLORS.greenBgLight : COLORS.maroonBgLight,
+        color: isActive ? COLORS.green : COLORS.maroon,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {isActive ? "Active" : "Inactive"}
+    </span>
+  )
+}
+
+export default function SiteListClient({
+  sites,
   sections,
+  advisers,
   summary,
   meta,
   currentUser,
   query,
 }: {
-  students: StudentListRow[]
-  sections: StudentListSectionOption[]
-  summary: StudentListSummary
-  meta: StudentListMeta
-  currentUser: CurrentUser
-  query: StudentListQuery
+  sites: SiteListRow[]
+  sections: SiteListSectionOption[]
+  advisers: SiteListAdviserOption[]
+  summary: SiteListSummary
+  meta: SiteListMeta
+  currentUser: AdminCurrentUser
+  query: SiteListQuery
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [addChoiceOpen, setAddChoiceOpen] = useState(false)
-  const [addManualOpen, setAddManualOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [editStudent, setEditStudent] = useState<StudentListRow | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: string
-    name: string
-  } | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
+  const [editSite, setEditSite] = useState<SiteListRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<SiteListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
+
+  const sectionLabelById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const section of sections) {
+      map.set(section.sectionId, section.label)
+    }
+    return map
+  }, [sections])
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -352,13 +362,21 @@ export default function StudentListClient({
   function pushParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString())
     Object.entries(updates).forEach(([key, value]) => {
-      if (!value || value === STUDENT_LIST_ALL_SECTIONS) params.delete(key)
-      else params.set(key, value)
+      if (
+        !value ||
+        value === SITE_LIST_ALL_STATUSES ||
+        value === SITE_LIST_ALL_SECTIONS ||
+        value === SITE_LIST_ALL_ADVISERS
+      ) {
+        params.delete(key)
+      } else {
+        params.set(key, value)
+      }
     })
-    router.push(`/admin/students?${params.toString()}`)
+    router.push(`/admin/sites?${params.toString()}`)
   }
 
-  function toggleSort(key: StudentListSortKey) {
+  function toggleSort(key: SiteListSortKey) {
     const nextDir =
       query.sort === key ? (query.dir === "asc" ? "desc" : "asc") : "asc"
     pushParams({ sort: key, dir: nextDir, page: "1" })
@@ -373,46 +391,45 @@ export default function StudentListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleStudents = useMemo(
-    () => filterStudentListRows(students, { ...query, search: searchInput }),
-    [students, query, searchInput]
+  const visibleSites = useMemo(
+    () => filterSiteListRows(sites, { ...query, search: searchInput }),
+    [sites, query, searchInput]
   )
 
   const {
-    rows: pageStudents,
+    rows: pageSites,
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateStudentListRows(visibleStudents, query.page),
-    [visibleStudents, query.page]
+    () => paginateSiteListRows(visibleSites, query.page),
+    [visibleSites, query.page]
   )
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [
-    query.page,
-    query.search,
-    query.sectionId,
-    query.progressStatus,
-    query.sort,
-    query.dir,
-  ])
+  }, [query.page, query.search, query.status, query.sectionId, query.adviserId, query.sort, query.dir])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const sectionLabel =
-    query.sectionId !== STUDENT_LIST_ALL_SECTIONS
-      ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
-      : "All Sections"
   const statusLabel =
-    PROGRESS_STATUS_FILTER_OPTIONS.find((o) => o.value === query.progressStatus)
-      ?.label ?? "All Status"
+    SITE_STATUS_FILTER_OPTIONS.find((o) => o.value === query.status)?.label ??
+    "All Status"
 
-  function openDeleteConfirm(enrollmentId: string, name: string) {
+  const sectionLabel =
+    query.sectionId !== SITE_LIST_ALL_SECTIONS
+      ? sections.find((s) => s.sectionId === query.sectionId)?.label ?? "All Sections"
+      : "All Sections"
+
+  const adviserLabel =
+    query.adviserId !== SITE_LIST_ALL_ADVISERS
+      ? advisers.find((a) => a.adviserUserId === query.adviserId)?.fullName ?? "All Advisers"
+      : "All Advisers"
+
+  function openDeleteConfirm(site: SiteListRow) {
     setDeleteError(null)
-    setDeleteTarget({ id: enrollmentId, name })
+    setDeleteTarget(site)
   }
 
   function closeDeleteConfirm() {
@@ -424,12 +441,15 @@ export default function StudentListClient({
   function confirmDelete() {
     if (!deleteTarget) return
 
-    setDeleteError(null)
-    setDeletingId(deleteTarget.id)
+    const validationError = validateSiteDelete(deleteTarget)
+    if (validationError) {
+      setDeleteError(validationError)
+      return
+    }
 
+    setDeleteError(null)
     startDeleteTransition(async () => {
-      const result = await deleteStudent(deleteTarget.id)
-      setDeletingId(null)
+      const result = await deleteSite(deleteTarget.geofenceId)
       if (!result.ok) {
         setDeleteError(result.error)
         return
@@ -444,46 +464,41 @@ export default function StudentListClient({
 
   const statCards: Array<React.ComponentProps<typeof StatCard>> = [
     {
-      icon: "ti-users",
-      label: "Total Students",
+      icon: "ti-map-pin",
+      label: "Total Sites",
       value: summary.total,
-      note: "active enrollments",
+      note: "geofence locations",
     },
     {
       icon: "ti-circle-check",
-      label: "On Track",
-      value: summary.onTrack,
+      label: "Active Sites",
+      value: summary.active,
       valueColor: COLORS.green,
       badge: {
-        text: pctOfTotal(summary.onTrack),
+        text: pctOfTotal(summary.active),
         bg: COLORS.greenBgLight,
         color: COLORS.green,
       },
-      note: "of all students",
+      note: "of all sites",
     },
     {
-      icon: "ti-clock",
-      label: "In Progress",
-      value: summary.inProgress,
-      valueColor: COLORS.amber,
+      icon: "ti-circle-x",
+      label: "Inactive Sites",
+      value: summary.inactive,
+      valueColor: COLORS.maroon,
       badge: {
-        text: pctOfTotal(summary.inProgress),
-        bg: COLORS.amberBgLight,
-        color: COLORS.amber,
+        text: pctOfTotal(summary.inactive),
+        bg: COLORS.maroonBgLight,
+        color: COLORS.maroon,
       },
-      note: "of all students",
+      note: "of all sites",
     },
     {
-      icon: "ti-alert-triangle",
-      label: "At Risk",
-      value: summary.atRisk,
-      valueColor: COLORS.maroonDark,
-      badge: {
-        text: pctOfTotal(summary.atRisk),
-        bg: COLORS.maroonDarkBgLight,
-        color: COLORS.maroonDark,
-      },
-      note: "of all students",
+      icon: "ti-radar",
+      label: "Avg. Radius",
+      value: summary.avgRadiusMeters,
+      valueSuffix: "m",
+      note: "across all sites",
     },
   ]
 
@@ -491,9 +506,9 @@ export default function StudentListClient({
     <>
       <ChartStyles />
       <style>{`
-        .student-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .student-list-scroll::-webkit-scrollbar { width: 5px; }
-        .student-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
+        .site-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
+        .site-list-scroll::-webkit-scrollbar { width: 5px; }
+        .site-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
       `}</style>
 
       <div
@@ -506,12 +521,12 @@ export default function StudentListClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Student List</h1>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Site List</h1>
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
           <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {filteredCount} total students
+            {filteredCount} GPS geofence {filteredCount === 1 ? "site" : "sites"}
           </p>
         </div>
         <ProfilePill user={currentUser} />
@@ -547,7 +562,7 @@ export default function StudentListClient({
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search students"
+            placeholder="Search sites, sections, or advisers"
             style={{
               width: "100%",
               fontFamily: FONT_BODY,
@@ -575,33 +590,54 @@ export default function StudentListClient({
       >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           <FilterDropdown
-            label={sectionLabel}
-            value={query.sectionId}
+            label={statusLabel}
+            value={query.status}
             onChange={(value) =>
               pushParams({
-                sectionId: value === STUDENT_LIST_ALL_SECTIONS ? null : value,
+                status: value === SITE_LIST_ALL_STATUSES ? null : value,
                 page: "1",
               })
             }
           >
-            <option value={STUDENT_LIST_ALL_SECTIONS}>All Sections</option>
-            {sections.map((section) => (
-              <option key={section.sectionId} value={section.sectionId}>
-                Section {section.name}
+            {SITE_STATUS_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </FilterDropdown>
 
           <FilterDropdown
-            label={statusLabel}
-            value={query.progressStatus}
+            label={sectionLabel}
+            value={query.sectionId}
             onChange={(value) =>
-              pushParams({ status: value === "all" ? null : value, page: "1" })
+              pushParams({
+                sectionId: value === SITE_LIST_ALL_SECTIONS ? null : value,
+                page: "1",
+              })
             }
           >
-            {PROGRESS_STATUS_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            <option value={SITE_LIST_ALL_SECTIONS}>All Sections</option>
+            {sections.map((section) => (
+              <option key={section.sectionId} value={section.sectionId}>
+                {section.label}
+              </option>
+            ))}
+          </FilterDropdown>
+
+          <FilterDropdown
+            label={adviserLabel}
+            value={query.adviserId}
+            onChange={(value) =>
+              pushParams({
+                adviserId: value === SITE_LIST_ALL_ADVISERS ? null : value,
+                page: "1",
+              })
+            }
+          >
+            <option value={SITE_LIST_ALL_ADVISERS}>All Advisers</option>
+            {advisers.map((adviser) => (
+              <option key={adviser.adviserUserId} value={adviser.adviserUserId}>
+                {adviser.fullName}
               </option>
             ))}
           </FilterDropdown>
@@ -609,9 +645,9 @@ export default function StudentListClient({
 
         <button
           type="button"
-          onClick={() => setAddChoiceOpen(true)}
-          aria-label="Add student"
-          title="Add student"
+          onClick={() => setAddOpen(true)}
+          aria-label="Add site"
+          title="Add site"
           style={{
             width: 36,
             height: 36,
@@ -643,7 +679,7 @@ export default function StudentListClient({
           <table
             style={{
               width: "100%",
-              minWidth: 920,
+              minWidth: 880,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
@@ -653,15 +689,12 @@ export default function StudentListClient({
               <tr style={{ background: COLORS.tableHeadBg }}>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
-                    label="Student Name"
+                    label="NSTP Site"
                     sortable
                     sortActive={query.sort === "name"}
                     sortDirection={query.dir}
                     onSort={() => toggleSort("name")}
                   />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Student ID" />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
                   <ColumnHeader
@@ -673,37 +706,47 @@ export default function StudentListClient({
                   />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Hours" />
+                  <ColumnHeader
+                    label="Radius"
+                    sortable
+                    sortActive={query.sort === "radius"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("radius")}
+                  />
+                </th>
+                <th style={{ padding: "14px 18px", textAlign: "left" }}>
+                  <ColumnHeader label="Coordinates" />
                 </th>
                 <th style={{ padding: "14px 18px", textAlign: "center" }}>
                   <ColumnHeader
-                    label="Progress & Status"
+                    label="Status"
                     align="center"
+                    sortable
+                    sortActive={query.sort === "status"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("status")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left", width: 80 }}>
-                  <ColumnHeader label="Actions" />
+                <th style={{ padding: "14px 18px", textAlign: "center" }}>
+                  <ColumnHeader label="Actions" align="center" />
                 </th>
               </tr>
             </thead>
           </table>
         </div>
 
-        <div
-          className="student-list-scroll"
-          style={{ overflowX: "auto", overflowY: "auto" }}
-        >
+        <div className="site-list-scroll" style={{ overflowX: "auto", overflowY: "auto" }}>
           <table
             style={{
               width: "100%",
-              minWidth: 920,
+              minWidth: 880,
               tableLayout: "fixed",
               borderCollapse: "collapse",
             }}
           >
             <TableColGroup />
             <tbody key={animKey}>
-              {pageStudents.length === 0 ? (
+              {pageSites.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
@@ -714,113 +757,117 @@ export default function StudentListClient({
                       padding: "40px 18px",
                     }}
                   >
-                    No students match your filters.
+                    No GPS sites match your filters.
                   </td>
                 </tr>
               ) : (
-                pageStudents.map((student) => {
-                  const badge = STATUS_BADGE[student.progressStatus]
-                  return (
-                    <tr
-                      key={student.enrollmentId}
-                      className="anim-list-item"
-                      style={{ borderTop: `1px solid ${COLORS.border}` }}
-                    >
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.fullName}
-                        </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          {student.email}
-                        </div>
-                      </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.studentNumber ?? "—"}
-                        </div>
-                      </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.sectionName}
-                        </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
-                          {student.adviserName}
-                        </div>
-                      </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.hoursCompleted}/{student.hoursRequired}
-                        </div>
-                      </td>
-                      <td
+                pageSites.map((site) => (
+                  <tr
+                    key={site.geofenceId}
+                    className="anim-list-item"
+                    style={{ borderTop: `1px solid ${COLORS.border}` }}
+                  >
+                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <div
                         style={{
-                          padding: "16px 18px",
-                          verticalAlign: "middle",
-                          textAlign: "center",
+                          ...TYPE.bodyBold,
+                          color: COLORS.textDark,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                         }}
                       >
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
-                          {student.completionPct}%
-                        </div>
-                        <span
+                        {site.siteName}
+                      </div>
+                    </td>
+                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <div
+                        style={{
+                          ...TYPE.bodyBold,
+                          color: COLORS.textDark,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {sectionLabelById.get(site.sectionId) ?? site.sectionName}
+                      </div>
+                      <div
+                        style={{
+                          ...TYPE.caption,
+                          color: COLORS.textGray,
+                          marginTop: 2,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {site.supervisorName}
+                      </div>
+                    </td>
+                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                        {site.radiusMeters} m
+                      </div>
+                    </td>
+                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <div
+                        style={{
+                          ...TYPE.bodyBold,
+                          color: COLORS.textDark,
+                          fontVariantNumeric: "tabular-nums",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {formatSiteCoordinates(site)}
+                      </div>
+                    </td>
+                    <td style={{ padding: "16px 18px", verticalAlign: "middle", textAlign: "center" }}>
+                      <SiteStatusBadge isActive={site.isActive} />
+                    </td>
+                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 10,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setEditSite(site)}
+                          aria-label={`Edit ${site.siteName}`}
+                          title="Edit site"
                           style={{
-                            ...TYPE.bodyBold,
-                            display: "inline-block",
-                            marginTop: 6,
-                            padding: "4px 12px",
-                            borderRadius: 999,
-                            background: badge.bg,
-                            color: badge.color,
+                            background: "none",
+                            border: "none",
+                            padding: 4,
+                            cursor: "pointer",
+                            color: COLORS.maroon,
                           }}
                         >
-                          {PROGRESS_STATUS_LABELS[student.progressStatus]}
-                        </span>
-                      </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <button
-                            type="button"
-                            aria-label={`Edit ${student.fullName}`}
-                            title="Edit student"
-                            onClick={() => setEditStudent(student)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor: "pointer",
-                              color: COLORS.maroon,
-                            }}
-                          >
-                            <i className="ti ti-pencil" style={{ fontSize: 18 }} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Delete ${student.fullName}`}
-                            title="Delete student"
-                            disabled={isDeleting && deletingId === student.enrollmentId}
-                            onClick={() =>
-                              openDeleteConfirm(student.enrollmentId, student.fullName)
-                            }
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor:
-                                isDeleting && deletingId === student.enrollmentId
-                                  ? "not-allowed"
-                                  : "pointer",
-                              color: COLORS.maroon,
-                              opacity:
-                                isDeleting && deletingId === student.enrollmentId ? 0.5 : 1,
-                            }}
-                          >
-                            <i className="ti ti-trash" style={{ fontSize: 18 }} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
+                          <i className="ti ti-pencil" style={{ fontSize: 18 }} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteConfirm(site)}
+                          aria-label={`Delete ${site.siteName}`}
+                          title="Delete site"
+                          disabled={isDeleting}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 4,
+                            cursor: isDeleting ? "not-allowed" : "pointer",
+                            color: COLORS.maroon,
+                            opacity: isDeleting ? 0.5 : 1,
+                          }}
+                        >
+                          <i className="ti ti-trash" style={{ fontSize: 18 }} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -829,38 +876,36 @@ export default function StudentListClient({
         <ListPagination
           page={query.page}
           totalPages={totalPages}
+          pageSize={SITE_LIST_PAGE_SIZE}
           totalCount={filteredCount}
-          pageSize={STUDENT_LIST_PAGE_SIZE}
           onPageChange={goToPage}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />
       </div>
 
-      <AddChoiceModal
-        open={addChoiceOpen}
-        onClose={() => setAddChoiceOpen(false)}
-        title="Add Student"
-        entityLabel="student"
-        onAddManually={() => setAddManualOpen(true)}
-        onImport={() => setImportOpen(true)}
+      <AddGpsSiteModal
+        open={addOpen}
+        gpsSections={sections}
+        onClose={() => setAddOpen(false)}
       />
-      <AddStudentModal
-        open={addManualOpen}
-        sections={sections}
-        onClose={() => setAddManualOpen(false)}
+
+      <EditGpsSiteModal
+        open={editSite !== null}
+        site={editSite}
+        gpsSections={sections}
+        onClose={() => setEditSite(null)}
       />
-      <ImportStudentsModal open={importOpen} onClose={() => setImportOpen(false)} />
-      <EditStudentModal
-        open={editStudent !== null}
-        student={editStudent}
-        sections={sections}
-        onClose={() => setEditStudent(null)}
-      />
+
       <ConfirmDeleteModal
-        open={deleteTarget !== null}
-        title="Remove Student"
-        subjectName={deleteTarget?.name}
-        message="Remove this student from the list? This action cannot be undone."
+        open={Boolean(deleteTarget)}
+        title="Delete GPS Site"
+        subjectName={deleteTarget?.siteName}
+        message={
+          deleteTarget
+            ? `Remove "${deleteTarget.siteName}" from the GPS site list? This action cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
         isPending={isDeleting}
         error={deleteError}
         onClose={closeDeleteConfirm}

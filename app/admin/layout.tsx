@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { redirect } from "next/navigation"
 import { Goblin_One, Cormorant, Montserrat } from "next/font/google"
 import { getAppUserRole } from "@/lib/auth-actions"
@@ -33,6 +35,8 @@ const adminNav: NavGroup[] = [
       { label: "Dashboard",    href: "/admin/dashboard", icon: "ti-layout-dashboard" },
       { label: "Student List", href: "/admin/students",  icon: "ti-users" },
       { label: "Adviser List", href: "/admin/advisers",  icon: "ti-user-cog" },
+      { label: "Section List", href: "/admin/sections", icon: "ti-layout-grid" },
+      { label: "Site List",    href: "/admin/sites",    icon: "ti-map-pin" },
       { label: "Forms",        href: "/admin/forms",     icon: "ti-clipboard-check" },
     ],
   },

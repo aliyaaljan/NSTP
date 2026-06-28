@@ -5,6 +5,7 @@ import { lookupId } from "@/lib/lookups"
 import {
   ADVISER_LIST_ALL_SECTIONS,
   ADVISER_LIST_SELECT,
+  buildAdviserListSummary,
   buildPendingAppealCounts,
   mapAdviserDbRowToListRow,
   type AdminCurrentUser,
@@ -117,6 +118,7 @@ export async function getAdviserListData(
   return {
     advisers,
     sections,
+    summary: buildAdviserListSummary(advisers),
     meta,
     currentUser,
     query,
@@ -191,13 +193,14 @@ export async function importAdvisersFromCsv(
 }
 
 /**
- * Create a new adviser account and section assignments.
+ * Create a new adviser account.
  *
  * Backend checklist:
  * 1. Validate admin role (already done below).
  * 2. Create auth user + `app_user` (role = adviser) with full_name, email, is_active.
- * 3. For each sectionId in payload.sectionIds, SET `section.adviser_user_id`.
- * 4. Return `{ ok: true }` on success.
+ * 3. Return `{ ok: true }` on success.
+ *
+ * Section assignment is managed on the Section List page.
  */
 export async function createAdviser(
   payload: AdviserCreatePayload
@@ -214,7 +217,6 @@ export async function createAdviser(
 
   // TODO(backend): implement adviser creation.
   console.info("[createAdviser] pending implementation", {
-    sectionIds: payload.sectionIds,
     email: payload.email,
   })
 
@@ -226,15 +228,15 @@ export async function createAdviser(
 }
 
 /**
- * Update an adviser profile and section assignments.
+ * Update an adviser profile.
  *
  * Backend checklist:
  * 1. Validate admin role (already done below).
  * 2. Update `app_user` SET full_name, email, is_active WHERE app_user_id = adviserUserId.
- * 3. For each sectionId in payload.sectionIds, SET `section.adviser_user_id = adviserUserId`.
- * 4. Clear `section.adviser_user_id` on sections previously assigned to this adviser but omitted.
- * 5. If email changes, sync `auth.users` email via Supabase Admin API if needed.
- * 6. Return `{ ok: true }` on success.
+ * 3. If email changes, sync `auth.users` email via Supabase Admin API if needed.
+ * 4. Return `{ ok: true }` on success.
+ *
+ * Section assignment is managed on the Section List page.
  */
 export async function updateAdviser(
   payload: AdviserEditPayload
@@ -252,7 +254,6 @@ export async function updateAdviser(
   // TODO(backend): implement adviser update.
   console.info("[updateAdviser] pending implementation", {
     adviserUserId: payload.adviserUserId,
-    sectionIds: payload.sectionIds,
     isActive: payload.isActive,
   })
 

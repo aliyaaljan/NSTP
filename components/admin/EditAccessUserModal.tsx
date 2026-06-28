@@ -1,20 +1,28 @@
 "use client"
 
 import { useCallback, useEffect, useState, useTransition } from "react"
-import { createAdviser } from "@/lib/admin/adviser-list-actions"
+import { updateAccessUser, updateUserRole } from "@/lib/admin/access-control-actions"
 import {
-  emptyAdviserCreatePayload,
-  validateAdviserCreatePayload,
-  type AdviserCreatePayload,
-} from "@/lib/admin/adviser-edit"
-import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+  accessUserRowToEditPayload,
+  validateAccessUserEditPayload,
+  type AccessUserEditPayload,
+} from "@/lib/admin/access-control-edit"
+import type {
+  AccessControlRoleOption,
+  AccessControlRow,
+} from "@/lib/admin/access-control"
+import { ROLE_CODE_LABELS } from "@/lib/admin/access-control"
+import { FONT_BODY, TYPE } from "@/lib/admin-typography"
+import { ADMIN_COLORS } from "@/lib/admin-theme"
 
 const COLORS = {
-  textDark: "#2C2C2A",
-  textGray: "#8C8C88",
-  headerGreen: "#14492E",
-  fieldBg: "#EBEBE8",
-  error: "#7B1113",
+  textDark: ADMIN_COLORS.text,
+  textGray: ADMIN_COLORS.muted,
+  headerMaroon: ADMIN_COLORS.maroon,
+  fieldBg: "#F3F4F6",
+  error: ADMIN_COLORS.maroon,
+  border: ADMIN_COLORS.border,
+  maroon: ADMIN_COLORS.maroon,
 }
 
 function FormField({
@@ -69,6 +77,7 @@ function TextInput({
         width: "100%",
         boxSizing: "border-box",
         ...TYPE.body,
+        fontFamily: FONT_BODY,
         fontStyle: "normal",
         color: COLORS.textDark,
         background: COLORS.fieldBg,
@@ -81,21 +90,25 @@ function TextInput({
   )
 }
 
-export default function AddAdviserModal({
+export default function EditAccessUserModal({
   open,
+  user,
+  roles,
   onClose,
 }: {
   open: boolean
+  user: AccessControlRow | null
+  roles: AccessControlRoleOption[]
   onClose: () => void
 }) {
-  const [form, setForm] = useState<AdviserCreatePayload>(emptyAdviserCreatePayload())
+  const [form, setForm] = useState<AccessUserEditPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const reset = useCallback(() => {
-    setForm(emptyAdviserCreatePayload())
+    setForm(user ? accessUserRowToEditPayload(user) : null)
     setError(null)
-  }, [])
+  }, [user])
 
   const close = useCallback(() => {
     reset()
@@ -103,11 +116,11 @@ export default function AddAdviserModal({
   }, [onClose, reset])
 
   useEffect(() => {
-    if (open) {
-      setForm(emptyAdviserCreatePayload())
+    if (open && user) {
+      setForm(accessUserRowToEditPayload(user))
       setError(null)
     }
-  }, [open])
+  }, [open, user])
 
   useEffect(() => {
     if (!open) return
@@ -124,12 +137,14 @@ export default function AddAdviserModal({
     }
   }, [open, close])
 
-  function patchForm(updates: Partial<AdviserCreatePayload>) {
-    setForm((prev) => ({ ...prev, ...updates }))
+  function patchForm(updates: Partial<AccessUserEditPayload>) {
+    setForm((prev) => (prev ? { ...prev, ...updates } : prev))
   }
 
-  function handleAdd() {
-    const validationError = validateAdviserCreatePayload(form)
+  function handleSave() {
+    if (!form || !user) return
+
+    const validationError = validateAccessUserEditPayload(form)
     if (validationError) {
       setError(validationError)
       return
@@ -137,7 +152,21 @@ export default function AddAdviserModal({
 
     setError(null)
     startTransition(async () => {
-      const result = await createAdviser(form)
+      const roleChanged = user.roleId !== form.roleId
+
+      if (roleChanged) {
+        const roleResult = await updateUserRole({
+          appUserId: form.appUserId,
+          roleId: form.roleId,
+          roleCode: form.roleCode,
+        })
+        if (!roleResult.ok) {
+          setError(roleResult.error)
+          return
+        }
+      }
+
+      const result = await updateAccessUser(form)
       if (!result.ok) {
         setError(result.error)
         return
@@ -147,10 +176,9 @@ export default function AddAdviserModal({
     })
   }
 
-  if (!open) return null
+  if (!open || !user || !form) return null
 
-  const canAdd =
-    !isPending && Boolean(form.fullName.trim() && form.email.trim())
+  const canSave = !isPending && Boolean(form.fullName.trim() && form.email.trim())
 
   return (
     <div
@@ -171,7 +199,7 @@ export default function AddAdviserModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="add-adviser-title"
+        aria-labelledby="edit-access-user-title"
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
@@ -188,11 +216,11 @@ export default function AddAdviserModal({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "18px 22px",
-            background: COLORS.headerGreen,
+            background: COLORS.headerMaroon,
           }}
         >
-          <h2 id="add-adviser-title" style={{ ...TYPE.h2, color: "#fff", margin: 0 }}>
-            Add Adviser
+          <h2 id="edit-access-user-title" style={{ ...TYPE.h2, color: "#fff", margin: 0 }}>
+            Edit User
           </h2>
           <button
             type="button"
@@ -204,38 +232,75 @@ export default function AddAdviserModal({
               color: "#fff",
               cursor: "pointer",
               padding: 4,
-              display: "flex",
             }}
           >
             <i className="ti ti-x" style={{ fontSize: 20 }} />
           </button>
         </div>
 
-        <div
-          style={{
-            padding: "24px 22px 20px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 18,
-            maxHeight: "min(70vh, 580px)",
-            overflowY: "auto",
-          }}
-        >
+        <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
           <FormField label="Full Name">
             <TextInput
               value={form.fullName}
-              onChange={(fullName) => patchForm({ fullName })}
-              placeholder="Adviser full name"
+              onChange={(value) => patchForm({ fullName: value })}
+              placeholder="Last name, First name"
             />
           </FormField>
 
-          <FormField label="Email" hint="Must be a UP email (@up.edu.ph).">
+          <FormField label="Email" hint="Must be a valid UP address (@up.edu.ph).">
             <TextInput
               type="email"
               value={form.email}
-              onChange={(email) => patchForm({ email })}
+              onChange={(value) => patchForm({ email: value })}
               placeholder="name@up.edu.ph"
             />
+          </FormField>
+
+          <FormField label="Student Number" hint="Leave blank for non-student accounts.">
+            <TextInput
+              value={form.studentNumber ?? ""}
+              onChange={(value) => patchForm({ studentNumber: value.trim() || null })}
+              placeholder="20XX-XXXXX"
+            />
+          </FormField>
+
+          <FormField label="SAIS ID" hint="Optional identifier for staff accounts.">
+            <TextInput
+              value={form.saisId ?? ""}
+              onChange={(value) => patchForm({ saisId: value.trim() || null })}
+              placeholder="SAIS ID"
+            />
+          </FormField>
+
+          <FormField label="Role">
+            <select
+              value={form.roleId}
+              onChange={(e) => {
+                const selected = roles.find((role) => role.roleId === e.target.value)
+                if (!selected) return
+                patchForm({ roleId: selected.roleId, roleCode: selected.code })
+              }}
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                ...TYPE.body,
+                fontFamily: FONT_BODY,
+                fontStyle: "normal",
+                color: COLORS.textDark,
+                background: COLORS.fieldBg,
+                border: "none",
+                borderRadius: 6,
+                padding: "12px 14px",
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              {roles.map((role) => (
+                <option key={role.roleId} value={role.roleId}>
+                  {ROLE_CODE_LABELS[role.code]}
+                </option>
+              ))}
+            </select>
           </FormField>
 
           <label
@@ -245,7 +310,6 @@ export default function AddAdviserModal({
               gap: 10,
               cursor: "pointer",
               ...TYPE.body,
-              fontStyle: "normal",
               color: COLORS.textDark,
             }}
           >
@@ -256,24 +320,25 @@ export default function AddAdviserModal({
               style={{
                 width: 16,
                 height: 16,
-                accentColor: COLORS.headerGreen,
+                accentColor: COLORS.headerMaroon,
                 cursor: "pointer",
               }}
             />
-            Active account
+            Account is active
           </label>
 
           {error && (
-            <p style={{ ...TYPE.body, color: COLORS.error, margin: 0 }}>{error}</p>
+            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{error}</p>
           )}
         </div>
 
         <div
           style={{
-            padding: "0 22px 22px",
             display: "flex",
             justifyContent: "flex-end",
             gap: 10,
+            padding: "14px 22px 20px",
+            borderTop: `1px solid ${COLORS.border}`,
           }}
         >
           <button
@@ -282,37 +347,33 @@ export default function AddAdviserModal({
             disabled={isPending}
             style={{
               ...TYPE.bodyBold,
+              fontFamily: FONT_BODY,
+              padding: "10px 18px",
+              borderRadius: 8,
+              border: `1px solid ${COLORS.border}`,
+              background: "#fff",
               color: COLORS.textDark,
-              background: COLORS.fieldBg,
-              border: "none",
-              borderRadius: 999,
-              padding: "10px 24px",
               cursor: isPending ? "not-allowed" : "pointer",
-              opacity: isPending ? 0.6 : 1,
             }}
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={handleAdd}
-            disabled={!canAdd}
+            onClick={handleSave}
+            disabled={!canSave}
             style={{
               ...TYPE.bodyBold,
-              fontFamily: FONT_HEADING,
-              color: "#fff",
-              background: canAdd ? COLORS.headerGreen : "#A8B5AD",
+              fontFamily: FONT_BODY,
+              padding: "10px 18px",
+              borderRadius: 8,
               border: "none",
-              borderRadius: 999,
-              padding: "10px 24px",
-              cursor: canAdd ? "pointer" : "not-allowed",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
+              background: canSave ? COLORS.maroon : COLORS.border,
+              color: "#fff",
+              cursor: canSave ? "pointer" : "not-allowed",
             }}
           >
-            <i className="ti ti-plus" style={{ fontSize: 16 }} />
-            {isPending ? "Adding…" : "Add Adviser"}
+            {isPending ? "Saving…" : "Save Changes"}
           </button>
         </div>
       </div>
