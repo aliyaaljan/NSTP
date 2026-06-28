@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { IconX, IconCamera } from "@tabler/icons-react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCameraRotate } from "@fortawesome/free-solid-svg-icons";
+import { IconX, IconCamera, IconCameraRotate } from "@tabler/icons-react";
 
 interface QrScannerProps {
   onClose: () => void;
@@ -137,15 +135,7 @@ export function QrScanner({ onClose, onScan }: QrScannerProps) {
                   className="scanner-flip-btn"
                   aria-label="Flip camera"
                 >
-                  <FontAwesomeIcon 
-                    icon={faCameraRotate} 
-                    size="lg"
-                    style={{ 
-                      width: "24px", 
-                      height: "24px",
-                      color: "#fff",
-                    }}
-                  />
+                  <IconCameraRotate size={24} stroke={1.75} color="#fff" />
                 </button>
               )}
 

@@ -28,8 +28,9 @@ export interface CalendarEvent {
   day: number
   month: number
   title: string
-  type: 'holiday'
+  type: "holiday" | "deadline" | "submitted"
   note?: string
+  status?: "submitted" | "pending"
 }
 
 export interface CalendarOverviewProps {
