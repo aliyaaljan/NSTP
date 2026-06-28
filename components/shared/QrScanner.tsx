@@ -30,44 +30,53 @@ export function QrScanner({ onClose, onScan }: QrScannerProps) {
 
   const startCamera = async () => {
     try {
-      // Stop existing stream
+      // Stop existing stream tracks cleanly to prevent leakage
       if (stream) {
         stream.getTracks().forEach((t) => t.stop())
         setStream(null)
       }
 
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      })
+      // Try preferred camera
+      let newStream: MediaStream
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: isMobile ? facingMode : "user",
+          },
+        })
+      } catch (constraintError) {
+        console.warn(
+          "[Scanner] conditions rejected, falling back to generic feeed",
+          constraintError
+        )
+        newStream = await navigator.mediaDevices.getUserMedia({ video: true })
+      }
 
       setStream(newStream)
+
       if (videoRef.current) {
         videoRef.current.srcObject = newStream
-        await videoRef.current.play()
-        setScanning(true)
-        setError(null)
+        videoRef.current.setAttribute("playsinline", "true")
+
+        const playPromise = videoRef.current.play()
+
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setScanning(true)
+              setError(null)
+            })
+            .catch((playError) => {
+              console.log(
+                "[Scanner Video Bridge] Playback request safely absorbed:",
+                playError.message
+              )
+            })
+        }
       }
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Unable to access camera"
-      if (
-        errorMessage.includes("Permission denied") ||
-        errorMessage.includes("NotAllowedError")
-      ) {
-        setError("Camera access denied. Please allow camera permissions.")
-      } else if (
-        errorMessage.includes("NotFoundError") ||
-        errorMessage.includes("No device")
-      ) {
-        setError("No camera found. Please connect a camera.")
-      } else {
-        setError("Unable to access camera. Please check your camera.")
-      }
-      setScanning(false)
+    } catch (err: any) {
+      console.error("Camera access failed:", err)
+      setError("Unable to open camera.")
     }
   }
 
