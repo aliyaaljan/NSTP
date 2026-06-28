@@ -1,4 +1,6 @@
 // app/facilitator/layout.tsx
+export const dynamic = "force-dynamic"
+
 import { redirect } from "next/navigation";
 import { getAppUserRole } from "@/lib/auth-actions";
 import { Goblin_One, Cormorant, Montserrat } from "next/font/google";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { redirect } from "next/navigation"
 import { Goblin_One, Cormorant, Montserrat } from "next/font/google"
 import { getAppUserRole } from "@/lib/auth-actions"
