@@ -12,7 +12,9 @@ const goblinOne = Goblin_One({ weight: "400", subsets: ["latin"], display: "swap
 const cormorant = Cormorant({ weight: ["400","500","600","700"], style: ["normal","italic"], subsets: ["latin"], display: "swap" })
 const montserrat = Montserrat({ weight: ["400","500","600","700","800"], subsets: ["latin"], display: "swap" })
 
-const DEV_ENABLED = process.env.NEXT_PUBLIC_DEV_AUTH_ENABLED === "true"
+const DEV_ENABLED =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_DEV_AUTH_ENABLED === "true"
 
 export default function LoginForm() {
   const supabase = createClient()
