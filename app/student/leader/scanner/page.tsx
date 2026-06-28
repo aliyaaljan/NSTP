@@ -1,11 +1,15 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Montserrat } from "next/font/google"
 import Sidebar from "@/components/shared/StudentLeaderSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
 import { QrScanner } from "@/components/shared/QrScanner"
 import { recordScan } from "@/lib/attendance/qr-actions"
+import {
+  fetchLeaderScanHistory,
+  type ScanRecord,
+} from "@/lib/student/leader/scanner-fetch"
 import {
   IconQrcode,
   IconClock,
@@ -62,7 +66,7 @@ type Scan = {
   scannedTime: string
   status: ScanStatus
 }
-
+/*
 // basis for now: 15 mins is late
 // hardcoded student data
 const SCAN_HISTORY: Scan[] = [
@@ -235,6 +239,7 @@ const SCAN_HISTORY: Scan[] = [
     status: "On Time",
   },
 ]
+*/
 
 const STATUS_STYLES: Record<
   ScanStatus,
@@ -350,6 +355,23 @@ export default function LeaderScannerPage() {
   const [selectedWeek, setSelectedWeek] = useState<string>("all")
   const [selectedMonth, setSelectedMonth] = useState<string>("")
 
+  const [scans, setScans] = useState<ScanRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // fetch data when page loads
+  const loadDatabaseScans = async () => {
+    setIsLoading(true)
+    const dbScans = await fetchLeaderScanHistory()
+    setScans(dbScans)
+    setIsLoading(false)
+  }
+
+  useEffect(() => {
+    loadDatabaseScans()
+  }, [])
+
+  // calculate metrics based on the 'scans' state variable
+
   const [scannerGeo, setScannerGeo] = useState<
     { latitude: number; longitude: number; accuracy_meter: number } | undefined
   >(undefined)
@@ -375,7 +397,8 @@ export default function LeaderScannerPage() {
     : `${COLLAPSED_W + RAIL_MARGIN * 2}px`
 
   // Filter scans based on selected week
-  const filteredScans = filterByWeek(SCAN_HISTORY, selectedWeek)
+
+  const filteredScans = filterByWeek(scans, selectedWeek) // Ensure filterByWeek references the 'scans' array
 
   // For all, group by month
   const groupedByMonth =
@@ -385,31 +408,37 @@ export default function LeaderScannerPage() {
   const groupedByDate =
     selectedWeek !== "all" ? groupByDate(filteredScans) : null
 
-  const totalScans = SCAN_HISTORY.length
-  const onTimeCount = SCAN_HISTORY.filter((s) => s.status === "On Time").length
-  const lateCount = SCAN_HISTORY.filter((s) => s.status === "Late").length
+  const totalScans = scans.length
+  const onTimeCount = scans.filter((s) => s.status === "On Time").length
+  const lateCount = scans.filter((s) => s.status === "Late").length
 
-  const months = Array.from(
-    new Set(
-      SCAN_HISTORY.map((scan) => {
-        const date = new Date(scan.date)
-        return date.toLocaleDateString("en-US", {
-          month: "long",
-          year: "numeric",
+  const months = useMemo(() => {
+    if (!scans || scans.length === 0) return []
+
+    const uniqueMonthStrings = Array.from(
+      new Set(
+        scans.map((scan) => {
+          const date = new Date(scan.date)
+          return date.toLocaleDateString("en-US", {
+            month: "long",
+            year: "numeric",
+          })
         })
-      })
+      )
     )
-  ).sort((a, b) => {
-    const dateA = new Date(a)
-    const dateB = new Date(b)
-    return dateB.getTime() - dateA.getTime()
-  })
+
+    return uniqueMonthStrings.sort((a, b) => {
+      const dateA = new Date(a)
+      const dateB = new Date(b)
+      return dateB.getTime() - dateA.getTime()
+    })
+  }, [scans])
 
   useEffect(() => {
     if (months.length > 0 && !selectedMonth) {
       setSelectedMonth(months[0])
     }
-  }, [months])
+  }, [months, selectedMonth]) // Reference is now stable, stopping re-render loops
 
   return (
     <div
