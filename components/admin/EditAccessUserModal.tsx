@@ -142,7 +142,7 @@ export default function EditAccessUserModal({
   }
 
   function handleSave() {
-    if (!form) return
+    if (!form || !user) return
 
     const validationError = validateAccessUserEditPayload(form)
     if (validationError) {
