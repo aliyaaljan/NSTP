@@ -1,3 +1,10 @@
+/**
+INACTIVE
+export architecture has been migrated away from cloud-bucket Server Actions over to an optimized, in-memory local file stream.
+ * migrated to `/app/api/export/route.ts`
+ * frontend component `@/components/admin/DashboardExportButton.tsx`
+ */
+/*
 "use server"
 
 import { getAppUserRole } from "../auth-actions"
@@ -120,5 +127,12 @@ export async function exportDashboardAnalytics(
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
+  }
+}
+*/
+export async function exportDashboardAnalytics() {
+  return {
+    ok: false,
+    error: "Export pipeline has been moved to the /api/export stream route.",
   }
 }
