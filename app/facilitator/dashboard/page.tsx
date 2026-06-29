@@ -14,6 +14,7 @@ import {
   IconClock,
   IconCircleCheck,
 } from "@tabler/icons-react"
+import { RxValueNone } from "react-icons/rx";
 import {
   navRoutes,
   dashboardStyles,
@@ -23,6 +24,7 @@ import {
   ProgressBar,
   DonutChart,
   Calendar,
+  InfoCircle
 } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { createClient } from "@/lib/client"
@@ -56,7 +58,7 @@ export default function DashboardPage() {
   const [initials, setInitials] = useState("")
   const [sections, setSections] = useState<{ id: string; name: string }[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
-  const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at: string }[]>([])
+  const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at_hours: string }[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
@@ -294,7 +296,7 @@ export default function DashboardPage() {
                           </div>
                           <div className="db-kpi-value">{value}</div>
                           <div className="db-kpi-deco">
-                            <Icon size={64} stroke={1.2} />
+                            <Icon size={110} stroke={1.2} style={{}}/>
                           </div>
                         </div>
                       ))}
@@ -437,7 +439,11 @@ export default function DashboardPage() {
                 <div className="right-panel">
                   {/* Section Completion Rate */}
                   <div className="completion-card" style={{ width: "100%" }}>
-                    <div className="card-title">Section Completion Rate</div>
+                    <div className="flex flex-row items-center gap-1">
+                      <div className="card-title">Section Completion Rate</div>
+                      <InfoCircle 
+                        tooltip={"On Track: Students are keeping up with the term's pace.\n At Risk: Students are more than 20% behind schedule."} />
+                    </div>
                     <div className="completion-inner">
                       <DonutChart key={sectionKey} pct={currentData.completion_pct} />
                       <div className="completion-meta">
@@ -461,33 +467,27 @@ export default function DashboardPage() {
                   <Calendar />
                   {/* Recent Activity */}
                   <div className={`activity-card ${recentActivity.length === 0 ? "flex-1" : ""}`} style={{ width: "100%"}}>
-                    <div className="card-title">Recent Activity</div>
+                    <div className="flex flex-row items-center gap-1">
+                      <div className="card-title">Recent Activity </div>
+                      <InfoCircle tooltip="All recent activity for the last 7 days." />
+                    </div>
                     <div className="activity-card-scroll mb-auto pb-2">
                       {recentActivity.length > 0 ? (
                         recentActivity.map((item, index) => {
-                          const date = new Date(item.created_at)
-                          const formatted = date.toLocaleString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          })
                           return (
                             <div key={index} className="text-xs bg-white border border-gray-300 rounded-(--radius) px-4 py-3 mt-2 shadow-(--shadow)">
-                              <div>{item.summary}</div>
-                              <div className="text-muted mt-1 text-[10px]">{formatted}</div>
-                            </div>
+                              <div className="font-semibold text-justify">{item.summary}</div>
+                              <div className="text-muted mt-1 text-[10px]">{item.created_at_hours}</div>
+                            </div>  
                           )
                         })
                       ) : (
                         <div className="activity-empty">
                           <div className="activity-empty-icon">
-                            <IconInfoCircle size={18} stroke={1.5} />
+                            <RxValueNone size={18} stroke={"1.5"} />
                           </div>
                           <div className="activity-empty-text">
-                            No activity for the past 30 days.
+                            No activity for the past 7 days.
                             <br />
                             Actions you take will appear here.
                           </div>

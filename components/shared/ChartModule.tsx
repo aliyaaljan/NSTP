@@ -12,6 +12,7 @@ export function ChartStyles() {
         padding: 16px 18px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
       }
       .db-kpi-card:hover {
         border-color: var(--maroon);
@@ -46,9 +47,11 @@ export function ChartStyles() {
         z-index: 1;
       }
       .db-kpi-deco {
-        position: absolute;
-        bottom: 10px;
-        right: 14px;
+        position: absolute; 
+        right: -15px; 
+        bottom: -23px;
+        // bottom: 10px;
+        // right: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -59,10 +62,10 @@ export function ChartStyles() {
         transform: rotate(-5deg);
         transition: all 0.3s ease;
       }
-      .db-kpi-deco svg {
-        width: 64px;
-        height: 64px;
-      }
+      // .db-kpi-deco svg {
+      //   width: 64px;
+      //   height: 64px;
+      // }
       .db-kpi-card:hover .db-kpi-deco {
         opacity: 0.2;
         transform: rotate(0deg) scale(1.08);

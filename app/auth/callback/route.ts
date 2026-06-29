@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
 
   const error = searchParams.get("error")
-  const errorDescription = searchParams.get("error_description")
+  let errorDescription = searchParams.get("error_description")
+  if (errorDescription === "Database error saving new user") {errorDescription = "Please choose your offical UP Mail"}
 
   if (error) {
     const messageToPass = errorDescription || error
