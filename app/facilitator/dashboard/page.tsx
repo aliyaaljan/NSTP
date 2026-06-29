@@ -42,7 +42,33 @@ type DashboardRow = {
   students: { name: string; pct: number }[]
 }
 
-const PAGE_SIZE = 10
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  const delta = 1
+  const shown = new Set<number>()
+
+  shown.add(1)
+  shown.add(total)
+  for (let i = current - delta; i <= current + delta; i++) {
+    if (i >= 1 && i <= total) shown.add(i)
+  }
+
+  const sorted = Array.from(shown).sort((a, b) => a - b)
+  const result: (number | "...")[] = []
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0) {
+      const gap = sorted[i] - sorted[i - 1]
+      if (gap === 2) {
+        result.push(sorted[i - 1] + 1) 
+      } else if (gap > 2) {
+        result.push("...")
+      }
+    }
+    result.push(sorted[i])
+  }
+
+  return result
+}
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -59,7 +85,9 @@ export default function DashboardPage() {
   const [sections, setSections] = useState<{ id: string; name: string }[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
   const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at_hours: string }[]>([])
+  const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string }[]>([])
   const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
 
@@ -100,6 +128,11 @@ export default function DashboardPage() {
       const {data: auditData, error: auditError} = await supabase.rpc("get_adviser_recent_activity",{p_adviser_user_id: user?.id})
       if (auditError) console.log(auditError)
       if (auditData) setRecentActivity(auditData)
+
+      //Get active sem data
+      const { data: semData, error: semError } = await supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id })
+      if (semError) console.error(semError)
+      if (semData) setActiveSemData(semData)
     })
   }, [])
 
@@ -120,6 +153,8 @@ export default function DashboardPage() {
   const currentData = dashboardData.find((r) => r.section_name === selectedSection)
   if (!currentData) return null
 
+  const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
+
   const statCards = [
     { label: "Total Students", value: currentData.total, Icon: IconUsers },
     { label: "Pending Review", value: currentData.pending, Icon: IconClock },
@@ -130,10 +165,10 @@ export default function DashboardPage() {
 
   const filtered = searchVal.trim() ? students.filter((s) => s.name.toLowerCase().includes(searchVal.toLowerCase())) : students
 
-  const totalPages = Math.max(1, Math.ceil(filtered?.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(filtered?.length / pageSize))
   const paginated = filtered?.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   )
 
   const pendingCount = dashboardData.find((r) => r.section_name === "All Sections")?.pending ?? 0
@@ -309,7 +344,7 @@ export default function DashboardPage() {
                       <div className="card-title" style={{ marginBottom: 0 }}>
                         Student Progress
                       </div>
-                      {/* <button className="view-all-btn">View All</button> */}
+                      <div className="font-semibold">{currentSemData?.remaining_days ?? ""}</div>
                     </div>
                     <div className="student-list mb-4" key={animKey}>
                       {filtered.length === 0 ? (
@@ -346,10 +381,30 @@ export default function DashboardPage() {
                       className="w-auto pt-2"
                     >
                       <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                        Showing {filtered.length === 0 ? "0" : 
-                                 filtered.length === 1 ? "1" : 
-                                `${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filtered.length)}`
-                        } of {filtered.length}
+                        Showing {
+                          filtered.length === 0 ? "0" : 
+                          filtered.length === 1 ? "1" : (
+                            <>
+                              {(currentPage - 1) * pageSize + 1} - {" "}
+                              <input 
+                                type="number" 
+                                min={1}
+                                max={filtered.length}
+                                className="px-1 py-1 w-10 text-center border rounded mx-1 inline-block"
+                                value={Math.min(currentPage * pageSize, filtered.length)}
+                                onChange={(e) => {
+                                  const raw = e.target.value
+                                  if (raw === "") {
+                                    return
+                                  }
+                                  const next = Math.max(1, Math.min(200, Number(raw)))
+                                  setPageSize(next)
+                                  setCurrentPage(1)
+                                }}
+                              />
+                            </>
+                          )
+                        } {" "}of{" "}{filtered.length}
                       </span>
                       <div
                         style={{
@@ -382,8 +437,23 @@ export default function DashboardPage() {
                         >
                           &#8249;
                         </button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                          (p) => (
+                        {getPageNumbers(currentPage, totalPages).map((p, idx) =>
+                          p === "..." ? (
+                            <span
+                              key={`ellipsis-${idx}`}
+                              style={{
+                                width: 28,
+                                height: 28,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 12,
+                                color: "var(--muted)",
+                              }}
+                            >
+                              &#8230;
+                            </span>
+                          ) : (
                             <button
                               key={p}
                               onClick={() => { setCurrentPage(p); setAnimKey((k) => k + 1) }}
@@ -392,10 +462,7 @@ export default function DashboardPage() {
                                 height: 28,
                                 borderRadius: 6,
                                 border: "1px solid var(--border)",
-                                background:
-                                  p === currentPage
-                                    ? "var(--maroon)"
-                                    : "var(--white)",
+                                background: p === currentPage ? "var(--maroon)" : "var(--white)",
                                 color: p === currentPage ? "#fff" : "var(--text)",
                                 fontWeight: p === currentPage ? 700 : 500,
                                 cursor: "pointer",
@@ -464,10 +531,10 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Calendar */}
-                  <Calendar />
+                  <Calendar semEndDate={currentSemData?.sem_end_date} />
                   {/* Recent Activity */}
                   <div className={`activity-card ${recentActivity.length === 0 ? "flex-1" : ""}`} style={{ width: "100%"}}>
-                    <div className="flex flex-row items-center gap-1">
+                    <div className="flex flex-row items-center gap-1 mb-1.5">
                       <div className="card-title">Recent Activity </div>
                       <InfoCircle tooltip="All recent activity for the last 7 days." />
                     </div>

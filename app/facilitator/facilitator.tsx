@@ -132,8 +132,16 @@ export function DonutChart({ pct = 60 }: { pct?: number }) {
   );
 }
 
-export function Calendar() {
+export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
   const today = new Date();
+
+  const semEnd = typeof semEndDate === "string" 
+    ? (() => {
+        const [year, month, day] = semEndDate.split("-").map(Number);
+        return new Date(year, month - 1, day); 
+      })()
+    : semEndDate;
+
   const [current, setCurrent] = useState({ year: today.getFullYear(), month: today.getMonth() });
 
   const firstDay    = new Date(current.year, current.month, 1).getDay();
@@ -144,6 +152,11 @@ export function Calendar() {
 
   const isToday = (d: number) =>
     d === today.getDate() && current.month === today.getMonth() && current.year === today.getFullYear();
+
+  const isSemEnd = (d: number) => {
+    if (!semEnd) return false;
+    return d === semEnd.getDate() && current.month === semEnd.getMonth() && current.year === semEnd.getFullYear();
+  }
 
   const prev = () => setCurrent(c => c.month === 0 ? { year: c.year - 1, month: 11 } : { year: c.year, month: c.month - 1 });
   const next = () => setCurrent(c => c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 });
@@ -157,16 +170,43 @@ export function Calendar() {
       </div>
       <div className="cal-grid">
         {DAYS.map(d => <div key={d} className="cal-day-label">{d}</div>)}
-        {cells.map((d, i) => (
-          <div key={i} className={[
-            "cal-cell",
-            d === null ? "cal-empty" : "",
-            d && isToday(d) ? "cal-today" : "",
-          ].join(" ").trim()}>
-            {d ?? ""}
-          </div>
-        ))}
+        {cells.map((d, i) => {
+          const cellIsToday = d && isToday(d);
+          const cellIsSemEnd = d && isSemEnd(d);
+          const hasLabel = cellIsToday || cellIsSemEnd;
+
+          return (
+            <div 
+              key={i} 
+              className={[
+                "cal-cell relative group",
+                d === null ? "cal-empty" : "",
+                cellIsToday ? "cal-today" : "",
+                cellIsSemEnd ? "cal-sem-end": "",
+              ].join(" ").trim()}
+            >
+              {d ?? ""}
+
+              {hasLabel && (
+                <span className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : "text-[var(--amber)]"}`}>
+                  {cellIsToday ? "Today" : "End of Semester"}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
+      {/* <div className="flex flex-row text-[10px] items-center justify-between mt-4">
+        Legend: 
+        <div className="flex flex-row text-[10px] items-center gap-1">
+          <div className="w-4 h-4 rounded-full overflow-hidden bg-maroon shadow-lg"></div>
+          Today
+        </div>
+        <div className="flex flex-row text-[10px] items-center gap-1">
+          <div className="w-4 h-4 rounded-full overflow-hidden bg-[var(--amber)] shadow-lg"></div>
+          End of Semester
+        </div>
+      </div> */}
     </div>
   );
 }
@@ -434,7 +474,7 @@ export const dashboardStyles = `
   .sb-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 25; cursor: pointer; }
   .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; width: 100%; padding-left: 90px; }
   .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; width: 100%; }
-  .header { display: flex; align-items: center; gap: 16px; padding: 36px 43px 20px 28px; background: var(--bg); flex-shrink: 0; }
+  .header { display: flex; align-items: center; gap: 16px; padding: 36px 28px 20px; background: var(--bg); flex-shrink: 0; }
   .header-greeting { flex: 1; font-size: 34px; font-weight: 800; color: var(--maroon); font-family: var(--font); white-space: nowrap; }
   .search-bar { display: flex; align-items: center; gap: 8px; background: var(--white); border: 1.5px solid var(--border); border-radius: 24px; padding: 8px 16px; min-width: 190px; transition: border-color 0.15s; }
   .search-bar:focus-within { border-color: #9CA3AF; }
@@ -535,7 +575,8 @@ export const dashboardStyles = `
   .cal-cell { position: relative; text-align: center; font-size: 12px; padding: 5px 2px; border-radius: 6px; color: var(--text); cursor: default; line-height: 1; }
   .cal-cell.cal-empty { color: transparent; }
   .cal-cell.cal-today { background: var(--maroon); color: #fff; font-weight: 700; border-radius: 50%; }
-
+  .cal-cell.cal-sem-end { background: var(--amber); color: #fff; font-weight: 700; border-radius: 50%; }
+  
   /* ── Dashboard layout ── */
   .dashboard-layout { display: flex; gap: 16px; align-items: flex-start; flex: 1; align-items: stretch; }
   .dashboard-left   { flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0; }

@@ -59,7 +59,7 @@ export function ChartStyles() {
         color: var(--maroon);
         pointer-events: none;
         z-index: 0;
-        transform: rotate(-5deg);
+        // transform: rotate(-5deg);
         transition: all 0.3s ease;
       }
       // .db-kpi-deco svg {
