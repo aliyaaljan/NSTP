@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { lookupId } from "@/lib/lookups"
-import { lookup } from "dns"
+import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -114,6 +114,10 @@ export async function submitStudentRequest(
 }
 
 // edit an existing request
+/**
+ * update an existing open record using the service client to bypass RLS
+ * after performing a manual security check to guarantee user ownership
+ */
 export async function updateStudentRequest(
   appealId: string,
   title: string,
@@ -121,23 +125,56 @@ export async function updateStudentRequest(
 ): Promise<ActionResult<any>> {
   try {
     const supabase = await createSupabaseServerClient()
-    const combinedReason = `${title}|||${body.replace(/^Request:\s*/, "")}`
+    const service = createSupabaseServiceClient()
 
-    const { error } = await supabase
+    // authenticate the user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: "Not authenticated" }
+
+    // check if the appeal belongs to the logged-in user
+    const { data: existingAppeal, error: fetchError } = await service
+      .from("appeal")
+      .select("requester_user_id, appeal_status_id")
+      .eq("appeal_id", appealId)
+      .maybeSingle()
+
+    if (fetchError || !existingAppeal) {
+      return { ok: false, error: "Request record not found" }
+    }
+
+    if (existingAppeal.requester_user_id !== user.id) {
+      return {
+        ok: false,
+        error: "Unauthorized access: You do not own this record",
+      }
+    }
+
+    // check if the record is still editable ('open')
+    const openStatusId = await lookupId("appeal_status", "open")
+    if (existingAppeal.appeal_status_id !== openStatusId) {
+      return {
+        ok: false,
+        error: "This request is already being processed and cannot be modified",
+      }
+    }
+
+    // execution of update
+    const combinedReason = `${title}|||${body.replace(/^Request:\s*/, "")}`
+    const { error: updateError } = await service
       .from("appeal")
       .update({
         reason: combinedReason,
         updated_at: new Date().toISOString(),
       })
       .eq("appeal_id", appealId)
-      // only allow editing if request is still open
-      .eq("appeal_status_id", await lookupId("appeal_status", "open"))
 
-    if (error) {
-      throw error
-    }
+    if (updateError) throw updateError
+
     return { ok: true, data: null }
   } catch (err: any) {
+    console.error("[updateStudentRequest] Error: ", err)
     return { ok: false, error: err.message }
   }
 }
