@@ -1,12 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { IconX, IconCamera, IconCameraRotate } from "@tabler/icons-react"
-import {
-  recordScan,
-  type AttendanceResult,
-  type ScanErrorCode,
-} from "@/lib/attendance/qr-actions"
+import { IconX, IconCamera, IconCameraRotate, IconMapPin } from "@tabler/icons-react"
+import { recordScan } from "@/lib/attendance/qr-actions"
+import { captureGeo, geoErrorMessage } from "@/lib/attendance/geo-client"
+import { playSuccessSound, playErrorSound, primeAudio } from "@/lib/attendance/sounds"
 
 const SCAN_COOLDOWN_MS = 2500
 
@@ -17,44 +15,7 @@ interface QrScannerProps {
 
 type FeedbackKind = "success" | "info" | "error"
 type Feedback = { kind: FeedbackKind; text: string } | null
-
-function playSuccessSound() {
-  try {
-    const ctx = new AudioContext()
-    const t = ctx.currentTime
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = "sine"
-    osc.frequency.setValueAtTime(880, t)
-    osc.frequency.setValueAtTime(1320, t + 0.1)
-    gain.gain.setValueAtTime(0.2, t)
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35)
-    osc.start(t)
-    osc.stop(t + 0.35)
-    osc.onended = () => ctx.close()
-  } catch {}
-}
-
-function playErrorSound() {
-  try {
-    const ctx = new AudioContext()
-    const t = ctx.currentTime
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = "sawtooth"
-    osc.frequency.setValueAtTime(220, t)
-    osc.frequency.setValueAtTime(110, t + 0.1)
-    gain.gain.setValueAtTime(0.3, t)
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4)
-    osc.start(t)
-    osc.stop(t + 0.4)
-    osc.onended = () => ctx.close()
-  } catch {}
-}
+type GeoState = "checking" | "ready" | "blocked"
 
 export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -74,8 +35,11 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
   )
   const [restartNonce, setRestartNonce] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
+  const [geoState, setGeoState] = useState<GeoState>("checking")
+  const [geoMessage, setGeoMessage] = useState<string>("")
 
   useEffect(() => {
+    primeAudio()
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
     }
@@ -84,40 +48,60 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
+  const requestLocation = async () => {
+    setGeoState("checking")
+    const result = await captureGeo()
+    if (result.ok) {
+      scannerGeoRef.current = result.geo
+      setGeoState("ready")
+      setGeoMessage("")
+    } else {
+      scannerGeoRef.current = null
+      setGeoState("blocked")
+      setGeoMessage(geoErrorMessage(result.reason))
+    }
+  }
+
   useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          scannerGeoRef.current = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy_meter: pos.coords.accuracy || 0,
-          }
-        },
-        (err) =>
-          console.warn("[Scanner Geo] Position unavailable:", err.message),
-        { enableHighAccuracy: true, timeout: 10000 }
-      )
+    requestLocation()
+  }, [restartNonce])
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.permissions) return
+    let status: PermissionStatus | null = null
+    const onChange = () => {
+      if (status && status.state !== "denied") requestLocation()
+      else if (status && status.state === "denied") {
+        scannerGeoRef.current = null
+        setGeoState("blocked")
+        setGeoMessage(geoErrorMessage("denied"))
+      }
+    }
+    navigator.permissions
+      .query({ name: "geolocation" as PermissionName })
+      .then((s) => {
+        status = s
+        s.addEventListener("change", onChange)
+      })
+      .catch(() => { })
+    return () => {
+      if (status) status.removeEventListener("change", onChange)
     }
   }, [])
 
   const processDecodedToken = async (decodedText: string) => {
     if (isProcessingRef.current) return
+    if (geoState !== "ready" || !scannerGeoRef.current) return
     isProcessingRef.current = true
     setFeedback(null)
 
     try {
       const geo = scannerGeoRef.current
-      const res = await recordScan(
-        decodedText,
-        geo
-          ? {
-              latitude: geo.latitude,
-              longitude: geo.longitude,
-              accuracy_meter: geo.accuracy_meter,
-            }
-          : undefined
-      )
+      const res = await recordScan(decodedText, {
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        accuracy_meter: geo.accuracy_meter,
+      })
 
       if (!res.ok) {
         if (res.code === "already_open") {
@@ -134,7 +118,10 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
       }
 
       playSuccessSound()
-      setFeedback({ kind: "success", text: "✓ Timed in" })
+      setFeedback({
+        kind: "success",
+        text: res.studentName ? `✓ ${res.studentName} timed in` : "✓ Timed in",
+      })
       if (onScanSuccess) onScanSuccess()
 
       setTimeout(() => {
@@ -155,57 +142,58 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
   }
 
   useEffect(() => {
+    if (geoState !== "ready") return
     let cancelled = false
 
-    ;(async () => {
-      try {
-        const mod = await import("qr-scanner")
-        const QrScannerLib = mod.default ?? mod
+      ; (async () => {
+        try {
+          const mod = await import("qr-scanner")
+          const QrScannerLib = mod.default ?? mod
 
-        if (!videoRef.current || cancelled) return
+          if (!videoRef.current || cancelled) return
 
-        const qrScanner = new QrScannerLib(
-          videoRef.current,
-          (result: any) => {
-            const data = result?.data?.trim()
-            if (!data) return
-            processDecodedToken(data)
-          },
-          {
-            onDecodeError: () => {},
-            preferredCamera: facingMode,
-            highlightScanRegion: false,
-            highlightCodeOutline: false,
+          const qrScanner = new QrScannerLib(
+            videoRef.current,
+            (result: any) => {
+              const data = result?.data?.trim()
+              if (!data) return
+              processDecodedToken(data)
+            },
+            {
+              onDecodeError: () => { },
+              preferredCamera: facingMode,
+              highlightScanRegion: false,
+              highlightCodeOutline: false,
+            }
+          )
+
+          scannerRef.current = qrScanner
+          await qrScanner.start()
+
+          if (cancelled) {
+            qrScanner.destroy()
+            scannerRef.current = null
+            return
           }
-        )
 
-        scannerRef.current = qrScanner
-        await qrScanner.start()
-
-        if (cancelled) {
-          qrScanner.destroy()
-          scannerRef.current = null
-          return
+          setScanning(true)
+          setCameraError(null)
+        } catch (err) {
+          console.error("Camera initialization failed:", err)
+          if (!cancelled) setCameraError("Unable to open camera.")
         }
-
-        setScanning(true)
-        setCameraError(null)
-      } catch (err) {
-        console.error("Camera initialization failed:", err)
-        if (!cancelled) setCameraError("Unable to open camera.")
-      }
-    })()
+      })()
 
     return () => {
       cancelled = true
       if (scannerRef.current) {
         try {
           scannerRef.current.destroy()
-        } catch {}
+        } catch { }
         scannerRef.current = null
       }
     }
-  }, [facingMode, restartNonce])
+  }, [facingMode, restartNonce, geoState])
 
   const flipCamera = () => {
     setFacingMode((prev) =>
@@ -222,15 +210,15 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
     feedback?.kind === "success"
       ? "#0B6E4F"
       : feedback?.kind === "info"
-      ? "#8B5E00"
-      : "#B91C1C"
+        ? "#8B5E00"
+        : "#B91C1C"
 
   const feedbackBg =
     feedback?.kind === "success"
       ? "#E6F4ED"
       : feedback?.kind === "info"
-      ? "#FFF3E0"
-      : "#FDE8E8"
+        ? "#FFF3E0"
+        : "#FDE8E8"
 
   return (
     <div className="scanner-backdrop" onClick={onClose}>
@@ -267,6 +255,33 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
               >
                 Retry
               </button>
+            </div>
+          ) : geoState === "blocked" ? (
+            <div className="scanner-error">
+              <IconMapPin size={40} stroke={1.5} />
+              <p>{geoMessage || "Location is required to scan."}</p>
+              <button
+                onClick={requestLocation}
+                style={{
+                  marginTop: "12px",
+                  padding: "8px 20px",
+                  borderRadius: "8px",
+                  background: "#14492E",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  fontFamily: "'Montserrat', sans-serif",
+                }}
+              >
+                Enable location & retry
+              </button>
+            </div>
+          ) : geoState === "checking" ? (
+            <div className="scanner-error">
+              <IconMapPin size={40} stroke={1.5} />
+              <p>Getting your location…</p>
             </div>
           ) : (
             <>
@@ -335,11 +350,15 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
         <p className="scanner-hint">
           {cameraError ? (
             "Tap retry to try again"
+          ) : geoState === "blocked" ? (
+            "Location access is required to record scans"
+          ) : geoState === "checking" ? (
+            "Waiting for location…"
           ) : (
             <>
               Point your camera at a QR code
               <br />
-              {isMobile && !cameraError && "Tap camera icon to flip camera"}
+              {isMobile && "Tap camera icon to flip camera"}
             </>
           )}
         </p>

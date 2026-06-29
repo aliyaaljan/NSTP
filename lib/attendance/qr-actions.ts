@@ -179,7 +179,7 @@ export async function recordScan(
   token: string,
   scannerGeo?: ScanMeta
 ): Promise<
-  | { ok: true; result: AttendanceResult }
+  | { ok: true; result: AttendanceResult; studentName: string | null }
   | { ok: false; error: string; code: ScanErrorCode }
 > {
   const supabase = await createSupabaseServerClient()
@@ -200,7 +200,7 @@ export async function recordScan(
 
   const { data: enrollmentRow } = await service
     .from("enrollment")
-    .select("section_id")
+    .select("section_id, student_user_id")
     .eq("enrollment_id", payload.enrollmentId)
     .maybeSingle()
 
@@ -258,7 +258,29 @@ export async function recordScan(
     }
   }
 
-  return { ok: true, result: data as AttendanceResult }
+  const { data: studentRow } = await service
+    .from("app_user")
+    .select("full_name")
+    .eq("app_user_id", enrollmentRow.student_user_id)
+    .maybeSingle()
+
+  const result = data as AttendanceResult
+
+  try {
+    const channel = service.channel(`attendance-user:${enrollmentRow.student_user_id}`, {
+      config: { private: true },
+    })
+    await channel.httpSend("scanned", { event_type: result.event_type })
+    await service.removeChannel(channel)
+  } catch (e) {
+    console.warn("[recordScan] realtime broadcast failed", e)
+  }
+
+  return {
+    ok: true,
+    result,
+    studentName: studentRow?.full_name ?? null,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -328,9 +350,9 @@ export async function recordStudentTimeOut(
 
   const { data, error } = await service.rpc("record_self_time_out", {
     p_enrollment_id: enrollmentId,
-    p_actor:         user.id,
-    p_source_code:   "self_student",
-    p_meta:          meta,
+    p_actor: user.id,
+    p_source_code: "self_student",
+    p_meta: meta,
   })
 
   if (error) {
@@ -361,8 +383,8 @@ export async function recordLeaderTimeIn(
 
   const { data, error } = await service.rpc("record_leader_time_in", {
     p_enrollment_id: leaderEnrollment.enrollmentId,
-    p_actor:         user.id,
-    p_meta:          meta,
+    p_actor: user.id,
+    p_meta: meta,
   })
 
   if (error) {
@@ -393,9 +415,9 @@ export async function recordLeaderTimeOut(
 
   const { data, error } = await service.rpc("record_self_time_out", {
     p_enrollment_id: leaderEnrollment.enrollmentId,
-    p_actor:         user.id,
-    p_source_code:   "self_leader",
-    p_meta:          meta,
+    p_actor: user.id,
+    p_source_code: "self_leader",
+    p_meta: meta,
   })
 
   if (error) {

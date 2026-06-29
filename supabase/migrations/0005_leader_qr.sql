@@ -748,3 +748,44 @@ begin
     execute format('grant  execute on function %s to authenticated;', fn);
   end loop;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Realtime: broadcast attendance_session row changes so the student QR page
+-- (and, later, an adviser live-arrival dashboard) can react instantly.
+-- RLS still applies to Realtime: each subscriber receives only the rows it may
+-- read under attendance_session_read (own enrollment / advised section / admin).
+-- Idempotent so re-running the migration is safe.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'attendance_session'
+  ) then
+    alter publication supabase_realtime add table public.attendance_session;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Realtime Broadcast authorization for the per-user "you've been scanned"
+-- signal. recordScan() sends a private broadcast on `attendance-user:<uid>`;
+-- this policy lets an authenticated user RECEIVE only on their own topic, so
+-- no one can listen in on another student's scans. Sending is done with the
+-- service-role key, which bypasses RLS. Idempotent.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if to_regclass('realtime.messages') is not null then
+    drop policy if exists "attendance signal: receive own" on realtime.messages;
+    create policy "attendance signal: receive own"
+      on realtime.messages
+      for select
+      to authenticated
+      using (
+        extension = 'broadcast'
+        and topic = 'attendance-user:' || (select auth.uid())::text
+      );
+  end if;
+end $$;

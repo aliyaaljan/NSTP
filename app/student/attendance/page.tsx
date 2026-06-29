@@ -9,7 +9,11 @@ import AttendanceSessionCard from "@/components/shared/AttendanceSessionCard"
 import { generateQrToken, getMyOpenSession, recordStudentTimeOut } from "@/lib/attendance/qr-actions"
 import type { QrDisplayInfo } from "@/lib/attendance/qr-actions"
 import { captureGeo, geoErrorMessage } from "@/lib/attendance/geo-client"
-import type { GeoFailReason } from "@/lib/attendance/geo-client"
+import {
+  subscribeToAttendanceSignal,
+  subscribeToAttendanceSessions,
+} from "@/lib/attendance/realtime"
+import { playSuccessSound, primeAudio } from "@/lib/attendance/sounds"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
 import { manilaClock } from "@/lib/student/leader/scan-history"
@@ -60,11 +64,17 @@ export default function QRGenerationPage() {
 
   const [hasOpenSession, setHasOpenSession] = useState(false)
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null)
+  const [sessionLoaded, setSessionLoaded] = useState(false)
+  const [justTimedIn, setJustTimedIn] = useState(false)
   const [timeoutPending, setTimeoutPending] = useState(false)
   const [timeoutFeedback, setTimeoutFeedback] = useState<string | undefined>(undefined)
 
   const generatingRef = useRef(false)
   const displayRef = useRef<QrDisplayInfo | null>(null)
+  const prevOpenRef = useRef(false)
+  const initialLoadedRef = useRef(false)
+  const timedInTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadSeqRef = useRef(0)
   useEffect(() => {
     displayRef.current = display
   }, [display])
@@ -84,15 +94,60 @@ export default function QRGenerationPage() {
   }, [])
 
   const loadSessionStatus = useCallback(async () => {
+    const seq = ++loadSeqRef.current
     const res = await getMyOpenSession()
-    if (res.ok) {
-      setHasOpenSession(!!res.session)
-      setSessionStartedAt(res.session?.startedAt ?? null)
+    if (seq !== loadSeqRef.current) return
+
+    if (!res.ok) {
+      setSessionLoaded(true)
+      initialLoadedRef.current = true
+      return
     }
+    const nowOpen = !!res.session
+
+    if (initialLoadedRef.current && nowOpen && !prevOpenRef.current) {
+      setJustTimedIn(true)
+      playSuccessSound()
+      if (timedInTimerRef.current) clearTimeout(timedInTimerRef.current)
+      timedInTimerRef.current = setTimeout(() => setJustTimedIn(false), 5000)
+    }
+
+    prevOpenRef.current = nowOpen
+    setHasOpenSession(nowOpen)
+    setSessionStartedAt(res.session?.startedAt ?? null)
+    setSessionLoaded(true)
+    initialLoadedRef.current = true
   }, [])
 
   useEffect(() => {
     loadSessionStatus()
+  }, [loadSessionStatus])
+
+  useEffect(() => {
+    const prime = () => primeAudio()
+    window.addEventListener("pointerdown", prime, { once: true })
+    window.addEventListener("keydown", prime, { once: true })
+    return () => {
+      window.removeEventListener("pointerdown", prime)
+      window.removeEventListener("keydown", prime)
+    }
+  }, [])
+
+  useEffect(() => {
+    const unsubscribeSignal = subscribeToAttendanceSignal(() => loadSessionStatus())
+    const unsubscribeChanges = subscribeToAttendanceSessions(() => loadSessionStatus())
+    const reconcile = () => {
+      if (!document.hidden) loadSessionStatus()
+    }
+    window.addEventListener("focus", reconcile)
+    document.addEventListener("visibilitychange", reconcile)
+    return () => {
+      unsubscribeSignal()
+      unsubscribeChanges()
+      window.removeEventListener("focus", reconcile)
+      document.removeEventListener("visibilitychange", reconcile)
+      if (timedInTimerRef.current) clearTimeout(timedInTimerRef.current)
+    }
   }, [loadSessionStatus])
 
   useEffect(() => {
@@ -105,7 +160,7 @@ export default function QRGenerationPage() {
             setLocationDenied(status.state === "denied")
           })
         })
-        .catch(() => {})
+        .catch(() => { })
     }
   }, [])
 
@@ -125,7 +180,7 @@ export default function QRGenerationPage() {
         (e.key === "s" && (e.ctrlKey || e.metaKey) && e.shiftKey)
       ) {
         setQrHidden(true)
-        navigator.clipboard?.writeText("")?.catch(() => {})
+        navigator.clipboard?.writeText("")?.catch(() => { })
         setTimeout(() => setQrHidden(false), 800)
       }
     }
@@ -214,6 +269,8 @@ export default function QRGenerationPage() {
 
     const res = await recordStudentTimeOut(geo)
     if (res.ok) {
+      loadSeqRef.current++
+      prevOpenRef.current = false
       setHasOpenSession(false)
       setSessionStartedAt(null)
       setTimeoutFeedback(undefined)
@@ -226,9 +283,9 @@ export default function QRGenerationPage() {
 
   const timeLabel = display
     ? new Date(display.generatedAt).toLocaleString("en-PH", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      })
+      dateStyle: "medium",
+      timeStyle: "short",
+    })
     : ""
 
   const locationLabel = display
@@ -246,8 +303,8 @@ export default function QRGenerationPage() {
   const sessionHelperText = hasOpenSession && sessionStartedAt
     ? `since ${manilaClock(sessionStartedAt)}`
     : !hasOpenSession
-    ? "Your leader scans your QR to time you in."
-    : undefined
+      ? "Your leader scans your QR to time you in."
+      : undefined
 
   return (
     <>
@@ -596,37 +653,33 @@ export default function QRGenerationPage() {
             }}
           />
 
-          <div className="qr-box">
-            <div className="qr-card">
-              <div
-                style={{
-                  textAlign: "center",
-                  marginBottom: 24,
-                }}
-              >
-                <h2
-                  style={{
-                    fontSize: 22,
-                    fontWeight: 800,
-                    color: C.maroon,
-                    margin: 0,
-                  }}
-                >
-                  Attendance QR
-                </h2>
+          {justTimedIn && (
+            <div
+              role="status"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                background: "#E8F5EF",
+                color: "#14492E",
+                border: "2px solid #14492E",
+                borderRadius: 14,
+                padding: "14px 20px",
+                marginBottom: 20,
+                fontWeight: 800,
+                fontSize: 16,
+                textAlign: "center",
+              }}
+            >
+              ✓ You&apos;ve been timed in!
+              {sessionStartedAt ? ` (${manilaClock(sessionStartedAt)})` : ""}
+            </div>
+          )}
 
-                <p
-                  style={{
-                    fontSize: 13,
-                    color: "#7A7A7A",
-                    marginTop: 8,
-                  }}
-                >
-                  Scan this QR code to record attendance
-                </p>
-              </div>
-
-              {loadingPhase ? (
+          {!sessionLoaded ? (
+            <div className="qr-box">
+              <div className="qr-card">
                 <div className="qr-loading">
                   <div className="qr-spinner" />
                   <p
@@ -637,137 +690,12 @@ export default function QRGenerationPage() {
                       textAlign: "center",
                     }}
                   >
-                    {loadingPhase === "locating"
-                      ? "Getting your location…"
-                      : "Generating secure QR…"}
+                    Checking your attendance status…
                   </p>
                 </div>
-              ) : !generated ? (
-                <div className="qr-message">
-                  {locationDenied && (
-                    <p
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: C.maroon,
-                        textAlign: "center",
-                        maxWidth: 260,
-                      }}
-                    >
-                      Location access is off. Enable it for this site in your
-                      browser settings to generate a QR.
-                    </p>
-                  )}
-                  <button
-                    onClick={() => runGenerate()}
-                    disabled={locationDenied}
-                    className={`qr-button qr-generate-button ${
-                      locationDenied ? "qr-disabled" : ""
-                    }`}
-                  >
-                    GENERATE QR
-                  </button>
-                </div>
-              ) : error ? (
-                <div className="qr-error">
-                  <p
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: C.maroon,
-                      textAlign: "center",
-                      maxWidth: 300,
-                    }}
-                  >
-                    {error}
-                  </p>
-                  <button onClick={() => runGenerate()} className="qr-button">
-                    REGENERATE QR
-                  </button>
-                </div>
-              ) : (
-                <div className="qr-display">
-                  <div className="qr-active">● QR ACTIVE</div>
-
-                  <div className="qr-code">
-                    {token && !qrHidden && (
-                      <QRCodeSVG
-                        value={token}
-                        size={220}
-                        level="M"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "block",
-                        }}
-                      />
-                    )}
-                    {token && qrHidden && (
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          background: "#000",
-                          borderRadius: 8,
-                        }}
-                      />
-                    )}
-                  </div>
-
-                  {token && (
-                    <div className="qr-progress-container">
-                      <div className="qr-progress">
-                        <div
-                          className="qr-progress-bar"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <p
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          marginTop: 6,
-                          textAlign: "center",
-                        }}
-                      >
-                        Refreshes in {remainingSec}s
-                      </p>
-                    </div>
-                  )}
-
-                  <div>
-                    <p
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 600,
-                        marginBottom: "5px",
-                      }}
-                    >
-                      Location of Generation:
-                      <br />
-                      {locationLabel || "—"}
-                    </p>
-
-                    <p style={{ fontSize: 14, fontWeight: 600 }}>
-                      Time of Generation:
-                      <br />
-                      {timeLabel || "—"}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => runGenerate()}
-                    className="qr-button qr-regenerate"
-                  >
-                    REGENERATE QR
-                  </button>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
-
-          {/* Time-Out Section */}
-          <div style={{ marginTop: 24 }}>
+          ) : hasOpenSession ? (
             <AttendanceSessionCard
               mode="timeoutOnly"
               isActive={hasOpenSession}
@@ -776,7 +704,176 @@ export default function QRGenerationPage() {
               isMobile={isMobile}
               helperText={timeoutFeedback ?? sessionHelperText}
             />
-          </div>
+          ) : (
+            <div className="qr-box">
+              <div className="qr-card">
+                <div
+                  style={{
+                    textAlign: "center",
+                    marginBottom: 24,
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 800,
+                      color: C.maroon,
+                      margin: 0,
+                    }}
+                  >
+                    Attendance QR
+                  </h2>
+
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "#7A7A7A",
+                      marginTop: 8,
+                    }}
+                  >
+                    Scan this QR code to record attendance
+                  </p>
+                </div>
+
+                {loadingPhase ? (
+                  <div className="qr-loading">
+                    <div className="qr-spinner" />
+                    <p
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: C.maroon,
+                        textAlign: "center",
+                      }}
+                    >
+                      {loadingPhase === "locating"
+                        ? "Getting your location…"
+                        : "Generating secure QR…"}
+                    </p>
+                  </div>
+                ) : !generated ? (
+                  <div className="qr-message">
+                    {locationDenied && (
+                      <p
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: C.maroon,
+                          textAlign: "center",
+                          maxWidth: 260,
+                        }}
+                      >
+                        Location access is off. Enable it for this site in your
+                        browser settings to generate a QR.
+                      </p>
+                    )}
+                    <button
+                      onClick={() => runGenerate()}
+                      disabled={locationDenied}
+                      className={`qr-button qr-generate-button ${locationDenied ? "qr-disabled" : ""
+                        }`}
+                    >
+                      GENERATE QR
+                    </button>
+                  </div>
+                ) : error ? (
+                  <div className="qr-error">
+                    <p
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: C.maroon,
+                        textAlign: "center",
+                        maxWidth: 300,
+                      }}
+                    >
+                      {error}
+                    </p>
+                    <button onClick={() => runGenerate()} className="qr-button">
+                      REGENERATE QR
+                    </button>
+                  </div>
+                ) : (
+                  <div className="qr-display">
+                    <div className="qr-active">● QR ACTIVE</div>
+
+                    <div className="qr-code">
+                      {token && !qrHidden && (
+                        <QRCodeSVG
+                          value={token}
+                          size={220}
+                          level="M"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "block",
+                          }}
+                        />
+                      )}
+                      {token && qrHidden && (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            background: "#000",
+                            borderRadius: 8,
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    {token && (
+                      <div className="qr-progress-container">
+                        <div className="qr-progress">
+                          <div
+                            className="qr-progress-bar"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <p
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            marginTop: 6,
+                            textAlign: "center",
+                          }}
+                        >
+                          Refreshes in {remainingSec}s
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 600,
+                          marginBottom: "5px",
+                        }}
+                      >
+                        Location of Generation:
+                        <br />
+                        {locationLabel || "—"}
+                      </p>
+
+                      <p style={{ fontSize: 14, fontWeight: 600 }}>
+                        Time of Generation:
+                        <br />
+                        {timeLabel || "—"}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => runGenerate()}
+                      className="qr-button qr-regenerate"
+                    >
+                      REGENERATE QR
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </>
