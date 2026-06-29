@@ -62,25 +62,6 @@ interface RequestItem {
   attachment?: string | null
 }
 
-/*const SAMPLE_REQUESTS = [
-  {
-    id: 1,
-    title: "Request Title",
-    status: "Approved",
-    body: "Request: Lorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsum",
-    note: "Adviser's Note: insert notes",
-    date: "June 27, 2026",
-  },
-  {
-    id: 2,
-    title: "Request Title2",
-    status: "Declined",
-    body: "Request: Lorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsum",
-    note: "Adviser's Note: No proof",
-    date: "July 7, 2026",
-  },
-]
-*/
 function StatusBadge({ status }: { status: RequestItem["status"] }) {
   const map = {
     Approved: {
@@ -227,17 +208,19 @@ function StatCard({
 
 export default function RequestsPage() {
   const [showModal, setShowModal] = useState(false)
-  const [selectedRequest, setSelectedRequest] = useState(null)
+  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(
+    null
+  )
   const [editTitle, setEditTitle] = useState("")
   const [editBody, setEditBody] = useState("")
   const [formTitle, setFormTitle] = useState("")
   const [formBody, setFormBody] = useState("")
-  const [formFile, setFormFile] = useState(null)
-  const [editFile, setEditFile] = useState(null)
+  const [formFile, setFormFile] = useState<File | null>(null)
+  const [editFile, setEditFile] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState("All")
 
   const [isPending, startTransition] = useTransition() // for loading states
-  const [requests, setRequests] = useState<any[]>([]) // empty array
+  const [requests, setRequests] = useState<RequestItem[]>([]) // empty array
 
   const [profile, setProfile] = useState({
     enrollmentId: "",
@@ -303,15 +286,18 @@ export default function RequestsPage() {
   }
 
   function handleEditSave() {
-    if (!profile.enrollmentId) return
+    if (!profile.enrollmentId || !selectedRequest) return
+
     startTransition(async () => {
+      const cleanBody = editBody.replace(/^Request:\s*/, "")
+
       const res = await updateStudentRequest(
         selectedRequest.id,
         editTitle,
-        editBody
+        cleanBody
       )
       if (res.ok) {
-        await loadRequests(profile.enrollmentId) //refresh list
+        await loadRequests(profile.enrollmentId) // refresh list with clean data
         setSelectedRequest(null)
       } else {
         alert("Failed to update request or it is no longer 'Under Review'.")
@@ -343,7 +329,7 @@ export default function RequestsPage() {
           align-items:center;
         }
 
-        .requests-title{
+        .requests-maintitle{
         margin:0;
         font-size:42px;
         font-weight:800;
@@ -460,7 +446,7 @@ export default function RequestsPage() {
 
         <main className="requests-main">
           <div className="requests-header">
-            <h1 className="requests-title">REQUESTS</h1>
+            <h1 className="requests-maintitle">REQUESTS</h1>
 
             <ProfilePill
               name={profile.fullName}
@@ -527,7 +513,10 @@ export default function RequestsPage() {
               .filter((request) =>
                 activeFilter === "All" ? true : request.status === activeFilter
               )
-              .sort((a, b) => new Date(b.date) - new Date(a.date))
+              .sort(
+                (a, b) =>
+                  new Date(b.date).getTime() - new Date(a.date).getTime()
+              )
               .map((request) => {
                 const statusColor =
                   request.status === "Approved"
@@ -765,7 +754,11 @@ export default function RequestsPage() {
                   <input
                     type="file"
                     hidden
-                    onChange={(e) => setFormFile(e.target.files[0])}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setFormFile(e.target.files[0])
+                      }
+                    }}
                   />
                 </label>
 
@@ -807,7 +800,7 @@ export default function RequestsPage() {
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={!formTitle.trim() || !formBody.trim()}
+                disabled={isPending || !formTitle.trim() || !formBody.trim()}
                 style={{
                   padding: "10px 24px",
                   borderRadius: 8,
@@ -825,7 +818,7 @@ export default function RequestsPage() {
                   opacity: !formTitle.trim() || !formBody.trim() ? 0.7 : 1,
                 }}
               >
-                Submit
+                {isPending ? "Submitting..." : "Submit"}
               </button>
             </div>
           </div>
@@ -885,8 +878,9 @@ export default function RequestsPage() {
             <label>Details</label>
 
             <textarea
-              value={editBody.replace("Request: ", "")}
-              onChange={(e) => setEditBody(`Request: ${e.target.value}`)}
+              value={editBody}
+              disabled={selectedRequest.status !== "Under Review"}
+              onChange={(e) => setEditBody(e.target.value)}
               rows={5}
               maxLength={500}
               style={{
@@ -894,6 +888,8 @@ export default function RequestsPage() {
                 padding: 12,
                 borderRadius: 10,
                 border: "1px solid #ccc",
+                resize: "vertical",
+                boxSizing: "border-box",
               }}
             />
 
@@ -903,9 +899,10 @@ export default function RequestsPage() {
                 color: C.textMuted,
                 textAlign: "right",
                 marginTop: 2,
+                marginBottom: 10,
               }}
             >
-              {formBody.length}/500
+              {editBody.length}/500
             </div>
 
             {editFile && (
@@ -980,23 +977,25 @@ export default function RequestsPage() {
                 Cancel
               </button>
 
-              <button
-                onClick={handleEditSave}
-                disabled={!hasChanges()}
-                style={{
-                  background: hasChanges() ? C.green : "#BDBDBD",
-                  color: "white",
-                  border: "none",
-                  padding: "10px 24px",
-                  borderRadius: 10,
-                  fontFamily: "inherit",
-                  fontWeight: 700,
-                  cursor: hasChanges() ? "pointer" : "not-allowed",
-                  opacity: hasChanges() ? 1 : 0.7,
-                }}
-              >
-                Save Changes
-              </button>
+              {selectedRequest.status === "Under Review" && (
+                <button
+                  onClick={handleEditSave}
+                  disabled={isPending || !hasChanges()}
+                  style={{
+                    background: hasChanges() ? C.green : "#BDBDBD",
+                    color: "white",
+                    border: "none",
+                    padding: "10px 24px",
+                    borderRadius: 10,
+                    fontFamily: "inherit",
+                    fontWeight: 700,
+                    cursor: hasChanges() ? "pointer" : "not-allowed",
+                    opacity: hasChanges() ? 1 : 0.7,
+                  }}
+                >
+                  {isPending ? "Saving..." : "Save Changes"}
+                </button>
+              )}
             </div>
           </div>
         </div>
