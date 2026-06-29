@@ -2,58 +2,74 @@
 
 "use client"
 
-import { useEffect, useState } from "react";
-import { Montserrat } from "next/font/google";
-import Sidebar from "@/components/shared/StudentSidebar";
-import ProfilePill from "@/components/shared/StudentProfilePill";
-import { getStudentDashboard } from "@/lib/student/dashboard-actions";
-import { getInitials } from "@/lib/student/dashboard-view";
+import { useEffect, useState, useTransition } from "react"
+import { Montserrat } from "next/font/google"
+import Sidebar from "@/components/shared/StudentSidebar"
+import ProfilePill from "@/components/shared/StudentProfilePill"
+import { getStudentDashboard } from "@/lib/student/dashboard-actions"
+import { getInitials } from "@/lib/student/dashboard-view"
+import {
+  getStudentRequests,
+  submitStudentRequest,
+  updateStudentRequest,
+} from "@/lib/student/appeal-actions"
 
 const montserrat = Montserrat({
-    subsets: ["latin"],
-    weight: ["400", "500", "600", "700", "800"],
-    variable: "--font-montserrat",
-  });
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-montserrat",
+})
 
-  const C = {
-    maroon: "#6B1A1A",
-    green: "#1A3C2A",
-    gold: "#C8963C",
-    pageBg: "#F0EFE8",
-    border: "#D9D9D9",
-    textDark: "#2C2C2A",
-    textMuted: "#7A7A7A",
-  
-    approved: {
-      bg: "#C8D8C0",
-      text: "#2D5C3A",
-      border: "#8AAE8A",
-      icon: "#3A7A4A",
-    },
-  
-    review: {
-      bg: "#F5E6C0",
-      text: "#8B5E1A",
-      border: "#D4A840",
-      icon: "#C8882A",
-    },
-  
-    declined: {
-      bg: "#D4B8B8",
-      text: "#6B1A1A",
-      border: "#B08080",
-      icon: "#8B3A3A",
-    },
-  }
+const C = {
+  maroon: "#6B1A1A",
+  green: "#1A3C2A",
+  gold: "#C8963C",
+  pageBg: "#F0EFE8",
+  border: "#D9D9D9",
+  textDark: "#2C2C2A",
+  textMuted: "#7A7A7A",
 
-const SAMPLE_REQUESTS = [
+  approved: {
+    bg: "#C8D8C0",
+    text: "#2D5C3A",
+    border: "#8AAE8A",
+    icon: "#3A7A4A",
+  },
+
+  review: {
+    bg: "#F5E6C0",
+    text: "#8B5E1A",
+    border: "#D4A840",
+    icon: "#C8882A",
+  },
+
+  declined: {
+    bg: "#D4B8B8",
+    text: "#6B1A1A",
+    border: "#B08080",
+    icon: "#8B3A3A",
+  },
+}
+
+interface RequestItem {
+  id: string
+  title: string
+  status: "Approved" | "Under Review" | "Declined"
+  body: string
+  note: string
+  date: string
+  lastEdited?: string | null
+  attachment?: string | null
+}
+
+/*const SAMPLE_REQUESTS = [
   {
     id: 1,
     title: "Request Title",
     status: "Approved",
     body: "Request: Lorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsum",
     note: "Adviser's Note: insert notes",
-    date:"June 27, 2026",
+    date: "June 27, 2026",
   },
   {
     id: 2,
@@ -61,244 +77,247 @@ const SAMPLE_REQUESTS = [
     status: "Declined",
     body: "Request: Lorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsumLorem ipsum",
     note: "Adviser's Note: No proof",
-    date:"July 7, 2026",
+    date: "July 7, 2026",
   },
-];
+]
+*/
+function StatusBadge({ status }: { status: RequestItem["status"] }) {
+  const map = {
+    Approved: {
+      ...C.approved,
+      icon: "ti-circle-check",
+    },
 
-function StatusBadge({ status }) {
-    const map = {
-      Approved: { 
-        ...C.approved, 
-        icon: "ti-circle-check" 
-      },
-  
-      "Under Review": { 
-        ...C.review, 
-        icon: "ti-clock" 
-      },
-  
-      Declined: { 
-        ...C.declined, 
-        icon: "ti-circle-x" 
-      },
-    };
-  
-    const s = map[status] || map["Under Review"];
-  
-    return (
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "5px 14px",
-          borderRadius: 20,
-          fontSize: 12,
-          fontWeight: 600,
-          background: s.bg,
-          color: s.text,
-          border: `1px solid ${s.border}`,
-        }}
-      >
-  
-        <i
-          className={`ti ${s.icon}`}
-          style={{
-            fontSize:14,
-            color:s.icon,
-          }}
-        />
-  
-        {status}
-  
-      </span>
-    );
+    "Under Review": {
+      ...C.review,
+      icon: "ti-clock",
+    },
+
+    Declined: {
+      ...C.declined,
+      icon: "ti-circle-x",
+    },
   }
 
-function StatCard({ label, count, status, active, onClick }) {
-    const map = {
-      Approved: C.approved,
-      "Under Review": C.review,
-      Declined: C.declined,
-    };
-  
-    const s = map[status];
-    const icons = { 
-        Approved: "ti-circle-check",
-        "Under Review": "ti-clock",
-        Declined: "ti-circle-x"
-      };
-  
-    return (
-        <div
-        onClick={onClick}
+  const s = map[status] || map["Under Review"]
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "5px 14px",
+        borderRadius: 20,
+        fontSize: 12,
+        fontWeight: 600,
+        background: s.bg,
+        color: s.text,
+        border: `1px solid ${s.border}`,
+      }}
+    >
+      <i
+        className={`ti ${s.icon}`}
         style={{
-          flex:1,
-          background: active ? C.pageBg : "#FFFFFF",
-            border:`1px solid ${s.border}`,
-            borderRadius:22,
-            padding:"22px 24px",
-            minWidth:150,
-            display:"flex",
-            justifyContent:"space-between",
-            alignItems:"center",
-            transition:"0.2s ease",
-            cursor:"pointer",
-            transform: active ? "translateY(-3px)" : "none",
-            boxShadow: active 
-              ? "0 12px 25px rgba(0,0,0,.12)"
-              : "0 8px 20px rgba(0,0,0,.05)",
+          fontSize: 14,
+          color: s.icon,
+        }}
+      />
+
+      {status}
+    </span>
+  )
+}
+
+function StatCard({
+  label,
+  count,
+  status,
+  active,
+  onClick,
+}: {
+  label: string
+  count: number
+  status: "Approved" | "Under Review" | "Declined"
+  active: boolean
+  onClick: () => void
+}) {
+  const map = {
+    Approved: C.approved,
+    "Under Review": C.review,
+    Declined: C.declined,
+  }
+
+  const s = map[status]
+  const icons = {
+    Approved: "ti-circle-check",
+    "Under Review": "ti-clock",
+    Declined: "ti-circle-x",
+  }
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        flex: 1,
+        background: active ? C.pageBg : "#FFFFFF",
+        border: `1px solid ${s.border}`,
+        borderRadius: 22,
+        padding: "22px 24px",
+        minWidth: 150,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        transition: "0.2s ease",
+        cursor: "pointer",
+        transform: active ? "translateY(-3px)" : "none",
+        boxShadow: active
+          ? "0 12px 25px rgba(0,0,0,.12)"
+          : "0 8px 20px rgba(0,0,0,.05)",
+      }}
+    >
+      <div>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: s.text,
+            marginBottom: 8,
           }}
         >
-      
-          <div>
-      
-            <div
-              style={{
-                fontSize:13,
-                fontWeight:700,
-                color:s.text,
-                marginBottom:8,
-              }}
-            >
-              {label}
-            </div>
-      
-      
-            <div
-              style={{
-                fontSize:40,
-                fontWeight:800,
-                color:C.textDark,
-                lineHeight:1,
-              }}
-            >
-              {count}
-            </div>
-      
-          </div>
-      
-      
-          <div
-            style={{
-              width:48,
-              height:48,
-              borderRadius:"50%",
-              background:s.bg,
-              display:"flex",
-              justifyContent:"center",
-              alignItems:"center",
-              fontSize:22,
-              fontWeight:800,
-              color:s.icon,
-            }}
-          >
-            <i
-            className={`ti ${icons[status]}`}
-            style={{
-                fontSize:22,
-                color:s.icon,
-            }}
-            />
-          </div>
-      
-      
+          {label}
         </div>
-      );
+
+        <div
+          style={{
+            fontSize: 40,
+            fontWeight: 800,
+            color: C.textDark,
+            lineHeight: 1,
+          }}
+        >
+          {count}
+        </div>
+      </div>
+
+      <div
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: "50%",
+          background: s.bg,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          fontSize: 22,
+          fontWeight: 800,
+          color: s.icon,
+        }}
+      >
+        <i
+          className={`ti ${icons[status]}`}
+          style={{
+            fontSize: 22,
+            color: s.icon,
+          }}
+        />
+      </div>
+    </div>
+  )
 }
 
 export default function RequestsPage() {
-  const [showModal, setShowModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editBody, setEditBody] = useState("");
-  const [formTitle, setFormTitle] = useState("");
-  const [formBody, setFormBody] = useState("");
-  const [formFile, setFormFile] = useState(null);
-  const [editFile, setEditFile] = useState(null);
-  const [requests, setRequests] = useState(SAMPLE_REQUESTS);
-  const [activeFilter, setActiveFilter] = useState("All");
-  
+  const [showModal, setShowModal] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState(null)
+  const [editTitle, setEditTitle] = useState("")
+  const [editBody, setEditBody] = useState("")
+  const [formTitle, setFormTitle] = useState("")
+  const [formBody, setFormBody] = useState("")
+  const [formFile, setFormFile] = useState(null)
+  const [editFile, setEditFile] = useState(null)
+  const [activeFilter, setActiveFilter] = useState("All")
+
+  const [isPending, startTransition] = useTransition() // for loading states
+  const [requests, setRequests] = useState<any[]>([]) // empty array
+
   const [profile, setProfile] = useState({
+    enrollmentId: "",
     fullName: "",
     sectionName: "",
-  });
+  })
+
+  // fetch profile and requests on load
+  const loadRequests = async (enrollmentId: string) => {
+    const res = await getStudentRequests(enrollmentId)
+    if (res.ok) setRequests(res.data)
+  }
 
   useEffect(() => {
-    let cancelled = false;
-  
+    let cancelled = false
     getStudentDashboard().then((res) => {
-      if (cancelled || !res.ok) return;
-  
+      if (cancelled || !res.ok) return
       setProfile({
+        enrollmentId: res.data.enrollmentId ?? "",
         fullName: res.data.fullName,
         sectionName: res.data.sectionName ?? "",
-      });
-    });
-  
+      })
+      if (res.data.enrollmentId) loadRequests(res.data.enrollmentId)
+    })
     return () => {
-      cancelled = true;
-    };
-  }, []);
+      cancelled = true
+    }
+  }, [])
 
   const counts = {
     Approved: requests.filter((r) => r.status === "Approved").length,
     "Under Review": requests.filter((r) => r.status === "Under Review").length,
     Declined: requests.filter((r) => r.status === "Declined").length,
-  };
+  }
 
   function handleSubmit() {
-    if (!formTitle.trim() || !formBody.trim()) return;
-    setRequests((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        title: formTitle,
-        status:"Under Review",
-        body:`Request: ${formBody}`,
-        note:"Adviser's Note: Pending review",
-        date: new Date().toLocaleDateString("en-US", {
-          month:"long",
-          day:"numeric",
-          year:"numeric"
-        }),
-        attachment: formFile?.name ?? null, //name palang po nakukuha niya since wala pa sa db ehhe
-       }
-    ]);
-    setFormTitle("");
-    setFormBody("");
-    setFormFile(null);
-    setShowModal(false);
+    if (!formTitle.trim() || !formBody.trim() || !profile.enrollmentId) return
+
+    startTransition(async () => {
+      const res = await submitStudentRequest(
+        profile.enrollmentId,
+        formTitle,
+        formBody
+      )
+      if (res.ok) {
+        await loadRequests(profile.enrollmentId) // refresh the list
+        setFormTitle("")
+        setFormBody("")
+        setFormFile(null)
+        setShowModal(false)
+      } else {
+        alert("Failed to submit request: " + res.error)
+      }
+    })
   }
 
   function hasChanges() {
-    if (!selectedRequest) return false;
-  
+    if (!selectedRequest) return false
     return (
       editTitle.trim() !== selectedRequest.title.trim() ||
       editBody.trim() !== selectedRequest.body.trim()
-    );
+    )
   }
 
-  function handleEditSave(){
-
-    setRequests(prev =>
-      prev.map(req =>
-        req.id === selectedRequest.id
-        ? {
-            ...req,
-            title: editTitle,
-            body: editBody,
-            attachment: editFile,
-            lastEdited: new Date().toLocaleString()
-           }
-        : req
+  function handleEditSave() {
+    if (!profile.enrollmentId) return
+    startTransition(async () => {
+      const res = await updateStudentRequest(
+        selectedRequest.id,
+        editTitle,
+        editBody
       )
-    );
-    
-    setSelectedRequest(null);
-    
-    }
+      if (res.ok) {
+        await loadRequests(profile.enrollmentId) //refresh list
+        setSelectedRequest(null)
+      } else {
+        alert("Failed to update request or it is no longer 'Under Review'.")
+      }
+    })
+  }
 
   return (
     <>
@@ -437,188 +456,154 @@ export default function RequestsPage() {
       `}</style>
 
       <div className={`${montserrat.variable} requests-page`}>
-
         <Sidebar />
 
         <main className="requests-main">
-
           <div className="requests-header">
-
-            <h1 className="requests-title">
-              REQUESTS
-            </h1>
+            <h1 className="requests-title">REQUESTS</h1>
 
             <ProfilePill
               name={profile.fullName}
               initials={getInitials(profile.fullName)}
               section={profile.sectionName}
             />
-
           </div>
 
           <div className="divider" />
 
           <div className="stats">
-
             <StatCard
-                label="Approved"
-                count={counts.Approved}
-                status="Approved"
-                active={activeFilter === "Approved"}
-                onClick={() =>
-                    setActiveFilter(activeFilter === "Approved" ? "All" : "Approved")
-                }
+              label="Approved"
+              count={counts.Approved}
+              status="Approved"
+              active={activeFilter === "Approved"}
+              onClick={() =>
+                setActiveFilter(
+                  activeFilter === "Approved" ? "All" : "Approved"
+                )
+              }
             />
 
             <StatCard
-                label="Under Review"
-                count={counts["Under Review"]}
-                status="Under Review"
-                active={activeFilter === "Under Review"}
-                onClick={() =>
-                    setActiveFilter(activeFilter === "Under Review" ? "All" : "Under Review")
-                }
+              label="Under Review"
+              count={counts["Under Review"]}
+              status="Under Review"
+              active={activeFilter === "Under Review"}
+              onClick={() =>
+                setActiveFilter(
+                  activeFilter === "Under Review" ? "All" : "Under Review"
+                )
+              }
             />
 
             <StatCard
-                label="Declined"
-                count={counts.Declined}
-                status="Declined"
-                active={activeFilter === "Declined"}
-                onClick={() =>
-                    setActiveFilter(activeFilter === "Declined" ? "All" : "Declined")
-                }
+              label="Declined"
+              count={counts.Declined}
+              status="Declined"
+              active={activeFilter === "Declined"}
+              onClick={() =>
+                setActiveFilter(
+                  activeFilter === "Declined" ? "All" : "Declined"
+                )
+              }
             />
-
-            </div>
-
-          <div className="request-header">
-
-          <h2>
-            {activeFilter === "All"
-                ? "Recent Requests"
-                : `${activeFilter} Requests`}
-         </h2>
-
-        <button
-            className="send-btn"
-            onClick={() => setShowModal(true)}
-        >
-            <span style={{fontSize:20}}>+</span>
-            Send Request
-        </button>
-
-        </div>
-
-
-        <div className="request-card">
-
-        {requests
-        .filter((request) => 
-        activeFilter === "All" 
-        ? true 
-        : request.status === activeFilter
-        )
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .map((request) => {
-
-            const statusColor =
-            request.status === "Approved"
-                ? C.approved.icon
-                : request.status === "Declined"
-                ? C.declined.icon
-                : C.review.icon;
-
-
-            return (
-                <div
-                key={request.id}
-                className="request-item"
-                onClick={() => {
-                   setSelectedRequest(request);
-                   setEditTitle(request.title);
-                   setEditBody(request.body);
-                   setEditFile(request.attachment ?? null);
-                }}
-                style={{
-                   position:"relative",
-                   paddingLeft:34,
-                   cursor:"pointer"
-                }}
-               >
-
-                <div
-                style={{
-                    position:"absolute",
-                    left:0,
-                    top:26,
-                    width:6,
-                    height:"55%",
-                    background:statusColor,
-                    borderRadius:10,
-                }}
-                />
-
-
-                <div className="request-top">
-
-                <div>
-
-                <div className="request-title">
-                    {request.title}
-                </div>
-
-                <div
-                    style={{
-                    fontSize:12,
-                    color:"#999",
-                    marginTop:3
-                    }}
-                >
-                    Submitted {request.date}
-                </div>
-
-                </div>
-
-                <StatusBadge
-                    status={request.status}
-                />
-
-                </div>
-
-
-                <div className="request-body">
-                {request.body}
-                </div>
-
-
-                <div
-                style={{
-                    marginTop:12,
-                    display:"inline-flex",
-                    alignItems:"center",
-                    gap:6,
-                    background:"#F6F5EF",
-                    padding:"7px 12px",
-                    borderRadius:12,
-                    fontSize:12.5,
-                    color:C.textMuted,
-                }}
-                >
-
-                {request.note}
-
-                </div>
-
-
-            </div>
-            );
-            })}
-
           </div>
 
-        </main>
+          <div className="request-header">
+            <h2>
+              {activeFilter === "All"
+                ? "Recent Requests"
+                : `${activeFilter} Requests`}
+            </h2>
 
+            <button className="send-btn" onClick={() => setShowModal(true)}>
+              <span style={{ fontSize: 20 }}>+</span>
+              Send Request
+            </button>
+          </div>
+
+          <div className="request-card">
+            {requests
+              .filter((request) =>
+                activeFilter === "All" ? true : request.status === activeFilter
+              )
+              .sort((a, b) => new Date(b.date) - new Date(a.date))
+              .map((request) => {
+                const statusColor =
+                  request.status === "Approved"
+                    ? C.approved.icon
+                    : request.status === "Declined"
+                    ? C.declined.icon
+                    : C.review.icon
+
+                return (
+                  <div
+                    key={request.id}
+                    className="request-item"
+                    onClick={() => {
+                      setSelectedRequest(request)
+                      setEditTitle(request.title)
+                      setEditBody(request.body)
+                      setEditFile(request.attachment ?? null)
+                    }}
+                    style={{
+                      position: "relative",
+                      paddingLeft: 34,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 26,
+                        width: 6,
+                        height: "55%",
+                        background: statusColor,
+                        borderRadius: 10,
+                      }}
+                    />
+
+                    <div className="request-top">
+                      <div>
+                        <div className="request-title">{request.title}</div>
+
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#999",
+                            marginTop: 3,
+                          }}
+                        >
+                          Submitted {request.date}
+                        </div>
+                      </div>
+
+                      <StatusBadge status={request.status} />
+                    </div>
+
+                    <div className="request-body">{request.body}</div>
+
+                    <div
+                      style={{
+                        marginTop: 12,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: "#F6F5EF",
+                        padding: "7px 12px",
+                        borderRadius: 12,
+                        fontSize: 12.5,
+                        color: C.textMuted,
+                      }}
+                    >
+                      {request.note}
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        </main>
       </div>
 
       {/* modal */}
@@ -632,7 +617,7 @@ export default function RequestsPage() {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 100,
-            fontFamily:"var(--font-montserrat), sans-serif"
+            fontFamily: "var(--font-montserrat), sans-serif",
           }}
           onClick={(e) => e.target === e.currentTarget && setShowModal(false)}
         >
@@ -659,7 +644,15 @@ export default function RequestsPage() {
               Send Request / Concern
             </h2>
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>
+              <label
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#555",
+                  display: "block",
+                  marginBottom: 6,
+                }}
+              >
                 Title
               </label>
               <input
@@ -681,7 +674,15 @@ export default function RequestsPage() {
               />
             </div>
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>
+              <label
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#555",
+                  display: "block",
+                  marginBottom: 6,
+                }}
+              >
                 Details
               </label>
               <textarea
@@ -704,29 +705,29 @@ export default function RequestsPage() {
               />
               <div
                 style={{
-                fontSize:12,
-                color:C.textMuted,
-                textAlign:"right",
-                marginTop:5
+                  fontSize: 12,
+                  color: C.textMuted,
+                  textAlign: "right",
+                  marginTop: 5,
                 }}
-                >
+              >
                 {formBody.length}/500
-                </div>
+              </div>
               <div style={{ marginTop: 16 }}>
                 <label
-                    style={{
+                  style={{
                     fontSize: 13,
                     fontWeight: 600,
                     color: "#555",
                     display: "block",
                     marginBottom: 8,
-                    }}
+                  }}
                 >
-                    Attachment (Optional)
+                  Attachment (Optional)
                 </label>
 
                 <label
-                    style={{
+                  style={{
                     width: "100%",
                     height: 120,
                     border: "2px dashed #C9C9C9",
@@ -739,288 +740,267 @@ export default function RequestsPage() {
                     background: "#FAFAF7",
                     boxSizing: "border-box",
                     fontFamily: "inherit",
-                    }}
+                  }}
                 >
-
-                    <span
+                  <span
                     style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: C.green,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: C.green,
                     }}
-                    >
+                  >
                     Drop your file here
-                    </span>
+                  </span>
 
-                    <span
+                  <span
                     style={{
-                        fontSize: 12,
-                        color: C.textMuted,
-                        marginTop: 4,
+                      fontSize: 12,
+                      color: C.textMuted,
+                      marginTop: 4,
                     }}
-                    >
+                  >
                     or click to browse
-                    </span>
+                  </span>
 
-
-                    <input
+                  <input
                     type="file"
                     hidden
                     onChange={(e) => setFormFile(e.target.files[0])}
-                    />
-
+                  />
                 </label>
 
-
                 {formFile && (
-                    <div
+                  <div
                     style={{
-                        marginTop: 10,
-                        padding: "8px 12px",
-                        borderRadius: 10,
-                        background: "#F6F5EF",
-                        fontSize: 12,
-                        color: C.textDark,
+                      marginTop: 10,
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      background: "#F6F5EF",
+                      fontSize: 12,
+                      color: C.textDark,
                     }}
-                    >
+                  >
                     {formFile.name}
-                    </div>
+                  </div>
                 )}
-
-                </div>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-            <button
-            onClick={() => setShowModal(false)}
-            style={{
-                padding: "10px 22px",
-                borderRadius: 10,
-                border: "1px solid #D9D9D9",
-                background: "#FFFFFF",
-                fontFamily: "inherit",
-                fontSize: 14,
-                cursor: "pointer",
-                fontWeight: 700,
-                color: C.textDark,
-                transition: ".2s ease",
-            }}
+            <div
+              style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
             >
-            Cancel
-            </button>
-            <button
-            onClick={handleSubmit}
-            disabled={!formTitle.trim() || !formBody.trim()}
-            style={{
-                padding: "10px 24px",
-                borderRadius: 8,
-                border: "none",
-                background:
-                !formTitle.trim() || !formBody.trim()
-                    ? "#BDBDBD"
-                    : C.green,
-                color: "#fff",
-                fontSize: 14,
-                fontWeight: 700,
-                cursor:
-                !formTitle.trim() || !formBody.trim()
-                    ? "not-allowed"
-                    : "pointer",
-                letterSpacing: 0.5,
-                opacity:
-                !formTitle.trim() || !formBody.trim()
-                    ? 0.7
-                    : 1,
-            }}
-            >
-            Submit
-            </button>
+              <button
+                onClick={() => setShowModal(false)}
+                style={{
+                  padding: "10px 22px",
+                  borderRadius: 10,
+                  border: "1px solid #D9D9D9",
+                  background: "#FFFFFF",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  color: C.textDark,
+                  transition: ".2s ease",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!formTitle.trim() || !formBody.trim()}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: 8,
+                  border: "none",
+                  background:
+                    !formTitle.trim() || !formBody.trim() ? "#BDBDBD" : C.green,
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor:
+                    !formTitle.trim() || !formBody.trim()
+                      ? "not-allowed"
+                      : "pointer",
+                  letterSpacing: 0.5,
+                  opacity: !formTitle.trim() || !formBody.trim() ? 0.7 : 1,
+                }}
+              >
+                Submit
+              </button>
             </div>
-            </div>
+          </div>
         </div>
       )}
 
       {selectedRequest && (
-            <div
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedRequest(null)
+          }}
+        >
+          <div
             style={{
-            position:"fixed",
-            inset:0,
-            background:"rgba(0,0,0,.45)",
-            display:"flex",
-            alignItems:"center",
-            justifyContent:"center",
-            zIndex:100
+              background: "#fff",
+              borderRadius: 18,
+              padding: 32,
+              width: "90%",
+              maxWidth: 520,
+              fontFamily: "var(--font-montserrat), sans-serif",
             }}
-            onClick={(e)=> {
-            if(e.target===e.currentTarget)
-            setSelectedRequest(null)
-            }}
-            >
-            
-            <div
-            style={{
-            background:"#fff",
-            borderRadius:18,
-            padding:32,
-            width:"90%",
-            maxWidth:520,
-            fontFamily:"var(--font-montserrat), sans-serif"
-            }}
-            >
-            
+          >
             <h2
-            style={{
-            color:C.maroon,
-            fontWeight:800,
-            marginBottom:20
-            }}
+              style={{
+                color: C.maroon,
+                fontWeight: 800,
+                marginBottom: 20,
+              }}
             >
-            Request Details
+              Request Details
             </h2>
-            
-            
+
             <label>Title</label>
-            
+
             <input
-            value={editTitle}
-            onChange={(e)=>setEditTitle(e.target.value)}
-            maxLength={50}
-            style={{
-            width:"100%",
-            padding:12,
-            borderRadius:10,
-            border:"1px solid #ccc",
-            marginBottom:16
-            }}
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              maxLength={50}
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 10,
+                border: "1px solid #ccc",
+                marginBottom: 16,
+              }}
             />
-            
-            
+
             <label>Details</label>
-            
+
             <textarea
-            value={editBody.replace("Request: ","")}
-            onChange={(e)=>setEditBody(`Request: ${e.target.value}`)}
-            rows={5}
-            maxLength={500}
-            style={{
-            width:"100%",
-            padding:12,
-            borderRadius:10,
-            border:"1px solid #ccc",
-            }}
+              value={editBody.replace("Request: ", "")}
+              onChange={(e) => setEditBody(`Request: ${e.target.value}`)}
+              rows={5}
+              maxLength={500}
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 10,
+                border: "1px solid #ccc",
+              }}
             />
 
             <div
-            style={{
-            fontSize:12,
-            color:C.textMuted,
-            textAlign:"right",
-            marginTop:2
-            }}
+              style={{
+                fontSize: 12,
+                color: C.textMuted,
+                textAlign: "right",
+                marginTop: 2,
+              }}
             >
-            {formBody.length}/500
+              {formBody.length}/500
             </div>
 
             {editFile && (
-            <div
+              <div
                 style={{
-                marginTop:15,
-                marginBottom:16,
-                padding:"10px 12px",
-                borderRadius:10,
-                background:"#F6F5EF",
-                fontSize:12,
-                color:C.textDark,
-                display:"flex",
-                alignItems:"center",
-                gap:8,
+                  marginTop: 15,
+                  marginBottom: 16,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "#F6F5EF",
+                  fontSize: 12,
+                  color: C.textDark,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                 }}
-            >
+              >
                 <i
-                className="ti ti-paperclip"
-                style={{
-                    fontSize:16,
-                    color:C.green,
-                }}
+                  className="ti ti-paperclip"
+                  style={{
+                    fontSize: 16,
+                    color: C.green,
+                  }}
                 />
 
                 {editFile}
-            </div>
+              </div>
             )}
-            
-            
+
             <div
-            style={{
-            fontSize:12,
-            color:C.textMuted
-            }}
+              style={{
+                fontSize: 12,
+                color: C.textMuted,
+              }}
             >
-            Submitted: {selectedRequest.date}
+              Submitted: {selectedRequest.date}
             </div>
-            
-            
+
             <div
-            style={{
-            fontSize:12,
-            color:C.textMuted,
-            marginTop:5
-            }}
+              style={{
+                fontSize: 12,
+                color: C.textMuted,
+                marginTop: 5,
+              }}
             >
-            Last edited: {selectedRequest.lastEdited ?? "Not edited yet"}
+              Last edited: {selectedRequest.lastEdited ?? "Not edited yet"}
             </div>
-            
-            
+
             <div
-            style={{
-            display:"flex",
-            justifyContent:"flex-end",
-            gap:10,
-            marginTop:25
-            }}
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+                marginTop: 25,
+              }}
             >
-            
-            <button
-            onClick={() => setSelectedRequest(null)}
-            style={{
-                padding: "10px 22px",
-                borderRadius: 10,
-                border: "1px solid #D9D9D9",
-                background: "#FFFFFF",
-                fontFamily: "inherit",
-                fontSize: 14,
-                cursor: "pointer",
-                fontWeight: 700,
-                color: C.textDark,
-                transition: ".2s ease",
-            }}
-            >
-            Cancel
-            </button>
-            
-            
-            <button
-            onClick={handleEditSave}
-            disabled={!hasChanges()}
-            style={{
-                background: hasChanges() ? C.green : "#BDBDBD",
-                color:"white",
-                border:"none",
-                padding:"10px 24px",
-                borderRadius:10,
-                fontFamily:"inherit",
-                fontWeight:700,
-                cursor: hasChanges() ? "pointer" : "not-allowed",
-                opacity: hasChanges() ? 1 : 0.7,
-            }}
-            >
-            Save Changes
-            </button>
-        
+              <button
+                onClick={() => setSelectedRequest(null)}
+                style={{
+                  padding: "10px 22px",
+                  borderRadius: 10,
+                  border: "1px solid #D9D9D9",
+                  background: "#FFFFFF",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  color: C.textDark,
+                  transition: ".2s ease",
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleEditSave}
+                disabled={!hasChanges()}
+                style={{
+                  background: hasChanges() ? C.green : "#BDBDBD",
+                  color: "white",
+                  border: "none",
+                  padding: "10px 24px",
+                  borderRadius: 10,
+                  fontFamily: "inherit",
+                  fontWeight: 700,
+                  cursor: hasChanges() ? "pointer" : "not-allowed",
+                  opacity: hasChanges() ? 1 : 0.7,
+                }}
+              >
+                Save Changes
+              </button>
             </div>
-        
-            </div>
-            </div>
-            )}
-        
-            </>
-          )
-        }
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
