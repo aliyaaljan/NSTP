@@ -33,12 +33,20 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/leader/dashboard" },
+  {
+    icon: "ti-layout-dashboard",
+    label: "Dashboard",
+    href: "/student/leader/dashboard",
+  },
   { icon: "ti-presentation", label: "My Class", href: "/student/leader/class" },
   { icon: "ti-scan", label: "Scanner", href: "/student/leader/scanner" },
   { icon: "ti-users", label: "Attendance", href: "/student/leader/attendance" },
   { icon: "ti-clipboard-check", label: "Files", href: "/student/leader/files" },
-  { icon: "ti-pencil", label: "Submit Request", href: "/student/leader/submit-request" },
+  {
+    icon: "ti-pencil",
+    label: "Submit Request",
+    href: "/student/leader/request",
+  },
 ]
 
 export default function StudentSidebar() {
@@ -136,7 +144,6 @@ export default function StudentSidebar() {
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
       >
-
         {/* header */}
         <div
           style={{
@@ -321,7 +328,6 @@ export default function StudentSidebar() {
             </span>
           </button>
         </div>
-
       </aside>
     </>
   )
