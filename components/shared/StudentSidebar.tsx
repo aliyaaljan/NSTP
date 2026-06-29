@@ -1,16 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOutWithAudit } from "@/lib/auth-actions"
-import { Goblin_One } from "next/font/google"
-
-const goblinOne = Goblin_One({
-  subsets: ["latin"],
-  weight: "400",
-})
 
 const C = {
   green: "#14492E",
@@ -34,22 +28,40 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
-  { icon: "ti-presentation", label: "My Class", href: "/student/class" },
+  { icon: "ti-presentation", label: "My Class", href: "/student/classlist" },
   { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
   { icon: "ti-clipboard-check", label: "Files", href: "/student/files" },
-  { icon: "ti-pencil", label: "Submit Request", href: "/student/submit-request" },
+  { icon: "ti-pencil", label: "Submit Request", href: "/student/request" },
 ]
 
 export default function StudentSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
+  const sidebarRef = useRef<HTMLElement | null>(null)
 
   async function handleSignOut() {
     await signOutWithAudit()
     router.push("/")
     router.refresh()
   }
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target as Node)
+      ) {
+        setExpanded(false)
+      }
+    }
+  
+    document.addEventListener("mousedown", handleOutsideClick)
+  
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick)
+    }
+  }, [])
 
   return (
     <>
@@ -72,17 +84,17 @@ export default function StudentSidebar() {
           box-shadow: 0 10px 30px rgba(0,0,0,0.12);
         }
 
-        .nstp-rail:hover {
+        .nstp-rail.expanded {
           width: ${EXPANDED_W}px;
+        }
+
+        .nstp-rail.expanded .nstp-expand {
+          opacity: 1;
         }
 
         .nstp-expand {
           opacity: 0;
           transition: opacity 0.18s ease;
-        }
-
-        .nstp-rail:hover .nstp-expand {
-          opacity: 1;
         }
 
         .nstp-link {
@@ -131,9 +143,9 @@ export default function StudentSidebar() {
       )}
 
       <aside
-        className="nstp-rail"
-        onMouseEnter={() => setExpanded(true)}
-        onMouseLeave={() => setExpanded(false)}
+        ref={sidebarRef}
+        className={`nstp-rail ${expanded ? "expanded" : ""}`}
+        onClick={() => setExpanded((prev) => !prev)}
       >
 
         {/* header */}
@@ -169,9 +181,8 @@ export default function StudentSidebar() {
           <div className="nstp-expand" style={{ marginLeft: 6 }}>
             <div
               style={{
-                fontFamily: goblinOne.style.fontFamily,
                 color: "#fff",
-                fontSize: 20,
+                fontSize: 30,
                 fontWeight: 800,
                 letterSpacing: 1,
                 lineHeight: 1,
@@ -182,8 +193,7 @@ export default function StudentSidebar() {
 
             <div
               style={{
-                fontFamily: goblinOne.style.fontFamily,
-                fontSize: 6,
+                fontSize: 9,
                 color: "rgba(255,255,255,0.65)",
                 lineHeight: 1.4,
               }}
@@ -227,7 +237,13 @@ export default function StudentSidebar() {
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={expanded ? item.href : "#"}
+                  onClick={(e) => {
+                    if (!expanded) {
+                      e.preventDefault()
+                      setExpanded(true)
+                    }
+                  }}
                   className={`nstp-link${active ? " active" : ""}`}
                   style={{
                     display: "flex",
@@ -236,6 +252,7 @@ export default function StudentSidebar() {
                     borderRadius: 14,
                     textDecoration: "none",
                     overflow: "hidden",
+                    pointerEvents: expanded ? "auto" : "none",
                   }}
                 >
                   <span
