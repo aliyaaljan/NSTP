@@ -46,7 +46,20 @@ const montserrat = Montserrat({
     },
   }
 
-const SAMPLE_REQUESTS = [
+type RequestStatus = "Approved" | "Under Review" | "Declined";
+
+type RequestItem = {
+  id: number;
+  title: string;
+  status: RequestStatus;
+  body: string;
+  note: string;
+  date: string;
+  attachment?: string | null;
+  lastEdited?: string;
+};
+
+const SAMPLE_REQUESTS: RequestItem[] = [
   {
     id: 1,
     title: "Request Title",
@@ -65,7 +78,7 @@ const SAMPLE_REQUESTS = [
   },
 ];
 
-function StatusBadge({ status }) {
+function StatusBadge({ status }: { status: RequestStatus }) {
     const map = {
       Approved: { 
         ...C.approved, 
@@ -115,7 +128,19 @@ function StatusBadge({ status }) {
     );
   }
 
-function StatCard({ label, count, status, active, onClick }) {
+function StatCard({
+  label,
+  count,
+  status,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  status: RequestStatus;
+  active: boolean;
+  onClick: () => void;
+}) {
     const map = {
       Approved: C.approved,
       "Under Review": C.review,
@@ -209,14 +234,14 @@ function StatCard({ label, count, status, active, onClick }) {
 
 export default function RequestsPage() {
   const [showModal, setShowModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
   const [formTitle, setFormTitle] = useState("");
   const [formBody, setFormBody] = useState("");
-  const [formFile, setFormFile] = useState(null);
-  const [editFile, setEditFile] = useState(null);
-  const [requests, setRequests] = useState(SAMPLE_REQUESTS);
+  const [formFile, setFormFile] = useState<File | null>(null);
+  const [editFile, setEditFile] = useState<string | null>(null);
+  const [requests, setRequests] = useState<RequestItem[]>(SAMPLE_REQUESTS);
   const [activeFilter, setActiveFilter] = useState("All");
   
   const [profile, setProfile] = useState({
@@ -281,6 +306,7 @@ export default function RequestsPage() {
   }
 
   function handleEditSave(){
+    if (!selectedRequest) return;
 
     setRequests(prev =>
       prev.map(req =>
@@ -519,7 +545,7 @@ export default function RequestsPage() {
         ? true 
         : request.status === activeFilter
         )
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .map((request) => {
 
             const statusColor =
@@ -766,7 +792,7 @@ export default function RequestsPage() {
                     <input
                     type="file"
                     hidden
-                    onChange={(e) => setFormFile(e.target.files[0])}
+                    onChange={(e) => setFormFile(e.target.files?.[0] ?? null)}
                     />
 
                 </label>
@@ -917,7 +943,7 @@ export default function RequestsPage() {
             marginTop:2
             }}
             >
-            {formBody.length}/500
+            {editBody.replace("Request: ", "").length}/500
             </div>
 
             {editFile && (
