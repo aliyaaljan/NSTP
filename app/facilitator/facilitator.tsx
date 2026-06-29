@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconInfoCircle,
   IconLayoutGrid,
   IconUsersGroup,
   IconClipboardText,
@@ -15,6 +16,7 @@ import {
   IconChevronRight,
 } from "@tabler/icons-react";
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 // ── Types ─────────────────────────────────────────────────────────────
 export interface NavItem {
@@ -98,7 +100,7 @@ export function ProgressBar({ pct }: { pct: number }) {
   return (
     <div
       role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
-      style={{ flex: 1, height: 10, background: "#E5E7EB", borderRadius: 5, overflow: "hidden" }}
+      style={{ flex: 1, height: 15, background: "#E5E7EB", borderRadius: 5, overflow: "hidden" }}
     >
       <div style={{
         height: "100%", width: `${displayed}%`,
@@ -166,6 +168,122 @@ export function Calendar() {
         ))}
       </div>
     </div>
+  );
+}
+
+export interface InfoCircleProps {
+  tooltip: string;
+  size?: "sm" | "md" | "lg";
+}
+
+export function InfoCircle({ tooltip, size = "md" }: InfoCircleProps) {
+  const dim = { sm: 14, md: 18, lg: 22 }[size];
+  const iconSize = { sm: 13, md: 17, lg: 21 }[size];
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; placement: "top" | "bottom" } | null>(null);
+  const [pinned, setPinned] = useState(false);
+
+  const calcCoords = () => {
+    if (!btnRef.current) return null;
+    const r = btnRef.current.getBoundingClientRect();
+    const placement = r.top >= window.innerHeight - r.bottom ? "top" : "bottom";
+    const top = placement === "top" ? r.top - 8 : r.bottom + 8;
+    const left = Math.min(Math.max(r.left + r.width / 2, 130), window.innerWidth - 130);
+    return { top, left, placement } as const;
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (pinned) {
+      setPinned(false);
+      setCoords(null);
+    } else {
+      const c = calcCoords();
+      if (c) { setCoords(c); setPinned(true); }
+    }
+  };
+
+  const handleMouseEnter = () => {
+    if (pinned) return;
+    const c = calcCoords();
+    if (c) setCoords(c);
+  };
+
+  const handleMouseLeave = () => {
+    if (pinned) return;
+    setCoords(null);
+  };
+
+  useEffect(() => {
+    if (!pinned) return;
+    const handler = () => { setPinned(false); setCoords(null); };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [pinned]);
+
+  const tooltipEl = coords && typeof document !== "undefined"
+  ? createPortal(
+      <span style={{ 
+        position: "fixed",
+        top: coords.placement === "top" ? Math.max(8, coords.top) : Math.min(coords.top, window.innerHeight - 8),
+        left: coords.left,
+        transform: coords.placement === "top" ? "translate(-50%, -100%)" : "translate(-50%, 0%)",
+        background: "var(--white)",
+        border: `1px solid ${pinned ? "var(--border)" : "var(--border)"}`,
+        borderRadius: "var(--radius)",
+        padding: "8px 12px",
+        fontSize: 12,
+        color: "var(--text)",
+        lineHeight: 1.45,
+        fontFamily: "var(--font-montserrat)",
+        whiteSpace: "pre-line",
+        minWidth: 200,
+        maxWidth: 250,
+        overflowY: "visible",
+        pointerEvents: "none",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+        zIndex: 9999,
+        textAlign: "justify",
+      }}>
+        {tooltip}
+        <span style={{
+          position: "absolute",
+          left: `calc(50% + ${(btnRef.current?.getBoundingClientRect().left ?? 0) + (btnRef.current?.getBoundingClientRect().width ?? 0) / 2 - coords.left}px)`,
+          transform: "translateX(-50%)",
+          width: 0, height: 0, border: "6px solid transparent",
+          ...(coords.placement === "top"
+            ? { top: "100%", borderTopColor: "var(--border)" }
+            : { bottom: "100%", borderBottomColor: "var(--border)" }),
+        }} />
+        <span style={{
+          position: "absolute",
+          left: `calc(50% + ${(btnRef.current?.getBoundingClientRect().left ?? 0) + (btnRef.current?.getBoundingClientRect().width ?? 0) / 2 - coords.left}px)`,
+          transform: "translateX(-50%)",
+          width: 0, height: 0, border: "5px solid transparent",
+          ...(coords.placement === "top"
+            ? { top: "calc(100% - 1px)", borderTopColor: "var(--white)" }
+            : { bottom: "calc(100% - 1px)", borderBottomColor: "var(--white)" }),
+        }} />
+      </span>,
+      document.body
+    )
+  : null;
+
+  return (
+    <span className="ic-wrap" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <button
+        ref={btnRef}
+        className={`ic-btn${pinned ? " ic-btn-active" : ""}`}
+        aria-label="More info"
+        aria-expanded={!!coords}
+        style={{ width: dim, height: dim }}
+        type="button"
+        onClick={handleClick}
+      >
+        <IconInfoCircle size={iconSize} stroke={1.75} />
+      </button>
+      {tooltipEl}
+    </span>
   );
 }
 
@@ -296,11 +414,11 @@ export const dashboardStyles = `
   .sb-logo-name { color: #fff; font-family: var(--font-title); font-size: 30px; line-height: 1; letter-spacing: 0.5px; }
   .sb-logo-sub { color: var(--green-light); font-family: var(--font-sub); font-style: normal; font-size: 12px; margin-top: 4px; opacity: 0.9; white-space: nowrap; }
   .sb-nav { flex: 1; padding: 8px 0; overflow: hidden; }
-  .sb-nav-btn { width: 100%; display: flex; align-items: center; justify-content: flex-start; padding: 0 0 0 10px; background: transparent; border: none; cursor: pointer; color: #86EFAC; font-size: 15px; font-family: var(--font); font-weight: 600; text-align: left; transition: color 0.13s; line-height: 1; margin: 4px 0; }
+  .sb-nav-btn { width: 100%; display: flex; align-items: center; justify-content: flex-start; padding: 0 10px 0 10px; background: transparent; border: none; cursor: pointer; color: #86EFAC; font-size: 15px; font-family: var(--font); font-weight: 600; text-align: left; transition: color 0.13s; line-height: 1; margin: 4px 0; }
   .sb.sb-closed .sb-nav-btn { padding: 0; justify-content: center; }
   .sb-nav-btn:hover:not(.sb-active) { color: #d1fae5; }
   .sb-nav-btn.sb-active { color: var(--green); }
-  .sb-nav-pill { display: flex; align-items: center; gap: 14px; padding: 13px 20px; border-radius: 999px 0 0 999px; width: 100%; transition: background 0.13s; white-space: nowrap; overflow: hidden; }
+  .sb-nav-pill { display: flex; align-items: center; gap: 14px; padding: 13px 20px; border-radius: 999px; width: 100%; transition: background 0.13s; white-space: nowrap; overflow: hidden; }
   .sb.sb-closed .sb-nav-pill { border-radius: 999px; width: 44px; height: 44px; min-width: 44px; padding: 0; display: flex; align-items: center; justify-content: center; margin: 0 auto; gap: 0; }
   .sb-nav-btn.sb-active .sb-nav-pill { background: rgba(232,232,232,0.92); }
   .sb-nav-btn:hover:not(.sb-active) .sb-nav-pill { background: rgba(255,255,255,0.08); }
@@ -316,7 +434,7 @@ export const dashboardStyles = `
   .sb-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 25; cursor: pointer; }
   .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; width: 100%; padding-left: 90px; }
   .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; width: 100%; }
-  .header { display: flex; align-items: center; gap: 16px; padding: 36px 28px 20px; background: var(--bg); flex-shrink: 0; }
+  .header { display: flex; align-items: center; gap: 16px; padding: 36px 43px 20px 28px; background: var(--bg); flex-shrink: 0; }
   .header-greeting { flex: 1; font-size: 34px; font-weight: 800; color: var(--maroon); font-family: var(--font); white-space: nowrap; }
   .search-bar { display: flex; align-items: center; gap: 8px; background: var(--white); border: 1.5px solid var(--border); border-radius: 24px; padding: 8px 16px; min-width: 190px; transition: border-color 0.15s; }
   .search-bar:focus-within { border-color: #9CA3AF; }
@@ -355,7 +473,7 @@ export const dashboardStyles = `
   .stat-card-icon { color: var(--muted); display: flex; }
   .stat-card-value { font-size: 30px; font-weight: 800; color: var(--text); line-height: 1; }
   .completion-card { width: 260px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); flex-shrink: 0; }
-  .card-title { font-weight: 700; font-size: 14px; margin-bottom: 14px; color: var(--text); }
+  .card-title { font-weight: 700; font-size: 14px; color: var(--text); }
   .completion-inner { display: flex; align-items: center; gap: 12px; }
   .completion-meta { flex: 1; }
   .completion-name { font-weight: 700; font-size: 13px; }
@@ -375,13 +493,13 @@ export const dashboardStyles = `
   .progress-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .view-all-btn { background: none; border: none; color: var(--maroon); font-weight: 700; cursor: pointer; font-size: 13px; font-family: var(--font); text-decoration: underline; text-underline-offset: 2px; padding: 0; }
   .student-list { display: flex; flex-direction: column; gap: 12px; }
-  .student-row { display: flex; align-items: center; gap: 10px; flex:1}
+  .student-row { display: flex; align-items: flex-end; gap: 10px; flex:1}
   .student-info { flex: 1; min-width: 0; }
   .student-name { font-size: 13px; font-weight: 500; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600; }
+  .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600;}
   .no-results { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 0; }
   .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
-  .activity-card-scroll {overflow-y: auto; max-height: 250px; padding-right: 8px;}
+  .activity-card-scroll {overflow-y: auto; max-height: 320px; padding-right: 8px;}
   .activity-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 0 12px; gap: 8px; }
   .activity-empty-icon { width: 36px; height: 36px; border-radius: 50%; background: #F3F4F6; display: flex; align-items: center; justify-content: center; color: var(--light); }
   .activity-empty-text { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.5; }
@@ -421,6 +539,11 @@ export const dashboardStyles = `
   /* ── Dashboard layout ── */
   .dashboard-layout { display: flex; gap: 16px; align-items: flex-start; flex: 1; align-items: stretch; }
   .dashboard-left   { flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  .ic-wrap { position: relative; display: inline-flex; align-items: center; }
+  .ic-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: none; background: none; cursor: pointer; color: var(--light); padding: 0; transition: color 0.13s; flex-shrink: 0; }
+  .ic-btn:hover { color: var(--muted); }
+  .ic-btn-active { color: var(--muted) !important; }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 `;

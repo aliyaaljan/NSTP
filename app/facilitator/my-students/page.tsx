@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react";
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions"
+import { ChartStyles } from "@/components/shared/ChartModule"
 import { useSearchParams } from "next/navigation";
 
 // ── Data ──────────────────────────────────────────────────────────────
@@ -93,11 +94,6 @@ const myStudentsStyles = `
   .ms-header-row { display: flex; align-items: center; gap: 16px; padding: 28px 28px 0; flex-shrink: 0; }
   .ms-title { font-size: 38px; font-weight: 800; color: var(--maroon); font-family: var(--font); flex: 1; }
   .ms-stat-cards { display: flex; gap: 12px; padding: 18px 28px 0; flex-shrink: 0; }
-  .ms-stat-card { flex: 1; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
-  .ms-stat-label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
-  .ms-stat-row   { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-  .ms-stat-icon  { color: var(--muted); display: flex; }
-  .ms-stat-value { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1; }
 
   /* Tabs */
   .ms-tabs { display: flex; gap: 0; padding: 20px 28px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; margin: 0 0 0; }
@@ -342,6 +338,7 @@ function MyStudentsContent() {
   return (
     <>
       <style>{myStudentsStyles}</style>
+      <ChartStyles />
 
       <div className="db-root">
         <Sidebar
@@ -391,11 +388,13 @@ function MyStudentsContent() {
             {/* Stat cards */}
             <div className="ms-stat-cards">
               {statCards.map(({ label, value, Icon }) => (
-                <div key={label} className="ms-stat-card">
-                  <div className="ms-stat-label">{label}</div>
-                  <div className="ms-stat-row">
-                    <span className="ms-stat-icon"><Icon size={22} stroke={1.5} /></span>
-                    <div className="ms-stat-value">{value}</div>
+                <div key={label} className="db-kpi-card">
+                  <div className="db-kpi-header">
+                    <span className="db-kpi-label">{label}</span>
+                  </div>
+                  <div className="db-kpi-value">{value}</div>
+                  <div className="db-kpi-deco">
+                    <Icon size={64} stroke={1.2} />
                   </div>
                 </div>
               ))}

@@ -2,7 +2,7 @@
     display: flex;
     min-height: 100vh;
     font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
-    background: #1B4332;
+    background: #F4F3F0;
   }
 
   /* ── Left panel ── */
@@ -393,9 +393,10 @@
     .leftPanel  { width: 100%; order: 2;  border-top-left-radius: 30px; border-top-right-radius: 30px; padding: 28px 20px;}
     .rightPanel { width: 100%; order: 1; position: sticky; bottom: 0; margin-top: auto; margin-bottom: auto;}
     .brandTitle { font-size: 24px; }
-    .brandInner {padding: 16px 20px 24px;}
+    .brandInner {width: 100%; border-radius: 0;}
     .logo       { width: 118px; height: 118px; }
     .logoWrap {margin-bottom: 20px;}
+    .page       { background: #1B4332; }
   }
 
   @media (min-width: 769px) and (max-width: 900px) {
