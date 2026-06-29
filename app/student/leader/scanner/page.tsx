@@ -508,14 +508,11 @@ export default function LeaderScannerPage() {
           <QrScanner
             onClose={() => setScannerOpen(false)}
             onScanSuccess={() => {
-              console.log(
-                "[Attendance Sync] Scan completed. Refreshing logs window..."
-              )
+              console.log("[Dashboard Sync] Scan recorded successfully.")
 
-              // close scanner modal window after validation
-              setScannerOpen(false)
+              // setScannerOpen(false)
 
-              // re-fetch the live scan entries to update the statistics and list history data
+              // re-fetch data after scan to update lists
               loadDatabaseScans()
             }}
           />

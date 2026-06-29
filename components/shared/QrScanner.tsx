@@ -73,7 +73,30 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
     longitude: number
     accuracy_meter: number
   } | null>(null)
+  const scannerGeoRef = useRef<{
+    latitude: number
+    longitude: number
+    accuracy_meter: number
+  } | null>(null)
 
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const geo = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy_meter: pos.coords.accuracy || 0,
+          }
+          setScannerGeo(geo)
+          scannerGeoRef.current = geo // updated geo ref
+        },
+        (err) =>
+          console.warn("[Scanner Geo] Position unavailable:", err.message),
+        { enableHighAccuracy: true, timeout: 10000 }
+      )
+    }
+  }, [])
   useEffect(() => {
     // Check if mobile
     const checkMobile = () => {
@@ -104,18 +127,21 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
   // process the decodedd text via the backend
 
   const processDecodedToken = async (decodedText: string) => {
+    // prevent double scanning if request is active
     if (isProcessingRef.current) return
     isProcessingRef.current = true
     setError(null)
 
     try {
+      const currentGeo = scannerGeoRef.current // Read the live value safely
+
       const res = await recordScan(
         decodedText,
-        scannerGeo
+        currentGeo
           ? {
-              latitude: scannerGeo.latitude,
-              longitude: scannerGeo.longitude,
-              accuracy_meter: scannerGeo.accuracy_meter,
+              latitude: currentGeo.latitude,
+              longitude: currentGeo.longitude,
+              accuracy_meter: currentGeo.accuracy_meter,
             }
           : undefined
       )
@@ -123,26 +149,26 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
       if (!res.ok) {
         playErrorSound()
         setError(res.error)
-        setTimeout(() => {
-          isProcessingRef.current = false
-          setError(null)
-        }, 3000)
+
+        isProcessingRef.current = false
         return
       }
-      playSuccessSound()
-      if (onScanSuccess) onScanSuccess()
 
-      // briefly pause scanning to prevent immeadiate re-scans of same QR code
+      playSuccessSound()
+
+      // notify to refresh data
+      if (onScanSuccess) {
+        onScanSuccess()
+      }
+
+      // 1-second cooldown of processing lock
       setTimeout(() => {
         isProcessingRef.current = false
-      }, 3000)
+      }, 1000)
     } catch (err) {
       playErrorSound()
-      setError("Network exception. Connection to server failed. ")
-      setTimeout(() => {
-        isProcessingRef.current = false
-        setError(null)
-      }, 3000)
+      setError("Network exception. Connection to server failed.")
+      isProcessingRef.current = false
     }
   }
   // initialize qr scanner
@@ -204,7 +230,7 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
     return () => {
       if (cleanup) cleanup()
     }
-  }, [scannerGeo, facingMode])
+  }, [facingMode])
 
   const flipCamera = async () => {
     if (!scannerRef.current) return
@@ -216,60 +242,6 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
       // ignore if this fails (for devices with single camera)
     }
   }
-
-  /*
-  const startCamera = async () => {
-    try {
-      // Stop existing stream tracks cleanly to prevent leakage
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop())
-        setStream(null)
-      }
-
-      // Try preferred camera
-      let newStream: MediaStream
-      try {
-        newStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: isMobile ? facingMode : "user",
-          },
-        })
-      } catch (constraintError) {
-        console.warn(
-          "[Scanner] conditions rejected, falling back to generic feeed",
-          constraintError
-        )
-        newStream = await navigator.mediaDevices.getUserMedia({ video: true })
-      }
-
-      setStream(newStream)
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = newStream
-        videoRef.current.setAttribute("playsinline", "true")
-
-        const playPromise = videoRef.current.play()
-
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              setScanning(true)
-              setError(null)
-            })
-            .catch((playError) => {
-              console.log(
-                "[Scanner Video Bridge] Playback request safely absorbed:",
-                playError.message
-              )
-            })
-        }
-      }
-    } catch (err: any) {
-      console.error("Camera access failed:", err)
-      setError("Unable to open camera.")
-    }
-  }
-*/
 
   return (
     <div className="scanner-backdrop" onClick={onClose}>
