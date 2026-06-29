@@ -5,10 +5,14 @@ import { Montserrat } from "next/font/google"
 import { QRCodeSVG } from "qrcode.react"
 import Sidebar from "@/components/shared/StudentSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
-import { generateQrToken } from "@/lib/attendance/qr-actions"
+import AttendanceSessionCard from "@/components/shared/AttendanceSessionCard"
+import { generateQrToken, getMyOpenSession, recordStudentTimeOut } from "@/lib/attendance/qr-actions"
 import type { QrDisplayInfo } from "@/lib/attendance/qr-actions"
+import { captureGeo, geoErrorMessage } from "@/lib/attendance/geo-client"
+import type { GeoFailReason } from "@/lib/attendance/geo-client"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
+import { manilaClock } from "@/lib/student/leader/scan-history"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -23,53 +27,19 @@ const C = {
   qrBg: "#C8D6D0",
 }
 
-type Geo = { latitude: number; longitude: number; accuracy_meter: number }
-
-type GeoFailReason = "denied" | "timeout" | "unavailable" | "unsupported"
-type GeoResult = { ok: true; geo: Geo } | { ok: false; reason: GeoFailReason }
-
-function captureGeo(): Promise<GeoResult> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation)
-      return resolve({ ok: false, reason: "unsupported" })
-    navigator.geolocation.getCurrentPosition(
-      (p) =>
-        resolve({
-          ok: true,
-          geo: {
-            latitude: p.coords.latitude,
-            longitude: p.coords.longitude,
-            accuracy_meter: p.coords.accuracy,
-          },
-        }),
-      (err) => {
-        const reason: GeoFailReason =
-          err.code === err.PERMISSION_DENIED
-            ? "denied"
-            : err.code === err.TIMEOUT
-            ? "timeout"
-            : "unavailable"
-        resolve({ ok: false, reason })
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
-    )
-  })
-}
-
-function geoErrorMessage(reason: GeoFailReason): string {
-  switch (reason) {
-    case "denied":
-      return "Location access is off. Enable location for this site in your browser settings, then tap Regenerate."
-    case "timeout":
-      return "Couldn't get your location in time. Make sure location is on and you have a signal, then tap Regenerate."
-    case "unavailable":
-      return "Your location is currently unavailable. Make sure location services are on, then tap Regenerate."
-    case "unsupported":
-      return "This device or browser doesn't support location, which is required to generate a QR."
-  }
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640)
+    handleResize()
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+  return isMobile
 }
 
 export default function QRGenerationPage() {
+  const isMobile = useIsMobile()
   const [generated, setGenerated] = useState(false)
   const [token, setToken] = useState<string | null>(null)
   const [display, setDisplay] = useState<QrDisplayInfo | null>(null)
@@ -88,13 +58,17 @@ export default function QRGenerationPage() {
     sectionName: "",
   })
 
+  const [hasOpenSession, setHasOpenSession] = useState(false)
+  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null)
+  const [timeoutPending, setTimeoutPending] = useState(false)
+  const [timeoutFeedback, setTimeoutFeedback] = useState<string | undefined>(undefined)
+
   const generatingRef = useRef(false)
   const displayRef = useRef<QrDisplayInfo | null>(null)
   useEffect(() => {
     displayRef.current = display
   }, [display])
 
-  // Load the student's name + section for the profile pill
   useEffect(() => {
     let cancelled = false
     getStudentDashboard().then((res) => {
@@ -109,7 +83,18 @@ export default function QRGenerationPage() {
     }
   }, [])
 
-  // Check geolocation permission state on mount
+  const loadSessionStatus = useCallback(async () => {
+    const res = await getMyOpenSession()
+    if (res.ok) {
+      setHasOpenSession(!!res.session)
+      setSessionStartedAt(res.session?.startedAt ?? null)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSessionStatus()
+  }, [loadSessionStatus])
+
   useEffect(() => {
     if (typeof navigator !== "undefined" && navigator.permissions) {
       navigator.permissions
@@ -124,7 +109,6 @@ export default function QRGenerationPage() {
     }
   }, [])
 
-  // hide QR on visibility/focus loss
   useEffect(() => {
     function onVisChange() {
       setQrHidden(document.hidden)
@@ -141,7 +125,6 @@ export default function QRGenerationPage() {
         (e.key === "s" && (e.ctrlKey || e.metaKey) && e.shiftKey)
       ) {
         setQrHidden(true)
-        // clipboard write rejects async (e.g. document not focused) — swallow it
         navigator.clipboard?.writeText("")?.catch(() => {})
         setTimeout(() => setQrHidden(false), 800)
       }
@@ -215,6 +198,32 @@ export default function QRGenerationPage() {
     return () => clearInterval(id)
   }, [generated, runGenerate])
 
+  // Leader who timed in via the leader page (self_leader) and times out here
+  // records a self_student-source time-out — cosmetic source mismatch, not a functional bug.
+  const handleTimeOut = async () => {
+    if (timeoutPending) return
+    setTimeoutPending(true)
+    setTimeoutFeedback(undefined)
+
+    const geoResult = await captureGeo()
+    const geo = geoResult.ok ? geoResult.geo : undefined
+
+    if (!geoResult.ok) {
+      setTimeoutFeedback(geoErrorMessage(geoResult.reason))
+    }
+
+    const res = await recordStudentTimeOut(geo)
+    if (res.ok) {
+      setHasOpenSession(false)
+      setSessionStartedAt(null)
+      setTimeoutFeedback(undefined)
+    } else {
+      setTimeoutFeedback(res.error)
+    }
+
+    setTimeoutPending(false)
+  }
+
   const timeLabel = display
     ? new Date(display.generatedAt).toLocaleString("en-PH", {
         dateStyle: "medium",
@@ -233,6 +242,12 @@ export default function QRGenerationPage() {
   const pct = display
     ? Math.max(0, Math.min(100, (remainingMs / 60000) * 100))
     : 0
+
+  const sessionHelperText = hasOpenSession && sessionStartedAt
+    ? `since ${manilaClock(sessionStartedAt)}`
+    : !hasOpenSession
+    ? "Your leader scans your QR to time you in."
+    : undefined
 
   return (
     <>
@@ -749,6 +764,18 @@ export default function QRGenerationPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Time-Out Section */}
+          <div style={{ marginTop: 24 }}>
+            <AttendanceSessionCard
+              mode="timeoutOnly"
+              isActive={hasOpenSession}
+              pending={timeoutPending}
+              onPrimary={handleTimeOut}
+              isMobile={isMobile}
+              helperText={timeoutFeedback ?? sessionHelperText}
+            />
           </div>
         </main>
       </div>

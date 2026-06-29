@@ -3,20 +3,21 @@
 import { useState, useEffect, useRef } from "react"
 import { IconX, IconCamera, IconCameraRotate } from "@tabler/icons-react"
 import {
-  QrCode,
-  ShieldAlert,
-  Clock,
-  LogIn,
-  LogOut,
-  FlipHorizontal2,
-} from "lucide-react"
-import { recordScan, type AttendanceResult } from "@/lib/attendance/qr-actions"
-import { decode } from "punycode"
+  recordScan,
+  type AttendanceResult,
+  type ScanErrorCode,
+} from "@/lib/attendance/qr-actions"
+
+const SCAN_COOLDOWN_MS = 2500
 
 interface QrScannerProps {
   onClose: () => void
   onScanSuccess?: () => void
 }
+
+type FeedbackKind = "success" | "info" | "error"
+type Feedback = { kind: FeedbackKind; text: string } | null
+
 function playSuccessSound() {
   try {
     const ctx = new AudioContext()
@@ -57,48 +58,24 @@ function playErrorSound() {
 
 export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const scannerRef = useRef<any>(null) // hold the qr-scanner instance
-  const isProcessingRef = useRef<boolean>(false) // prevent double scanning
-
-  const [error, setError] = useState<string | null>(null)
-  const [scanning, setScanning] = useState(false)
-  const [facingMode, setFacingMode] = useState<"environment" | "user">(
-    "environment"
-  )
-  const [stream, setStream] = useState<MediaStream | null>(null)
-  const [isMobile, setIsMobile] = useState(false)
-
-  const [scannerGeo, setScannerGeo] = useState<{
-    latitude: number
-    longitude: number
-    accuracy_meter: number
-  } | null>(null)
+  const scannerRef = useRef<any>(null)
+  const isProcessingRef = useRef<boolean>(false)
   const scannerGeoRef = useRef<{
     latitude: number
     longitude: number
     accuracy_meter: number
   } | null>(null)
 
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<Feedback>(null)
+  const [scanning, setScanning] = useState(false)
+  const [facingMode, setFacingMode] = useState<"environment" | "user">(
+    "environment"
+  )
+  const [restartNonce, setRestartNonce] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
+
   useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const geo = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy_meter: pos.coords.accuracy || 0,
-          }
-          setScannerGeo(geo)
-          scannerGeoRef.current = geo // updated geo ref
-        },
-        (err) =>
-          console.warn("[Scanner Geo] Position unavailable:", err.message),
-        { enableHighAccuracy: true, timeout: 10000 }
-      )
-    }
-  }, [])
-  useEffect(() => {
-    // Check if mobile
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
     }
@@ -107,16 +84,16 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
-  // fetch geolocation on mount for backend validation
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) =>
-          setScannerGeo({
+        (pos) => {
+          scannerGeoRef.current = {
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
             accuracy_meter: pos.coords.accuracy || 0,
-          }),
+          }
+        },
         (err) =>
           console.warn("[Scanner Geo] Position unavailable:", err.message),
         { enableHighAccuracy: true, timeout: 10000 }
@@ -124,55 +101,60 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
     }
   }, [])
 
-  // process the decodedd text via the backend
-
   const processDecodedToken = async (decodedText: string) => {
-    // prevent double scanning if request is active
     if (isProcessingRef.current) return
     isProcessingRef.current = true
-    setError(null)
+    setFeedback(null)
 
     try {
-      const currentGeo = scannerGeoRef.current // Read the live value safely
-
+      const geo = scannerGeoRef.current
       const res = await recordScan(
         decodedText,
-        currentGeo
+        geo
           ? {
-              latitude: currentGeo.latitude,
-              longitude: currentGeo.longitude,
-              accuracy_meter: currentGeo.accuracy_meter,
+              latitude: geo.latitude,
+              longitude: geo.longitude,
+              accuracy_meter: geo.accuracy_meter,
             }
           : undefined
       )
 
       if (!res.ok) {
-        playErrorSound()
-        setError(res.error)
-
-        isProcessingRef.current = false
+        if (res.code === "already_open") {
+          setFeedback({ kind: "info", text: res.error })
+        } else {
+          playErrorSound()
+          setFeedback({ kind: "error", text: res.error })
+        }
+        setTimeout(() => {
+          isProcessingRef.current = false
+          setFeedback(null)
+        }, SCAN_COOLDOWN_MS)
         return
       }
 
       playSuccessSound()
+      setFeedback({ kind: "success", text: "✓ Timed in" })
+      if (onScanSuccess) onScanSuccess()
 
-      // notify to refresh data
-      if (onScanSuccess) {
-        onScanSuccess()
-      }
-
-      // 1-second cooldown of processing lock
       setTimeout(() => {
         isProcessingRef.current = false
-      }, 1000)
-    } catch (err) {
+        setFeedback(null)
+      }, SCAN_COOLDOWN_MS)
+    } catch {
       playErrorSound()
-      setError("Network exception. Connection to server failed.")
-      isProcessingRef.current = false
+      setFeedback({
+        kind: "error",
+        text: "Network exception. Connection to server failed.",
+      })
+      setTimeout(() => {
+        isProcessingRef.current = false
+        setFeedback(null)
+      }, SCAN_COOLDOWN_MS)
     }
   }
-  // initialize qr scanner
-  const startCamera = () => {
+
+  useEffect(() => {
     let cancelled = false
 
     ;(async () => {
@@ -185,9 +167,9 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
         const qrScanner = new QrScannerLib(
           videoRef.current,
           (result: any) => {
-            const scannedId = result.data.trim()
-            if (!scannedId) return
-            processDecodedToken(scannedId)
+            const data = result?.data?.trim()
+            if (!data) return
+            processDecodedToken(data)
           },
           {
             onDecodeError: () => {},
@@ -207,10 +189,10 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
         }
 
         setScanning(true)
-        setError(null)
+        setCameraError(null)
       } catch (err) {
         console.error("Camera initialization failed:", err)
-        if (!cancelled) setError("Unable to open camera.")
+        if (!cancelled) setCameraError("Unable to open camera.")
       }
     })()
 
@@ -223,25 +205,32 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
         scannerRef.current = null
       }
     }
+  }, [facingMode, restartNonce])
+
+  const flipCamera = () => {
+    setFacingMode((prev) =>
+      prev === "environment" ? "user" : "environment"
+    )
   }
 
-  useEffect(() => {
-    const cleanup = startCamera()
-    return () => {
-      if (cleanup) cleanup()
-    }
-  }, [facingMode])
-
-  const flipCamera = async () => {
-    if (!scannerRef.current) return
-    try {
-      const newMode = facingMode === "environment" ? "user" : "environment"
-      await scannerRef.current.setCamera(newMode)
-      setFacingMode(newMode)
-    } catch {
-      // ignore if this fails (for devices with single camera)
-    }
+  const handleRetry = () => {
+    setCameraError(null)
+    setRestartNonce((n) => n + 1)
   }
+
+  const feedbackColor =
+    feedback?.kind === "success"
+      ? "#0B6E4F"
+      : feedback?.kind === "info"
+      ? "#8B5E00"
+      : "#B91C1C"
+
+  const feedbackBg =
+    feedback?.kind === "success"
+      ? "#E6F4ED"
+      : feedback?.kind === "info"
+      ? "#FFF3E0"
+      : "#FDE8E8"
 
   return (
     <div className="scanner-backdrop" onClick={onClose}>
@@ -257,12 +246,12 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
           </button>
         </div>
         <div className="scanner-body">
-          {error ? (
+          {cameraError ? (
             <div className="scanner-error">
               <IconCamera size={40} stroke={1.5} />
-              <p>{error}</p>
+              <p>{cameraError}</p>
               <button
-                onClick={startCamera}
+                onClick={handleRetry}
                 style={{
                   marginTop: "12px",
                   padding: "8px 20px",
@@ -296,7 +285,30 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
                 {scanning && <div className="scanner-line" />}
               </div>
 
-              {/* Camera Flip Button */}
+              {feedback && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: isMobile ? 80 : 90,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    zIndex: 20,
+                    background: feedbackBg,
+                    color: feedbackColor,
+                    padding: "8px 20px",
+                    borderRadius: "12px",
+                    fontWeight: 700,
+                    fontSize: "13px",
+                    fontFamily: "'Montserrat', sans-serif",
+                    whiteSpace: "nowrap",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    border: `1.5px solid ${feedbackColor}`,
+                  }}
+                >
+                  {feedback.text}
+                </div>
+              )}
+
               {isMobile && (
                 <button
                   onClick={(e) => {
@@ -310,7 +322,6 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
                 </button>
               )}
 
-              {/* Camera mode indicator */}
               {isMobile && (
                 <div className="camera-mode-indicator">
                   {facingMode === "environment"
@@ -322,13 +333,13 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
           )}
         </div>
         <p className="scanner-hint">
-          {error ? (
+          {cameraError ? (
             "Tap retry to try again"
           ) : (
             <>
               Point your camera at a QR code
               <br />
-              {isMobile && !error && "Tap camera icon to flip camera"}
+              {isMobile && !cameraError && "Tap camera icon to flip camera"}
             </>
           )}
         </p>
@@ -462,7 +473,6 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
           100% { top: calc(100% - 44px); opacity: 0; }
         }
 
-        /* Flip Button */
         .scanner-flip-btn {
           position: absolute;
           bottom: 24px;

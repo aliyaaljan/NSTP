@@ -8,6 +8,7 @@ import { getActiveLeaderEnrollment } from "@/lib/auth/leader"
 import { resolveActiveStudentEnrollment } from "@/lib/student/enrollment"
 import { parseUserAgent } from "@/lib/user-agent"
 import { encryptQrPayload, decryptQrPayload } from "@/lib/attendance/qr-crypto"
+import { lookupId } from "@/lib/lookups"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,12 +53,20 @@ export type GeoInput = {
   accuracy_meter: number
 }
 
+export type ScanErrorCode =
+  | "not_authenticated"
+  | "invalid"
+  | "expired"
+  | "not_found"
+  | "unauthorized"
+  | "already_open"
+  | "replay"
+  | "unknown"
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-// Reads the caller's device/IP fingerprint from the incoming request headers.
-// Shared by QR generation (student's device) and scan/time-out (scanner's device).
 async function getRequestClientMeta() {
   const h = await headers()
   const ua = h.get("user-agent")
@@ -169,21 +178,24 @@ export async function generateQrToken(
 export async function recordScan(
   token: string,
   scannerGeo?: ScanMeta
-): Promise<{ ok: true; result: AttendanceResult } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; result: AttendanceResult }
+  | { ok: false; error: string; code: ScanErrorCode }
+> {
   const supabase = await createSupabaseServerClient()
   const service = createSupabaseServiceClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not authenticated" }
+  if (!user) return { ok: false, error: "Not authenticated", code: "not_authenticated" }
 
   const payload = decryptQrPayload(token)
   if (!payload || !payload.enrollmentId || !payload.nonce) {
-    return { ok: false, error: "Invalid or tampered QR" }
+    return { ok: false, error: "Invalid or tampered QR", code: "invalid" }
   }
 
   const expiresAtMs = new Date(payload.expiresAt as string).getTime()
   if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
-    return { ok: false, error: "QR code has expired" }
+    return { ok: false, error: "QR code has expired", code: "expired" }
   }
 
   const { data: enrollmentRow } = await service
@@ -192,7 +204,7 @@ export async function recordScan(
     .eq("enrollment_id", payload.enrollmentId)
     .maybeSingle()
 
-  if (!enrollmentRow) return { ok: false, error: "Enrollment not found" }
+  if (!enrollmentRow) return { ok: false, error: "Enrollment not found", code: "not_found" }
 
   const { data: leadsData } = await supabase.rpc("app_leads_section", {
     p_section_id: enrollmentRow.section_id,
@@ -202,14 +214,12 @@ export async function recordScan(
   })
 
   if (!leadsData && !advisesData) {
-    return { ok: false, error: "Not authorised to scan for this section" }
+    return { ok: false, error: "Not authorised to scan for this section", code: "unauthorized" }
   }
 
   const scannerMeta = await buildScannerMeta(scannerGeo)
 
   const generatedMeta = {
-    // AES-256-GCM already authenticates the token, so no separate signature is
-    // stored. qr_signature stays NULL (nullable column).
     signature: null,
     generated_at: payload.generatedAt ?? null,
     latitude: payload.latitude ?? null,
@@ -231,10 +241,69 @@ export async function recordScan(
 
   if (error) {
     console.error("[recordScan] rpc failed", error)
-    return { ok: false, error: "Could not record the scan. The QR may be invalid, expired, or already used." }
+    const msg = (error.message ?? "").toLowerCase()
+    if (msg.includes("already has an open")) {
+      return { ok: false, error: "This student is already timed in.", code: "already_open" }
+    }
+    if (msg.includes("invalid, expired, or already used")) {
+      return { ok: false, error: "QR is invalid, expired, or already used.", code: "invalid" }
+    }
+    if (msg.includes("replay") || msg.includes("already recorded")) {
+      return { ok: false, error: "This QR was already scanned.", code: "replay" }
+    }
+    return {
+      ok: false,
+      error: "Could not record the scan. The QR may be invalid, expired, or already used.",
+      code: "unknown",
+    }
   }
 
   return { ok: true, result: data as AttendanceResult }
+}
+
+// ---------------------------------------------------------------------------
+// getMyOpenSession
+// Returns the caller's current open attendance session (if any).
+// Used by student time-out UI and leader self time-in/out toggle.
+// ---------------------------------------------------------------------------
+export async function getMyOpenSession(): Promise<
+  | { ok: true; session: { sessionId: string; startedAt: string } | null }
+  | { ok: false; error: string }
+> {
+  const supabase = await createSupabaseServerClient()
+  const service = createSupabaseServiceClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Not authenticated" }
+
+  const enrollment = await resolveActiveStudentEnrollment(service, user.id)
+  if (!enrollment) return { ok: true, session: null }
+
+  const openStatusId = await lookupId("attendance_session_status", "open")
+
+  const { data, error } = await service
+    .from("attendance_session")
+    .select("attendance_session_id, started_at")
+    .eq("enrollment_id", enrollment.enrollmentId)
+    .eq("attendance_session_status_id", openStatusId)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error("[getMyOpenSession] query failed", error)
+    return { ok: false, error: "Could not check session status." }
+  }
+
+  if (!data) return { ok: true, session: null }
+
+  return {
+    ok: true,
+    session: {
+      sessionId: data.attendance_session_id,
+      startedAt: data.started_at,
+    },
+  }
 }
 
 // ---------------------------------------------------------------------------

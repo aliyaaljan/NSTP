@@ -6,6 +6,7 @@ type LookupTable =
   | "enrollment_status"
   | "appeal_status"
   | "attendance_event_type"
+  | "attendance_event_source"
   | "attendance_session_status"
   | "section_status"
   | "form_submission_status"

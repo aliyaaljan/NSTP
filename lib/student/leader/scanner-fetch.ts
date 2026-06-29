@@ -1,77 +1,67 @@
 "use server"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
-
-export type ScanRecord = {
-  name: string
-  date: string
-  generatedTime: string
-  scannedTime: string
-  status: "On Time" | "Late"
-}
+import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import { lookupId } from "@/lib/lookups"
+import {
+  type ScanRecord,
+  manilaDateKey,
+  manilaClock,
+  manilaMinutesPastMidnight,
+  LATE_CUTOFF_MINUTES,
+} from "@/lib/student/leader/scan-history"
 
 export async function fetchLeaderScanHistory(): Promise<ScanRecord[]> {
   const supabase = await createSupabaseServerClient()
+  const service = createSupabaseServiceClient()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data: records, error } = await supabase
+  const qrScanSourceId = await lookupId("attendance_event_source", "qr_scan")
+
+  const { data: records, error } = await service
     .from("attendance_event")
     .select(
       `
+      attendance_event_id,
       effective_at,
-      generated_meta,
+      generated_at,
       enrollment!inner (
+        student_user_id,
         app_user!inner (
           full_name
         )
       )
     `
     )
-    .eq("recorded_by", user.id)
+    .eq("recorded_by_user_id", user.id)
+    .eq("attendance_event_source_id", qrScanSourceId)
     .order("effective_at", { ascending: false })
 
   if (error || !records) return []
 
   return records.map((row: any) => {
-    const scannedDate = new Date(row.effective_at)
-    const genMeta = (row.generated_meta as Record<string, any>) || {}
-    const generatedDate = new Date(genMeta.generated_at || row.effective_at)
-
-    const targetHours = parseInt(
-      scannedDate.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        hour12: false,
-        timeZone: "Asia/Manila",
-      })
-    )
-    const targetMinutes = parseInt(
-      scannedDate.toLocaleTimeString("en-US", {
-        minute: "2-digit",
-        timeZone: "Asia/Manila",
-      })
-    )
-
-    const minutesPastMidnight = targetHours * 60 + targetMinutes
-    const isLate = minutesPastMidnight > 8 * 60 + 15 // Checks against 8:15 AM GMT+8
+    const enrollmentRaw = row.enrollment
+    const enrollment = Array.isArray(enrollmentRaw)
+      ? enrollmentRaw[0]
+      : enrollmentRaw
+    const appUserRaw = enrollment?.app_user
+    const appUser = Array.isArray(appUserRaw) ? appUserRaw[0] : appUserRaw
+    const fullName: string = appUser?.full_name ?? "Unknown Student"
 
     return {
-      name: row.enrollment?.app_user?.full_name || "Unknown Student",
-      date: scannedDate.toISOString().split("T")[0],
-      generatedTime: generatedDate.toLocaleTimeString("en-PH", {
-        hour: "numeric",
-        minute: "2-digit",
-        timeZone: "Asia/Manila",
-      }),
-      scannedTime: scannedDate.toLocaleTimeString("en-PH", {
-        hour: "numeric",
-        minute: "2-digit",
-        timeZone: "Asia/Manila", //GMT +8
-      }),
-      status: isLate ? "Late" : "On Time",
+      id: row.attendance_event_id,
+      name: fullName,
+      date: manilaDateKey(row.effective_at),
+      generatedTime: manilaClock(row.generated_at),
+      scannedTime: manilaClock(row.effective_at),
+      status:
+        manilaMinutesPastMidnight(row.effective_at) > LATE_CUTOFF_MINUTES
+          ? ("Late" as const)
+          : ("On Time" as const),
     }
   })
 }
