@@ -283,6 +283,15 @@ export default function FormsPage() {
               {/* Header */}
               <div className="fm-header-row">
                 <h1 className="fm-title">Forms</h1>
+                <div className="search-bar" style={{ minWidth: 200 }}>
+                  <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
+                  <input
+                    className="search-input"
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                    placeholder="Search student..."
+                  />
+                </div>
                 <div className="profile-pill">
                   <div className="profile-avatar">KM</div>
                   <div>

@@ -4,7 +4,6 @@ export function ChartStyles() {
       /* ── KPI Stat Cards ───────────────────────────────────────────────── */
       .db-kpi-card {
         position: relative;
-        overflow: hidden;
         flex: 1;
         background: var(--white);
         background-image: linear-gradient(to bottom right, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0));
@@ -48,18 +47,25 @@ export function ChartStyles() {
       }
       .db-kpi-deco {
         position: absolute;
-        bottom: -8px;
-        right: -6px;
-        opacity: 0.08;
+        bottom: 10px;
+        right: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.12;
         color: var(--maroon);
         pointer-events: none;
         z-index: 0;
         transform: rotate(-5deg);
         transition: all 0.3s ease;
       }
+      .db-kpi-deco svg {
+        width: 64px;
+        height: 64px;
+      }
       .db-kpi-card:hover .db-kpi-deco {
-        opacity: 0.15;
-        transform: rotate(0deg) scale(1.1);
+        opacity: 0.2;
+        transform: rotate(0deg) scale(1.08);
       }
 
       /* ── List Animation ───────────────────────────────────────────────── */
