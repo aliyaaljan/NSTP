@@ -1,7 +1,92 @@
+import type { ReactNode } from "react"
+
+export type KpiStatCardProps = {
+  icon: string
+  label: string
+  value: string | number
+  valueSuffix?: string
+  valueColor?: string
+  badge?: { text: string; bg: string; color: string }
+  note?: string
+}
+
+export function KpiStatCard({
+  icon,
+  label,
+  value,
+  valueSuffix,
+  valueColor,
+  badge,
+  note,
+}: KpiStatCardProps) {
+  return (
+    <div className="db-kpi-card">
+      <div className="db-kpi-header">
+        <span className="db-kpi-label">{label}</span>
+      </div>
+      <div
+        className="db-kpi-value"
+        style={
+          valueColor
+            ? {
+                background: "none",
+                WebkitBackgroundClip: "unset",
+                backgroundClip: "unset",
+                WebkitTextFillColor: valueColor,
+                color: valueColor,
+              }
+            : undefined
+        }
+      >
+        {value}
+        {valueSuffix && <span className="db-kpi-value-suffix">{valueSuffix}</span>}
+      </div>
+      {(badge || note) && (
+        <div className="db-kpi-meta">
+          {badge && (
+            <span
+              className="db-kpi-badge"
+              style={{ color: badge.color, background: badge.bg }}
+            >
+              {badge.text}
+            </span>
+          )}
+          {note && <span className="db-kpi-note">{note}</span>}
+        </div>
+      )}
+      <div className="db-kpi-deco" aria-hidden="true">
+        <i className={`ti ${icon}`} />
+      </div>
+    </div>
+  )
+}
+
+export function KpiStatCardGrid({
+  children,
+  columns = 4,
+}: {
+  children: ReactNode
+  columns?: number
+}) {
+  return (
+    <div
+      className="db-kpi-grid"
+      style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
+    >
+      {children}
+    </div>
+  )
+}
+
 export function ChartStyles() {
   return (
     <style>{`
       /* ── KPI Stat Cards ───────────────────────────────────────────────── */
+      .db-kpi-grid {
+        display: grid;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
       .db-kpi-card {
         position: relative;
         flex: 1;
@@ -45,13 +130,42 @@ export function ChartStyles() {
         -webkit-text-fill-color: transparent;
         position: relative;
         z-index: 1;
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+      }
+      .db-kpi-value-suffix {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--muted);
+        -webkit-text-fill-color: var(--muted);
+      }
+      .db-kpi-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+        position: relative;
+        z-index: 1;
+      }
+      .db-kpi-badge {
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 12px;
+        padding: 2px 8px;
+        line-height: 1.3;
+      }
+      .db-kpi-note {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted);
+        line-height: 1.3;
       }
       .db-kpi-deco {
-        position: absolute; 
-        right: -15px; 
+        position: absolute;
+        right: -15px;
         bottom: -23px;
-        // bottom: 10px;
-        // right: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -59,13 +173,12 @@ export function ChartStyles() {
         color: var(--maroon);
         pointer-events: none;
         z-index: 0;
-        // transform: rotate(-5deg);
         transition: all 0.3s ease;
       }
-      // .db-kpi-deco svg {
-      //   width: 64px;
-      //   height: 64px;
-      // }
+      .db-kpi-deco .ti {
+        font-size: 110px;
+        line-height: 1;
+      }
       .db-kpi-card:hover .db-kpi-deco {
         opacity: 0.2;
         transform: rotate(0deg) scale(1.08);
@@ -90,5 +203,5 @@ export function ChartStyles() {
       .anim-list-item:nth-child(9)  { animation-delay: 320ms; }
       .anim-list-item:nth-child(10) { animation-delay: 360ms; }
     `}</style>
-  );
+  )
 }

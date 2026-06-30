@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import AddAccessUserModal from "@/components/admin/AddAccessUserModal"
 import EditAccessUserModal from "@/components/admin/EditAccessUserModal"
-import { ChartStyles } from "@/components/shared/ChartModule"
+import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
 import {
   deactivateAccessUser,
@@ -114,126 +114,6 @@ function FilterDropdown({
       >
         {children}
       </select>
-    </div>
-  )
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  valueSuffix,
-  valueColor,
-  badge,
-  note,
-}: {
-  icon: string
-  label: string
-  value: string | number
-  valueSuffix?: string
-  valueColor?: string
-  badge?: { text: string; bg: string; color: string }
-  note: string
-}) {
-  return (
-    <div
-      style={{
-        background: COLORS.cardBg,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: COLORS.radius,
-        padding: "12px 14px",
-        boxShadow: COLORS.cardShadow,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        minWidth: 0,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-          minWidth: 0,
-          flex: 1,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 8,
-              background: COLORS.iconBg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <i className={`ti ${icon}`} style={{ fontSize: 17, color: COLORS.maroon }} />
-          </div>
-
-          <div
-            style={{
-              fontFamily: FONT_BODY,
-              fontSize: "11.5px",
-              fontWeight: 600,
-              color: COLORS.textGray,
-              lineHeight: 1.3,
-            }}
-          >
-            {label}
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {badge && (
-            <span
-              style={{
-                ...TYPE.bodyBold,
-                color: badge.color,
-                background: badge.bg,
-                borderRadius: 12,
-                padding: "2px 8px",
-              }}
-            >
-              {badge.text}
-            </span>
-          )}
-          <span style={{ ...TYPE.caption, color: COLORS.textGray }}>{note}</span>
-        </div>
-      </div>
-
-      <div
-        style={{
-          fontFamily: FONT_BODY,
-          fontSize: "34px",
-          fontWeight: 800,
-          lineHeight: 1,
-          letterSpacing: "-0.02em",
-          color: valueColor ?? COLORS.textDark,
-          display: "flex",
-          alignItems: "baseline",
-          gap: 4,
-          flexShrink: 0,
-          marginLeft: "auto",
-          marginRight: 16,
-        }}
-      >
-        {value}
-        {valueSuffix && (
-          <span
-            style={{
-              fontSize: "15px",
-              fontWeight: 600,
-              color: COLORS.textGray,
-            }}
-          >
-            {valueSuffix}
-          </span>
-        )}
-      </div>
     </div>
   )
 }
@@ -451,7 +331,7 @@ export default function AccessControlClient({
   const pctOfTotal = (count: number) =>
     summary.totalUsers > 0 ? `${Math.round((count / summary.totalUsers) * 100)}%` : "0%"
 
-  const statCards: Array<React.ComponentProps<typeof StatCard>> = [
+  const statCards: KpiStatCardProps[] = [
     {
       icon: "ti-users",
       label: "Total Users",
@@ -526,18 +406,11 @@ export default function AccessControlClient({
         <ProfilePill user={currentUser} />
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-          gap: 12,
-          marginBottom: 20,
-        }}
-      >
+      <KpiStatCardGrid columns={4}>
         {statCards.map((card, index) => (
-          <StatCard key={index} {...card} />
+          <KpiStatCard key={index} {...card} />
         ))}
-      </div>
+      </KpiStatCardGrid>
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ position: "relative" }}>

@@ -9,6 +9,12 @@ import SectionProgressPanel from "@/components/admin/SectionProgressPanel"
 import RemainingDaysChart from "@/components/admin/RemainingDaysChart"
 import CompletionDonutChart from "@/components/admin/CompletionDonutChart"
 import { lookupId } from "@/lib/lookups"
+import {
+  ChartStyles,
+  KpiStatCard,
+  KpiStatCardGrid,
+  type KpiStatCardProps,
+} from "@/components/shared/ChartModule"
 
 export const revalidate = 0
 
@@ -84,128 +90,6 @@ export interface CurrentUser {
 }
 
 // ── Small presentational components ───────────────────────────────────────────
-
-function StatCard({
-  icon,
-  label,
-  value,
-  valueSuffix,
-  valueColor,
-  badge,
-  note,
-}: {
-  icon: string
-  label: string
-  value: string | number
-  valueSuffix?: string
-  valueColor?: string
-  badge?: { text: string; bg: string; color: string }
-  note: string
-}) {
-  return (
-    <div
-      style={{
-        background: COLORS.cardBg,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: COLORS.radius,
-        padding: "12px 14px",
-        boxShadow: COLORS.cardShadow,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-          minWidth: 0,
-          flex: 1,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 8,
-              background: COLORS.iconBg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <i
-              className={`ti ${icon}`}
-              style={{ fontSize: 17, color: COLORS.maroon }}
-            />
-          </div>
-
-          <div
-            style={{
-              fontFamily: FONT_BODY,
-              fontSize: "11.5px",
-              fontWeight: 600,
-              color: COLORS.textGray,
-              lineHeight: 1.3,
-            }}
-          >
-            {label}
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {badge && (
-            <span
-              style={{
-                ...TYPE.bodyBold,
-                color: badge.color,
-                background: badge.bg,
-                borderRadius: 12,
-                padding: "2px 8px",
-              }}
-            >
-              {badge.text}
-            </span>
-          )}
-          <span style={{ ...TYPE.caption, color: COLORS.textGray }}>{note}</span>
-        </div>
-      </div>
-
-      <div
-        style={{
-          fontFamily: FONT_BODY,
-          fontSize: "34px",
-          fontWeight: 800,
-          lineHeight: 1,
-          letterSpacing: "-0.02em",
-          color: valueColor ?? COLORS.textDark,
-          display: "flex",
-          alignItems: "baseline",
-          gap: 4,
-          flexShrink: 0,
-          marginLeft: "auto",
-          marginRight: 16,
-        }}
-      >
-        {value}
-        {valueSuffix && (
-          <span
-            style={{
-              fontSize: "15px",
-              fontWeight: 600,
-              color: COLORS.textGray,
-            }}
-          >
-            {valueSuffix}
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
 
 function Badge({
   text,
@@ -932,7 +816,7 @@ export default async function AdminDashboardPage({
     role: "NSTP Admin",
   }
 
-  const statCards: Array<React.ComponentProps<typeof StatCard>> = [
+  const statCards: KpiStatCardProps[] = [
     {
       icon: "ti-users",
       label: "Active Students",
@@ -1055,19 +939,12 @@ export default async function AdminDashboardPage({
         <DashboardExportButton sections={exportSections} />
       </div>
 
-      {/* Stat cards grid layout mapping */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 20,
-          marginBottom: 20,
-        }}
-      >
+      <ChartStyles />
+      <KpiStatCardGrid columns={4}>
         {statCards.map((card, i) => (
-          <StatCard key={i} {...card} />
+          <KpiStatCard key={i} {...card} />
         ))}
-      </div>
+      </KpiStatCardGrid>
 
       {/* Section progress progressbars bars panel + Completion donut */}
       <div
