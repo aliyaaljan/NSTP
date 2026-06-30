@@ -4,13 +4,14 @@ import { useState, useEffect, Suspense } from "react"
 import { useRouter } from "next/navigation";
 import {
   IconSearch, IconChevronDown,
-  IconUsersGroup, IconCircleCheck, IconClock,
+  IconUsers, IconCircleCheck, IconClock,
   IconAlertCircle, IconX, IconPaperclip,
 } from "@tabler/icons-react";
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/client";
 
 // ── Data ──────────────────────────────────────────────────────────────
 type Status = "Completed" | "In Progress" | "Not Started";
@@ -72,17 +73,6 @@ function progressColor(status: Status): string {
   return "#EF4444";
 }
 
-function buildStatCards(students: Student[]) {
-  const completed  = students.filter(s => s.status === "Completed").length;
-  const inProgress = students.filter(s => s.status === "In Progress").length;
-  const pending    = pendingRequests.length;
-  return [
-    { label: "Total Students",   value: students.length, Icon: IconUsersGroup  },
-    { label: "Completed",        value: completed,        Icon: IconCircleCheck },
-    { label: "In Progress",      value: inProgress,       Icon: IconClock       },
-    { label: "Pending Requests", value: pending,          Icon: IconAlertCircle },
-  ];
-}
 
 type Tab = "list" | "pending";
 type StatusFilter = "All Status" | Status;
@@ -96,7 +86,7 @@ const myStudentsStyles = `
   .ms-stat-cards { display: flex; gap: 12px; padding: 18px 28px 0; flex-shrink: 0; }
 
   /* Tabs */
-  .ms-tabs { display: flex; gap: 0; padding: 20px 28px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; margin: 0 0 0; }
+  .ms-tabs { display: flex; gap: 0; padding: 20px 0 0; margin: 0 28px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
   .ms-tab {
     display: flex; align-items: center; gap: 8px;
     padding: 10px 20px; background: none; border: none;
@@ -299,6 +289,77 @@ function MyStudentsContent() {
     }
   }, [searchParams])
 
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [initials, setInitials] = useState("")
+  const [sections, setSections] = useState<{ id: string; name: string }[]>([])
+  const [selectedSection, setSelectedSection] = useState("All Sections")
+  const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false)
+  const [statData, setStatData] = useState<{section_id: string; section_name: string; total: number; completed: number; in_progress: number; pending_request: number;}[]>([])
+  const [animKey, setAnimKey] = useState(0)
+  const [sectionKey, setSectionKey] = useState(0)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      // Get first name & last name
+      const full: string = user?.user_metadata?.full_name ?? ""
+      const parts = full.trim().split(" ")
+      const fName = parts[0] ?? ""
+      const lName = parts.at(-1) ?? ""
+      setFirstName(fName)
+      setLastName(lName)
+      setInitials((fName[0] ?? "") + (lName[0] ?? ""))
+
+      const [
+        { data: statData, error: statError },
+        { data: sectionData, error: sectionError },
+        { data: semData, error: semError },
+      ] = await Promise.all([
+        supabase.rpc("get_students_stats", { p_adviser_user_id: user?.id }),
+        supabase.rpc("get_sections", { p_adviser_user_id: user?.id }),
+        supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id }),
+      ])
+
+      if (statError) console.error("get_students_stats error:", statError.message, statError.details)
+      if (statData) setStatData(statData)
+
+      if (sectionError) console.error("get_sections error:", sectionError.message, sectionError.details)
+      if (sectionData && statData) {
+        const mappedSection = statData.map((r: { section_id: string | null; section_name: string }) => ({
+          id: r.section_id ?? "all",
+          name: r.section_name,
+        }))
+        const sortedSection = [...mappedSection].sort((a, b) => {
+          if (a.name === "All Sections") return -1
+          if (b.name === "All Sections") return 1
+          return a.name.localeCompare(b.name)
+        })
+        setSections(sortedSection)
+      }
+
+      if (semError) console.error("get_active_sem error:", semError.message, semError.details)
+    })
+  }, [])
+
+  const currentData = statData.find((r) => r.section_name === selectedSection)
+  if (!currentData) return null
+
+  // const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
+
+
+  function buildStatCards(students: Student[]) {
+    const completed  = students.filter(s => s.status === "Completed").length;
+    const inProgress = students.filter(s => s.status === "In Progress").length;
+    const pending    = pendingRequests.length;
+    return [
+      { label: "Total Students",   value: currentData?.total, Icon: IconUsers},
+      { label: "Completed",        value: currentData?.completed, Icon: IconCircleCheck},
+      { label: "In Progress",      value: currentData?.in_progress, Icon: IconClock},
+      { label: "Pending Requests", value: currentData?.pending_request, Icon: IconAlertCircle},
+    ];
+  }
+
   const filtered = allStudents.filter((s) => {
     const q = (headerSearch || tableSearch).trim().toLowerCase();
     const matchSearch = q === "" ||
@@ -359,7 +420,7 @@ function MyStudentsContent() {
             {/* Header */}
             <div className="ms-header-row">
               <h1 className="ms-title">My Students</h1>
-              <div className="search-bar" style={{ minWidth: 200 }}>
+              {/* <div className="search-bar" style={{ minWidth: 200 }}>
                 <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
                 <input
                   className="search-input"
@@ -368,22 +429,67 @@ function MyStudentsContent() {
                   placeholder="Search students..."
                   aria-label="Search students"
                 />
-              </div>
+              </div> */}
               <div className="profile-pill">
-                <div className="profile-avatar">KM</div>
+                <div className="profile-avatar">{initials}</div>
                 <div>
-                  <div className="profile-name">Kim, Mingyu</div>
-                  <div className="profile-sec">NSTP – H</div>
+                  <div className="profile-name">{lastName}, {firstName}</div>
                 </div>
               </div>
             </div>
 
             {/* Sections filter */}
-            <div style={{ padding: "12px 28px 0" }}>
-              <button className="sections-btn">
-                All Sections <IconChevronDown size={13} stroke={2} />
-              </button>
-            </div>
+            <div style={{ position: "relative", padding: "12px 28px 0" }}>
+              <div onMouseLeave={() => setSectionDropdownOpen(false)}>
+                <button
+                  className="sections-btn"
+                  onClick={() => setSectionDropdownOpen((o) => !o)}
+                >
+                  {selectedSection} <IconChevronDown size={13} stroke={2} />
+                </button>
+
+                {sectionDropdownOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      // top: "100%",
+                      // right: 0,
+                      paddingTop: 6,
+                      zIndex: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "var(--white)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 10,
+                        boxShadow: "var(--shadow)",
+                        minWidth: 160,
+                        overflow: "hidden",
+                      }}
+                      >
+                        {sections.map((s) => (
+                          <div
+                            key={s.id}
+                            onClick={() => {
+                              setSelectedSection(s.name)
+                              setSectionDropdownOpen(false)
+                              setCurrentPage(1)
+                              setAnimKey((k) => k + 1)
+                              setSectionKey((k) => k + 1)
+                            }}
+                            className={`block w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
+                              s.name === selectedSection ? "font-semibold bg-green text-white" : "font-normal text-text"
+                            }`}
+                          >
+                            {s.name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
             {/* Stat cards */}
             <div className="ms-stat-cards">
@@ -394,7 +500,7 @@ function MyStudentsContent() {
                   </div>
                   <div className="db-kpi-value">{value}</div>
                   <div className="db-kpi-deco">
-                    <Icon size={64} stroke={1.2} />
+                    <Icon size={110} stroke={1.2} />
                   </div>
                 </div>
               ))}
@@ -406,7 +512,7 @@ function MyStudentsContent() {
                 className={`ms-tab${activeTab === "list" ? " ms-tab-active" : ""}`}
                 onClick={() => setActiveTab("list")}
               >
-                <IconUsersGroup size={16} stroke={1.75} />
+                <IconUsers size={16} stroke={1.75} />
                 List of Students
               </button>
               <button
