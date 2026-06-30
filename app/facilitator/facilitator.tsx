@@ -100,11 +100,11 @@ export function ProgressBar({ pct }: { pct: number }) {
   return (
     <div
       role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
-      style={{ flex: 1, height: 15, background: "#E5E7EB", borderRadius: 5, overflow: "hidden" }}
+      style={{ flex: 1, height: 15, background: "#E5E7EB", borderRadius: 100, overflow: "hidden" }}
     >
       <div style={{
         height: "100%", width: `${displayed}%`,
-        background: progressColor(pct), borderRadius: 5, transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)",
+        background: progressColor(pct), borderRadius: 100, transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)",
       }} />
     </div>
   );
@@ -363,7 +363,7 @@ export function Sidebar({ open, activeNav, onToggle, onNavClick, onSignOut }: Si
               title={!open ? label : undefined}
               onClick={(e) => {
                 e.stopPropagation();
-                if (open) { onNavClick(label); } else { onToggle(); }
+                onNavClick(label);
               }}
             >
               <span className="sb-nav-pill">

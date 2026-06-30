@@ -43,19 +43,36 @@ type DashboardRow = {
 }
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
-  const delta = 1
+  const gap = 2
   const shown = new Set<number>()
 
   shown.add(1)
   shown.add(total)
-  for (let i = current - delta; i <= current + delta; i++) {
-    if (i >= 1 && i <= total) shown.add(i)
+  let start = current - gap
+  let end = current + gap
+
+  if (start < 1) {
+    end += 1 - start
+    start = 1
+  }
+  
+  if (end > total) {
+    start -= end - total
+    end = total
+  }
+
+  for (let i = Math.max(1, start); i <= Math.min(total, end); i++) {
+    shown.add(i)
   }
 
   const sorted = Array.from(shown).sort((a, b) => a - b)
   const result: (number | "...")[] = []
 
+  
   for (let i = 0; i < sorted.length; i++) {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1)
+    }
     if (i > 0) {
       const gap = sorted[i] - sorted[i - 1]
       if (gap === 2) {
@@ -88,6 +105,7 @@ export default function DashboardPage() {
   const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string }[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [pageSizeInput, setPageSizeInput] = useState(String(pageSize))
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
 
@@ -103,13 +121,20 @@ export default function DashboardPage() {
       setLastName(lName)
       setInitials((fName[0] ?? "") + (lName[0] ?? ""))
 
-      // Get dashboard data
-      const { data: dashboardData, error: dashboardError } = await supabase.rpc("get_adviser_dashboard_data", { p_adviser_user_id: user?.id})
+      const [
+        {data: dashboardData, error: dashboardError},
+        {data: sectionData, error: sectionError},
+        {data: auditData, error: auditError},
+        {data: semData, error: semError},
+      ] = await Promise.all([
+        supabase.rpc("get_adviser_dashboard_data", { p_adviser_user_id: user?.id}),
+        supabase.rpc("get_sections",{p_adviser_user_id: user?.id}),
+        supabase.rpc("get_adviser_recent_activity",{p_adviser_user_id: user?.id}),
+        supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id })
+      ])
       if (dashboardError) console.error(dashboardError)
       if (dashboardData) setDashboardData(dashboardData)
 
-      // Get sections
-      const { data: sectionData, error: sectionError } = await supabase.rpc("get_sections",{p_adviser_user_id: user?.id})
       if (sectionError) console.error(sectionError)
       if (sectionData && dashboardData) {
         const mappedSection = dashboardData.map((r: DashboardRow) => ({
@@ -124,18 +149,35 @@ export default function DashboardPage() {
         setSections(sortedSection)
       }
 
-      //Get recent activity
-      const {data: auditData, error: auditError} = await supabase.rpc("get_adviser_recent_activity",{p_adviser_user_id: user?.id})
       if (auditError) console.log(auditError)
       if (auditData) setRecentActivity(auditData)
 
-      //Get active sem data
-      const { data: semData, error: semError } = await supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id })
       if (semError) console.error(semError)
       if (semData) setActiveSemData(semData)
     })
   }, [])
 
+  useEffect(() => {
+    setPageSizeInput(String(pageSize))
+  }, [pageSize])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (pageSizeInput !== "" && Number(pageSizeInput) !== pageSize) {
+        commitPageSize()
+      }
+    }, 500) 
+
+    return () => clearTimeout(timer)
+  }, [pageSizeInput])
+
+  function commitPageSize() {
+    const max = Math.max(1, filtered.length)
+    const next = Math.max(1, Math.min(max, Number(pageSizeInput) || pageSize))
+    setPageSize(next)
+    setCurrentPage(1)
+    setPageSizeInput(String(next)) 
+  }
   async function handleSignOut() {
     await signOutWithAudit()
     router.push("/")
@@ -150,14 +192,14 @@ export default function DashboardPage() {
     }
   }
 
-  const currentData = dashboardData.find((r) => r.section_name === selectedSection)
-  if (!currentData) return null
+    const currentData = dashboardData.find((r) => r.section_name === selectedSection)
+    if (!currentData) return null
 
-  const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
+    const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
 
   const statCards = [
     { label: "Total Students", value: currentData.total, Icon: IconUsers },
-    { label: "Pending Review", value: currentData.pending, Icon: IconClock },
+    { label: "Pending Requests", value: currentData.pending, Icon: IconAlertCircle },
     { label: "Completed", value: currentData.completed, Icon: IconCircleCheck },
   ]
 
@@ -198,7 +240,7 @@ export default function DashboardPage() {
         <div className="main-wrapper">
           <main className="main">
             <header className="header">
-              <h1 className="header-greeting">Hello, {firstName}!</h1>
+              <h1 className="header-greeting">Hello, Adviser!</h1>
               <div className="search-bar">
                 <span className="search-icon">
                   <IconSearch size={14} stroke={1.75} />
@@ -385,21 +427,24 @@ export default function DashboardPage() {
                           filtered.length === 0 ? "0" : 
                           filtered.length === 1 ? "1" : (
                             <>
-                              {(currentPage - 1) * pageSize + 1} - {" "}
+                              {(currentPage - 1) * pageSize + 1}  {"to "}
                               <input 
                                 type="number" 
                                 min={1}
                                 max={filtered.length}
-                                className="px-1 py-1 w-10 text-center border rounded mx-1 inline-block"
-                                value={Math.min(currentPage * pageSize, filtered.length)}
+                                className="px-1 py-1 w-12 text-center border rounded mx-1 inline-block"
+                                value={pageSizeInput}
                                 onChange={(e) => {
-                                  const raw = e.target.value
-                                  if (raw === "") {
-                                    return
-                                  }
-                                  const next = Math.max(1, Math.min(200, Number(raw)))
-                                  setPageSize(next)
+                                  setPageSizeInput(e.target.value)
                                   setCurrentPage(1)
+                                }}
+                                onBlur={commitPageSize}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault()
+                                    commitPageSize()
+                                    ;(e.target as HTMLInputElement).blur()
+                                  }
                                 }}
                               />
                             </>
@@ -543,8 +588,8 @@ export default function DashboardPage() {
                         recentActivity.map((item, index) => {
                           return (
                             <div key={index} className="text-xs bg-white border border-gray-300 rounded-(--radius) px-4 py-3 mt-2 shadow-(--shadow)">
-                              <div className="font-semibold text-justify">{item.summary}</div>
-                              <div className="text-muted mt-1 text-[10px]">{item.created_at_hours}</div>
+                              <div className="text-justify">{item.summary}</div>
+                              <div className="text-muted mt-1 text-[10px] text-right">{item.created_at_hours}</div>
                             </div>  
                           )
                         })
