@@ -368,7 +368,7 @@ const myStudentsStyles = `
     padding: 8px 16px;
     border: none;
     border-radius: 8px;
-    background: var(--maroon);
+    background: var(--green);
     font-size: 13px;
     font-weight: 600;
     font-family: var(--font);
@@ -536,7 +536,7 @@ function MyStudentsContent() {
   // const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
 
   function getPublicUrl(path: string) {
-    const { data } = supabase.storage.from("YOUR_BUCKET_NAME").getPublicUrl(path);
+    const { data } = supabase.storage.from("request attachments").getPublicUrl(path);
     return data.publicUrl;
   }
   
@@ -1130,11 +1130,11 @@ function MyStudentsContent() {
                         <span>Attachment</span>
                       </div>
                       <div className="ms-requests-list">
-                        {filteredPending.map((r) => {
+                        {filteredPending.map((r, i) => {
                           const typeStyle = requestTypeStyle(r.appeal_type_name);
                           const initials = r.student_name?.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
                           return (
-                            <div key={r.appeal_id} className="ms-request-row" onClick={() => setSelectedRequest(r)}>
+                            <div key={i} className="ms-request-row" onClick={() => setSelectedRequest(r)}>
                               <div className="ms-request-student">
                                 {/* <div className="ms-request-avatar">{initials}</div> */}
                                 <div>
@@ -1433,8 +1433,8 @@ function MyStudentsContent() {
                       borderRadius: "8px",
                       fontWeight: 700,
                       cursor: isPending ? "not-allowed" : "pointer",
-                      background: "#FEE2E2",
-                      color: "#991B1B",
+                      background: "var(--maroon)",
+                      color: "var(--white)",
                       fontSize: "13px",
                       opacity: isPending ? 0.6 : 1,
                     }}
@@ -1466,8 +1466,8 @@ function MyStudentsContent() {
                       borderRadius: "8px",
                       fontWeight: 700,
                       cursor: isPending ? "not-allowed" : "pointer",
-                      background: "#D1FAE5",
-                      color: "#065F46",
+                      background: "var(--green)",
+                      color: "var(--white)",
                       fontSize: "13px",
                       opacity: isPending ? 0.6 : 1,
                     }}
