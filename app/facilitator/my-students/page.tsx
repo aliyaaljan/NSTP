@@ -1327,6 +1327,112 @@ function MyStudentsContent() {
                     {selectedRequest.note}
                   </div>
                 </div>
+
+                {/* RESOLUTION ACTIONS */}
+                <div
+                  className="ms-req-modal-section"
+                  style={{ marginTop: "14px" }}
+                >
+                  <label
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "var(--muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.6px",
+                    }}
+                  >
+                    Review Comment / Notes
+                  </label>
+                  <textarea
+                    value={resolutionNote}
+                    onChange={(e) => setResolutionNote(e.target.value)}
+                    placeholder="Provide context or a reason for the student regarding this evaluation..."
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      marginTop: "6px",
+                      padding: "10px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                      outline: "none",
+                      resize: "none",
+                      fontSize: "13px",
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{ display: "flex", gap: "10px", marginTop: "18px" }}
+                >
+                  <button
+                    disabled={isPending}
+                    onClick={() => {
+                      startTransition(async () => {
+                        const res = await resolveStudentRequest(
+                          selectedRequest.id,
+                          "rejected",
+                          resolutionNote
+                        )
+                        if (res.ok) {
+                          await refreshRequests()
+                          setSelectedRequest(null)
+                          setResolutionNote("")
+                        } else {
+                          alert(res.error)
+                        }
+                      })
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontWeight: 700,
+                      cursor: isPending ? "not-allowed" : "pointer",
+                      background: "#FEE2E2",
+                      color: "#991B1B",
+                      fontSize: "13px",
+                      opacity: isPending ? 0.6 : 1,
+                    }}
+                  >
+                    Reject Request
+                  </button>
+                  <button
+                    disabled={isPending}
+                    onClick={() => {
+                      startTransition(async () => {
+                        const res = await resolveStudentRequest(
+                          selectedRequest.id,
+                          "approved",
+                          resolutionNote
+                        )
+                        if (res.ok) {
+                          await refreshRequests()
+                          setSelectedRequest(null)
+                          setResolutionNote("")
+                        } else {
+                          alert(res.error)
+                        }
+                      })
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontWeight: 700,
+                      cursor: isPending ? "not-allowed" : "pointer",
+                      background: "#D1FAE5",
+                      color: "#065F46",
+                      fontSize: "13px",
+                      opacity: isPending ? 0.6 : 1,
+                    }}
+                  >
+                    Approve Request
+                  </button>
+                </div>
                 {selectedRequest.hasAttachment && (
                   <div className="ms-req-modal-section">
                     <div className="ms-modal-label">Attachment</div>
