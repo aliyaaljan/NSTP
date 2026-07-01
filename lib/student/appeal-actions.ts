@@ -86,7 +86,7 @@ export async function getStudentRequests(
 
 export async function submitStudentRequest(
   enrollmentId: string,
-  type: string,
+  typeId: string,
   title: string,
   body: string
 ): Promise<ActionResult<any>> {
@@ -101,11 +101,12 @@ export async function submitStudentRequest(
 
     // saved as a three-part structure in database (Type|||Title|||Message/body)
 
-    const combinedReason = `${type}|||${title}|||${body}`
+    const combinedReason = `|${title}| ${body}`
     const { error } = await supabase.from("appeal").insert({
       enrollment_id: enrollmentId,
       requester_user_id: user.id,
       appeal_status_id: openStatusId,
+      appeal_type_id: typeId,
       reason: combinedReason,
     })
     if (error) {

@@ -409,7 +409,6 @@ function MyStudentsContent() {
     }
 
     const status = searchParams.get("status")
-    console.log(status)
     if (status && statusOptions.includes(status as StatusFilter)) {
       setStatusFilter(status as StatusFilter)
       setCurrentPage(1)
@@ -443,15 +442,15 @@ function MyStudentsContent() {
   const [resolutionNote, setResolutionNote] = useState("");
 
   // fetch student requests from database
-  const refreshRequests = async () => {
-    const res = await getAdviserPendingRequests()
-    if (res.ok) setPendingRequests(res.data)
-  }
+  // const refreshRequests = async () => {
+  //   const res = await getAdviserPendingRequests()
+  //   if (res.ok) setPendingRequests(res.data)
+  // }
 
   // trigger fetch on mount
-  useEffect(() => {
-    refreshRequests()
-  }, [])
+  // useEffect(() => {
+  //   refreshRequests()
+  // }, [])
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -526,7 +525,7 @@ function MyStudentsContent() {
       if (studentsData) setStudents(studentsData)
 
       if (requestsError) console.error("get_pending_requests error:", requestsError.message, requestsError.details);
-      if (requestsData) setPendingRequests(requestsData)
+      if (requestsData) {console.log(requestsData);setPendingRequests(requestsData)}
     })
   }, [])
 
@@ -542,10 +541,10 @@ function MyStudentsContent() {
   
   function buildStatCards() {
     return [
-      { label: "Total Students",   value: currentData?.total,          Icon: IconUsers,        onClick: () => setActiveTab("list") },
-      { label: "Completed",        value: currentData?.completed,      Icon: IconCircleCheck,  onClick: () => { setActiveTab("list"); setStatusFilter("Completed"); } },
-      { label: "In Progress",      value: currentData?.in_progress,    Icon: IconClock,        onClick: () => { setActiveTab("list"); setStatusFilter("In Progress"); } },
-      { label: "Pending Requests", value: currentData?.pending_request, Icon: IconAlertCircle, onClick: () => setActiveTab("pending") },
+      { label: "Total Students",   value: currentData?.total,          Icon: IconUsers,        onClick: () => {setActiveTab("list"); clearListFilters()} },
+      { label: "Completed",        value: currentData?.completed,      Icon: IconCircleCheck,  onClick: () => { setActiveTab("list"); clearListFilters(); setStatusFilter("Completed");} },
+      { label: "In Progress",      value: currentData?.in_progress,    Icon: IconClock,        onClick: () => { setActiveTab("list"); clearListFilters(); setStatusFilter("In Progress");} },
+      { label: "Pending Requests", value: currentData?.pending_request, Icon: IconAlertCircle, onClick: () => {setActiveTab("pending"); clearPendingFilters()}},
     ];
   }
 
@@ -561,9 +560,10 @@ function MyStudentsContent() {
   });
 
   const filteredPending = pendingRequests.filter((r) => {
+    const matchSection = selectedSection === "All Sections" || r.section_name === selectedSection;
     const matchSearch = pendingSearch.trim() === "" || r.student_name.toLowerCase().includes(pendingSearch.toLowerCase());
     const matchType = requestTypeFilter === "All Types" || r.appeal_type_name === requestTypeFilter;
-    return matchSearch && matchType;
+    return matchSearch && matchType && matchSection;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -574,6 +574,35 @@ function MyStudentsContent() {
 
   const classificationOptions = ["All Classifications", "Freshman", "Sophomore", "Junior", "Senior"];
   const statCards = buildStatCards();
+
+  const hasListFilters =
+    headerSearch.trim() !== "" ||
+    tableSearch.trim() !== "" ||
+    statusFilter !== "All Status" ||
+    classificationFilter !== "All Classifications" ||
+    selectedSection !== "All Sections"
+
+  const hasPendingFilters =
+    pendingSearch.trim() !== "" ||
+    requestTypeFilter !== "All Types" ||
+    selectedSection !== "All Sections"
+
+  function clearListFilters() {
+    setHeaderSearch("")
+    setTableSearch("")
+    setStatusFilter("All Status")
+    setClassificationFilter("All Classifications")
+    setSelectedSection("All Sections")
+    setCurrentPage(1)
+    router.replace(`${navRoutes["My Students"]}`)
+  }
+
+  function clearPendingFilters() {
+    setPendingSearch("")
+    setRequestTypeFilter("All Types")
+    setSelectedSection("All Sections")
+    router.replace(`${navRoutes["My Students"]}`)
+  }
 
   async function handleSaveSession() {
     if (!editingSession || !selectedStudent) return
@@ -916,6 +945,17 @@ function MyStudentsContent() {
                           </div>
                         )}
                       </div>
+
+                      {hasListFilters && (
+                        <button
+                          className="ms-filter-btn"
+                          onClick={clearListFilters}
+                          style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}
+                        >
+                          <IconX size={13} stroke={2} />
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -940,11 +980,19 @@ function MyStudentsContent() {
                           paginated.map((s) => {
                             const pct = Math.round((s.hours_logged / s.total_hours) * 100);
                             const cfg = statusConfig[s.status];
+                            const initials = s.student_name?.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
                             return (
                               <tr key={`${s.section_id}-${s.student_number}`} onClick={() => setSelectedStudent(s)}>
                                 <td>
-                                  <div className="ms-student-name">{s.student_name}</div>
-                                  <div className="ms-student-no">{s.student_number}</div>
+                                  {/* <div className="ms-student-name">{s.student_name}</div>
+                                  <div className="ms-student-no">{s.student_number}</div> */}
+                                  <div className="ms-request-student">
+                                    <div className="ms-request-avatar">{initials}</div>
+                                    <div>
+                                      <div className="ms-request-name">{s.student_name}</div>
+                                      <div className="ms-request-meta">{s.student_number} · {s.section_name}</div>
+                                    </div>
+                                  </div>
                                 </td>
                                 <td><span className="ms-site-badge">{s.site_location}</span></td>
                                 <td><span className="ms-site-badge">{s.program}</span></td>
@@ -1116,6 +1164,16 @@ function MyStudentsContent() {
                           </div>
                         )}
                       </div>
+                      {hasPendingFilters && (
+                        <button
+                          className="ms-filter-btn"
+                          onClick={clearPendingFilters}
+                          style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}
+                        >
+                          <IconX size={13} stroke={2} />
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
                   </div>
                   {filteredPending.length === 0 ? (
@@ -1136,7 +1194,7 @@ function MyStudentsContent() {
                           return (
                             <div key={i} className="ms-request-row" onClick={() => setSelectedRequest(r)}>
                               <div className="ms-request-student">
-                                {/* <div className="ms-request-avatar">{initials}</div> */}
+                                <div className="ms-request-avatar">{initials}</div>
                                 <div>
                                   <div className="ms-request-name">{r.student_name}</div>
                                   <div className="ms-request-meta">{r.student_number} · {r.section_name}</div>
@@ -1418,7 +1476,7 @@ function MyStudentsContent() {
                           resolutionNote
                         )
                         if (res.ok) {
-                          await refreshRequests()
+                          // await refreshRequests()
                           setSelectedRequest(null)
                           setResolutionNote("")
                         } else {
@@ -1451,7 +1509,7 @@ function MyStudentsContent() {
                           resolutionNote
                         )
                         if (res.ok) {
-                          await refreshRequests()
+                          // await refreshRequests()
                           setSelectedRequest(null)
                           setResolutionNote("")
                         } else {

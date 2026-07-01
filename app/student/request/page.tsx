@@ -13,6 +13,7 @@ import {
   submitStudentRequest,
   updateStudentRequest,
 } from "@/lib/student/appeal-actions"
+import { createClient } from "@/lib/client"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -55,7 +56,7 @@ interface RequestItem {
   id: string
   title: string
   status: "Approved" | "Under Review" | "Declined"
-  type: "Absence Excuse" | "Hour Adjustment" | "Schedule Change" | "Others"
+  typeId: string
   body: string
   note: string
   date: string
@@ -223,8 +224,9 @@ export default function RequestsPage() {
   const [isPending, startTransition] = useTransition() // for loading states
   const [requests, setRequests] = useState<RequestItem[]>([]) // empty array
 
-  const [formType, setFormType] = useState("Absence Excuse")
-  const [editType, setEditType] = useState("Absence Excuse")
+  const [requestType, setRequestTypes] = useState<{ appeal_type_id: string; name: string }[]>([]);
+  const [formType, setFormType] = useState("")
+  const [editType, setEditType] = useState("")
 
   const [profile, setProfile] = useState({
     enrollmentId: "",
@@ -238,8 +240,25 @@ export default function RequestsPage() {
     if (res.ok) setRequests(res.data)
   }
 
+  const supabase = createClient()
+
   useEffect(() => {
     let cancelled = false
+
+    //fetch request/appeal types
+    supabase.from("appeal_type").select("appeal_type_id, name").order("name")
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          console.error("appeal_type fetch error:", error.message)
+          return
+        }
+        if (data) {
+          setRequestTypes(data)
+          if (data.length > 0) setFormType(data[0].name)
+        }
+      })
+
     getStudentDashboard().then((res) => {
       if (cancelled || !res.ok) return
       setProfile({
@@ -537,7 +556,7 @@ export default function RequestsPage() {
                     className="request-item"
                     onClick={() => {
                       setSelectedRequest(request)
-                      setEditType(request.type || "Others")
+                      setEditType(request.typeId ?? "")
                       setEditTitle(request.title)
                       setEditBody(request.body)
                       setEditFile(request.attachment ?? null)
@@ -666,10 +685,15 @@ export default function RequestsPage() {
                 cursor: "pointer",
               }}
             >
-              <option value="Absence Excuse">Absence Excuse</option>
-              <option value="Hour Adjustment">Hour Adjustment</option>
-              <option value="Schedule Change">Schedule Change</option>
-              <option value="Others">Others</option>
+              {requestType.length === 0 ? (
+                <option value="">Loading types...</option>
+              ) : (
+                requestType.map((t) => (
+                  <option key={t.appeal_type_id} value={t.appeal_type_id}>
+                    {t.name}
+                  </option>
+                ))
+              )}
             </select>
             <div style={{ marginBottom: 16 }}>
               <label
@@ -926,10 +950,15 @@ export default function RequestsPage() {
                 cursor: "pointer",
               }}
             >
-              <option value="Absence Excuse">Absence Excuse</option>
-              <option value="Hour Adjustment">Hour Adjustment</option>
-              <option value="Schedule Change">Schedule Change</option>
-              <option value="Others">Others</option>
+              {requestType.length === 0 ? (
+                <option value="">Loading types...</option>
+              ) : (
+                requestType.map((t) => (
+                  <option key={t.appeal_type_id} value={t.name}>
+                    {t.name}
+                  </option>
+                ))
+              )}
             </select>
 
             <label>Title</label>

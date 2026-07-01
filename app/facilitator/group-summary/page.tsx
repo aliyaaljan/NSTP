@@ -87,7 +87,7 @@ const summaryStyles = `
   .gs-stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
   .gs-stat-label { font-size: 11.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
   .gs-stat-value { font-size: 30px; font-weight: 800; line-height: 1; margin-top: 6px; }
-  .gs-stat-icon-deco { position: absolute; bottom: -6px; right: -4px; opacity: 0.07; }
+  .gs-stat-icon-deco { position: absolute; bottom: -15px; right: -13px; opacity: 0.07; }
 
   .gs-body { flex: 1; overflow: auto; padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 16px; }
 
@@ -199,7 +199,7 @@ export default function GroupSummaryPage() {
                   <div key={label} className="gs-stat-card">
                     <div className="gs-stat-label">{label}</div>
                     <div className="gs-stat-value" style={{ color }}>{value}</div>
-                    <div className="gs-stat-icon-deco" style={{ color }}><Icon size={60} stroke={1.2} /></div>
+                    <div className="gs-stat-icon-deco" style={{ color }}><Icon size={90} stroke={1.2} /></div>
                   </div>
                 ))}
               </div>
