@@ -174,22 +174,31 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
       }}>
         {(["all", "submitted", "pending"] as const).map((key) => {
           const active = filter === key
-          const meta = key === "all" ? null : STATUS_META[key]
+          const isAll = key === "all"           
+          const meta = isAll ? null : STATUS_META[key]
+          
+          let activeColor = COLORS.text         
+          let activeBg = COLORS.surface        
+          let label = "All"
+          
+          if (!isAll) {
+            activeColor = meta!.color          
+            activeBg = meta!.bg
+            label = meta!.label
+          }
+          
           return (
             <button
               key={key}
-              onClick={() => {
-                setFilter(key)
-                setScrollIndex(0)
-              }}
+              onClick={() => setFilter(key)}
               style={{
-                fontSize: isMobile ? "9px" : "10px",
+                fontSize: isMobile ? "10px" : "11px",
                 fontWeight: 600,
-                padding: isMobile ? "3px 8px" : "4px 10px",
+                padding: isMobile ? "4px 10px" : "5px 12px",
                 borderRadius: "999px",
-                border: `2px solid ${active ? (meta?.color ?? COLORS.maroonBase) : COLORS.border}`,
-                background: active ? (meta?.bg ?? "rgba(123,17,19,0.08)") : COLORS.white,
-                color: active ? (meta?.color ?? COLORS.maroonBase) : COLORS.muted,
+                border: `2px solid ${active ? activeColor : COLORS.border}`, 
+                background: active ? activeBg : COLORS.white,             
+                color: active ? activeColor : COLORS.muted,                 
                 cursor: "pointer",
                 textTransform: "capitalize",
                 whiteSpace: "nowrap",
@@ -208,7 +217,7 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
                 }
               }}
             >
-              {key === "all" ? "All" : meta!.label}
+              {label}
             </button>
           )
         })}

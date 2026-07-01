@@ -22,6 +22,11 @@ const COLORS = {
   hover: "#F5F5F5",
 }
 
+const STATUS_META = {
+  scanned: { label: "Scanned", color: COLORS.forestLight, bg: "rgba(45,106,79,0.10)" },
+  pending: { label: "Pending", color: COLORS.gold, bg: "rgba(243,170,44,0.12)" },
+}
+
 export interface GeneratedStudent {
   id: string
   name: string
@@ -299,25 +304,33 @@ function ScannedStudentsList({
           width: isMobile ? "100%" : "auto",
           justifyContent: isMobile ? "stretch" : "flex-start",
         }}>
-          {([
-            { key: "all", label: "All" },
-            { key: "scanned", label: "✓" },
-            { key: "pending", label: "⏱" },
-          ] as const).map((opt) => {
-            const active = filter === opt.key
-            const label = isVerySmall ? opt.key === "all" ? "All" : opt.key === "scanned" ? "✓" : "⏱" : opt.key === "all" ? "All" : opt.key === "scanned" ? "Scanned" : "Pending"
+          {(["all", "scanned", "pending"] as const).map((key) => {
+            const active = filter === key
+            const isAll = key === "all"
+            const meta = isAll ? null : STATUS_META[key]
+            
+            let activeColor = COLORS.text
+            let activeBg = COLORS.surface
+            let label = "All"
+            
+            if (!isAll) {
+              activeColor = meta!.color
+              activeBg = meta!.bg
+              label = meta!.label
+            }
+            
             return (
               <button
-                key={opt.key}
-                onClick={() => setFilter(opt.key)}
+                key={key}
+                onClick={() => setFilter(key)}
                 style={{
                   fontSize: isVerySmall ? "10px" : isMobile ? "10px" : "11px",
                   fontWeight: 600,
                   padding: isVerySmall ? "4px 8px" : isMobile ? "5px 10px" : "6px 14px",
                   borderRadius: "999px",
-                  border: `1px solid ${active ? COLORS.maroonBase : COLORS.border}`,
-                  background: active ? "rgba(123,17,19,0.08)" : COLORS.white,
-                  color: active ? COLORS.maroonBase : COLORS.muted,
+                  border: `2px solid ${active ? activeColor : COLORS.border}`,
+                  background: active ? activeBg : COLORS.white,
+                  color: active ? activeColor : COLORS.muted,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
                   flex: isMobile ? 1 : "auto",
@@ -326,8 +339,8 @@ function ScannedStudentsList({
                 }}
                 onMouseEnter={(e) => {
                   if (!active) {
-                    e.currentTarget.style.background = COLORS.hover
-                    e.currentTarget.style.borderColor = COLORS.maroonBase
+                    e.currentTarget.style.background = COLORS.surface
+                    e.currentTarget.style.borderColor = COLORS.muted
                   }
                 }}
                 onMouseLeave={(e) => {
