@@ -27,6 +27,7 @@ import {
 // ── Data ──────────────────────────────────────────────────────────────
 type Status = "Completed" | "In Progress" | "Not Started"
 type studentClassification = "Freshman" | "Sophomore" | "Junior" | "Senior"
+
 interface StudentSession {
   id: string
   date: string
@@ -49,28 +50,28 @@ interface Student {
   sessions: StudentSession[]
 }
 
-type RequestType =
-  | "Absence Excuse"
-  | "Hour Adjustment"
-  | "Schedule Change"
-  | "Others"
-
-interface PendingRequest {
-  id: string
-  name: string
-  studentNo: string
-  section: string
-  type: RequestType
-  dateSubmitted: string
-  hasAttachment: boolean
-  note: string
+interface Attachment {
+  storage_path: string;
+  file_name: string;
+  content_type: string;
+  file_size_byte: number;
 }
 
-const statusConfig: Record<
-  Status,
-  { bg: string; color: string; label: string }
-> = {
-  Completed: { bg: "#D1FAE5", color: "#065F46", label: "Completed" },
+interface PendingRequest {
+  section_id: string;
+  section_name: string;
+  student_name: string;
+  student_number: string;
+  appeal_id: string;
+  appeal_type_id: string;
+  appeal_type_name: string;
+  date: string;
+  note: string;
+  attachment:  Attachment[];
+}
+
+const statusConfig: Record<Status, { bg: string; color: string; label: string }> = {
+  "Completed":   { bg: "#D1FAE5", color: "#065F46", label: "Completed"   },
   "In Progress": { bg: "#FEF3C7", color: "#92400E", label: "In Progress" },
   "Not Started": { bg: "#FEE2E2", color: "#991B1B", label: "Not Started" },
 }
@@ -138,7 +139,7 @@ const myStudentsStyles = `
 
   /* Table card */
   .ms-body { flex: 1; overflow: auto; padding: 20px 28px 28px; }
-  .ms-table-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .ms-table-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); ; }
   .ms-table-toolbar {
     display: flex; align-items: center;
     padding: 16px 20px; border-bottom: 1px solid var(--border);
@@ -169,7 +170,7 @@ const myStudentsStyles = `
   .ms-table-wrapper::-webkit-scrollbar { display: none; }
   .ms-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .ms-table thead tr { background: #F9FAFB; border-bottom: 1px solid var(--border); }
-  .ms-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: var(--maroon); letter-spacing: 0.8px; text-transform: uppercase; }
+  .ms-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 700; color: var(--maroon); letter-spacing: 0.8px; text-transform: uppercase; }
   .ms-table th:nth-child(1) { width: 24%; }
   .ms-table th:nth-child(2) { width: 14%; }
   .ms-table th:nth-child(3) { width: 15%; }
@@ -177,7 +178,7 @@ const myStudentsStyles = `
   .ms-table th:nth-child(5) { width: 14%; }
   .ms-table th:nth-child(6) { width: 20%; }
   .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center; }
-  .ms-table td { padding: 14px 16px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
+  .ms-table td { padding: 14px 20px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
   .ms-table tbody tr:last-child td { border-bottom: none; }
   .ms-table tbody tr { cursor: pointer; }
   .ms-table tbody tr:hover td { background: #FAFAFA; }
@@ -190,7 +191,7 @@ const myStudentsStyles = `
   }
   .ms-hours-cell { min-width: 160px; }
   .ms-hours-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
-  .ms-hours-track { height: 13px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .ms-hours-track { height: 11px; background: var(--border); border-radius: 999px; overflow: hidden; }
   .ms-hours-fill  { height: 100%; border-radius: 999px; transition: width 0.35s ease; }
   /* Empty / pending */
   .ms-empty { text-align: center; padding: 48px 0; color: var(--muted); font-size: 13px; }
@@ -298,7 +299,8 @@ const myStudentsStyles = `
   .ms-session-table th:nth-child(4) { width: 17%; }
   .ms-session-table th:nth-child(5) { width: 17%; }
   .ms-session-table { width: 100%; border-collapse: collapse; }
-  .ms-session-table thead th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--maroon); letter-spacing: 0.6px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .ms-session-table thead { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid var(--border);}
+  .ms-session-table th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border);}
   .ms-session-table td { font-size: 12px; color: var(--text); padding: 8px; border-bottom: 1px solid #F3F4F6; }
   .ms-session-table tbody tr:last-child td { border-bottom: none; }
   .ms-session-action-btn {
@@ -379,49 +381,38 @@ const myStudentsStyles = `
 function MyStudentsContent() {
   const router = useRouter()
   const supabase = createClient()
-  const searchParams = useSearchParams()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<Tab>("list")
-  const [headerSearch, setHeaderSearch] = useState("")
-  const [tableSearch, setTableSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All Status")
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [showFilter, setShowFilter] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(5)
-  const [pendingSearch, setPendingSearch] = useState("")
-  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(
-    null
-  )
-  const [isPending, startTransition] = useTransition()
-  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
-  const [resolutionNote, setResolutionNote] = useState("")
+  const searchParams = useSearchParams();
+  const [sidebarOpen, setSidebarOpen]     = useState(false);
+  const [activeTab, setActiveTab]         = useState<Tab>("list");
+  const [headerSearch, setHeaderSearch]   = useState("");
+  const [tableSearch, setTableSearch]     = useState("");
+  const [statusFilter, setStatusFilter]   = useState<StatusFilter>("All Status");
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [showFilter, setShowFilter]       = useState(false);
+  const [currentPage, setCurrentPage]     = useState(1);
+  const [pageSize, setPageSize]           = useState(5);
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
+  const [requestType, setRequestTypes] = useState<{ appeal_type_id: string; name: string }[]>([]);
+  const [requestTypeFilter, setRequestTypeFilter] = useState<string>("All Types");
+  const [showTypeFilter, setShowTypeFilter] = useState(false);
+  const [classificationFilter, setClassificationFilter] = useState<"All Classifications" | string>("All Classifications");
+  const [showClassificationFilter, setShowClassificationFilter] = useState(false);
 
-  // fetch student requests from database
-  const refreshRequests = async () => {
-    const res = await getAdviserPendingRequests()
-    if (res.ok) setPendingRequests(res.data)
-  }
-
-  // trigger fetch on mount
-  useEffect(() => {
-    refreshRequests()
-  }, [])
-
-  const [requestTypeFilter, setRequestTypeFilter] = useState<
-    "All Types" | RequestType
-  >("All Types")
-  const [showTypeFilter, setShowTypeFilter] = useState(false)
-  const [classificationFilter, setClassificationFilter] = useState<
-    "All Classifications" | string
-  >("All Classifications")
-  const [showClassificationFilter, setShowClassificationFilter] =
-    useState(false)
+  const statusOptions: StatusFilter[] = ["All Status", "Completed", "In Progress", "Not Started"];
 
   useEffect(() => {
     const tab = searchParams.get("tab")
     if (tab === "pending" || tab === "list") {
       setActiveTab(tab)
+    }
+
+    const status = searchParams.get("status")
+    console.log(status)
+    if (status && statusOptions.includes(status as StatusFilter)) {
+      setStatusFilter(status as StatusFilter)
+      setCurrentPage(1)
     }
   }, [searchParams])
 
@@ -444,12 +435,23 @@ function MyStudentsContent() {
   const [students, setStudents] = useState<Student[]>([])
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
-  const [editingSession, setEditingSession] = useState<StudentSession | null>(
-    null
-  )
+  const [editingSession, setEditingSession] = useState<StudentSession | null>(null)
   const [editDate, setEditDate] = useState("")
   const [editTimeIn, setEditTimeIn] = useState("")
   const [editTimeOut, setEditTimeOut] = useState("")
+  const [isPending, startTransition] = useTransition();
+  const [resolutionNote, setResolutionNote] = useState("");
+
+  // fetch student requests from database
+  const refreshRequests = async () => {
+    const res = await getAdviserPendingRequests()
+    if (res.ok) setPendingRequests(res.data)
+  }
+
+  // trigger fetch on mount
+  useEffect(() => {
+    refreshRequests()
+  }, [])
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -462,16 +464,21 @@ function MyStudentsContent() {
       setLastName(lName)
       setInitials((fName[0] ?? "") + (lName[0] ?? ""))
 
+      const {data: requestTypeData} = await supabase.from("appeal_type").select(`appeal_type_id, name`).order("name")
+      if (requestTypeData) setRequestTypes(requestTypeData);
+
       const [
         { data: statData, error: statError },
         { data: sectionData, error: sectionError },
         { data: semData, error: semError },
         { data: studentsData, error: studentsError },
+        { data: requestsData, error: requestsError}
       ] = await Promise.all([
         supabase.rpc("get_students_stats", { p_adviser_user_id: user?.id }),
         supabase.rpc("get_sections", { p_adviser_user_id: user?.id }),
         supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id }),
-        supabase.rpc("get_my_students", { p_adviser_user_id: user?.id }),
+        supabase.rpc("get_my_students",{p_adviser_user_id: user?.id}),
+        supabase.rpc("get_pending_requests", {p_adviser_user_id: user?.id})
       ])
 
       if (statError)
@@ -517,6 +524,9 @@ function MyStudentsContent() {
           studentsError.details
         )
       if (studentsData) setStudents(studentsData)
+
+      if (requestsError) console.error("get_pending_requests error:", requestsError.message, requestsError.details);
+      if (requestsData) setPendingRequests(requestsData)
     })
   }, [])
 
@@ -525,49 +535,36 @@ function MyStudentsContent() {
 
   // const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
 
-  function buildStatCards(students: Student[]) {
+  function getPublicUrl(path: string) {
+    const { data } = supabase.storage.from("YOUR_BUCKET_NAME").getPublicUrl(path);
+    return data.publicUrl;
+  }
+  
+  function buildStatCards() {
     return [
-      { label: "Total Students", value: currentData?.total, Icon: IconUsers },
-      {
-        label: "Completed",
-        value: currentData?.completed,
-        Icon: IconCircleCheck,
-      },
-      {
-        label: "In Progress",
-        value: currentData?.in_progress,
-        Icon: IconClock,
-      },
-      {
-        label: "Pending Requests",
-        value: currentData?.pending_request,
-        Icon: IconAlertCircle,
-      },
-    ]
+      { label: "Total Students",   value: currentData?.total,          Icon: IconUsers,        onClick: () => setActiveTab("list") },
+      { label: "Completed",        value: currentData?.completed,      Icon: IconCircleCheck,  onClick: () => { setActiveTab("list"); setStatusFilter("Completed"); } },
+      { label: "In Progress",      value: currentData?.in_progress,    Icon: IconClock,        onClick: () => { setActiveTab("list"); setStatusFilter("In Progress"); } },
+      { label: "Pending Requests", value: currentData?.pending_request, Icon: IconAlertCircle, onClick: () => setActiveTab("pending") },
+    ];
   }
 
   const filtered = students.filter((s) => {
-    const q = (headerSearch || tableSearch).trim().toLowerCase()
-    const matchSearch =
-      q === "" ||
+    const matchSection = selectedSection === "All Sections" || s.section_name === selectedSection;
+    const q = (headerSearch || tableSearch).trim().toLowerCase();
+    const matchSearch = q === "" ||
       (s.student_name ?? "").toLowerCase().includes(q) ||
-      (s.student_number ?? "").includes(q)
-    const matchStatus =
-      statusFilter === "All Status" || s.status === statusFilter
-    const matchClassification =
-      classificationFilter === "All Classifications" ||
-      s.classification === classificationFilter
-    return matchSearch && matchStatus && matchClassification
-  })
+      (s.student_number ?? "").includes(q);
+    const matchStatus = statusFilter === "All Status" || s.status === statusFilter;
+    const matchClassification = classificationFilter === "All Classifications" || s.classification === classificationFilter;    
+    return matchSection && matchSearch && matchStatus && matchClassification;
+  });
 
   const filteredPending = pendingRequests.filter((r) => {
-    const matchSearch =
-      pendingSearch.trim() === "" ||
-      r.name.toLowerCase().includes(pendingSearch.toLowerCase())
-    const matchType =
-      requestTypeFilter === "All Types" || r.type === requestTypeFilter
-    return matchSearch && matchType
-  })
+    const matchSearch = pendingSearch.trim() === "" || r.student_name.toLowerCase().includes(pendingSearch.toLowerCase());
+    const matchType = requestTypeFilter === "All Types" || r.appeal_type_name === requestTypeFilter;
+    return matchSearch && matchType;
+  });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice(
@@ -575,20 +572,8 @@ function MyStudentsContent() {
     currentPage * pageSize
   )
 
-  const statusOptions: StatusFilter[] = [
-    "All Status",
-    "Completed",
-    "In Progress",
-    "Not Started",
-  ]
-  const classificationOptions = [
-    "All Classifications",
-    "Freshman",
-    "Sophomore",
-    "Junior",
-    "Senior",
-  ]
-  const statCards = buildStatCards(students)
+  const classificationOptions = ["All Classifications", "Freshman", "Sophomore", "Junior", "Senior"];
+  const statCards = buildStatCards();
 
   async function handleSaveSession() {
     if (!editingSession || !selectedStudent) return
@@ -637,24 +622,25 @@ function MyStudentsContent() {
       )
     )
 
-    setEditingSession(null)
-    router.refresh
+    setEditingSession(null);
+    router.refresh()
   }
 
+  
   async function handleSignOut() {
     await signOutWithAudit()
     router.push("/")
     router.refresh()
   }
 
-  function requestTypeStyle(type: RequestType): { bg: string; color: string } {
-    const map: Record<RequestType, { bg: string; color: string }> = {
-      "Absence Excuse": { bg: "#FEF3C7", color: "#92400E" },
+  function requestTypeStyle(type: string): { bg: string; color: string } {
+    const map: Record<string, { bg: string; color: string }> = {
+      "Excused Absence":  { bg: "#FEF3C7", color: "#92400E" },
       "Hour Adjustment": { bg: "#DBEAFE", color: "#1E40AF" },
-      "Schedule Change": { bg: "#FCE7F3", color: "#9D174D" },
-      Others: { bg: "#F3F4F6", color: "#4B5563" },
-    }
-    return map[type] || map["Others"]
+      "Form Submission": { bg: "#FCE7F3", color: "#9D174D" },
+      "Others": { bg: "#F3F4F6", color: "#374151" },
+    };
+    return map[type] ?? { bg: "#F3F4F6", color: "#374151" }; 
   }
 
   return (
@@ -696,7 +682,7 @@ function MyStudentsContent() {
             {/* Header */}
             <div className="ms-header-row">
               <h1 className="ms-title">My Students</h1>
-              {/* <div className="search-bar" style={{ minWidth: 200 }}>
+              <div className="search-bar" style={{ minWidth: 200 }}>
                 <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
                 <input
                   className="search-input"
@@ -705,7 +691,7 @@ function MyStudentsContent() {
                   placeholder="Search students..."
                   aria-label="Search students"
                 />
-              </div> */}
+              </div>
               <div className="profile-pill">
                 <div className="profile-avatar">{initials}</div>
                 <div>
@@ -773,8 +759,8 @@ function MyStudentsContent() {
 
             {/* Stat cards */}
             <div className="ms-stat-cards">
-              {statCards.map(({ label, value, Icon }) => (
-                <div key={label} className="db-kpi-card">
+              {statCards.map(({ label, value, Icon, onClick }) => (
+                <button key={label} className="db-kpi-card" onClick={onClick}>
                   <div className="db-kpi-header">
                     <span className="db-kpi-label">{label}</span>
                   </div>
@@ -782,7 +768,7 @@ function MyStudentsContent() {
                   <div className="db-kpi-deco">
                     <Icon size={110} stroke={1.2} />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -848,61 +834,6 @@ function MyStudentsContent() {
                       <div style={{ position: "relative" }}>
                         <button
                           className="ms-filter-btn"
-                          onClick={() => setShowFilter((v) => !v)}
-                        >
-                          {statusFilter}{" "}
-                          <IconChevronDown size={13} stroke={2} />
-                        </button>
-                        {showFilter && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "calc(100% + 6px)",
-                              left: 0,
-                              background: "var(--white)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 10,
-                              boxShadow: "var(--shadow)",
-                              zIndex: 50,
-                              minWidth: 160,
-                              overflow: "hidden",
-                            }}
-                          >
-                            {statusOptions.map((opt) => (
-                              <button
-                                key={opt}
-                                onClick={() => {
-                                  setStatusFilter(opt)
-                                  setShowFilter(false)
-                                  setCurrentPage(1)
-                                }}
-                                style={{
-                                  display: "block",
-                                  width: "100%",
-                                  padding: "9px 16px",
-                                  textAlign: "left",
-                                  background:
-                                    statusFilter === opt ? "#F9FAFB" : "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  fontFamily: "var(--font)",
-                                  fontWeight: statusFilter === opt ? 700 : 400,
-                                  color:
-                                    statusFilter === opt
-                                      ? "var(--maroon)"
-                                      : "var(--text)",
-                                }}
-                              >
-                                {opt}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ position: "relative" }}>
-                        <button
-                          className="ms-filter-btn"
                           onClick={() => setShowClassificationFilter((v) => !v)}
                         >
                           {classificationFilter}{" "}
@@ -958,6 +889,33 @@ function MyStudentsContent() {
                           </div>
                         )}
                       </div>
+
+                      <div style={{ position: "relative" }}>
+                        <button className="ms-filter-btn" onClick={() => setShowFilter((v) => !v)}>
+                          {statusFilter} <IconChevronDown size={13} stroke={2} />
+                        </button>
+                        {showFilter && (
+                          <div style={{
+                            position: "absolute", top: "calc(100% + 6px)", left: 0,
+                            background: "var(--white)", border: "1px solid var(--border)",
+                            borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
+                            minWidth: 160, overflow: "hidden",
+                          }}>
+                            {statusOptions.map((opt) => (
+                              <button key={opt} onClick={() => { setStatusFilter(opt); setShowFilter(false); setCurrentPage(1); }}
+                                style={{
+                                  display: "block", width: "100%", padding: "9px 16px",
+                                  textAlign: "left", background: statusFilter === opt ? "#F9FAFB" : "none",
+                                  border: "none", cursor: "pointer", fontSize: 13,
+                                  fontFamily: "var(--font)", fontWeight: statusFilter === opt ? 700 : 400,
+                                  color: statusFilter === opt ? "var(--maroon)" : "var(--text)",
+                                }}>
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -976,79 +934,37 @@ function MyStudentsContent() {
                       <tbody>
                         {filtered.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="ms-empty">
-                              No students match your search.
-                            </td>
+                            <td colSpan={6} className="ms-empty">No students match your search.</td>
                           </tr>
                         ) : (
                           paginated.map((s) => {
-                            const pct = Math.round(
-                              (s.hours_logged / s.total_hours) * 100
-                            )
-                            const cfg = statusConfig[s.status]
+                            const pct = Math.round((s.hours_logged / s.total_hours) * 100);
+                            const cfg = statusConfig[s.status];
                             return (
-                              <tr
-                                key={`${s.section_id}-${s.student_number}`}
-                                onClick={() => setSelectedStudent(s)}
-                              >
+                              <tr key={`${s.section_id}-${s.student_number}`} onClick={() => setSelectedStudent(s)}>
                                 <td>
-                                  <div className="ms-student-name">
-                                    {s.student_name}
-                                  </div>
-                                  <div className="ms-student-no">
-                                    {s.student_number}
-                                  </div>
+                                  <div className="ms-student-name">{s.student_name}</div>
+                                  <div className="ms-student-no">{s.student_number}</div>
                                 </td>
+                                <td><span className="ms-site-badge">{s.site_location}</span></td>
+                                <td><span className="ms-site-badge">{s.program}</span></td>
+                                <td><span className="ms-site-badge">{s.classification}</span></td>
                                 <td>
-                                  <span className="ms-site-badge">
-                                    {s.site_location}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className="ms-site-badge">
-                                    {s.program}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className="ms-site-badge">
-                                    {s.classification}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span
-                                    className="ms-status-badge"
-                                    style={{
-                                      background: cfg.bg,
-                                      color: cfg.color,
-                                    }}
-                                  >
+                                  <span className="ms-status-badge" style={{ background: cfg.bg, color: cfg.color }}>
                                     {cfg.label}
                                   </span>
                                 </td>
                                 <td className="ms-hours-cell">
                                   <div className="ms-hours-label">
-                                    <span>
-                                      {s.hours_logged}/{s.total_hours} hrs
-                                    </span>
-                                    <span>
-                                      {Math.round(
-                                        (s.hours_logged / s.total_hours) * 100
-                                      )}
-                                      %
-                                    </span>
+                                    <span>{s.hours_logged}/{s.total_hours} hrs</span>
+                                    <span>{pct}%</span>
                                   </div>
                                   <div className="ms-hours-track">
-                                    <div
-                                      className="ms-hours-fill"
-                                      style={{
-                                        width: `${pct}%`,
-                                        background: progressColor(s.status),
-                                      }}
-                                    />
+                                    <div className="ms-hours-fill" style={{ width: `${pct}%`, background: progressColor(s.status) }} />
                                   </div>
                                 </td>
                               </tr>
-                            )
+                            );
                           })
                         )}
                       </tbody>
@@ -1177,59 +1093,26 @@ function MyStudentsContent() {
                           <IconChevronDown size={13} stroke={2} />
                         </button>
                         {showTypeFilter && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "calc(100% + 6px)",
-                              left: 0,
-                              background: "var(--white)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 10,
-                              boxShadow: "var(--shadow)",
-                              zIndex: 50,
-                              minWidth: 170,
-                              overflow: "hidden",
-                            }}
-                          >
-                            {(
-                              [
-                                "All Types",
-                                "Absence Excuse",
-                                "Hour Adjustment",
-                                "Schedule Change",
-                                "Others",
-                              ] as const
-                            ).map((opt) => (
-                              <button
-                                key={opt}
-                                onClick={() => {
-                                  setRequestTypeFilter(opt)
-                                  setShowTypeFilter(false)
-                                }}
+                          <div style={{
+                            position: "absolute", top: "calc(100% + 6px)", left: 0,
+                            background: "var(--white)", border: "1px solid var(--border)",
+                            borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
+                            minWidth: 170, overflow: "hidden",
+                          }}>
+                            {(["All Types", ...requestType.map(t => t.name)]).map((opt) => (
+                              <button 
+                                key={opt} 
+                                onClick={() => { setRequestTypeFilter(opt); setShowTypeFilter(false); }}
                                 style={{
-                                  display: "block",
-                                  width: "100%",
-                                  padding: "9px 16px",
-                                  textAlign: "left",
-                                  background:
-                                    requestTypeFilter === opt
-                                      ? "#F9FAFB"
-                                      : "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  fontFamily: "var(--font)",
-                                  fontWeight:
-                                    requestTypeFilter === opt ? 700 : 400,
-                                  color:
-                                    requestTypeFilter === opt
-                                      ? "var(--maroon)"
-                                      : "var(--text)",
-                                }}
-                              >
+                                    display: "block", width: "100%", padding: "9px 16px",
+                                    textAlign: "left", background: requestTypeFilter === opt ? "#F9FAFB" : "none",
+                                    border: "none", cursor: "pointer", fontSize: 13,
+                                    fontFamily: "var(--font)", fontWeight: requestTypeFilter === opt ? 700 : 400,
+                                    color: requestTypeFilter === opt ? "var(--maroon)" : "var(--text)",
+                                  }}>
                                 {opt}
                               </button>
-                            ))}
+                          ))}
                           </div>
                         )}
                       </div>
@@ -1248,53 +1131,27 @@ function MyStudentsContent() {
                       </div>
                       <div className="ms-requests-list">
                         {filteredPending.map((r) => {
-                          const typeStyle = requestTypeStyle(r.type)
-                          const initials = r.name
-                            .split(" ")
-                            .slice(0, 2)
-                            .map((w: string) => w[0])
-                            .join("")
-                            .toUpperCase()
+                          const typeStyle = requestTypeStyle(r.appeal_type_name);
+                          const initials = r.student_name?.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
                           return (
-                            <div
-                              key={r.id}
-                              className="ms-request-row"
-                              onClick={() => setSelectedRequest(r)}
-                            >
+                            <div key={r.appeal_id} className="ms-request-row" onClick={() => setSelectedRequest(r)}>
                               <div className="ms-request-student">
-                                <div className="ms-request-avatar">
-                                  {initials}
-                                </div>
+                                {/* <div className="ms-request-avatar">{initials}</div> */}
                                 <div>
-                                  <div className="ms-request-name">
-                                    {r.name}
-                                  </div>
-                                  <div className="ms-request-meta">
-                                    {r.studentNo} · {r.section}
-                                  </div>
+                                  <div className="ms-request-name">{r.student_name}</div>
+                                  <div className="ms-request-meta">{r.student_number} · {r.section_name}</div>
                                 </div>
                               </div>
                               <div>
-                                <span
-                                  className="ms-request-type"
-                                  style={{
-                                    background: typeStyle.bg,
-                                    color: typeStyle.color,
-                                  }}
-                                >
-                                  {r.type}
+                                <span className="ms-request-type" style={{ background: typeStyle.bg, color: typeStyle.color }}>
+                                  {r.appeal_type_name}
                                 </span>
                               </div>
-                              <div className="ms-request-date">
-                                {r.dateSubmitted}
-                              </div>
+                              <div className="ms-request-date">{r.date}</div>
                               <div className="ms-request-note">{r.note}</div>
                               <div className="ms-attachment-tag">
-                                {r.hasAttachment ? (
-                                  <>
-                                    <IconPaperclip size={13} stroke={1.75} /> 1
-                                    file
-                                  </>
+                                {r.attachment?.length > 0 ? (
+                                  <><IconPaperclip size={13} stroke={1.75} />{r.attachment.length} file{r.attachment.length !== 1 ? "s" : ""}</>
                                 ) : (
                                   <span style={{ opacity: 0.35 }}>—</span>
                                 )}
@@ -1477,15 +1334,9 @@ function MyStudentsContent() {
             >
               <div className="ms-modal-header">
                 <div>
-                  <div className="ms-modal-title">{selectedRequest.name}</div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--muted)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {selectedRequest.studentNo} · {selectedRequest.section}
+                  <div className="ms-modal-title">{selectedRequest.student_name}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                    {selectedRequest.student_number} · {selectedRequest.section_name}
                   </div>
                 </div>
                 <button
@@ -1499,22 +1350,17 @@ function MyStudentsContent() {
                 <div className="ms-modal-row">
                   <div className="ms-modal-field ms-req-modal-section">
                     <div className="ms-modal-label">Request Type</div>
-                    <span
-                      className="ms-request-type"
-                      style={{
-                        background: requestTypeStyle(selectedRequest.type).bg,
-                        color: requestTypeStyle(selectedRequest.type).color,
-                        padding: "4px 12px",
-                      }}
-                    >
-                      {selectedRequest.type}
+                    <span className="ms-request-type" style={{
+                      background: requestTypeStyle(selectedRequest.appeal_type_name).bg,
+                      color: requestTypeStyle(selectedRequest.appeal_type_name).color,
+                      padding: "4px 12px",
+                    }}>
+                      {selectedRequest.appeal_type_name}
                     </span>
                   </div>
                   <div className="ms-modal-field ms-req-modal-section">
                     <div className="ms-modal-label">Date Submitted</div>
-                    <div className="ms-modal-value">
-                      {selectedRequest.dateSubmitted}
-                    </div>
+                    <div className="ms-modal-value">{selectedRequest.date}</div>
                   </div>
                 </div>
                 <div className="ms-req-modal-section">
@@ -1567,7 +1413,7 @@ function MyStudentsContent() {
                     onClick={() => {
                       startTransition(async () => {
                         const res = await resolveStudentRequest(
-                          selectedRequest.id,
+                          selectedRequest.appeal_id,
                           "rejected",
                           resolutionNote
                         )
@@ -1600,7 +1446,7 @@ function MyStudentsContent() {
                     onClick={() => {
                       startTransition(async () => {
                         const res = await resolveStudentRequest(
-                          selectedRequest.id,
+                          selectedRequest.appeal_id,
                           "approved",
                           resolutionNote
                         )
@@ -1629,13 +1475,20 @@ function MyStudentsContent() {
                     Approve Request
                   </button>
                 </div>
-                {selectedRequest.hasAttachment && (
+                {selectedRequest.attachment?.length > 0 && (
                   <div className="ms-req-modal-section">
-                    <div className="ms-modal-label">Attachment</div>
-                    <div className="ms-req-modal-attachment">
-                      <IconPaperclip size={16} stroke={1.75} />
-                      View attached document
-                    </div>
+                    <div className="ms-modal-label">Attachment{selectedRequest.attachment.length > 1 ? "s" : ""}</div>
+                     {selectedRequest.attachment.map((a, i) => (
+                      <link
+                        key={i}
+                        href={getPublicUrl(a.storage_path)}
+                        rel="noopener noreferrer"
+                        className="ms-req-modal-attachment"
+                      >
+                        <IconPaperclip size={16} stroke={1.75} />
+                        {a.file_name}
+                      </link>
+                    ))}
                   </div>
                 )}
               </div>

@@ -198,9 +198,9 @@ export default function DashboardPage() {
     const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
 
   const statCards = [
-    { label: "Total Students", value: currentData.total, Icon: IconUsers },
-    { label: "Pending Requests", value: currentData.pending, Icon: IconAlertCircle },
-    { label: "Completed", value: currentData.completed, Icon: IconCircleCheck },
+    { label: "Total Students", value: currentData.total, Icon: IconUsers, onClick:  () => router.push(`${navRoutes["My Students"]}?tab=list`)},
+    { label: "Pending Requests", value: currentData.pending, Icon: IconAlertCircle, onClick: () => router.push(`${navRoutes["My Students"]}?tab=pending`)},
+    { label: "Completed", value: currentData.completed, Icon: IconCircleCheck, onClick: () => router.push(`${navRoutes["My Students"]}?tab=list&status=Completed`)},
   ]
 
   const students = currentData.students ?? []
@@ -366,8 +366,8 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="stat-cards">
-                      {statCards.map(({ label, value, Icon }) => (
-                        <div key={label} className="db-kpi-card">
+                      {statCards.map(({ label, value, Icon, onClick }) => (
+                        <button key={label} className="db-kpi-card" onClick={onClick}>
                           <div className="db-kpi-header">
                             <span className="db-kpi-label">{label}</span>
                           </div>
@@ -375,7 +375,7 @@ export default function DashboardPage() {
                           <div className="db-kpi-deco">
                             <Icon size={110} stroke={1.2} style={{}}/>
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
