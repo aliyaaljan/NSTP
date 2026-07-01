@@ -109,7 +109,7 @@ export async function submitStudentRequest(
     const openStatusId = await lookupId("appeal_status", "open")
 
     // combine title and body to fit into the single `reason` column in frontend
-    const combinedReason = `${type}|||{title}|||${body}`
+    const combinedReason = `${type}|||${title}|||${body}`
     const { error } = await supabase.from("appeal").insert({
       enrollment_id: enrollmentId,
       requester_user_id: user.id,
