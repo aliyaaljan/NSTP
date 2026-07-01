@@ -7,7 +7,7 @@ import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import type { StudentDashboardData } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
 import { 
-  IconCalendar, 
+  IconCalendar,  
   IconUser, 
   IconClock,
   IconClockPause, 
