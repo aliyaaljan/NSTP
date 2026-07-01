@@ -40,18 +40,9 @@ export async function getStudentRequests(
       // parse title and body out of the 'reason' field
       // format the parts based on student/request page
       const parts = app.reason.split("|||")
-      let type = "Others"
-      let title = "Request"
-      let body = app.reason
-
-      if (parts.length >= 3) {
-        type = parts[0]
-        title = parts[1]
-        body = parts.slice(2).join("|||")
-      } else if (parts.length === 2) {
-        title = parts[0]
-        body = parts[1]
-      }
+      const type = parts.length >= 3 ? parts[0] : "Others"
+      const title = parts.length >= 3 ? parts[1] : "Request"
+      const body = parts.length >= 3 ? parts.slice(2).join("|||") : app.reason
 
       // mapping database status to UI Badges
 
@@ -108,7 +99,8 @@ export async function submitStudentRequest(
 
     const openStatusId = await lookupId("appeal_status", "open")
 
-    // combine title and body to fit into the single `reason` column in frontend
+    // saved as a three-part structure in database (Type|||Title|||Message/body)
+
     const combinedReason = `${type}|||${title}|||${body}`
     const { error } = await supabase.from("appeal").insert({
       enrollment_id: enrollmentId,

@@ -55,6 +55,7 @@ interface RequestItem {
   id: string
   title: string
   status: "Approved" | "Under Review" | "Declined"
+  type: "Absence Excuse" | "Hour Adjustment" | "Schedule Change" | "Others"
   body: string
   note: string
   date: string
@@ -222,6 +223,9 @@ export default function RequestsPage() {
   const [isPending, startTransition] = useTransition() // for loading states
   const [requests, setRequests] = useState<RequestItem[]>([]) // empty array
 
+  const [formType, setFormType] = useState("Absence Excuse")
+  const [editType, setEditType] = useState("Absence Excuse")
+
   const [profile, setProfile] = useState({
     enrollmentId: "",
     fullName: "",
@@ -262,6 +266,7 @@ export default function RequestsPage() {
     startTransition(async () => {
       const res = await submitStudentRequest(
         profile.enrollmentId,
+        formType,
         formTitle,
         formBody
       )
@@ -293,6 +298,7 @@ export default function RequestsPage() {
 
       const res = await updateStudentRequest(
         selectedRequest.id,
+        editType,
         editTitle,
         cleanBody
       )
@@ -531,6 +537,7 @@ export default function RequestsPage() {
                     className="request-item"
                     onClick={() => {
                       setSelectedRequest(request)
+                      setEditType(request.type || "Others")
                       setEditTitle(request.title)
                       setEditBody(request.body)
                       setEditFile(request.attachment ?? null)
@@ -632,6 +639,38 @@ export default function RequestsPage() {
             >
               Send Request / Concern
             </h2>
+            <label
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#555",
+                display: "block",
+                marginBottom: 6,
+              }}
+            >
+              Category
+            </label>
+            <select
+              value={formType}
+              onChange={(e) => setFormType(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid #ccc",
+                fontSize: 14,
+                outline: "none",
+                boxSizing: "border-box",
+                marginBottom: 16,
+                fontFamily: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              <option value="Absence Excuse">Absence Excuse</option>
+              <option value="Hour Adjustment">Hour Adjustment</option>
+              <option value="Schedule Change">Schedule Change</option>
+              <option value="Others">Others</option>
+            </select>
             <div style={{ marginBottom: 16 }}>
               <label
                 style={{
@@ -859,6 +898,39 @@ export default function RequestsPage() {
             >
               Request Details
             </h2>
+
+            <label
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#555",
+                display: "block",
+                marginBottom: 6,
+              }}
+            >
+              Category
+            </label>
+            <select
+              value={editType}
+              onChange={(e) => setEditType(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid #ccc",
+                fontSize: 14,
+                outline: "none",
+                boxSizing: "border-box",
+                marginBottom: 16,
+                fontFamily: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              <option value="Absence Excuse">Absence Excuse</option>
+              <option value="Hour Adjustment">Hour Adjustment</option>
+              <option value="Schedule Change">Schedule Change</option>
+              <option value="Others">Others</option>
+            </select>
 
             <label>Title</label>
 
