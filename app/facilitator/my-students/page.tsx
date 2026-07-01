@@ -49,7 +49,11 @@ interface Student {
   sessions: StudentSession[]
 }
 
-type RequestType = "Absence Excuse" | "Hour Adjustment" | "Schedule Change"
+type RequestType =
+  | "Absence Excuse"
+  | "Hour Adjustment"
+  | "Schedule Change"
+  | "Others"
 
 interface PendingRequest {
   id: string
@@ -648,8 +652,9 @@ function MyStudentsContent() {
       "Absence Excuse": { bg: "#FEF3C7", color: "#92400E" },
       "Hour Adjustment": { bg: "#DBEAFE", color: "#1E40AF" },
       "Schedule Change": { bg: "#FCE7F3", color: "#9D174D" },
+      Others: { bg: "#F3F4F6", color: "#4B5563" },
     }
-    return map[type]
+    return map[type] || map["Others"]
   }
 
   return (
@@ -1192,6 +1197,7 @@ function MyStudentsContent() {
                                 "Absence Excuse",
                                 "Hour Adjustment",
                                 "Schedule Change",
+                                "Others",
                               ] as const
                             ).map((opt) => (
                               <button

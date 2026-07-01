@@ -49,17 +49,27 @@ export async function getAdviserPendingRequests(): Promise<
 
     const mapped = (appeals || []).map((app: any) => {
       const parts = app.reason.split("|||")
-      const title = parts.length > 1 ? parts[0] : "Request"
-      const details = parts.length > 1 ? parts.slice(1).join("|||") : app.reason
+      let reqType = "Others"
+      let title = "Request"
+      let details = app.reason
+
+      if (parts.length >= 3) {
+        reqType = parts[0]
+        title = parts[1]
+        details = parts.slice(2).join("|||")
+      } else if (parts.length === 2) {
+        title = parts[0]
+        details = parts[1]
+      }
 
       const student = app.enrollment?.app_user
 
       return {
         id: app.appeal_id,
-        name: student?.full_name || "Unkown Student",
-        studentNo: student?.student_number || "-",
-        section: app.enrollment?.section?.name || "-",
-        type: "Hour Adjustment", // default
+        name: student?.full_name || "Unknown Student",
+        studentNo: student?.student_number || "—",
+        section: app.enrollment?.section?.name || "—",
+        type: reqType,
         dateSubmitted: new Date(app.created_at).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
