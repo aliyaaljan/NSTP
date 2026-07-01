@@ -40,8 +40,9 @@ export async function getStudentRequests(
       // parse title and body out of the 'reason' field
       // format the parts based on student/request page
       const parts = app.reason.split("|||")
-      const title = parts.length > 1 ? parts[0] : "Request"
-      const body = parts.length > 1 ? parts.slice(1).join("|||") : app.reason
+      const type = parts.length >= 3 ? parts[0] : "Others"
+      const title = parts.length >= 3 ? parts[1] : "Request"
+      const body = parts.length >= 3 ? parts.slice(2).join("|||") : app.reason
 
       // mapping database status to UI Badges
 
@@ -59,6 +60,7 @@ export async function getStudentRequests(
         id: app.appeal_id,
         title: title,
         status: uiStatus,
+        type: type,
         body: body,
         note: app.resolution_note
           ? `Adviser's Note: ${app.resolution_note}`
@@ -84,6 +86,7 @@ export async function getStudentRequests(
 
 export async function submitStudentRequest(
   enrollmentId: string,
+  type: string,
   title: string,
   body: string
 ): Promise<ActionResult<any>> {
@@ -96,8 +99,9 @@ export async function submitStudentRequest(
 
     const openStatusId = await lookupId("appeal_status", "open")
 
-    // combine title and body to fit into the single `reason` column in frontend
-    const combinedReason = `${title}|||${body}`
+    // saved as a three-part structure in database (Type|||Title|||Message/body)
+
+    const combinedReason = `${type}|||${title}|||${body}`
     const { error } = await supabase.from("appeal").insert({
       enrollment_id: enrollmentId,
       requester_user_id: user.id,
@@ -120,6 +124,7 @@ export async function submitStudentRequest(
  */
 export async function updateStudentRequest(
   appealId: string,
+  type: string,
   title: string,
   body: string
 ): Promise<ActionResult<any>> {
@@ -161,7 +166,10 @@ export async function updateStudentRequest(
     }
 
     // execution of update
-    const combinedReason = `${title}|||${body.replace(/^Request:\s*/, "")}`
+    const combinedReason = `${type}|||${title}|||${body.replace(
+      /^Request:\s*/,
+      ""
+    )}`
     const { error: updateError } = await service
       .from("appeal")
       .update({
