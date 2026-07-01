@@ -1,10 +1,9 @@
 "use server"
 
-import { createSupabaseServerClient } from "@/lib//supabase/server-client"
+import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "../supabase/service-client"
 import { lookupId } from "../lookups"
 import { revalidatePath } from "next/cache"
-import { lookup } from "dns"
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -31,7 +30,7 @@ export async function getAdviserPendingRequests(): Promise<
     const { data: appeals, error } = await service
       .from("appeal")
       .select(
-        `*
+        `
         appeal_id,
         reason,
         created_at,
