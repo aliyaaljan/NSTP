@@ -69,6 +69,7 @@ export async function getStudentRequests(
         id: app.appeal_id,
         title: title,
         status: uiStatus,
+        type: type,
         body: body,
         note: app.resolution_note
           ? `Adviser's Note: ${app.resolution_note}`
