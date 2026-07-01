@@ -175,19 +175,19 @@ function FormsToolbar() {
         justifyContent: "space-between",
         padding: "clamp(12px, 1.5vw, 14px) clamp(16px, 2vw, 24px)",
         borderBottom: `1px solid ${C.border}`,
-        background: C.hoursBg,
+        background: C.green,
         flexWrap: "wrap",
         gap: 12,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-        <IconCheck size={18} color={C.green} strokeWidth={2.5} />
-        <span style={{ fontSize: "clamp(12px, 1.1vw, 13px)", fontWeight: 600, color: C.textDark }}>
-          <span style={{ color: C.maroon, fontSize: "clamp(18px, 1.8vw, 20px)", fontWeight: 800 }}>
+        <IconCheck size={18} color={C.pageBg} strokeWidth={2.5} />
+        <span style={{ fontSize: "clamp(12px, 1.1vw, 13px)", fontWeight: 600, color: C.pageBg }}>
+          <span style={{ color: C.pageBg, fontSize: "clamp(18px, 1.8vw, 20px)", fontWeight: 800 }}>
             {passed}
           </span>
-          <span style={{ color: C.textGray, fontSize: "clamp(12px, 1.1vw, 14px)" }}>/{total}</span>
-          <span style={{ color: C.textSub, fontSize: "clamp(10px, 0.9vw, 12px)", marginLeft: 4 }}>
+          <span style={{ color: C.pageBg, fontSize: "clamp(12px, 1.1vw, 14px)" }}>/{total}</span>
+          <span style={{ color: C.pageBg, fontSize: "clamp(10px, 0.9vw, 12px)", marginLeft: 4, fontWeight: 600 }}>
             forms submitted
           </span>
         </span>
