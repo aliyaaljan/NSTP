@@ -1,81 +1,226 @@
-"use client";
+"use client"
 
-import { useState, useEffect, Suspense } from "react"
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import {
-  IconSearch, IconChevronDown,
-  IconUsers, IconCircleCheck, IconClock,
-  IconAlertCircle, IconX, IconPaperclip,
-} from "@tabler/icons-react";
-import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
+  IconSearch,
+  IconChevronDown,
+  IconUsers,
+  IconCircleCheck,
+  IconClock,
+  IconAlertCircle,
+  IconX,
+  IconPaperclip,
+} from "@tabler/icons-react"
+import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
-import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/client";
+import { useSearchParams } from "next/navigation"
+import { createClient } from "@/lib/client"
+import {
+  getAdviserPendingRequests,
+  resolveStudentRequest,
+} from "@/lib/facilitator/appeal-actions"
 
 // ── Data ──────────────────────────────────────────────────────────────
-type Status = "Completed" | "In Progress" | "Not Started";
+type Status = "Completed" | "In Progress" | "Not Started"
 
 interface Student {
-  id: string;
-  name: string;
-  studentNo: string;
-  siteLocation: string;
-  status: Status;
-  hoursLogged: number;
-  totalHours: number;
+  id: string
+  name: string
+  studentNo: string
+  siteLocation: string
+  status: Status
+  hoursLogged: number
+  totalHours: number
 }
 
-type RequestType = "Absence Excuse" | "Hour Adjustment" | "Schedule Change";
+type RequestType = "Absence Excuse" | "Hour Adjustment" | "Schedule Change"
 
 interface PendingRequest {
-  id: string;
-  name: string;
-  studentNo: string;
-  section: string;
-  type: RequestType;
-  dateSubmitted: string;
-  hasAttachment: boolean;
-  note: string;
+  id: string
+  name: string
+  studentNo: string
+  section: string
+  type: RequestType
+  dateSubmitted: string
+  hasAttachment: boolean
+  note: string
 }
-
+/*
 const pendingRequests: PendingRequest[] = [
-  { id: "p1", name: "Rhona Shayne Lopez",      studentNo: "20201234", section: "NSTP-H", type: "Absence Excuse",        dateSubmitted: "Jun 18, 2025", hasAttachment: true,  note: "Was sick during the community service day. Medical certificate attached." },
-  { id: "p2", name: "Jaerish Kyle Rabang",     studentNo: "20123421", section: "NSTP-H", type: "Hour Adjustment",       dateSubmitted: "Jun 17, 2025", hasAttachment: false, note: "Requesting correction of logged hours from 4hrs to 6hrs on June 10." },
-  { id: "p3", name: "Saffi Limbaro",           studentNo: "20198765", section: "NSTP-H", type: "Schedule Change",       dateSubmitted: "Jun 16, 2025", hasAttachment: false, note: "Requesting to reschedule missed session to the following week." },
-  { id: "p4", name: "Aliya Aljan Mendoza",     studentNo: "20152314", section: "NSTP-H", type: "Schedule Change",       dateSubmitted: "Jun 15, 2025", hasAttachment: false, note: "Requesting to move Saturday slot to Sunday due to work conflict." },
-  { id: "p5", name: "Charles Ansbert Joaquin", studentNo: "20201111", section: "NSTP-H", type: "Absence Excuse",        dateSubmitted: "Jun 14, 2025", hasAttachment: true,  note: "Missed session due to university event. Proof of participation attached." },
-  { id: "p6", name: "Axel Xandrei Valido",     studentNo: "20203333", section: "NSTP-H", type: "Absence Excuse",        dateSubmitted: "Jun 13, 2025", hasAttachment: true,  note: "Family emergency on June 11. Supporting documents attached." },
-];
-
+  {
+    id: "p1",
+    name: "Rhona Shayne Lopez",
+    studentNo: "20201234",
+    section: "NSTP-H",
+    type: "Absence Excuse",
+    dateSubmitted: "Jun 18, 2025",
+    hasAttachment: true,
+    note: "Was sick during the community service day. Medical certificate attached.",
+  },
+  {
+    id: "p2",
+    name: "Jaerish Kyle Rabang",
+    studentNo: "20123421",
+    section: "NSTP-H",
+    type: "Hour Adjustment",
+    dateSubmitted: "Jun 17, 2025",
+    hasAttachment: false,
+    note: "Requesting correction of logged hours from 4hrs to 6hrs on June 10.",
+  },
+  {
+    id: "p3",
+    name: "Saffi Limbaro",
+    studentNo: "20198765",
+    section: "NSTP-H",
+    type: "Schedule Change",
+    dateSubmitted: "Jun 16, 2025",
+    hasAttachment: false,
+    note: "Requesting to reschedule missed session to the following week.",
+  },
+  {
+    id: "p4",
+    name: "Aliya Aljan Mendoza",
+    studentNo: "20152314",
+    section: "NSTP-H",
+    type: "Schedule Change",
+    dateSubmitted: "Jun 15, 2025",
+    hasAttachment: false,
+    note: "Requesting to move Saturday slot to Sunday due to work conflict.",
+  },
+  {
+    id: "p5",
+    name: "Charles Ansbert Joaquin",
+    studentNo: "20201111",
+    section: "NSTP-H",
+    type: "Absence Excuse",
+    dateSubmitted: "Jun 14, 2025",
+    hasAttachment: true,
+    note: "Missed session due to university event. Proof of participation attached.",
+  },
+  {
+    id: "p6",
+    name: "Axel Xandrei Valido",
+    studentNo: "20203333",
+    section: "NSTP-H",
+    type: "Absence Excuse",
+    dateSubmitted: "Jun 13, 2025",
+    hasAttachment: true,
+    note: "Family emergency on June 11. Supporting documents attached.",
+  },
+]
+*/
 const allStudents: Student[] = [
-  { id: "1",  name: "Rhona Shayne Lopez",      studentNo: "20201234", siteLocation: "Salud Mitra",    status: "In Progress",  hoursLogged: 105, totalHours: 120 },
-  { id: "2",  name: "Jaerish Kyle Rabang",     studentNo: "20123421", siteLocation: "Burnham Park",   status: "Completed",    hoursLogged: 120, totalHours: 120 },
-  { id: "3",  name: "Aliya Aljan Mendoza",     studentNo: "20152314", siteLocation: "Engineers Hill", status: "Not Started",  hoursLogged: 0,   totalHours: 120 },
-  { id: "4",  name: "Saffi Limbaro",           studentNo: "20198765", siteLocation: "Burnham Park",   status: "In Progress",  hoursLogged: 60,  totalHours: 120 },
-  { id: "5",  name: "Charles Ansbert Joaquin", studentNo: "20201111", siteLocation: "Salud Mitra",    status: "Completed",    hoursLogged: 120, totalHours: 120 },
-  { id: "6",  name: "Axel Xandrei Valido",     studentNo: "20203333", siteLocation: "Engineers Hill", status: "In Progress",  hoursLogged: 55,  totalHours: 120 },
-  { id: "7",  name: "Janine Irish Tulic",      studentNo: "20204444", siteLocation: "Salud Mitra",    status: "Not Started",  hoursLogged: 0,   totalHours: 120 },
-  { id: "8",  name: "Marco Dela Cruz",         studentNo: "20205555", siteLocation: "Burnham Park",   status: "In Progress",  hoursLogged: 98,  totalHours: 120 },
-  { id: "9",  name: "Patricia Santos",         studentNo: "20206666", siteLocation: "Engineers Hill", status: "In Progress",  hoursLogged: 72,  totalHours: 120 },
-  { id: "10", name: "Luis Miguel Reyes",       studentNo: "20207777", siteLocation: "Salud Mitra",    status: "Completed",    hoursLogged: 120, totalHours: 120 },
-];
+  {
+    id: "1",
+    name: "Rhona Shayne Lopez",
+    studentNo: "20201234",
+    siteLocation: "Salud Mitra",
+    status: "In Progress",
+    hoursLogged: 105,
+    totalHours: 120,
+  },
+  {
+    id: "2",
+    name: "Jaerish Kyle Rabang",
+    studentNo: "20123421",
+    siteLocation: "Burnham Park",
+    status: "Completed",
+    hoursLogged: 120,
+    totalHours: 120,
+  },
+  {
+    id: "3",
+    name: "Aliya Aljan Mendoza",
+    studentNo: "20152314",
+    siteLocation: "Engineers Hill",
+    status: "Not Started",
+    hoursLogged: 0,
+    totalHours: 120,
+  },
+  {
+    id: "4",
+    name: "Saffi Limbaro",
+    studentNo: "20198765",
+    siteLocation: "Burnham Park",
+    status: "In Progress",
+    hoursLogged: 60,
+    totalHours: 120,
+  },
+  {
+    id: "5",
+    name: "Charles Ansbert Joaquin",
+    studentNo: "20201111",
+    siteLocation: "Salud Mitra",
+    status: "Completed",
+    hoursLogged: 120,
+    totalHours: 120,
+  },
+  {
+    id: "6",
+    name: "Axel Xandrei Valido",
+    studentNo: "20203333",
+    siteLocation: "Engineers Hill",
+    status: "In Progress",
+    hoursLogged: 55,
+    totalHours: 120,
+  },
+  {
+    id: "7",
+    name: "Janine Irish Tulic",
+    studentNo: "20204444",
+    siteLocation: "Salud Mitra",
+    status: "Not Started",
+    hoursLogged: 0,
+    totalHours: 120,
+  },
+  {
+    id: "8",
+    name: "Marco Dela Cruz",
+    studentNo: "20205555",
+    siteLocation: "Burnham Park",
+    status: "In Progress",
+    hoursLogged: 98,
+    totalHours: 120,
+  },
+  {
+    id: "9",
+    name: "Patricia Santos",
+    studentNo: "20206666",
+    siteLocation: "Engineers Hill",
+    status: "In Progress",
+    hoursLogged: 72,
+    totalHours: 120,
+  },
+  {
+    id: "10",
+    name: "Luis Miguel Reyes",
+    studentNo: "20207777",
+    siteLocation: "Salud Mitra",
+    status: "Completed",
+    hoursLogged: 120,
+    totalHours: 120,
+  },
+]
 
-const statusConfig: Record<Status, { bg: string; color: string; label: string }> = {
-  "Completed":   { bg: "#D1FAE5", color: "#065F46", label: "Completed"   },
+const statusConfig: Record<
+  Status,
+  { bg: string; color: string; label: string }
+> = {
+  Completed: { bg: "#D1FAE5", color: "#065F46", label: "Completed" },
   "In Progress": { bg: "#FEF3C7", color: "#92400E", label: "In Progress" },
   "Not Started": { bg: "#FEE2E2", color: "#991B1B", label: "Not Started" },
-};
-
-function progressColor(status: Status): string {
-  if (status === "Completed")   return "#059669";
-  if (status === "In Progress") return "#D97706";
-  return "#EF4444";
 }
 
+function progressColor(status: Status): string {
+  if (status === "Completed") return "#059669"
+  if (status === "In Progress") return "#D97706"
+  return "#EF4444"
+}
 
-type Tab = "list" | "pending";
-type StatusFilter = "All Status" | Status;
+type Tab = "list" | "pending"
+type StatusFilter = "All Status" | Status
 
 const myStudentsStyles = `
   ${dashboardStyles}
@@ -263,24 +408,41 @@ const myStudentsStyles = `
   .ms-modal-label  { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
   .ms-modal-value  { font-size: 14px; font-weight: 600; color: var(--text); }
   .ms-modal-progress { margin-top: 4px; }
-`;
+`
 
 function MyStudentsContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [sidebarOpen, setSidebarOpen]     = useState(false);
-  const [activeTab, setActiveTab]         = useState<Tab>("list");
-  const [headerSearch, setHeaderSearch]   = useState("");
-  const [tableSearch, setTableSearch]     = useState("");
-  const [statusFilter, setStatusFilter]   = useState<StatusFilter>("All Status");
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [showFilter, setShowFilter]       = useState(false);
-  const [currentPage, setCurrentPage]     = useState(1);
-  const [pageSize, setPageSize]           = useState(5);
-  const [pendingSearch, setPendingSearch] = useState("");
-  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
-  const [requestTypeFilter, setRequestTypeFilter] = useState<"All Types" | RequestType>("All Types");
-  const [showTypeFilter, setShowTypeFilter] = useState(false);
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<Tab>("list")
+  const [isPending, startTransition] = useTransition()
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
+  const [resolutionNote, setResolutionNote] = useState("")
+  const [headerSearch, setHeaderSearch] = useState("")
+  const [tableSearch, setTableSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All Status")
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [showFilter, setShowFilter] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const [pendingSearch, setPendingSearch] = useState("")
+  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(
+    null
+  )
+  const refreshRequests = async () => {
+    const res = await getAdviserPendingRequests()
+    if (res.ok) setPendingRequests(res.data)
+  }
+
+  // trigger fetch on mount
+  useEffect(() => {
+    refreshRequests()
+  }, [])
+
+  const [requestTypeFilter, setRequestTypeFilter] = useState<
+    "All Types" | RequestType
+  >("All Types")
+  const [showTypeFilter, setShowTypeFilter] = useState(false)
 
   useEffect(() => {
     const tab = searchParams.get("tab")
@@ -295,7 +457,16 @@ function MyStudentsContent() {
   const [sections, setSections] = useState<{ id: string; name: string }[]>([])
   const [selectedSection, setSelectedSection] = useState("All Sections")
   const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false)
-  const [statData, setStatData] = useState<{section_id: string; section_name: string; total: number; completed: number; in_progress: number; pending_request: number;}[]>([])
+  const [statData, setStatData] = useState<
+    {
+      section_id: string
+      section_name: string
+      total: number
+      completed: number
+      in_progress: number
+      pending_request: number
+    }[]
+  >([])
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
 
@@ -321,15 +492,27 @@ function MyStudentsContent() {
         supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id }),
       ])
 
-      if (statError) console.error("get_students_stats error:", statError.message, statError.details)
+      if (statError)
+        console.error(
+          "get_students_stats error:",
+          statError.message,
+          statError.details
+        )
       if (statData) setStatData(statData)
 
-      if (sectionError) console.error("get_sections error:", sectionError.message, sectionError.details)
+      if (sectionError)
+        console.error(
+          "get_sections error:",
+          sectionError.message,
+          sectionError.details
+        )
       if (sectionData && statData) {
-        const mappedSection = statData.map((r: { section_id: string | null; section_name: string }) => ({
-          id: r.section_id ?? "all",
-          name: r.section_name,
-        }))
+        const mappedSection = statData.map(
+          (r: { section_id: string | null; section_name: string }) => ({
+            id: r.section_id ?? "all",
+            name: r.section_name,
+          })
+        )
         const sortedSection = [...mappedSection].sort((a, b) => {
           if (a.name === "All Sections") return -1
           if (b.name === "All Sections") return 1
@@ -338,7 +521,12 @@ function MyStudentsContent() {
         setSections(sortedSection)
       }
 
-      if (semError) console.error("get_active_sem error:", semError.message, semError.details)
+      if (semError)
+        console.error(
+          "get_active_sem error:",
+          semError.message,
+          semError.details
+        )
     })
   }, [])
 
@@ -347,53 +535,75 @@ function MyStudentsContent() {
 
   // const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
 
-
   function buildStatCards(students: Student[]) {
-    const completed  = students.filter(s => s.status === "Completed").length;
-    const inProgress = students.filter(s => s.status === "In Progress").length;
-    const pending    = pendingRequests.length;
+    const completed = students.filter((s) => s.status === "Completed").length
+    const inProgress = students.filter((s) => s.status === "In Progress").length
+    const pending = pendingRequests.length
     return [
-      { label: "Total Students",   value: currentData?.total, Icon: IconUsers},
-      { label: "Completed",        value: currentData?.completed, Icon: IconCircleCheck},
-      { label: "In Progress",      value: currentData?.in_progress, Icon: IconClock},
-      { label: "Pending Requests", value: currentData?.pending_request, Icon: IconAlertCircle},
-    ];
+      { label: "Total Students", value: currentData?.total, Icon: IconUsers },
+      {
+        label: "Completed",
+        value: currentData?.completed,
+        Icon: IconCircleCheck,
+      },
+      {
+        label: "In Progress",
+        value: currentData?.in_progress,
+        Icon: IconClock,
+      },
+      {
+        label: "Pending Requests",
+        value: currentData?.pending_request,
+        Icon: IconAlertCircle,
+      },
+    ]
   }
 
   const filtered = allStudents.filter((s) => {
-    const q = (headerSearch || tableSearch).trim().toLowerCase();
-    const matchSearch = q === "" ||
-      s.name.toLowerCase().includes(q) ||
-      s.studentNo.includes(q);
-    const matchStatus = statusFilter === "All Status" || s.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+    const q = (headerSearch || tableSearch).trim().toLowerCase()
+    const matchSearch =
+      q === "" || s.name.toLowerCase().includes(q) || s.studentNo.includes(q)
+    const matchStatus =
+      statusFilter === "All Status" || s.status === statusFilter
+    return matchSearch && matchStatus
+  })
 
   const filteredPending = pendingRequests.filter((r) => {
-    const matchSearch = pendingSearch.trim() === "" || r.name.toLowerCase().includes(pendingSearch.toLowerCase());
-    const matchType = requestTypeFilter === "All Types" || r.type === requestTypeFilter;
-    return matchSearch && matchType;
-  });
+    const matchSearch =
+      pendingSearch.trim() === "" ||
+      r.name.toLowerCase().includes(pendingSearch.toLowerCase())
+    const matchType =
+      requestTypeFilter === "All Types" || r.type === requestTypeFilter
+    return matchSearch && matchType
+  })
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const paginated = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
 
-  const statusOptions: StatusFilter[] = ["All Status", "Completed", "In Progress", "Not Started"];
-  const statCards = buildStatCards(allStudents);
+  const statusOptions: StatusFilter[] = [
+    "All Status",
+    "Completed",
+    "In Progress",
+    "Not Started",
+  ]
+  const statCards = buildStatCards(allStudents)
 
   async function handleSignOut() {
-    await signOutWithAudit();
-    router.push("/");
-    router.refresh();
+    await signOutWithAudit()
+    router.push("/")
+    router.refresh()
   }
 
   function requestTypeStyle(type: RequestType): { bg: string; color: string } {
     const map: Record<RequestType, { bg: string; color: string }> = {
-      "Absence Excuse":  { bg: "#FEF3C7", color: "#92400E" },
+      "Absence Excuse": { bg: "#FEF3C7", color: "#92400E" },
       "Hour Adjustment": { bg: "#DBEAFE", color: "#1E40AF" },
       "Schedule Change": { bg: "#FCE7F3", color: "#9D174D" },
-    };
-    return map[type];
+    }
+    return map[type]
   }
 
   return (
@@ -405,18 +615,32 @@ function MyStudentsContent() {
         <Sidebar
           open={sidebarOpen}
           activeNav="My Students"
-          onToggle={() => { setSidebarOpen((o) => !o); setShowFilter(false); setShowTypeFilter(false); }}
-          onNavClick={(label) => { setSidebarOpen(false); router.push(navRoutes[label]); }}
+          onToggle={() => {
+            setSidebarOpen((o) => !o)
+            setShowFilter(false)
+            setShowTypeFilter(false)
+          }}
+          onNavClick={(label) => {
+            setSidebarOpen(false)
+            router.push(navRoutes[label])
+          }}
           onSignOut={handleSignOut}
         />
 
         {sidebarOpen && (
-          <div className="sb-overlay" onClick={() => { setSidebarOpen(false); setShowFilter(false); setShowTypeFilter(false); }} aria-hidden="true" />
+          <div
+            className="sb-overlay"
+            onClick={() => {
+              setSidebarOpen(false)
+              setShowFilter(false)
+              setShowTypeFilter(false)
+            }}
+            aria-hidden="true"
+          />
         )}
 
         <div className="main-wrapper">
           <main className="main">
-
             {/* Header */}
             <div className="ms-header-row">
               <h1 className="ms-title">My Students</h1>
@@ -433,7 +657,9 @@ function MyStudentsContent() {
               <div className="profile-pill">
                 <div className="profile-avatar">{initials}</div>
                 <div>
-                  <div className="profile-name">{lastName}, {firstName}</div>
+                  <div className="profile-name">
+                    {lastName}, {firstName}
+                  </div>
                 </div>
               </div>
             </div>
@@ -467,29 +693,31 @@ function MyStudentsContent() {
                         minWidth: 160,
                         overflow: "hidden",
                       }}
-                      >
-                        {sections.map((s) => (
-                          <div
-                            key={s.id}
-                            onClick={() => {
-                              setSelectedSection(s.name)
-                              setSectionDropdownOpen(false)
-                              setCurrentPage(1)
-                              setAnimKey((k) => k + 1)
-                              setSectionKey((k) => k + 1)
-                            }}
-                            className={`block w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
-                              s.name === selectedSection ? "font-semibold bg-green text-white" : "font-normal text-text"
-                            }`}
-                          >
-                            {s.name}
-                          </div>
-                        ))}
-                      </div>
+                    >
+                      {sections.map((s) => (
+                        <div
+                          key={s.id}
+                          onClick={() => {
+                            setSelectedSection(s.name)
+                            setSectionDropdownOpen(false)
+                            setCurrentPage(1)
+                            setAnimKey((k) => k + 1)
+                            setSectionKey((k) => k + 1)
+                          }}
+                          className={`block w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
+                            s.name === selectedSection
+                              ? "font-semibold bg-green text-white"
+                              : "font-normal text-text"
+                          }`}
+                        >
+                          {s.name}
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
+            </div>
 
             {/* Stat cards */}
             <div className="ms-stat-cards">
@@ -509,14 +737,18 @@ function MyStudentsContent() {
             {/* Tabs */}
             <div className="ms-tabs">
               <button
-                className={`ms-tab${activeTab === "list" ? " ms-tab-active" : ""}`}
+                className={`ms-tab${
+                  activeTab === "list" ? " ms-tab-active" : ""
+                }`}
                 onClick={() => setActiveTab("list")}
               >
                 <IconUsers size={16} stroke={1.75} />
                 List of Students
               </button>
               <button
-                className={`ms-tab${activeTab === "pending" ? " ms-tab-active" : ""}`}
+                className={`ms-tab${
+                  activeTab === "pending" ? " ms-tab-active" : ""
+                }`}
                 onClick={() => setActiveTab("pending")}
               >
                 <IconAlertCircle size={16} stroke={1.75} />
@@ -531,38 +763,85 @@ function MyStudentsContent() {
                   <div className="ms-table-toolbar">
                     <div>
                       <div className="ms-table-title">All Students</div>
-                      <div className="ms-table-count">{filtered.length} student{filtered.length !== 1 ? "s" : ""} found</div>
+                      <div className="ms-table-count">
+                        {filtered.length} student
+                        {filtered.length !== 1 ? "s" : ""} found
+                      </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 24 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        marginLeft: 24,
+                      }}
+                    >
                       <div className="ms-search-bar">
-                        <IconSearch size={13} stroke={1.75} color="var(--light)" />
+                        <IconSearch
+                          size={13}
+                          stroke={1.75}
+                          color="var(--light)"
+                        />
                         <input
                           className="ms-search-input"
                           value={tableSearch}
-                          onChange={(e) => { setTableSearch(e.target.value); setHeaderSearch(""); setCurrentPage(1); }}
+                          onChange={(e) => {
+                            setTableSearch(e.target.value)
+                            setHeaderSearch("")
+                            setCurrentPage(1)
+                          }}
                           placeholder="Search..."
                         />
                       </div>
                       <div style={{ position: "relative" }}>
-                        <button className="ms-filter-btn" onClick={() => setShowFilter((v) => !v)}>
-                          {statusFilter} <IconChevronDown size={13} stroke={2} />
+                        <button
+                          className="ms-filter-btn"
+                          onClick={() => setShowFilter((v) => !v)}
+                        >
+                          {statusFilter}{" "}
+                          <IconChevronDown size={13} stroke={2} />
                         </button>
                         {showFilter && (
-                          <div style={{
-                            position: "absolute", top: "calc(100% + 6px)", left: 0,
-                            background: "var(--white)", border: "1px solid var(--border)",
-                            borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
-                            minWidth: 160, overflow: "hidden",
-                          }}>
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 6px)",
+                              left: 0,
+                              background: "var(--white)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 10,
+                              boxShadow: "var(--shadow)",
+                              zIndex: 50,
+                              minWidth: 160,
+                              overflow: "hidden",
+                            }}
+                          >
                             {statusOptions.map((opt) => (
-                              <button key={opt} onClick={() => { setStatusFilter(opt); setShowFilter(false); setCurrentPage(1); }}
+                              <button
+                                key={opt}
+                                onClick={() => {
+                                  setStatusFilter(opt)
+                                  setShowFilter(false)
+                                  setCurrentPage(1)
+                                }}
                                 style={{
-                                  display: "block", width: "100%", padding: "9px 16px",
-                                  textAlign: "left", background: statusFilter === opt ? "#F9FAFB" : "none",
-                                  border: "none", cursor: "pointer", fontSize: 13,
-                                  fontFamily: "var(--font)", fontWeight: statusFilter === opt ? 700 : 400,
-                                  color: statusFilter === opt ? "var(--maroon)" : "var(--text)",
-                                }}>
+                                  display: "block",
+                                  width: "100%",
+                                  padding: "9px 16px",
+                                  textAlign: "left",
+                                  background:
+                                    statusFilter === opt ? "#F9FAFB" : "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  fontFamily: "var(--font)",
+                                  fontWeight: statusFilter === opt ? 700 : 400,
+                                  color:
+                                    statusFilter === opt
+                                      ? "var(--maroon)"
+                                      : "var(--text)",
+                                }}
+                              >
                                 {opt}
                               </button>
                             ))}
@@ -572,97 +851,159 @@ function MyStudentsContent() {
                     </div>
                   </div>
 
-                  <div className="ms-table-wrapper"><table className="ms-table">
-                    <thead>
-                      <tr>
-                        <th>Student</th>
-                        <th>Site Location</th>
-                        <th>Status</th>
-                        <th>Hours Logged</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.length === 0 ? (
+                  <div className="ms-table-wrapper">
+                    <table className="ms-table">
+                      <thead>
                         <tr>
-                          <td colSpan={4} className="ms-empty">No students match your search.</td>
+                          <th>Student</th>
+                          <th>Site Location</th>
+                          <th>Status</th>
+                          <th>Hours Logged</th>
                         </tr>
-                      ) : paginated.map((s) => {
-                        const pct = Math.round((s.hoursLogged / s.totalHours) * 100);
-                        const cfg = statusConfig[s.status];
-                        return (
-                          <tr key={s.id} onClick={() => setSelectedStudent(s)}>
-                            <td>
-                              <div className="ms-student-name">{s.name}</div>
-                              <div className="ms-student-no">{s.studentNo}</div>
-                            </td>
-                            <td>
-                              <span className="ms-site-badge">{s.siteLocation}</span>
-                            </td>
-                            <td>
-                              <span className="ms-status-badge" style={{ background: cfg.bg, color: cfg.color }}>
-                                {cfg.label}
-                              </span>
-                            </td>
-                            <td className="ms-hours-cell">
-                              <div className="ms-hours-label">
-                                <span>{s.hoursLogged}/{s.totalHours} hrs</span>
-                              </div>
-                              <div className="ms-hours-track">
-                                <div className="ms-hours-fill" style={{ width: `${pct}%`, background: progressColor(s.status) }} />
-                              </div>
+                      </thead>
+                      <tbody>
+                        {filtered.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="ms-empty">
+                              No students match your search.
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table></div>
+                        ) : (
+                          paginated.map((s) => {
+                            const pct = Math.round(
+                              (s.hoursLogged / s.totalHours) * 100
+                            )
+                            const cfg = statusConfig[s.status]
+                            return (
+                              <tr
+                                key={s.id}
+                                onClick={() => setSelectedStudent(s)}
+                              >
+                                <td>
+                                  <div className="ms-student-name">
+                                    {s.name}
+                                  </div>
+                                  <div className="ms-student-no">
+                                    {s.studentNo}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="ms-site-badge">
+                                    {s.siteLocation}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span
+                                    className="ms-status-badge"
+                                    style={{
+                                      background: cfg.bg,
+                                      color: cfg.color,
+                                    }}
+                                  >
+                                    {cfg.label}
+                                  </span>
+                                </td>
+                                <td className="ms-hours-cell">
+                                  <div className="ms-hours-label">
+                                    <span>
+                                      {s.hoursLogged}/{s.totalHours} hrs
+                                    </span>
+                                  </div>
+                                  <div className="ms-hours-track">
+                                    <div
+                                      className="ms-hours-fill"
+                                      style={{
+                                        width: `${pct}%`,
+                                        background: progressColor(s.status),
+                                      }}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
 
                   {/* Pagination */}
                   <div className="ms-pagination">
                     <div className="ms-pagination-info">
-                      Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length} students
+                      Showing{" "}
+                      {filtered.length === 0
+                        ? 0
+                        : (currentPage - 1) * pageSize + 1}
+                      –{Math.min(currentPage * pageSize, filtered.length)} of{" "}
+                      {filtered.length} students
                     </div>
                     <div className="ms-pagination-controls">
                       <button
                         className="ms-page-btn ms-page-btn-nav"
                         disabled={currentPage === 1}
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
                         aria-label="Previous page"
                       >
                         &#8249;
                       </button>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                        <button
-                          key={p}
-                          className={`ms-page-btn${p === currentPage ? " ms-page-btn-active" : ""}`}
-                          onClick={() => setCurrentPage(p)}
-                        >
-                          {p}
-                        </button>
-                      ))}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                        (p) => (
+                          <button
+                            key={p}
+                            className={`ms-page-btn${
+                              p === currentPage ? " ms-page-btn-active" : ""
+                            }`}
+                            onClick={() => setCurrentPage(p)}
+                          >
+                            {p}
+                          </button>
+                        )
+                      )}
                       <button
                         className="ms-page-btn ms-page-btn-nav"
                         disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
                         aria-label="Next page"
                       >
                         &#8250;
                       </button>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 12.5,
+                        color: "var(--muted)",
+                      }}
+                    >
                       <span>Rows per page:</span>
                       <select
                         value={pageSize}
-                        onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value))
+                          setCurrentPage(1)
+                        }}
                         style={{
-                          border: "1.5px solid var(--border)", borderRadius: 8,
-                          padding: "4px 8px", fontSize: 12.5, fontFamily: "var(--font)",
-                          color: "var(--text)", background: "var(--white)", cursor: "pointer",
+                          border: "1.5px solid var(--border)",
+                          borderRadius: 8,
+                          padding: "4px 8px",
+                          fontSize: 12.5,
+                          fontFamily: "var(--font)",
+                          color: "var(--text)",
+                          background: "var(--white)",
+                          cursor: "pointer",
                           outline: "none",
                         }}
                       >
                         {[5, 10, 20, 50].map((n) => (
-                          <option key={n} value={n}>{n}</option>
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -673,11 +1014,25 @@ function MyStudentsContent() {
                   <div className="ms-requests-toolbar">
                     <div>
                       <div className="ms-table-title">All Requests</div>
-                      <div className="ms-table-count">{filteredPending.length} request{filteredPending.length !== 1 ? "s" : ""} found</div>
+                      <div className="ms-table-count">
+                        {filteredPending.length} request
+                        {filteredPending.length !== 1 ? "s" : ""} found
+                      </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: 24 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        marginLeft: 24,
+                      }}
+                    >
                       <div className="ms-search-bar" style={{ minWidth: 180 }}>
-                        <IconSearch size={13} stroke={1.75} color="var(--light)" />
+                        <IconSearch
+                          size={13}
+                          stroke={1.75}
+                          color="var(--light)"
+                        />
                         <input
                           className="ms-search-input"
                           value={pendingSearch}
@@ -686,25 +1041,63 @@ function MyStudentsContent() {
                         />
                       </div>
                       <div style={{ position: "relative" }}>
-                        <button className="ms-filter-btn" onClick={() => setShowTypeFilter((v) => !v)}>
-                          {requestTypeFilter} <IconChevronDown size={13} stroke={2} />
+                        <button
+                          className="ms-filter-btn"
+                          onClick={() => setShowTypeFilter((v) => !v)}
+                        >
+                          {requestTypeFilter}{" "}
+                          <IconChevronDown size={13} stroke={2} />
                         </button>
                         {showTypeFilter && (
-                          <div style={{
-                            position: "absolute", top: "calc(100% + 6px)", left: 0,
-                            background: "var(--white)", border: "1px solid var(--border)",
-                            borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
-                            minWidth: 170, overflow: "hidden",
-                          }}>
-                            {(["All Types", "Absence Excuse", "Hour Adjustment", "Schedule Change"] as const).map((opt) => (
-                              <button key={opt} onClick={() => { setRequestTypeFilter(opt); setShowTypeFilter(false); }}
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 6px)",
+                              left: 0,
+                              background: "var(--white)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 10,
+                              boxShadow: "var(--shadow)",
+                              zIndex: 50,
+                              minWidth: 170,
+                              overflow: "hidden",
+                            }}
+                          >
+                            {(
+                              [
+                                "All Types",
+                                "Absence Excuse",
+                                "Hour Adjustment",
+                                "Schedule Change",
+                              ] as const
+                            ).map((opt) => (
+                              <button
+                                key={opt}
+                                onClick={() => {
+                                  setRequestTypeFilter(opt)
+                                  setShowTypeFilter(false)
+                                }}
                                 style={{
-                                  display: "block", width: "100%", padding: "9px 16px",
-                                  textAlign: "left", background: requestTypeFilter === opt ? "#F9FAFB" : "none",
-                                  border: "none", cursor: "pointer", fontSize: 13,
-                                  fontFamily: "var(--font)", fontWeight: requestTypeFilter === opt ? 700 : 400,
-                                  color: requestTypeFilter === opt ? "var(--maroon)" : "var(--text)",
-                                }}>
+                                  display: "block",
+                                  width: "100%",
+                                  padding: "9px 16px",
+                                  textAlign: "left",
+                                  background:
+                                    requestTypeFilter === opt
+                                      ? "#F9FAFB"
+                                      : "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  fontFamily: "var(--font)",
+                                  fontWeight:
+                                    requestTypeFilter === opt ? 700 : 400,
+                                  color:
+                                    requestTypeFilter === opt
+                                      ? "var(--maroon)"
+                                      : "var(--text)",
+                                }}
+                              >
                                 {opt}
                               </button>
                             ))}
@@ -726,33 +1119,59 @@ function MyStudentsContent() {
                       </div>
                       <div className="ms-requests-list">
                         {filteredPending.map((r) => {
-                          const typeStyle = requestTypeStyle(r.type);
-                          const initials = r.name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
+                          const typeStyle = requestTypeStyle(r.type)
+                          const initials = r.name
+                            .split(" ")
+                            .slice(0, 2)
+                            .map((w: string) => w[0])
+                            .join("")
+                            .toUpperCase()
                           return (
-                            <div key={r.id} className="ms-request-row" onClick={() => setSelectedRequest(r)}>
+                            <div
+                              key={r.id}
+                              className="ms-request-row"
+                              onClick={() => setSelectedRequest(r)}
+                            >
                               <div className="ms-request-student">
-                                <div className="ms-request-avatar">{initials}</div>
+                                <div className="ms-request-avatar">
+                                  {initials}
+                                </div>
                                 <div>
-                                  <div className="ms-request-name">{r.name}</div>
-                                  <div className="ms-request-meta">{r.studentNo} · {r.section}</div>
+                                  <div className="ms-request-name">
+                                    {r.name}
+                                  </div>
+                                  <div className="ms-request-meta">
+                                    {r.studentNo} · {r.section}
+                                  </div>
                                 </div>
                               </div>
                               <div>
-                                <span className="ms-request-type" style={{ background: typeStyle.bg, color: typeStyle.color }}>
+                                <span
+                                  className="ms-request-type"
+                                  style={{
+                                    background: typeStyle.bg,
+                                    color: typeStyle.color,
+                                  }}
+                                >
                                   {r.type}
                                 </span>
                               </div>
-                              <div className="ms-request-date">{r.dateSubmitted}</div>
+                              <div className="ms-request-date">
+                                {r.dateSubmitted}
+                              </div>
                               <div className="ms-request-note">{r.note}</div>
                               <div className="ms-attachment-tag">
                                 {r.hasAttachment ? (
-                                  <><IconPaperclip size={13} stroke={1.75} /> 1 file</>
+                                  <>
+                                    <IconPaperclip size={13} stroke={1.75} /> 1
+                                    file
+                                  </>
                                 ) : (
                                   <span style={{ opacity: 0.35 }}>—</span>
                                 )}
                               </div>
                             </div>
-                          );
+                          )
                         })}
                       </div>
                     </>
@@ -765,11 +1184,17 @@ function MyStudentsContent() {
 
         {/* Student detail modal */}
         {selectedStudent && (
-          <div className="ms-modal-backdrop" onClick={() => setSelectedStudent(null)}>
+          <div
+            className="ms-modal-backdrop"
+            onClick={() => setSelectedStudent(null)}
+          >
             <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
               <div className="ms-modal-header">
                 <div className="ms-modal-title">{selectedStudent.name}</div>
-                <button className="ms-modal-close" onClick={() => setSelectedStudent(null)}>
+                <button
+                  className="ms-modal-close"
+                  onClick={() => setSelectedStudent(null)}
+                >
                   <IconX size={18} stroke={1.75} />
                 </button>
               </div>
@@ -777,41 +1202,66 @@ function MyStudentsContent() {
                 <div className="ms-modal-row">
                   <div className="ms-modal-field">
                     <div className="ms-modal-label">Student No.</div>
-                    <div className="ms-modal-value">{selectedStudent.studentNo}</div>
+                    <div className="ms-modal-value">
+                      {selectedStudent.studentNo}
+                    </div>
                   </div>
                   <div className="ms-modal-field">
                     <div className="ms-modal-label">Site Location</div>
-                    <div className="ms-modal-value">{selectedStudent.siteLocation}</div>
+                    <div className="ms-modal-value">
+                      {selectedStudent.siteLocation}
+                    </div>
                   </div>
                 </div>
                 <div className="ms-modal-row">
                   <div className="ms-modal-field">
                     <div className="ms-modal-label">Status</div>
-                    <span className="ms-status-badge" style={{
-                      background: statusConfig[selectedStudent.status].bg,
-                      color: statusConfig[selectedStudent.status].color,
-                    }}>
+                    <span
+                      className="ms-status-badge"
+                      style={{
+                        background: statusConfig[selectedStudent.status].bg,
+                        color: statusConfig[selectedStudent.status].color,
+                      }}
+                    >
                       {statusConfig[selectedStudent.status].label}
                     </span>
                   </div>
                   <div className="ms-modal-field">
                     <div className="ms-modal-label">Hours Logged</div>
                     <div className="ms-modal-value">
-                      {selectedStudent.hoursLogged} / {selectedStudent.totalHours} hrs
+                      {selectedStudent.hoursLogged} /{" "}
+                      {selectedStudent.totalHours} hrs
                     </div>
                   </div>
                 </div>
                 <div className="ms-modal-field ms-modal-progress">
                   <div className="ms-modal-label">Progress</div>
                   <div className="ms-hours-label" style={{ marginTop: 6 }}>
-                    <span>{selectedStudent.hoursLogged} / {selectedStudent.totalHours} hrs</span>
-                    <span>{Math.round((selectedStudent.hoursLogged / selectedStudent.totalHours) * 100)}%</span>
+                    <span>
+                      {selectedStudent.hoursLogged} /{" "}
+                      {selectedStudent.totalHours} hrs
+                    </span>
+                    <span>
+                      {Math.round(
+                        (selectedStudent.hoursLogged /
+                          selectedStudent.totalHours) *
+                          100
+                      )}
+                      %
+                    </span>
                   </div>
                   <div className="ms-hours-track">
-                    <div className="ms-hours-fill" style={{
-                      width: `${Math.round((selectedStudent.hoursLogged / selectedStudent.totalHours) * 100)}%`,
-                      background: progressColor(selectedStudent.status),
-                    }} />
+                    <div
+                      className="ms-hours-fill"
+                      style={{
+                        width: `${Math.round(
+                          (selectedStudent.hoursLogged /
+                            selectedStudent.totalHours) *
+                            100
+                        )}%`,
+                        background: progressColor(selectedStudent.status),
+                      }}
+                    />
                   </div>
                 </div>
               </div>
@@ -821,16 +1271,31 @@ function MyStudentsContent() {
 
         {/* Request detail modal */}
         {selectedRequest && (
-          <div className="ms-modal-backdrop" onClick={() => setSelectedRequest(null)}>
-            <div className="ms-modal ms-req-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="ms-modal-backdrop"
+            onClick={() => setSelectedRequest(null)}
+          >
+            <div
+              className="ms-modal ms-req-modal"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="ms-modal-header">
                 <div>
                   <div className="ms-modal-title">{selectedRequest.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--muted)",
+                      marginTop: 2,
+                    }}
+                  >
                     {selectedRequest.studentNo} · {selectedRequest.section}
                   </div>
                 </div>
-                <button className="ms-modal-close" onClick={() => setSelectedRequest(null)}>
+                <button
+                  className="ms-modal-close"
+                  onClick={() => setSelectedRequest(null)}
+                >
                   <IconX size={18} stroke={1.75} />
                 </button>
               </div>
@@ -838,22 +1303,29 @@ function MyStudentsContent() {
                 <div className="ms-modal-row">
                   <div className="ms-modal-field ms-req-modal-section">
                     <div className="ms-modal-label">Request Type</div>
-                    <span className="ms-request-type" style={{
-                      background: requestTypeStyle(selectedRequest.type).bg,
-                      color: requestTypeStyle(selectedRequest.type).color,
-                      padding: "4px 12px",
-                    }}>
+                    <span
+                      className="ms-request-type"
+                      style={{
+                        background: requestTypeStyle(selectedRequest.type).bg,
+                        color: requestTypeStyle(selectedRequest.type).color,
+                        padding: "4px 12px",
+                      }}
+                    >
                       {selectedRequest.type}
                     </span>
                   </div>
                   <div className="ms-modal-field ms-req-modal-section">
                     <div className="ms-modal-label">Date Submitted</div>
-                    <div className="ms-modal-value">{selectedRequest.dateSubmitted}</div>
+                    <div className="ms-modal-value">
+                      {selectedRequest.dateSubmitted}
+                    </div>
                   </div>
                 </div>
                 <div className="ms-req-modal-section">
                   <div className="ms-modal-label">Note</div>
-                  <div className="ms-req-modal-note">{selectedRequest.note}</div>
+                  <div className="ms-req-modal-note">
+                    {selectedRequest.note}
+                  </div>
                 </div>
                 {selectedRequest.hasAttachment && (
                   <div className="ms-req-modal-section">
@@ -868,10 +1340,9 @@ function MyStudentsContent() {
             </div>
           </div>
         )}
-
       </div>
     </>
-  );
+  )
 }
 
 export default function MyStudentsPage() {
@@ -879,5 +1350,5 @@ export default function MyStudentsPage() {
     <Suspense>
       <MyStudentsContent />
     </Suspense>
-  );
+  )
 }
