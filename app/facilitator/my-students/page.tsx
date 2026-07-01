@@ -3,36 +3,40 @@
 import { useState, useEffect, Suspense, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
-  IconSearch,
-  IconChevronDown,
-  IconUsers,
-  IconCircleCheck,
-  IconClock,
-  IconAlertCircle,
-  IconX,
-  IconPaperclip,
-} from "@tabler/icons-react"
-import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
+  IconSearch, IconChevronDown,
+  IconUsers, IconCircleCheck, IconClock,
+  IconAlertCircle, IconX, IconPaperclip, IconPencil,
+} from "@tabler/icons-react";
+import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
-import { useSearchParams } from "next/navigation"
-import { createClient } from "@/lib/client"
-import {
-  getAdviserPendingRequests,
-  resolveStudentRequest,
-} from "@/lib/facilitator/appeal-actions"
+import { useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/client";
+import { parse, format } from 'date-fns';
 
 // ── Data ──────────────────────────────────────────────────────────────
-type Status = "Completed" | "In Progress" | "Not Started"
+type Status = "Completed" | "In Progress" | "Not Started";
+type studentClassification = "Freshman" | "Sophomore" | "Junior" |  "Senior"
+interface StudentSession {
+  id: string;
+  date: string;
+  timeIn: string;
+  timeOut: string;
+  hours: number;
+}
 
 interface Student {
-  id: string
-  name: string
-  studentNo: string
-  siteLocation: string
-  status: Status
-  hoursLogged: number
-  totalHours: number
+  section_id: string;
+  section_name: string;
+  student_name: string;
+  student_number: string;
+  site_location: string;
+  program: string;
+  classification: string;
+  status: Status;
+  hours_logged: number;
+  total_hours: number;
+  sessions: StudentSession[];
 }
 
 type RequestType = "Absence Excuse" | "Hour Adjustment" | "Schedule Change"
@@ -49,160 +53,13 @@ interface PendingRequest {
 }
 /*
 const pendingRequests: PendingRequest[] = [
-  {
-    id: "p1",
-    name: "Rhona Shayne Lopez",
-    studentNo: "20201234",
-    section: "NSTP-H",
-    type: "Absence Excuse",
-    dateSubmitted: "Jun 18, 2025",
-    hasAttachment: true,
-    note: "Was sick during the community service day. Medical certificate attached.",
-  },
-  {
-    id: "p2",
-    name: "Jaerish Kyle Rabang",
-    studentNo: "20123421",
-    section: "NSTP-H",
-    type: "Hour Adjustment",
-    dateSubmitted: "Jun 17, 2025",
-    hasAttachment: false,
-    note: "Requesting correction of logged hours from 4hrs to 6hrs on June 10.",
-  },
-  {
-    id: "p3",
-    name: "Saffi Limbaro",
-    studentNo: "20198765",
-    section: "NSTP-H",
-    type: "Schedule Change",
-    dateSubmitted: "Jun 16, 2025",
-    hasAttachment: false,
-    note: "Requesting to reschedule missed session to the following week.",
-  },
-  {
-    id: "p4",
-    name: "Aliya Aljan Mendoza",
-    studentNo: "20152314",
-    section: "NSTP-H",
-    type: "Schedule Change",
-    dateSubmitted: "Jun 15, 2025",
-    hasAttachment: false,
-    note: "Requesting to move Saturday slot to Sunday due to work conflict.",
-  },
-  {
-    id: "p5",
-    name: "Charles Ansbert Joaquin",
-    studentNo: "20201111",
-    section: "NSTP-H",
-    type: "Absence Excuse",
-    dateSubmitted: "Jun 14, 2025",
-    hasAttachment: true,
-    note: "Missed session due to university event. Proof of participation attached.",
-  },
-  {
-    id: "p6",
-    name: "Axel Xandrei Valido",
-    studentNo: "20203333",
-    section: "NSTP-H",
-    type: "Absence Excuse",
-    dateSubmitted: "Jun 13, 2025",
-    hasAttachment: true,
-    note: "Family emergency on June 11. Supporting documents attached.",
-  },
-]
-*/
-const allStudents: Student[] = [
-  {
-    id: "1",
-    name: "Rhona Shayne Lopez",
-    studentNo: "20201234",
-    siteLocation: "Salud Mitra",
-    status: "In Progress",
-    hoursLogged: 105,
-    totalHours: 120,
-  },
-  {
-    id: "2",
-    name: "Jaerish Kyle Rabang",
-    studentNo: "20123421",
-    siteLocation: "Burnham Park",
-    status: "Completed",
-    hoursLogged: 120,
-    totalHours: 120,
-  },
-  {
-    id: "3",
-    name: "Aliya Aljan Mendoza",
-    studentNo: "20152314",
-    siteLocation: "Engineers Hill",
-    status: "Not Started",
-    hoursLogged: 0,
-    totalHours: 120,
-  },
-  {
-    id: "4",
-    name: "Saffi Limbaro",
-    studentNo: "20198765",
-    siteLocation: "Burnham Park",
-    status: "In Progress",
-    hoursLogged: 60,
-    totalHours: 120,
-  },
-  {
-    id: "5",
-    name: "Charles Ansbert Joaquin",
-    studentNo: "20201111",
-    siteLocation: "Salud Mitra",
-    status: "Completed",
-    hoursLogged: 120,
-    totalHours: 120,
-  },
-  {
-    id: "6",
-    name: "Axel Xandrei Valido",
-    studentNo: "20203333",
-    siteLocation: "Engineers Hill",
-    status: "In Progress",
-    hoursLogged: 55,
-    totalHours: 120,
-  },
-  {
-    id: "7",
-    name: "Janine Irish Tulic",
-    studentNo: "20204444",
-    siteLocation: "Salud Mitra",
-    status: "Not Started",
-    hoursLogged: 0,
-    totalHours: 120,
-  },
-  {
-    id: "8",
-    name: "Marco Dela Cruz",
-    studentNo: "20205555",
-    siteLocation: "Burnham Park",
-    status: "In Progress",
-    hoursLogged: 98,
-    totalHours: 120,
-  },
-  {
-    id: "9",
-    name: "Patricia Santos",
-    studentNo: "20206666",
-    siteLocation: "Engineers Hill",
-    status: "In Progress",
-    hoursLogged: 72,
-    totalHours: 120,
-  },
-  {
-    id: "10",
-    name: "Luis Miguel Reyes",
-    studentNo: "20207777",
-    siteLocation: "Salud Mitra",
-    status: "Completed",
-    hoursLogged: 120,
-    totalHours: 120,
-  },
-]
+  { id: "p1", name: "Rhona Shayne Lopez",      studentNo: "20201234", section: "NSTP-H", type: "Absence Excuse",        dateSubmitted: "Jun 18, 2025", hasAttachment: true,  note: "Was sick during the community service day. Medical certificate attached." },
+  { id: "p2", name: "Jaerish Kyle Rabang",     studentNo: "20123421", section: "NSTP-H", type: "Hour Adjustment",       dateSubmitted: "Jun 17, 2025", hasAttachment: false, note: "Requesting correction of logged hours from 4hrs to 6hrs on June 10." },
+  { id: "p3", name: "Saffi Limbaro",           studentNo: "20198765", section: "NSTP-H", type: "Schedule Change",       dateSubmitted: "Jun 16, 2025", hasAttachment: false, note: "Requesting to reschedule missed session to the following week." },
+  { id: "p4", name: "Aliya Aljan Mendoza",     studentNo: "20152314", section: "NSTP-H", type: "Schedule Change",       dateSubmitted: "Jun 15, 2025", hasAttachment: false, note: "Requesting to move Saturday slot to Sunday due to work conflict." },
+  { id: "p5", name: "Charles Ansbert Joaquin", studentNo: "20201111", section: "NSTP-H", type: "Absence Excuse",        dateSubmitted: "Jun 14, 2025", hasAttachment: true,  note: "Missed session due to university event. Proof of participation attached." },
+  { id: "p6", name: "Axel Xandrei Valido",     studentNo: "20203333", section: "NSTP-H", type: "Absence Excuse",        dateSubmitted: "Jun 13, 2025", hasAttachment: true,  note: "Family emergency on June 11. Supporting documents attached." },
+];
 
 const statusConfig: Record<
   Status,
@@ -219,8 +76,40 @@ function progressColor(status: Status): string {
   return "#EF4444"
 }
 
-type Tab = "list" | "pending"
-type StatusFilter = "All Status" | Status
+function formatDate(inputDate: string):string {
+  const parsedDate = parse(inputDate, 'MMM dd, yyyy', new Date());
+  const outputDate = format(parsedDate, 'yyyy-MM-dd'); 
+  return outputDate;
+}
+
+function to24HourFormat(time12: string): string {
+  const match = time12.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return "";
+
+  let [, hourStr, minuteStr, period] = match;
+  let hour = parseInt(hourStr, 10);
+
+  if (period.toUpperCase() === "PM" && hour !== 12) hour += 12;
+  if (period.toUpperCase() === "AM" && hour === 12) hour = 0;
+
+  return `${String(hour).padStart(2, "0")}:${minuteStr}`;
+}
+
+function to12HourFormat(time24: string): string {
+  const [hourStr, minuteStr] = time24.split(":");
+  let hour = parseInt(hourStr, 10);
+  const period = hour >= 12 ? "PM" : "AM";
+
+  if (hour === 0) hour = 12;
+  else if (hour > 12) hour -= 12;
+
+  return `${hour}:${minuteStr} ${period}`;
+}
+
+type Tab = "list" | "pending";
+type StatusFilter = "All Status" | Status;
+type classificationFilter = "All Classifications" | studentClassification;
+
 
 const myStudentsStyles = `
   ${dashboardStyles}
@@ -277,10 +166,12 @@ const myStudentsStyles = `
   .ms-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .ms-table thead tr { background: #F9FAFB; border-bottom: 1px solid var(--border); }
   .ms-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: var(--maroon); letter-spacing: 0.8px; text-transform: uppercase; }
-  .ms-table th:nth-child(1) { width: 30%; }
-  .ms-table th:nth-child(2) { width: 22%; }
-  .ms-table th:nth-child(3) { width: 22%; }
-  .ms-table th:nth-child(4) { width: 26%; }
+  .ms-table th:nth-child(1) { width: 24%; }
+  .ms-table th:nth-child(2) { width: 14%; }
+  .ms-table th:nth-child(3) { width: 15%; }
+  .ms-table th:nth-child(4) { width: 13%; }
+  .ms-table th:nth-child(5) { width: 14%; }
+  .ms-table th:nth-child(6) { width: 20%; }
   .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center; }
   .ms-table td { padding: 14px 16px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
   .ms-table tbody tr:last-child td { border-bottom: none; }
@@ -289,14 +180,13 @@ const myStudentsStyles = `
   .ms-student-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
   .ms-student-no   { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
   .ms-site-badge {
-    display: inline-block; padding: 3px 10px;
-    background: #F3F4F6; border-radius: 20px;
-    font-size: 12px; font-weight: 500; color: var(--muted);
+    display: inline-block; padding: 3px 0;
+    font-size: 12px; font-weight: 500; color: var(--text);
   }
   .ms-hours-cell { min-width: 160px; }
   .ms-hours-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
-  .ms-hours-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
-  .ms-hours-fill  { height: 100%; border-radius: 4px; transition: width 0.35s ease; }
+  .ms-hours-track { height: 13px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .ms-hours-fill  { height: 100%; border-radius: 999px; transition: width 0.35s ease; }
   /* Empty / pending */
   .ms-empty { text-align: center; padding: 48px 0; color: var(--muted); font-size: 13px; }
 
@@ -391,6 +281,38 @@ const myStudentsStyles = `
     background: var(--white); border-radius: 20px;
     width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;
   }
+  .ms-modal-wide { width: 900px; }
+  .ms-modal-flex { display: flex; }
+  .ms-modal-left { flex: 1; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .ms-modal-right { width: 420px; flex-shrink: 0; border-left: 1px solid var(--border); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+  .ms-modal-right-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+  .ms-session-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .ms-session-table th:nth-child(1) { width: 28%; }
+  .ms-session-table th:nth-child(2) { width: 21%; }
+  .ms-session-table th:nth-child(3) { width: 21%; }
+  .ms-session-table th:nth-child(4) { width: 17%; }
+  .ms-session-table th:nth-child(5) { width: 17%; }
+  .ms-session-table { width: 100%; border-collapse: collapse; }
+  .ms-session-table thead th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--maroon); letter-spacing: 0.6px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .ms-session-table td { font-size: 12px; color: var(--text); padding: 8px; border-bottom: 1px solid #F3F4F6; }
+  .ms-session-table tbody tr:last-child td { border-bottom: none; }
+  .ms-session-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 100%;
+    background: var(--white);
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .ms-session-action-btn:hover {
+    background: #F9FAFB;
+    color: var(--maroon);
+  }
+  .ms-session-empty { font-size: 12.5px; color: var(--muted); padding: 12px 0; }
   .ms-modal-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 18px 22px; border-bottom: 1px solid var(--border);
@@ -408,41 +330,66 @@ const myStudentsStyles = `
   .ms-modal-label  { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
   .ms-modal-value  { font-size: 14px; font-weight: 600; color: var(--text); }
   .ms-modal-progress { margin-top: 4px; }
-`
+
+  .ms-edit-input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: var(--font);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.13s;
+  }
+  .ms-edit-input:focus { border-color: var(--maroon); }
+
+  .ms-edit-cancel-btn {
+    padding: 8px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--white);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .ms-edit-cancel-btn:hover { background: #F9FAFB; }
+
+  .ms-edit-save-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--maroon);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font);
+    color: #fff;
+    cursor: pointer;
+  }
+  .ms-edit-save-btn:hover { opacity: 0.9; }
+`;
 
 function MyStudentsContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<Tab>("list")
-  const [isPending, startTransition] = useTransition()
-  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
-  const [resolutionNote, setResolutionNote] = useState("")
-  const [headerSearch, setHeaderSearch] = useState("")
-  const [tableSearch, setTableSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All Status")
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [showFilter, setShowFilter] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(5)
-  const [pendingSearch, setPendingSearch] = useState("")
-  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(
-    null
-  )
-  const refreshRequests = async () => {
-    const res = await getAdviserPendingRequests()
-    if (res.ok) setPendingRequests(res.data)
-  }
-
-  // trigger fetch on mount
-  useEffect(() => {
-    refreshRequests()
-  }, [])
-
-  const [requestTypeFilter, setRequestTypeFilter] = useState<
-    "All Types" | RequestType
-  >("All Types")
-  const [showTypeFilter, setShowTypeFilter] = useState(false)
+  const router = useRouter();
+  const supabase = createClient()
+  const searchParams = useSearchParams();
+  const [sidebarOpen, setSidebarOpen]     = useState(false);
+  const [activeTab, setActiveTab]         = useState<Tab>("list");
+  const [headerSearch, setHeaderSearch]   = useState("");
+  const [tableSearch, setTableSearch]     = useState("");
+  const [statusFilter, setStatusFilter]   = useState<StatusFilter>("All Status");
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [showFilter, setShowFilter]       = useState(false);
+  const [currentPage, setCurrentPage]     = useState(1);
+  const [pageSize, setPageSize]           = useState(5);
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
+  const [requestTypeFilter, setRequestTypeFilter] = useState<"All Types" | RequestType>("All Types");
+  const [showTypeFilter, setShowTypeFilter] = useState(false);
+  const [classificationFilter, setClassificationFilter] = useState<"All Classifications" | string>("All Classifications");
+  const [showClassificationFilter, setShowClassificationFilter] = useState(false);
 
   useEffect(() => {
     const tab = searchParams.get("tab")
@@ -457,21 +404,16 @@ function MyStudentsContent() {
   const [sections, setSections] = useState<{ id: string; name: string }[]>([])
   const [selectedSection, setSelectedSection] = useState("All Sections")
   const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false)
-  const [statData, setStatData] = useState<
-    {
-      section_id: string
-      section_name: string
-      total: number
-      completed: number
-      in_progress: number
-      pending_request: number
-    }[]
-  >([])
+  const [statData, setStatData] = useState<{section_id: string; section_name: string; total: number; completed: number; in_progress: number; pending_request: number;}[]>([])
+  const [students, setStudents] = useState<Student[]>([])
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
+  const [editingSession, setEditingSession] = useState<StudentSession | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [editTimeIn, setEditTimeIn] = useState("");
+  const [editTimeOut, setEditTimeOut] = useState("");
 
   useEffect(() => {
-    const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       // Get first name & last name
       const full: string = user?.user_metadata?.full_name ?? ""
@@ -486,10 +428,12 @@ function MyStudentsContent() {
         { data: statData, error: statError },
         { data: sectionData, error: sectionError },
         { data: semData, error: semError },
+        { data: studentsData, error: studentsError },
       ] = await Promise.all([
         supabase.rpc("get_students_stats", { p_adviser_user_id: user?.id }),
         supabase.rpc("get_sections", { p_adviser_user_id: user?.id }),
         supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id }),
+        supabase.rpc("get_my_students",{p_adviser_user_id: user?.id})
       ])
 
       if (statError)
@@ -521,12 +465,10 @@ function MyStudentsContent() {
         setSections(sortedSection)
       }
 
-      if (semError)
-        console.error(
-          "get_active_sem error:",
-          semError.message,
-          semError.details
-        )
+      if (semError) console.error("get_active_sem error:", semError.message, semError.details)
+
+      if (studentsError) console.error("get_my_students error:", studentsError.message, studentsError.details)
+      if (studentsData) setStudents(studentsData)
     })
   }, [])
 
@@ -536,9 +478,6 @@ function MyStudentsContent() {
   // const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
 
   function buildStatCards(students: Student[]) {
-    const completed = students.filter((s) => s.status === "Completed").length
-    const inProgress = students.filter((s) => s.status === "In Progress").length
-    const pending = pendingRequests.length
     return [
       { label: "Total Students", value: currentData?.total, Icon: IconUsers },
       {
@@ -559,14 +498,15 @@ function MyStudentsContent() {
     ]
   }
 
-  const filtered = allStudents.filter((s) => {
-    const q = (headerSearch || tableSearch).trim().toLowerCase()
-    const matchSearch =
-      q === "" || s.name.toLowerCase().includes(q) || s.studentNo.includes(q)
-    const matchStatus =
-      statusFilter === "All Status" || s.status === statusFilter
-    return matchSearch && matchStatus
-  })
+  const filtered = students.filter((s) => {
+    const q = (headerSearch || tableSearch).trim().toLowerCase();
+    const matchSearch = q === "" ||
+      (s.student_name ?? "").toLowerCase().includes(q) ||
+      (s.student_number ?? "").includes(q);
+    const matchStatus = statusFilter === "All Status" || s.status === statusFilter;
+    const matchClassification = classificationFilter === "All Classifications" || s.classification === classificationFilter;    
+    return matchSearch && matchStatus && matchClassification;
+  });
 
   const filteredPending = pendingRequests.filter((r) => {
     const matchSearch =
@@ -583,13 +523,53 @@ function MyStudentsContent() {
     currentPage * pageSize
   )
 
-  const statusOptions: StatusFilter[] = [
-    "All Status",
-    "Completed",
-    "In Progress",
-    "Not Started",
-  ]
-  const statCards = buildStatCards(allStudents)
+  const statusOptions: StatusFilter[] = ["All Status", "Completed", "In Progress", "Not Started"];
+  const classificationOptions = ["All Classifications", "Freshman", "Sophomore", "Junior", "Senior"];
+  const statCards = buildStatCards(students);
+
+  async function handleSaveSession() {
+    if (!editingSession || !selectedStudent) return;
+
+    const updatedSession: StudentSession = {
+      ...editingSession,
+      date: editDate,
+      timeIn: to12HourFormat(editTimeIn),
+      timeOut: to12HourFormat(editTimeOut),
+    };
+
+    const updatedSessions = selectedStudent.sessions.map((s) =>
+      s.id === editingSession.id ? updatedSession : s
+    );
+
+    const updatedStudent = { ...selectedStudent, sessions: updatedSessions };
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error } = await supabase.rpc("update_attendance_session", {
+      p_attendance_session_id: editingSession.id,
+      p_adviser_user_id: user?.id,
+      p_session_date: editDate,
+      p_time_in: editTimeIn,
+      p_time_out: editTimeOut,
+    });
+
+    if (error) {
+      console.error("update_attendance_session error:", error.message, error.details);
+      return; 
+    }
+
+    setSelectedStudent(updatedStudent);
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.section_id === updatedStudent.section_id && s.student_number === updatedStudent.student_number
+          ? updatedStudent
+          : s
+      )
+    );
+
+    setEditingSession(null);
+    router.refresh
+  }
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -615,15 +595,8 @@ function MyStudentsContent() {
         <Sidebar
           open={sidebarOpen}
           activeNav="My Students"
-          onToggle={() => {
-            setSidebarOpen((o) => !o)
-            setShowFilter(false)
-            setShowTypeFilter(false)
-          }}
-          onNavClick={(label) => {
-            setSidebarOpen(false)
-            router.push(navRoutes[label])
-          }}
+          onToggle={() => { setSidebarOpen((o) => !o); setShowFilter(false); setShowTypeFilter(false); setShowClassificationFilter(false);}}
+          onNavClick={(label) => { setSidebarOpen(false); router.push(navRoutes[label]); }}
           onSignOut={handleSignOut}
         />
 
@@ -719,6 +692,8 @@ function MyStudentsContent() {
               </div>
             </div>
 
+              
+
             {/* Stat cards */}
             <div className="ms-stat-cards">
               {statCards.map(({ label, value, Icon }) => (
@@ -802,46 +777,47 @@ function MyStudentsContent() {
                           <IconChevronDown size={13} stroke={2} />
                         </button>
                         {showFilter && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "calc(100% + 6px)",
-                              left: 0,
-                              background: "var(--white)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 10,
-                              boxShadow: "var(--shadow)",
-                              zIndex: 50,
-                              minWidth: 160,
-                              overflow: "hidden",
-                            }}
-                          >
+                          <div style={{
+                            position: "absolute", top: "calc(100% + 6px)", left: 0,
+                            background: "var(--white)", border: "1px solid var(--border)",
+                            borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
+                            minWidth: 160, overflow: "hidden",
+                          }}>
                             {statusOptions.map((opt) => (
-                              <button
-                                key={opt}
-                                onClick={() => {
-                                  setStatusFilter(opt)
-                                  setShowFilter(false)
-                                  setCurrentPage(1)
-                                }}
+                              <button key={opt} onClick={() => { setStatusFilter(opt); setShowFilter(false); setCurrentPage(1); }}
                                 style={{
-                                  display: "block",
-                                  width: "100%",
-                                  padding: "9px 16px",
-                                  textAlign: "left",
-                                  background:
-                                    statusFilter === opt ? "#F9FAFB" : "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  fontFamily: "var(--font)",
-                                  fontWeight: statusFilter === opt ? 700 : 400,
-                                  color:
-                                    statusFilter === opt
-                                      ? "var(--maroon)"
-                                      : "var(--text)",
-                                }}
-                              >
+                                  display: "block", width: "100%", padding: "9px 16px",
+                                  textAlign: "left", background: statusFilter === opt ? "#F9FAFB" : "none",
+                                  border: "none", cursor: "pointer", fontSize: 13,
+                                  fontFamily: "var(--font)", fontWeight: statusFilter === opt ? 700 : 400,
+                                  color: statusFilter === opt ? "var(--maroon)" : "var(--text)",
+                                }}>
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ position: "relative" }}>
+                        <button className="ms-filter-btn" onClick={() => setShowClassificationFilter((v) => !v)}>
+                          {classificationFilter} <IconChevronDown size={13} stroke={2} />
+                        </button>
+                        {showClassificationFilter && (
+                          <div style={{
+                            position: "absolute", top: "calc(100% + 6px)", left: 0,
+                            background: "var(--white)", border: "1px solid var(--border)",
+                            borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
+                            minWidth: 160, overflow: "hidden",
+                          }}>
+                            {classificationOptions.map((opt) => (
+                              <button key={opt} onClick={() => { setClassificationFilter(opt); setShowClassificationFilter(false); setCurrentPage(1); }}
+                                style={{
+                                  display: "block", width: "100%", padding: "9px 16px",
+                                  textAlign: "left", background: classificationFilter === opt ? "#F9FAFB" : "none",
+                                  border: "none", cursor: "pointer", fontSize: 13,
+                                  fontFamily: "var(--font)", fontWeight: classificationFilter === opt ? 700 : 400,
+                                  color: classificationFilter === opt ? "var(--maroon)" : "var(--text)",
+                                }}>
                                 {opt}
                               </button>
                             ))}
@@ -851,81 +827,59 @@ function MyStudentsContent() {
                     </div>
                   </div>
 
-                  <div className="ms-table-wrapper">
-                    <table className="ms-table">
-                      <thead>
+                  <div className="ms-table-wrapper"><table className="ms-table">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Site Location</th>
+                        <th>Program</th>
+                        <th>Classification</th>
+                        <th>Status</th>
+                        <th>Hours Logged</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.length === 0 ? (
                         <tr>
-                          <th>Student</th>
-                          <th>Site Location</th>
-                          <th>Status</th>
-                          <th>Hours Logged</th>
+                          <td colSpan={6} className="ms-empty">No students match your search.</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {filtered.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="ms-empty">
-                              No students match your search.
+                      ) : paginated.map((s) => {
+                        const pct = Math.round((s.hours_logged / s.total_hours) * 100);
+                        const cfg = statusConfig[s.status];
+                        return (
+                          <tr key={`${s.section_id}-${s.student_number}`} onClick={() => setSelectedStudent(s)}>
+                            <td>
+                              <div className="ms-student-name">{s.student_name}</div>
+                              <div className="ms-student-no">{s.student_number}</div>
+                            </td>
+                            <td>
+                              <span className="ms-site-badge">{s.site_location}</span>
+                            </td>
+                            <td>
+                              <span className="ms-site-badge">{s.program}</span>
+                            </td>
+                            <td>
+                              <span className="ms-site-badge">{s.classification}</span>
+                            </td>
+                            <td>
+                              <span className="ms-status-badge" style={{ background: cfg.bg, color: cfg.color }}>
+                                {cfg.label}
+                              </span>
+                            </td>
+                            <td className="ms-hours-cell">
+                              <div className="ms-hours-label">
+                                <span>{s.hours_logged}/{s.total_hours} hrs</span>
+                                <span>{Math.round((s.hours_logged / s.total_hours) * 100)}%</span>
+                              </div>
+                              <div className="ms-hours-track">
+                                <div className="ms-hours-fill" style={{ width: `${pct}%`, background: progressColor(s.status) }} />
+                              </div>
                             </td>
                           </tr>
-                        ) : (
-                          paginated.map((s) => {
-                            const pct = Math.round(
-                              (s.hoursLogged / s.totalHours) * 100
-                            )
-                            const cfg = statusConfig[s.status]
-                            return (
-                              <tr
-                                key={s.id}
-                                onClick={() => setSelectedStudent(s)}
-                              >
-                                <td>
-                                  <div className="ms-student-name">
-                                    {s.name}
-                                  </div>
-                                  <div className="ms-student-no">
-                                    {s.studentNo}
-                                  </div>
-                                </td>
-                                <td>
-                                  <span className="ms-site-badge">
-                                    {s.siteLocation}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span
-                                    className="ms-status-badge"
-                                    style={{
-                                      background: cfg.bg,
-                                      color: cfg.color,
-                                    }}
-                                  >
-                                    {cfg.label}
-                                  </span>
-                                </td>
-                                <td className="ms-hours-cell">
-                                  <div className="ms-hours-label">
-                                    <span>
-                                      {s.hoursLogged}/{s.totalHours} hrs
-                                    </span>
-                                  </div>
-                                  <div className="ms-hours-track">
-                                    <div
-                                      className="ms-hours-fill"
-                                      style={{
-                                        width: `${pct}%`,
-                                        background: progressColor(s.status),
-                                      }}
-                                    />
-                                  </div>
-                                </td>
-                              </tr>
-                            )
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                        );
+                      })}
+                    </tbody>
+                  </table></div>
 
                   {/* Pagination */}
                   <div className="ms-pagination">
@@ -1184,85 +1138,111 @@ function MyStudentsContent() {
 
         {/* Student detail modal */}
         {selectedStudent && (
-          <div
-            className="ms-modal-backdrop"
-            onClick={() => setSelectedStudent(null)}
-          >
-            <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="ms-modal-backdrop" onClick={() => setSelectedStudent(null)}>
+            <div className="ms-modal ms-modal-wide" onClick={(e) => e.stopPropagation()}>
               <div className="ms-modal-header">
-                <div className="ms-modal-title">{selectedStudent.name}</div>
-                <button
-                  className="ms-modal-close"
-                  onClick={() => setSelectedStudent(null)}
-                >
+                <div className="ms-modal-title">{selectedStudent.student_name}</div>
+                <button className="ms-modal-close" onClick={() => setSelectedStudent(null)}>
                   <IconX size={18} stroke={1.75} />
                 </button>
               </div>
-              <div className="ms-modal-body">
-                <div className="ms-modal-row">
-                  <div className="ms-modal-field">
-                    <div className="ms-modal-label">Student No.</div>
-                    <div className="ms-modal-value">
-                      {selectedStudent.studentNo}
+              <div className="ms-modal-flex">
+                <div className="ms-modal-left">
+                  <div className="ms-modal-row">
+                    <div className="ms-modal-field">
+                      <div className="ms-modal-label">Student No.</div>
+                      <div className="ms-modal-value">{selectedStudent.student_number}</div>
+                    </div>
+                    <div className="ms-modal-field">
+                      <div className="ms-modal-label">Site Location</div>
+                      <div className="ms-modal-value">{selectedStudent.site_location}</div>
                     </div>
                   </div>
-                  <div className="ms-modal-field">
-                    <div className="ms-modal-label">Site Location</div>
-                    <div className="ms-modal-value">
-                      {selectedStudent.siteLocation}
+                  <div className="ms-modal-row">
+                    <div className="ms-modal-field">
+                      <div className="ms-modal-label">Program</div>
+                      <div className="ms-modal-value">{selectedStudent.program}</div>
+                    </div>
+                    <div className="ms-modal-field">
+                      <div className="ms-modal-label">Classification</div>
+                      <div className="ms-modal-value">{selectedStudent.classification}</div>
                     </div>
                   </div>
-                </div>
-                <div className="ms-modal-row">
-                  <div className="ms-modal-field">
-                    <div className="ms-modal-label">Status</div>
-                    <span
-                      className="ms-status-badge"
-                      style={{
+                  <div className="ms-modal-row">
+                    <div className="ms-modal-field">
+                      <div className="ms-modal-label">Status</div>
+                      <span className="ms-status-badge" style={{
                         background: statusConfig[selectedStudent.status].bg,
                         color: statusConfig[selectedStudent.status].color,
-                      }}
-                    >
-                      {statusConfig[selectedStudent.status].label}
-                    </span>
+                      }}>
+                        {statusConfig[selectedStudent.status].label}
+                      </span>
+                    </div>
+                    <div className="ms-modal-field">
+                      <div className="ms-modal-label">Hours Logged</div>
+                      <div className="ms-modal-value">
+                        {selectedStudent.hours_logged} / {selectedStudent.total_hours} hrs
+                      </div>
+                    </div>
                   </div>
-                  <div className="ms-modal-field">
-                    <div className="ms-modal-label">Hours Logged</div>
-                    <div className="ms-modal-value">
-                      {selectedStudent.hoursLogged} /{" "}
-                      {selectedStudent.totalHours} hrs
+                  <div className="ms-modal-field ms-modal-progress">
+                    <div className="ms-modal-label">Progress</div>
+                    <div className="ms-hours-label" style={{ marginTop: 6 }}>
+                      <span>{selectedStudent.hours_logged} / {selectedStudent.total_hours} hrs</span>
+                      <span>{Math.round((selectedStudent.hours_logged / selectedStudent.total_hours) * 100)}%</span>
+                    </div>
+                    <div className="ms-hours-track">
+                      <div className="ms-hours-fill" style={{
+                        width: `${Math.round((selectedStudent.hours_logged / selectedStudent.total_hours) * 100)}%`,
+                        background: progressColor(selectedStudent.status),
+                      }} />
                     </div>
                   </div>
                 </div>
-                <div className="ms-modal-field ms-modal-progress">
-                  <div className="ms-modal-label">Progress</div>
-                  <div className="ms-hours-label" style={{ marginTop: 6 }}>
-                    <span>
-                      {selectedStudent.hoursLogged} /{" "}
-                      {selectedStudent.totalHours} hrs
-                    </span>
-                    <span>
-                      {Math.round(
-                        (selectedStudent.hoursLogged /
-                          selectedStudent.totalHours) *
-                          100
-                      )}
-                      %
-                    </span>
-                  </div>
-                  <div className="ms-hours-track">
-                    <div
-                      className="ms-hours-fill"
-                      style={{
-                        width: `${Math.round(
-                          (selectedStudent.hoursLogged /
-                            selectedStudent.totalHours) *
-                            100
-                        )}%`,
-                        background: progressColor(selectedStudent.status),
-                      }}
-                    />
-                  </div>
+                <div className="ms-modal-right">
+                  {/* <div className="ms-modal-right-title">Sessions</div> */}
+                  {selectedStudent.sessions.length === 0 ? (
+                    <div className="ms-session-empty">No sessions logged yet.</div>
+                  ) : (
+                    <div className="ms-session-table-wrapper">
+                      <table className="ms-session-table">
+                        <thead>
+                          <tr>
+                            <th>Date</th>
+                            <th>Time In</th>
+                            <th>Time Out</th>
+                            <th>Hours</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedStudent.sessions.map((sess, i) => (
+                            <tr key={i}>
+                              <td>{sess.date}</td>
+                              <td>{sess.timeIn}</td>
+                              <td>{sess.timeOut}</td>
+                              <td>{sess.hours}</td>
+                              <td>
+                                <button
+                                  className="ms-session-action-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingSession(sess);
+                                    setEditDate(formatDate(sess.date));
+                                    setEditTimeIn(to24HourFormat(sess.timeIn));
+                                    setEditTimeOut(to24HourFormat(sess.timeOut));
+                                    
+                                  }}
+                                >
+                                  <IconPencil size={14} stroke={1.75} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1446,6 +1426,60 @@ function MyStudentsContent() {
             </div>
           </div>
         )}
+
+        {/* edit Time modal */}
+        {editingSession && (
+          <div className="ms-modal-backdrop" onClick={() => setEditingSession(null)}>
+            <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="ms-modal-header">
+                <div className="ms-modal-title">Edit Session</div>
+                <button className="ms-modal-close" onClick={() => setEditingSession(null)}>
+                  <IconX size={18} stroke={1.75} />
+                </button>
+              </div>
+              <div className="ms-modal-body">
+                <div className="ms-modal-field">
+                  <div className="ms-modal-label">Date</div>
+                  <input
+                    type="date"
+                    className="ms-edit-input"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                  />
+                </div>
+                <div className="ms-modal-row">
+                  <div className="ms-modal-field">
+                    <div className="ms-modal-label">Time In</div>
+                    <input
+                      type="time"
+                      className="ms-edit-input"
+                      value={editTimeIn}
+                      onChange={(e) => setEditTimeIn(e.target.value)}
+                    />
+                  </div>
+                  <div className="ms-modal-field">
+                    <div className="ms-modal-label">Time Out</div>
+                    <input
+                      type="time"
+                      className="ms-edit-input"
+                      value={editTimeOut}
+                      onChange={(e) => setEditTimeOut(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
+                  <button className="ms-edit-cancel-btn" onClick={() => setEditingSession(null)}>
+                    Cancel
+                  </button>
+                  <button className="ms-edit-save-btn" onClick={handleSaveSession}>
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </>
   )
