@@ -40,8 +40,18 @@ export async function getStudentRequests(
       // parse title and body out of the 'reason' field
       // format the parts based on student/request page
       const parts = app.reason.split("|||")
-      const title = parts.length > 1 ? parts[0] : "Request"
-      const body = parts.length > 1 ? parts.slice(1).join("|||") : app.reason
+      let type = "Others"
+      let title = "Request"
+      let body = app.reason
+
+      if (parts.length >= 3) {
+        type = parts[0]
+        title = parts[1]
+        body = parts.slice(2).join("|||")
+      } else if (parts.length === 2) {
+        title = parts[0]
+        body = parts[1]
+      }
 
       // mapping database status to UI Badges
 
@@ -84,6 +94,7 @@ export async function getStudentRequests(
 
 export async function submitStudentRequest(
   enrollmentId: string,
+  type: string,
   title: string,
   body: string
 ): Promise<ActionResult<any>> {
@@ -97,7 +108,7 @@ export async function submitStudentRequest(
     const openStatusId = await lookupId("appeal_status", "open")
 
     // combine title and body to fit into the single `reason` column in frontend
-    const combinedReason = `${title}|||${body}`
+    const combinedReason = `${type}|||{title}|||${body}`
     const { error } = await supabase.from("appeal").insert({
       enrollment_id: enrollmentId,
       requester_user_id: user.id,
@@ -120,6 +131,7 @@ export async function submitStudentRequest(
  */
 export async function updateStudentRequest(
   appealId: string,
+  type: string,
   title: string,
   body: string
 ): Promise<ActionResult<any>> {
@@ -161,7 +173,10 @@ export async function updateStudentRequest(
     }
 
     // execution of update
-    const combinedReason = `${title}|||${body.replace(/^Request:\s*/, "")}`
+    const combinedReason = `${type}|||${title}|||${body.replace(
+      /^Request:\s*/,
+      ""
+    )}`
     const { error: updateError } = await service
       .from("appeal")
       .update({
