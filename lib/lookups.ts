@@ -5,6 +5,7 @@ type LookupTable =
   | "role"
   | "enrollment_status"
   | "appeal_status"
+  | "appeal_type"
   | "attendance_event_type"
   | "attendance_event_source"
   | "attendance_session_status"
@@ -43,7 +44,10 @@ function loadTable(table: LookupTable): Promise<Map<string, string>> {
 }
 
 /** Resolve the UUID of a lookup row by its stable `code`. Throws if unknown. */
-export async function lookupId(table: LookupTable, code: string): Promise<string> {
+export async function lookupId(
+  table: LookupTable,
+  code: string
+): Promise<string> {
   const map = await loadTable(table)
   const id = map.get(code)
   if (!id) throw new Error(`Unknown ${table} code: "${code}"`)
