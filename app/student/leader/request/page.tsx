@@ -13,6 +13,7 @@ import {
   submitStudentRequest,
   updateStudentRequest,
 } from "@/lib/student/appeal-actions"
+import { createClient } from "@/lib/client"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -55,7 +56,7 @@ interface RequestItem {
   id: string
   title: string
   status: "Approved" | "Under Review" | "Declined"
-  type: "Absence Excuse" | "Hour Adjustment" | "Schedule Change" | "Others"
+  type: string
   body: string
   note: string
   date: string
@@ -223,8 +224,11 @@ export default function RequestsPage() {
   const [isPending, startTransition] = useTransition() // for loading states
   const [requests, setRequests] = useState<RequestItem[]>([]) // empty array
 
-  const [formType, setFormType] = useState("Absence Excuse")
-  const [editType, setEditType] = useState("Absence Excuse")
+  const [requestType, setRequestTypes] = useState<
+    { appeal_type_id: string; name: string }[]
+  >([])
+  const [formTypeId, setFormTypeId] = useState<string>("")
+  const [editTypeId, setEditTypeId] = useState<string>("")
 
   const [profile, setProfile] = useState({
     enrollmentId: "",
@@ -240,6 +244,24 @@ export default function RequestsPage() {
 
   useEffect(() => {
     let cancelled = false
+    const supabase = createClient()
+
+    supabase
+      .from("appeal_type")
+      .select("appeal_type_id, name")
+      .order("name")
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          console.error("appeal_type fetch error:", error.message)
+          return
+        }
+        if (data) {
+          setRequestTypes(data)
+          if (data.length > 0) setFormTypeId(data[0].appeal_type_id)
+        }
+      })
+
     getStudentDashboard().then((res) => {
       if (cancelled || !res.ok) return
       setProfile({
@@ -253,31 +275,43 @@ export default function RequestsPage() {
       cancelled = true
     }
   }, [])
-
   const counts = {
     Approved: requests.filter((r) => r.status === "Approved").length,
     "Under Review": requests.filter((r) => r.status === "Under Review").length,
     Declined: requests.filter((r) => r.status === "Declined").length,
   }
-
   function handleSubmit() {
-    if (!formTitle.trim() || !formBody.trim() || !profile.enrollmentId) return
+    if (
+      !formTitle.trim() ||
+      !formBody.trim() ||
+      !profile.enrollmentId ||
+      !formTypeId
+    )
+      return
+
+    const selectedTypeObj = requestType.find(
+      (t) => t.appeal_type_id === formTypeId
+    )
+    const typeName = selectedTypeObj ? selectedTypeObj.name : "Others"
 
     startTransition(async () => {
       const res = await submitStudentRequest(
         profile.enrollmentId,
-        formType,
+        formTypeId,
+        typeName,
         formTitle,
         formBody
       )
+
       if (res.ok) {
-        await loadRequests(profile.enrollmentId) // refresh the list
+        await loadRequests(profile.enrollmentId)
         setFormTitle("")
         setFormBody("")
         setFormFile(null)
         setShowModal(false)
+        alert("Request submitted successfully!")
       } else {
-        alert("Failed to submit request: " + res.error)
+        alert(res.error)
       }
     })
   }
@@ -291,19 +325,25 @@ export default function RequestsPage() {
   }
 
   function handleEditSave() {
-    if (!profile.enrollmentId || !selectedRequest) return
+    if (!profile.enrollmentId || !selectedRequest || !editTypeId) return
+
+    const selectedTypeObj = requestType.find(
+      (t) => t.appeal_type_id === editTypeId
+    )
+    const typeName = selectedTypeObj ? selectedTypeObj.name : "Others"
 
     startTransition(async () => {
       const cleanBody = editBody.replace(/^Request:\s*/, "")
 
       const res = await updateStudentRequest(
         selectedRequest.id,
-        editType,
+        editTypeId,
+        typeName,
         editTitle,
         cleanBody
       )
       if (res.ok) {
-        await loadRequests(profile.enrollmentId) // refresh list with clean data
+        await loadRequests(profile.enrollmentId)
         setSelectedRequest(null)
       } else {
         alert("Failed to update request or it is no longer 'Under Review'.")
@@ -537,15 +577,18 @@ export default function RequestsPage() {
                     className="request-item"
                     onClick={() => {
                       setSelectedRequest(request)
-                      setEditType(request.type || "Others")
                       setEditTitle(request.title)
                       setEditBody(request.body)
                       setEditFile(request.attachment ?? null)
-                    }}
-                    style={{
-                      position: "relative",
-                      paddingLeft: 34,
-                      cursor: "pointer",
+
+                      const matchingType = requestType.find(
+                        (t) => t.name === request.type
+                      )
+                      setEditTypeId(
+                        matchingType
+                          ? matchingType.appeal_type_id
+                          : requestType[0]?.appeal_type_id || ""
+                      )
                     }}
                   >
                     <div
@@ -639,38 +682,6 @@ export default function RequestsPage() {
             >
               Send Request / Concern
             </h2>
-            <label
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#555",
-                display: "block",
-                marginBottom: 6,
-              }}
-            >
-              Category
-            </label>
-            <select
-              value={formType}
-              onChange={(e) => setFormType(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "1px solid #ccc",
-                fontSize: 14,
-                outline: "none",
-                boxSizing: "border-box",
-                marginBottom: 16,
-                fontFamily: "inherit",
-                cursor: "pointer",
-              }}
-            >
-              <option value="Absence Excuse">Absence Excuse</option>
-              <option value="Hour Adjustment">Hour Adjustment</option>
-              <option value="Schedule Change">Schedule Change</option>
-              <option value="Others">Others</option>
-            </select>
             <div style={{ marginBottom: 16 }}>
               <label
                 style={{
@@ -898,39 +909,6 @@ export default function RequestsPage() {
             >
               Request Details
             </h2>
-
-            <label
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#555",
-                display: "block",
-                marginBottom: 6,
-              }}
-            >
-              Category
-            </label>
-            <select
-              value={editType}
-              onChange={(e) => setEditType(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "1px solid #ccc",
-                fontSize: 14,
-                outline: "none",
-                boxSizing: "border-box",
-                marginBottom: 16,
-                fontFamily: "inherit",
-                cursor: "pointer",
-              }}
-            >
-              <option value="Absence Excuse">Absence Excuse</option>
-              <option value="Hour Adjustment">Hour Adjustment</option>
-              <option value="Schedule Change">Schedule Change</option>
-              <option value="Others">Others</option>
-            </select>
 
             <label>Title</label>
 

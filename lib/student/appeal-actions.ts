@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { lookupId } from "@/lib/lookups"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import { packReason, parseReason } from "@/lib/student/appeal-utils"
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -39,29 +40,15 @@ export async function getStudentRequests(
     const mappedRequests = appeals.map((app: any) => {
       // parse title and body out of the 'reason' field
       // format the parts based on student/request page
-      const parts = app.reason.split("|||")
-      const type = parts.length >= 3 ? parts[0] : "Others"
-      const title = parts.length >= 3 ? parts[1] : "Request"
-      const body = parts.length >= 3 ? parts.slice(2).join("|||") : app.reason
-
-      // mapping database status to UI Badges
-
-      const statusCode = app.appeal_status?.code
-
-      let uiStatus = "Under Review" // "open" or "under_review"
-      if (statusCode === "approved") {
-        uiStatus = "Approved"
-      }
-      if (statusCode === "rejected") {
-        uiStatus = "Declined"
-      }
+      const { type, title, body } = parseReason(app.reason)
+      const uiStatus = app.appeal_status?.name || "Under Review"
 
       return {
         id: app.appeal_id,
-        title: title,
-        status: uiStatus,
         type: type,
+        title: title,
         body: body,
+        status: uiStatus,
         note: app.resolution_note
           ? `Adviser's Note: ${app.resolution_note}`
           : "Adviser's Note: Pending review",
@@ -72,7 +59,7 @@ export async function getStudentRequests(
         }),
         lastEdited:
           app.updated_at !== app.created_at
-            ? new Date(app.updated_at).toLocaleDateString()
+            ? new Date(app.updated_at).toLocaleString()
             : null,
       }
     })
@@ -86,7 +73,8 @@ export async function getStudentRequests(
 
 export async function submitStudentRequest(
   enrollmentId: string,
-  typeId: string,
+  appealTypeId: string,
+  typeName: string,
   title: string,
   body: string
 ): Promise<ActionResult<any>> {
@@ -99,19 +87,24 @@ export async function submitStudentRequest(
 
     const openStatusId = await lookupId("appeal_status", "open")
 
-    // saved as a three-part structure in database (Type|||Title|||Message/body)
+    // standardize display label (e.g. "Excused Absence")
+    const displayLabel = typeName
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
 
-    const combinedReason = `|${title}| ${body}`
+    // pack reason securely using helper (type|||title|||body)
+    const combinedReason = packReason(displayLabel, title, body)
+
     const { error } = await supabase.from("appeal").insert({
       enrollment_id: enrollmentId,
       requester_user_id: user.id,
       appeal_status_id: openStatusId,
-      appeal_type_id: typeId,
+      appeal_type_id: appealTypeId,
       reason: combinedReason,
     })
-    if (error) {
-      throw error
-    }
+
+    if (error) throw error
     return { ok: true, data: null }
   } catch (err: any) {
     return { ok: false, error: err.message }
@@ -125,7 +118,8 @@ export async function submitStudentRequest(
  */
 export async function updateStudentRequest(
   appealId: string,
-  type: string,
+  appealTypeId: string,
+  typeName: string,
   title: string,
   body: string
 ): Promise<ActionResult<any>> {
@@ -149,7 +143,6 @@ export async function updateStudentRequest(
     if (fetchError || !existingAppeal) {
       return { ok: false, error: "Request record not found" }
     }
-
     if (existingAppeal.requester_user_id !== user.id) {
       return {
         ok: false,
@@ -165,22 +158,26 @@ export async function updateStudentRequest(
         error: "This request is already being processed and cannot be modified",
       }
     }
+    //standardized formatting
+    const displayLabel = typeName
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
 
-    // execution of update
-    const combinedReason = `${type}|||${title}|||${body.replace(
-      /^Request:\s*/,
-      ""
-    )}`
+    //clean the request
+    const cleanBody = body.replace(/^Request:\s*/, "")
+    const combinedReason = packReason(displayLabel, title, cleanBody)
+
     const { error: updateError } = await service
       .from("appeal")
       .update({
+        appeal_type_id: appealTypeId,
         reason: combinedReason,
         updated_at: new Date().toISOString(),
       })
       .eq("appeal_id", appealId)
 
     if (updateError) throw updateError
-
     return { ok: true, data: null }
   } catch (err: any) {
     console.error("[updateStudentRequest] Error: ", err)

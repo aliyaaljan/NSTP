@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "../supabase/service-client"
 import { lookupId } from "../lookups"
 import { revalidatePath } from "next/cache"
+import { parseReason, packReason } from "../student/appeal-utils"
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -48,20 +49,7 @@ export async function getAdviserPendingRequests(): Promise<
     if (error) throw error
 
     const mapped = (appeals || []).map((app: any) => {
-      const parts = app.reason.split("|||")
-      let reqType = "Others"
-      let title = "Request"
-      let details = app.reason
-
-      if (parts.length >= 3) {
-        reqType = parts[0]
-        title = parts[1]
-        details = parts.slice(2).join("|||")
-      } else if (parts.length === 2) {
-        title = parts[0]
-        details = parts[1]
-      }
-
+      const { type, title, body } = parseReason(app.reason || "")
       const student = app.enrollment?.app_user
 
       return {
@@ -69,14 +57,12 @@ export async function getAdviserPendingRequests(): Promise<
         name: student?.full_name || "Unknown Student",
         studentNo: student?.student_number || "—",
         section: app.enrollment?.section?.name || "—",
-        type: reqType,
-        dateSubmitted: new Date(app.created_at).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
+        type: type,
+        dateSubmitted: app.created_at
+          ? new Date(app.created_at).toLocaleDateString()
+          : "—",
         hasAttachment: false,
-        note: `[${title}] ${details}`,
+        note: `[${title || "Request"}] ${body || ""}`,
       }
     })
     return { ok: true, data: mapped }

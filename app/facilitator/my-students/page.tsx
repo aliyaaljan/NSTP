@@ -51,27 +51,30 @@ interface Student {
 }
 
 interface Attachment {
-  storage_path: string;
-  file_name: string;
-  content_type: string;
-  file_size_byte: number;
+  storage_path: string
+  file_name: string
+  content_type: string
+  file_size_byte: number
 }
 
 interface PendingRequest {
-  section_id: string;
-  section_name: string;
-  student_name: string;
-  student_number: string;
-  appeal_id: string;
-  appeal_type_id: string;
-  appeal_type_name: string;
-  date: string;
-  note: string;
-  attachment:  Attachment[];
+  section_id: string
+  section_name: string
+  student_name: string
+  student_number: string
+  appeal_id: string
+  appeal_type_id: string
+  appeal_type_name: string
+  date: string
+  note: string
+  attachment: Attachment[]
 }
 
-const statusConfig: Record<Status, { bg: string; color: string; label: string }> = {
-  "Completed":   { bg: "#D1FAE5", color: "#065F46", label: "Completed"   },
+const statusConfig: Record<
+  Status,
+  { bg: string; color: string; label: string }
+> = {
+  Completed: { bg: "#D1FAE5", color: "#065F46", label: "Completed" },
   "In Progress": { bg: "#FEF3C7", color: "#92400E", label: "In Progress" },
   "Not Started": { bg: "#FEE2E2", color: "#991B1B", label: "Not Started" },
 }
@@ -381,26 +384,39 @@ const myStudentsStyles = `
 function MyStudentsContent() {
   const router = useRouter()
   const supabase = createClient()
-  const searchParams = useSearchParams();
-  const [sidebarOpen, setSidebarOpen]     = useState(false);
-  const [activeTab, setActiveTab]         = useState<Tab>("list");
-  const [headerSearch, setHeaderSearch]   = useState("");
-  const [tableSearch, setTableSearch]     = useState("");
-  const [statusFilter, setStatusFilter]   = useState<StatusFilter>("All Status");
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [showFilter, setShowFilter]       = useState(false);
-  const [currentPage, setCurrentPage]     = useState(1);
-  const [pageSize, setPageSize]           = useState(5);
-  const [pendingSearch, setPendingSearch] = useState("");
-  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
-  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
-  const [requestType, setRequestTypes] = useState<{ appeal_type_id: string; name: string }[]>([]);
-  const [requestTypeFilter, setRequestTypeFilter] = useState<string>("All Types");
-  const [showTypeFilter, setShowTypeFilter] = useState(false);
-  const [classificationFilter, setClassificationFilter] = useState<"All Classifications" | string>("All Classifications");
-  const [showClassificationFilter, setShowClassificationFilter] = useState(false);
+  const searchParams = useSearchParams()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<Tab>("list")
+  const [headerSearch, setHeaderSearch] = useState("")
+  const [tableSearch, setTableSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All Status")
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [showFilter, setShowFilter] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const [pendingSearch, setPendingSearch] = useState("")
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
+  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(
+    null
+  )
+  const [requestType, setRequestTypes] = useState<
+    { appeal_type_id: string; name: string }[]
+  >([])
+  const [requestTypeFilter, setRequestTypeFilter] =
+    useState<string>("All Types")
+  const [showTypeFilter, setShowTypeFilter] = useState(false)
+  const [classificationFilter, setClassificationFilter] = useState<
+    "All Classifications" | string
+  >("All Classifications")
+  const [showClassificationFilter, setShowClassificationFilter] =
+    useState(false)
 
-  const statusOptions: StatusFilter[] = ["All Status", "Completed", "In Progress", "Not Started"];
+  const statusOptions: StatusFilter[] = [
+    "All Status",
+    "Completed",
+    "In Progress",
+    "Not Started",
+  ]
 
   useEffect(() => {
     const tab = searchParams.get("tab")
@@ -434,12 +450,14 @@ function MyStudentsContent() {
   const [students, setStudents] = useState<Student[]>([])
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
-  const [editingSession, setEditingSession] = useState<StudentSession | null>(null)
+  const [editingSession, setEditingSession] = useState<StudentSession | null>(
+    null
+  )
   const [editDate, setEditDate] = useState("")
   const [editTimeIn, setEditTimeIn] = useState("")
   const [editTimeOut, setEditTimeOut] = useState("")
-  const [isPending, startTransition] = useTransition();
-  const [resolutionNote, setResolutionNote] = useState("");
+  const [isPending, startTransition] = useTransition()
+  const [resolutionNote, setResolutionNote] = useState("")
 
   // fetch student requests from database
   // const refreshRequests = async () => {
@@ -463,21 +481,24 @@ function MyStudentsContent() {
       setLastName(lName)
       setInitials((fName[0] ?? "") + (lName[0] ?? ""))
 
-      const {data: requestTypeData} = await supabase.from("appeal_type").select(`appeal_type_id, name`).order("name")
-      if (requestTypeData) setRequestTypes(requestTypeData);
+      const { data: requestTypeData } = await supabase
+        .from("appeal_type")
+        .select(`appeal_type_id, name`)
+        .order("name")
+      if (requestTypeData) setRequestTypes(requestTypeData)
 
       const [
         { data: statData, error: statError },
         { data: sectionData, error: sectionError },
         { data: semData, error: semError },
         { data: studentsData, error: studentsError },
-        { data: requestsData, error: requestsError}
+        { data: requestsData, error: requestsError },
       ] = await Promise.all([
         supabase.rpc("get_students_stats", { p_adviser_user_id: user?.id }),
         supabase.rpc("get_sections", { p_adviser_user_id: user?.id }),
         supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id }),
-        supabase.rpc("get_my_students",{p_adviser_user_id: user?.id}),
-        supabase.rpc("get_pending_requests", {p_adviser_user_id: user?.id})
+        supabase.rpc("get_my_students", { p_adviser_user_id: user?.id }),
+        supabase.rpc("get_pending_requests", { p_adviser_user_id: user?.id }),
       ])
 
       if (statError)
@@ -524,8 +545,16 @@ function MyStudentsContent() {
         )
       if (studentsData) setStudents(studentsData)
 
-      if (requestsError) console.error("get_pending_requests error:", requestsError.message, requestsError.details);
-      if (requestsData) {console.log(requestsData);setPendingRequests(requestsData)}
+      if (requestsError)
+        console.error(
+          "get_pending_requests error:",
+          requestsError.message,
+          requestsError.details
+        )
+      if (requestsData) {
+        console.log(requestsData)
+        setPendingRequests(requestsData)
+      }
     })
   }, [])
 
@@ -535,36 +564,82 @@ function MyStudentsContent() {
   // const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
 
   function getPublicUrl(path: string) {
-    const { data } = supabase.storage.from("request attachments").getPublicUrl(path);
-    return data.publicUrl;
+    const { data } = supabase.storage
+      .from("request attachments")
+      .getPublicUrl(path)
+    return data.publicUrl
   }
-  
+
   function buildStatCards() {
     return [
-      { label: "Total Students",   value: currentData?.total,          Icon: IconUsers,        onClick: () => {setActiveTab("list"); clearListFilters()} },
-      { label: "Completed",        value: currentData?.completed,      Icon: IconCircleCheck,  onClick: () => { setActiveTab("list"); clearListFilters(); setStatusFilter("Completed");} },
-      { label: "In Progress",      value: currentData?.in_progress,    Icon: IconClock,        onClick: () => { setActiveTab("list"); clearListFilters(); setStatusFilter("In Progress");} },
-      { label: "Pending Requests", value: currentData?.pending_request, Icon: IconAlertCircle, onClick: () => {setActiveTab("pending"); clearPendingFilters()}},
-    ];
+      {
+        label: "Total Students",
+        value: currentData?.total,
+        Icon: IconUsers,
+        onClick: () => {
+          setActiveTab("list")
+          clearListFilters()
+        },
+      },
+      {
+        label: "Completed",
+        value: currentData?.completed,
+        Icon: IconCircleCheck,
+        onClick: () => {
+          setActiveTab("list")
+          clearListFilters()
+          setStatusFilter("Completed")
+        },
+      },
+      {
+        label: "In Progress",
+        value: currentData?.in_progress,
+        Icon: IconClock,
+        onClick: () => {
+          setActiveTab("list")
+          clearListFilters()
+          setStatusFilter("In Progress")
+        },
+      },
+      {
+        label: "Pending Requests",
+        value: currentData?.pending_request,
+        Icon: IconAlertCircle,
+        onClick: () => {
+          setActiveTab("pending")
+          clearPendingFilters()
+        },
+      },
+    ]
   }
 
   const filtered = students.filter((s) => {
-    const matchSection = selectedSection === "All Sections" || s.section_name === selectedSection;
-    const q = (headerSearch || tableSearch).trim().toLowerCase();
-    const matchSearch = q === "" ||
+    const matchSection =
+      selectedSection === "All Sections" || s.section_name === selectedSection
+    const q = (headerSearch || tableSearch).trim().toLowerCase()
+    const matchSearch =
+      q === "" ||
       (s.student_name ?? "").toLowerCase().includes(q) ||
-      (s.student_number ?? "").includes(q);
-    const matchStatus = statusFilter === "All Status" || s.status === statusFilter;
-    const matchClassification = classificationFilter === "All Classifications" || s.classification === classificationFilter;    
-    return matchSection && matchSearch && matchStatus && matchClassification;
-  });
+      (s.student_number ?? "").includes(q)
+    const matchStatus =
+      statusFilter === "All Status" || s.status === statusFilter
+    const matchClassification =
+      classificationFilter === "All Classifications" ||
+      s.classification === classificationFilter
+    return matchSection && matchSearch && matchStatus && matchClassification
+  })
 
   const filteredPending = pendingRequests.filter((r) => {
-    const matchSection = selectedSection === "All Sections" || r.section_name === selectedSection;
-    const matchSearch = pendingSearch.trim() === "" || r.student_name.toLowerCase().includes(pendingSearch.toLowerCase());
-    const matchType = requestTypeFilter === "All Types" || r.appeal_type_name === requestTypeFilter;
-    return matchSearch && matchType && matchSection;
-  });
+    const matchSection =
+      selectedSection === "All Sections" || r.section_name === selectedSection
+    const matchSearch =
+      pendingSearch.trim() === "" ||
+      r.student_name.toLowerCase().includes(pendingSearch.toLowerCase())
+    const matchType =
+      requestTypeFilter === "All Types" ||
+      r.appeal_type_name === requestTypeFilter
+    return matchSearch && matchType && matchSection
+  })
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice(
@@ -572,8 +647,14 @@ function MyStudentsContent() {
     currentPage * pageSize
   )
 
-  const classificationOptions = ["All Classifications", "Freshman", "Sophomore", "Junior", "Senior"];
-  const statCards = buildStatCards();
+  const classificationOptions = [
+    "All Classifications",
+    "Freshman",
+    "Sophomore",
+    "Junior",
+    "Senior",
+  ]
+  const statCards = buildStatCards()
 
   const hasListFilters =
     headerSearch.trim() !== "" ||
@@ -651,11 +732,10 @@ function MyStudentsContent() {
       )
     )
 
-    setEditingSession(null);
+    setEditingSession(null)
     router.refresh()
   }
 
-  
   async function handleSignOut() {
     await signOutWithAudit()
     router.push("/")
@@ -664,12 +744,12 @@ function MyStudentsContent() {
 
   function requestTypeStyle(type: string): { bg: string; color: string } {
     const map: Record<string, { bg: string; color: string }> = {
-      "Excused Absence":  { bg: "#FEF3C7", color: "#92400E" },
+      "Excused Absence": { bg: "#FEF3C7", color: "#92400E" },
       "Hour Adjustment": { bg: "#DBEAFE", color: "#1E40AF" },
       "Form Submission": { bg: "#FCE7F3", color: "#9D174D" },
-      "Others": { bg: "#F3F4F6", color: "#374151" },
-    };
-    return map[type] ?? { bg: "#F3F4F6", color: "#374151" }; 
+      Others: { bg: "#F3F4F6", color: "#374151" },
+    }
+    return map[type] ?? { bg: "#F3F4F6", color: "#374151" }
   }
 
   return (
@@ -712,11 +792,17 @@ function MyStudentsContent() {
             <div className="ms-header-row">
               <h1 className="ms-title">My Students</h1>
               <div className="search-bar" style={{ minWidth: 200 }}>
-                <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
+                <span className="search-icon">
+                  <IconSearch size={14} stroke={1.75} />
+                </span>
                 <input
                   className="search-input"
                   value={headerSearch}
-                  onChange={(e) => { setHeaderSearch(e.target.value); setTableSearch(""); setCurrentPage(1); }}
+                  onChange={(e) => {
+                    setHeaderSearch(e.target.value)
+                    setTableSearch("")
+                    setCurrentPage(1)
+                  }}
                   placeholder="Search students..."
                   aria-label="Search students"
                 />
@@ -920,25 +1006,54 @@ function MyStudentsContent() {
                       </div>
 
                       <div style={{ position: "relative" }}>
-                        <button className="ms-filter-btn" onClick={() => setShowFilter((v) => !v)}>
-                          {statusFilter} <IconChevronDown size={13} stroke={2} />
+                        <button
+                          className="ms-filter-btn"
+                          onClick={() => setShowFilter((v) => !v)}
+                        >
+                          {statusFilter}{" "}
+                          <IconChevronDown size={13} stroke={2} />
                         </button>
                         {showFilter && (
-                          <div style={{
-                            position: "absolute", top: "calc(100% + 6px)", left: 0,
-                            background: "var(--white)", border: "1px solid var(--border)",
-                            borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
-                            minWidth: 160, overflow: "hidden",
-                          }}>
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 6px)",
+                              left: 0,
+                              background: "var(--white)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 10,
+                              boxShadow: "var(--shadow)",
+                              zIndex: 50,
+                              minWidth: 160,
+                              overflow: "hidden",
+                            }}
+                          >
                             {statusOptions.map((opt) => (
-                              <button key={opt} onClick={() => { setStatusFilter(opt); setShowFilter(false); setCurrentPage(1); }}
+                              <button
+                                key={opt}
+                                onClick={() => {
+                                  setStatusFilter(opt)
+                                  setShowFilter(false)
+                                  setCurrentPage(1)
+                                }}
                                 style={{
-                                  display: "block", width: "100%", padding: "9px 16px",
-                                  textAlign: "left", background: statusFilter === opt ? "#F9FAFB" : "none",
-                                  border: "none", cursor: "pointer", fontSize: 13,
-                                  fontFamily: "var(--font)", fontWeight: statusFilter === opt ? 700 : 400,
-                                  color: statusFilter === opt ? "var(--maroon)" : "var(--text)",
-                                }}>
+                                  display: "block",
+                                  width: "100%",
+                                  padding: "9px 16px",
+                                  textAlign: "left",
+                                  background:
+                                    statusFilter === opt ? "#F9FAFB" : "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  fontFamily: "var(--font)",
+                                  fontWeight: statusFilter === opt ? 700 : 400,
+                                  color:
+                                    statusFilter === opt
+                                      ? "var(--maroon)"
+                                      : "var(--text)",
+                                }}
+                              >
                                 {opt}
                               </button>
                             ))}
@@ -950,7 +1065,10 @@ function MyStudentsContent() {
                         <button
                           className="ms-filter-btn"
                           onClick={clearListFilters}
-                          style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}
+                          style={{
+                            color: "var(--maroon)",
+                            borderColor: "var(--maroon)",
+                          }}
                         >
                           <IconX size={13} stroke={2} />
                           Clear Filters
@@ -974,45 +1092,89 @@ function MyStudentsContent() {
                       <tbody>
                         {filtered.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="ms-empty">No students match your search.</td>
+                            <td colSpan={6} className="ms-empty">
+                              No students match your search.
+                            </td>
                           </tr>
                         ) : (
                           paginated.map((s) => {
-                            const pct = Math.round((s.hours_logged / s.total_hours) * 100);
-                            const cfg = statusConfig[s.status];
-                            const initials = s.student_name?.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
+                            const pct = Math.round(
+                              (s.hours_logged / s.total_hours) * 100
+                            )
+                            const cfg = statusConfig[s.status]
+                            const initials = s.student_name
+                              ?.split(" ")
+                              .slice(0, 2)
+                              .map((w: string) => w[0])
+                              .join("")
+                              .toUpperCase()
                             return (
-                              <tr key={`${s.section_id}-${s.student_number}`} onClick={() => setSelectedStudent(s)}>
+                              <tr
+                                key={`${s.section_id}-${s.student_number}`}
+                                onClick={() => setSelectedStudent(s)}
+                              >
                                 <td>
                                   {/* <div className="ms-student-name">{s.student_name}</div>
                                   <div className="ms-student-no">{s.student_number}</div> */}
                                   <div className="ms-request-student">
-                                    <div className="ms-request-avatar">{initials}</div>
+                                    <div className="ms-request-avatar">
+                                      {initials}
+                                    </div>
                                     <div>
-                                      <div className="ms-request-name">{s.student_name}</div>
-                                      <div className="ms-request-meta">{s.student_number} · {s.section_name}</div>
+                                      <div className="ms-request-name">
+                                        {s.student_name}
+                                      </div>
+                                      <div className="ms-request-meta">
+                                        {s.student_number} · {s.section_name}
+                                      </div>
                                     </div>
                                   </div>
                                 </td>
-                                <td><span className="ms-site-badge">{s.site_location}</span></td>
-                                <td><span className="ms-site-badge">{s.program}</span></td>
-                                <td><span className="ms-site-badge">{s.classification}</span></td>
                                 <td>
-                                  <span className="ms-status-badge" style={{ background: cfg.bg, color: cfg.color }}>
+                                  <span className="ms-site-badge">
+                                    {s.site_location}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className="ms-site-badge">
+                                    {s.program}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className="ms-site-badge">
+                                    {s.classification}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span
+                                    className="ms-status-badge"
+                                    style={{
+                                      background: cfg.bg,
+                                      color: cfg.color,
+                                    }}
+                                  >
                                     {cfg.label}
                                   </span>
                                 </td>
                                 <td className="ms-hours-cell">
                                   <div className="ms-hours-label">
-                                    <span>{s.hours_logged}/{s.total_hours} hrs</span>
+                                    <span>
+                                      {s.hours_logged}/{s.total_hours} hrs
+                                    </span>
                                     <span>{pct}%</span>
                                   </div>
                                   <div className="ms-hours-track">
-                                    <div className="ms-hours-fill" style={{ width: `${pct}%`, background: progressColor(s.status) }} />
+                                    <div
+                                      className="ms-hours-fill"
+                                      style={{
+                                        width: `${pct}%`,
+                                        background: progressColor(s.status),
+                                      }}
+                                    />
                                   </div>
                                 </td>
                               </tr>
-                            );
+                            )
                           })
                         )}
                       </tbody>
@@ -1141,26 +1303,54 @@ function MyStudentsContent() {
                           <IconChevronDown size={13} stroke={2} />
                         </button>
                         {showTypeFilter && (
-                          <div style={{
-                            position: "absolute", top: "calc(100% + 6px)", left: 0,
-                            background: "var(--white)", border: "1px solid var(--border)",
-                            borderRadius: 10, boxShadow: "var(--shadow)", zIndex: 50,
-                            minWidth: 170, overflow: "hidden",
-                          }}>
-                            {(["All Types", ...requestType.map(t => t.name)]).map((opt) => (
-                              <button 
-                                key={opt} 
-                                onClick={() => { setRequestTypeFilter(opt); setShowTypeFilter(false); }}
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 6px)",
+                              left: 0,
+                              background: "var(--white)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 10,
+                              boxShadow: "var(--shadow)",
+                              zIndex: 50,
+                              minWidth: 170,
+                              overflow: "hidden",
+                            }}
+                          >
+                            {[
+                              "All Types",
+                              ...requestType.map((t) => t.name),
+                            ].map((opt) => (
+                              <button
+                                key={opt}
+                                onClick={() => {
+                                  setRequestTypeFilter(opt)
+                                  setShowTypeFilter(false)
+                                }}
                                 style={{
-                                    display: "block", width: "100%", padding: "9px 16px",
-                                    textAlign: "left", background: requestTypeFilter === opt ? "#F9FAFB" : "none",
-                                    border: "none", cursor: "pointer", fontSize: 13,
-                                    fontFamily: "var(--font)", fontWeight: requestTypeFilter === opt ? 700 : 400,
-                                    color: requestTypeFilter === opt ? "var(--maroon)" : "var(--text)",
-                                  }}>
+                                  display: "block",
+                                  width: "100%",
+                                  padding: "9px 16px",
+                                  textAlign: "left",
+                                  background:
+                                    requestTypeFilter === opt
+                                      ? "#F9FAFB"
+                                      : "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  fontFamily: "var(--font)",
+                                  fontWeight:
+                                    requestTypeFilter === opt ? 700 : 400,
+                                  color:
+                                    requestTypeFilter === opt
+                                      ? "var(--maroon)"
+                                      : "var(--text)",
+                                }}
+                              >
                                 {opt}
                               </button>
-                          ))}
+                            ))}
                           </div>
                         )}
                       </div>
@@ -1168,7 +1358,10 @@ function MyStudentsContent() {
                         <button
                           className="ms-filter-btn"
                           onClick={clearPendingFilters}
-                          style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}
+                          style={{
+                            color: "var(--maroon)",
+                            borderColor: "var(--maroon)",
+                          }}
                         >
                           <IconX size={13} stroke={2} />
                           Clear Filters
@@ -1189,19 +1382,40 @@ function MyStudentsContent() {
                       </div>
                       <div className="ms-requests-list">
                         {filteredPending.map((r, i) => {
-                          const typeStyle = requestTypeStyle(r.appeal_type_name);
-                          const initials = r.student_name?.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
+                          const typeStyle = requestTypeStyle(r.appeal_type_name)
+                          const initials = r.student_name
+                            ?.split(" ")
+                            .slice(0, 2)
+                            .map((w: string) => w[0])
+                            .join("")
+                            .toUpperCase()
                           return (
-                            <div key={i} className="ms-request-row" onClick={() => setSelectedRequest(r)}>
+                            <div
+                              key={i}
+                              className="ms-request-row"
+                              onClick={() => setSelectedRequest(r)}
+                            >
                               <div className="ms-request-student">
-                                <div className="ms-request-avatar">{initials}</div>
+                                <div className="ms-request-avatar">
+                                  {initials}
+                                </div>
                                 <div>
-                                  <div className="ms-request-name">{r.student_name}</div>
-                                  <div className="ms-request-meta">{r.student_number} · {r.section_name}</div>
+                                  <div className="ms-request-name">
+                                    {r.student_name}
+                                  </div>
+                                  <div className="ms-request-meta">
+                                    {r.student_number} · {r.section_name}
+                                  </div>
                                 </div>
                               </div>
                               <div>
-                                <span className="ms-request-type" style={{ background: typeStyle.bg, color: typeStyle.color }}>
+                                <span
+                                  className="ms-request-type"
+                                  style={{
+                                    background: typeStyle.bg,
+                                    color: typeStyle.color,
+                                  }}
+                                >
                                   {r.appeal_type_name}
                                 </span>
                               </div>
@@ -1209,7 +1423,11 @@ function MyStudentsContent() {
                               <div className="ms-request-note">{r.note}</div>
                               <div className="ms-attachment-tag">
                                 {r.attachment?.length > 0 ? (
-                                  <><IconPaperclip size={13} stroke={1.75} />{r.attachment.length} file{r.attachment.length !== 1 ? "s" : ""}</>
+                                  <>
+                                    <IconPaperclip size={13} stroke={1.75} />
+                                    {r.attachment.length} file
+                                    {r.attachment.length !== 1 ? "s" : ""}
+                                  </>
                                 ) : (
                                   <span style={{ opacity: 0.35 }}>—</span>
                                 )}
@@ -1392,9 +1610,18 @@ function MyStudentsContent() {
             >
               <div className="ms-modal-header">
                 <div>
-                  <div className="ms-modal-title">{selectedRequest.student_name}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                    {selectedRequest.student_number} · {selectedRequest.section_name}
+                  <div className="ms-modal-title">
+                    {selectedRequest.student_name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--muted)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {selectedRequest.student_number} ·{" "}
+                    {selectedRequest.section_name}
                   </div>
                 </div>
                 <button
@@ -1408,11 +1635,18 @@ function MyStudentsContent() {
                 <div className="ms-modal-row">
                   <div className="ms-modal-field ms-req-modal-section">
                     <div className="ms-modal-label">Request Type</div>
-                    <span className="ms-request-type" style={{
-                      background: requestTypeStyle(selectedRequest.appeal_type_name).bg,
-                      color: requestTypeStyle(selectedRequest.appeal_type_name).color,
-                      padding: "4px 12px",
-                    }}>
+                    <span
+                      className="ms-request-type"
+                      style={{
+                        background: requestTypeStyle(
+                          selectedRequest.appeal_type_name
+                        ).bg,
+                        color: requestTypeStyle(
+                          selectedRequest.appeal_type_name
+                        ).color,
+                        padding: "4px 12px",
+                      }}
+                    >
                       {selectedRequest.appeal_type_name}
                     </span>
                   </div>
@@ -1535,8 +1769,11 @@ function MyStudentsContent() {
                 </div>
                 {selectedRequest.attachment?.length > 0 && (
                   <div className="ms-req-modal-section">
-                    <div className="ms-modal-label">Attachment{selectedRequest.attachment.length > 1 ? "s" : ""}</div>
-                     {selectedRequest.attachment.map((a, i) => (
+                    <div className="ms-modal-label">
+                      Attachment
+                      {selectedRequest.attachment.length > 1 ? "s" : ""}
+                    </div>
+                    {selectedRequest.attachment.map((a, i) => (
                       <link
                         key={i}
                         href={getPublicUrl(a.storage_path)}
