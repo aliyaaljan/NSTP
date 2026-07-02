@@ -10,6 +10,7 @@ import {
 } from "@tabler/icons-react";
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions";
+import { ChartStyles } from "@/components/shared/ChartModule";
 
 // ── Types ──────────────────────────────────────────────────────────────
 type FormTab    = "repository" | "submissions";
@@ -97,16 +98,6 @@ const formsStyles = `
 
   /* Stat cards */
   .fm-stat-cards { display: flex; gap: 12px; padding: 18px 28px 0; flex-shrink: 0; }
-  .fm-stat-card {
-    flex: 1; background: var(--white); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow);
-    position: relative; overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .fm-stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
-  .fm-stat-label { font-size: 11.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
-  .fm-stat-value { font-size: 30px; font-weight: 800; line-height: 1; margin-top: 6px; }
-  .fm-stat-icon-deco { position: absolute; bottom: -6px; right: -4px; opacity: 0.07; }
 
   .fm-body { flex: 1; overflow: auto; padding: 20px 28px 28px; }
   .fm-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
@@ -266,6 +257,7 @@ export default function FormsPage() {
   return (
     <>
       <style>{formsStyles}</style>
+      <ChartStyles />
       <div className="db-root">
         <Sidebar
           open={sidebarOpen}
@@ -374,11 +366,15 @@ export default function FormsPage() {
                 <>
                   {/* Stat cards */}
                   <div className="fm-stat-cards">
-                    {submissionStatCards.map(({ label, value, Icon, color }) => (
-                      <div key={label} className="fm-stat-card">
-                        <div className="fm-stat-label">{label}</div>
-                        <div className="fm-stat-value" style={{ color }}>{value}</div>
-                        <div className="fm-stat-icon-deco" style={{ color }}><Icon size={60} stroke={1.2} /></div>
+                    {submissionStatCards.map(({ label, value, Icon }) => (
+                      <div key={label} className="db-kpi-card">
+                        <div className="db-kpi-header">
+                          <span className="db-kpi-label">{label}</span>
+                        </div>
+                        <div className="db-kpi-value">{value}</div>
+                        <div className="db-kpi-deco">
+                          <Icon size={120} stroke={1.2} />
+                        </div>
                       </div>
                     ))}
                   </div>
