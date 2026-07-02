@@ -692,6 +692,41 @@ export default function RequestsPage() {
                   marginBottom: 6,
                 }}
               >
+                Request Category
+              </label>
+
+              <select
+                value={formTypeId}
+                onChange={(e) => setFormTypeId(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #ccc",
+                  fontSize: 14,
+                }}
+              >
+                {requestType.length === 0 ? (
+                  <option value="">Loading categories...</option>
+                ) : (
+                  requestType.map((t) => (
+                    <option key={t.appeal_type_id} value={t.appeal_type_id}>
+                      {t.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#555",
+                  display: "block",
+                  marginBottom: 6,
+                }}
+              >
                 Title
               </label>
               <input
@@ -909,6 +944,44 @@ export default function RequestsPage() {
             >
               Request Details
             </h2>
+
+            <label
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#555",
+                display: "block",
+                marginBottom: 6,
+              }}
+            >
+              Request Category
+            </label>
+            <select
+              value={editTypeId}
+              onChange={(e) => setEditTypeId(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid #ccc",
+                fontSize: 14,
+                outline: "none",
+                boxSizing: "border-box",
+                marginBottom: 16,
+                fontFamily: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              {requestType.length === 0 ? (
+                <option value="">Loading types...</option>
+              ) : (
+                requestType.map((t) => (
+                  <option key={t.appeal_type_id} value={t.appeal_type_id}>
+                    {t.name}
+                  </option>
+                ))
+              )}
+            </select>
 
             <label>Title</label>
 

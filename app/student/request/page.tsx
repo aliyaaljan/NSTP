@@ -705,6 +705,7 @@ export default function RequestsPage() {
               >
                 Request Category
               </label>
+
               <select
                 value={formTypeId}
                 onChange={(e) => setFormTypeId(e.target.value)}
@@ -714,15 +715,17 @@ export default function RequestsPage() {
                   borderRadius: 8,
                   border: "1px solid #ccc",
                   fontSize: 14,
-                  outline: "none",
                 }}
               >
-                <option value="excused_absence">Excused Absence</option>
-                <option value="hour_adjustment">Hour Adjustment</option>
-                <option value="leader_role_transfer">
-                  Leader Role Transfer
-                </option>
-                <option value="others">Others</option>
+                {requestType.length === 0 ? (
+                  <option value="">Loading categories...</option>
+                ) : (
+                  requestType.map((t) => (
+                    <option key={t.appeal_type_id} value={t.appeal_type_id}>
+                      {t.name}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
             <div style={{ marginBottom: 16 }}>
@@ -962,11 +965,11 @@ export default function RequestsPage() {
                 marginBottom: 6,
               }}
             >
-              Category
+              Request Category
             </label>
             <select
-              value={formTypeId}
-              onChange={(e) => setFormTypeId(e.target.value)}
+              value={editTypeId}
+              onChange={(e) => setEditTypeId(e.target.value)}
               style={{
                 width: "100%",
                 padding: "10px 14px",
