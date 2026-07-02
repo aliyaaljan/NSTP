@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   IconSearch, IconChevronDown, IconUsers,
-  IconCircleCheck, IconClock, IconAlertTriangle,
-  IconChartBar, IconTrendingUp, IconTrendingDown,
+  IconCircleCheck, IconAlertTriangle,
+  IconChartBar, IconClock, IconFiles,
+  IconClipboardCheck, IconEdit, IconMapPin,
 } from "@tabler/icons-react";
 import { Sidebar, dashboardStyles, navRoutes, DonutChart } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions";
+import { ChartStyles } from "@/components/shared/ChartModule";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface SectionSummary {
@@ -20,7 +22,13 @@ interface SectionSummary {
   notStarted: number;
   completionPct: number;
   avgHours: number;
+  totalHours: number;
   atRisk: number;
+  filesSubmitted: number;
+  formsCompletionRate: number;
+  editRequests: number;
+  gpsCompliance: number;
+  avgAttendanceRate: number;
   students: { name: string; hoursLogged: number; totalHours: number; status: "Completed" | "In Progress" | "Not Started" }[];
 }
 
@@ -28,7 +36,8 @@ interface SectionSummary {
 const sections: SectionSummary[] = [
   {
     id: "s1", name: "NSTP-H", totalStudents: 10, completed: 3, inProgress: 5, notStarted: 2,
-    completionPct: 62, avgHours: 84, atRisk: 2,
+    completionPct: 62, avgHours: 84, totalHours: 120, atRisk: 2,
+    filesSubmitted: 120, formsCompletionRate: 72, editRequests: 4, gpsCompliance: 94, avgAttendanceRate: 87,
     students: [
       { name: "Rhona Shayne Lopez",      hoursLogged: 105, totalHours: 120, status: "In Progress"  },
       { name: "Jaerish Kyle Rabang",     hoursLogged: 120, totalHours: 120, status: "Completed"    },
@@ -44,7 +53,8 @@ const sections: SectionSummary[] = [
   },
   {
     id: "s2", name: "NSTP-I", totalStudents: 8, completed: 5, inProgress: 2, notStarted: 1,
-    completionPct: 78, avgHours: 101, atRisk: 1,
+    completionPct: 78, avgHours: 101, totalHours: 120, atRisk: 1,
+    filesSubmitted: 83, formsCompletionRate: 88, editRequests: 3, gpsCompliance: 97, avgAttendanceRate: 91,
     students: [
       { name: "Anna Marie Cruz",    hoursLogged: 120, totalHours: 120, status: "Completed"   },
       { name: "Brent Dela Torre",   hoursLogged: 90,  totalHours: 120, status: "In Progress" },
@@ -78,57 +88,63 @@ const summaryStyles = `
   .gs-title { font-size: 38px; font-weight: 800; color: var(--maroon); font-family: var(--font); flex: 1; }
 
   .gs-stat-cards { display: flex; gap: 12px; padding: 18px 28px 0; flex-shrink: 0; }
-  .gs-stat-card {
-    flex: 1; background: var(--white); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow);
-    position: relative; overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .gs-stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
-  .gs-stat-label { font-size: 11.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
-  .gs-stat-value { font-size: 30px; font-weight: 800; line-height: 1; margin-top: 6px; }
-  .gs-stat-icon-deco { position: absolute; bottom: -15px; right: -13px; opacity: 0.07; }
 
   .gs-body { flex: 1; overflow: auto; padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 16px; }
 
   /* Section cards */
-  .gs-section-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .gs-section-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
   .gs-section-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; border-bottom: 1px solid var(--border); cursor: pointer;
-    transition: background 0.12s;
+    padding: 16px 20px; cursor: pointer; transition: background 0.12s;
   }
   .gs-section-header:hover { background: #FAFAFA; }
   .gs-section-name { font-size: 16px; font-weight: 700; color: var(--text); }
   .gs-section-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .gs-section-right { display: flex; align-items: center; gap: 20px; }
   .gs-section-stat { text-align: center; }
-  .gs-section-stat-val { font-size: 20px; font-weight: 800; color: var(--text); }
+  .gs-section-stat-val { font-size: 20px; font-weight: 800; }
   .gs-section-stat-lbl { font-size: 10.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 1px; }
   .gs-chevron { color: var(--muted); transition: transform 0.2s ease; }
   .gs-chevron.open { transform: rotate(180deg); }
 
-  .gs-section-body { padding: 16px 20px; display: flex; gap: 20px; }
+  .gs-mini-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .gs-mini-card {
+    background: #F9FAFB; border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+  }
+  .gs-mini-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .gs-mini-label { font-size: 10.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .gs-mini-value { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.2; margin-top: 2px; }
+  .gs-mini-sub { font-size: 10.5px; color: var(--light); margin-top: 1px; }
 
-  /* Donut + legend */
-  .gs-donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; flex-shrink: 0; }
-  .gs-legend { display: flex; flex-direction: column; gap: 6px; }
-  .gs-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  /* Bottom layout: donut left, table right */
+  .gs-bottom-row { display: flex; gap: 16px; align-items: stretch; }
+  .gs-donut-panel {
+    flex-shrink: 0; width: 190px;
+    background: #F9FAFB; border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .gs-legend { display: flex; flex-direction: column; gap: 7px; width: 100%; }
+  .gs-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
   .gs-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
-  /* Student table inside section */
-  .gs-student-table { flex: 1; min-width: 0; }
-  .gs-student-table table { width: 100%; border-collapse: collapse; }
-  .gs-student-table th { font-size: 10.5px; font-weight: 700; color: var(--maroon); text-transform: uppercase; letter-spacing: 0.6px; padding: 0 0 8px; text-align: left; border-bottom: 1px solid var(--border); }
-  .gs-student-table th:last-child { text-align: right; }
-  .gs-student-table td { padding: 10px 0; border-bottom: 1px solid #F9FAFB; vertical-align: middle; font-size: 12.5px; }
+  .gs-student-table { flex: 1; min-width: 0; background: #F9FAFB; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .gs-student-table table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .gs-student-table thead th { font-size: 10.5px; font-weight: 700; color: var(--maroon); text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px; text-align: left; background: #F3F4F6; border-bottom: 1px solid var(--border); }
+  .gs-student-table tbody { display: block; max-height: 260px; overflow-y: auto; scrollbar-width: none; }
+  .gs-student-table tbody::-webkit-scrollbar { display: none; }
+  .gs-student-table thead, .gs-student-table tbody tr { display: table; width: 100%; table-layout: fixed; }
+  .gs-student-table thead th:nth-child(1),
+  .gs-student-table tbody td:nth-child(1) { width: 40%; }
+  .gs-student-table thead th:nth-child(2),
+  .gs-student-table tbody td:nth-child(2) { width: 35%; }
+  .gs-student-table thead th:nth-child(3),
+  .gs-student-table tbody td:nth-child(3) { width: 25%; }
+  .gs-student-table td { padding: 7px 12px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; font-size: 12.5px; }
   .gs-student-table tr:last-child td { border-bottom: none; }
   .gs-student-name { font-weight: 600; color: var(--text); }
-  .gs-hours-bar-wrap { display: flex; align-items: center; gap: 8px; }
-  .gs-hours-bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 80px; }
-  .gs-hours-bar-fill  { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
-  .gs-hours-txt { font-size: 11px; color: var(--muted); white-space: nowrap; }
-  .gs-status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; text-align: right; float: right; }
+  .gs-status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; float: right; }
+  .gs-donut-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; align-self: flex-start; }
 `;
 
 export default function GroupSummaryPage() {
@@ -143,16 +159,16 @@ export default function GroupSummaryPage() {
     router.refresh();
   }
 
-  const totalStudents = sections.reduce((a, s) => a + s.totalStudents, 0);
-  const totalCompleted = sections.reduce((a, s) => a + s.completed, 0);
-  const totalAtRisk    = sections.reduce((a, s) => a + s.atRisk, 0);
-  const overallPct     = Math.round(sections.reduce((a, s) => a + s.completionPct, 0) / sections.length);
+  const totalStudents   = sections.reduce((a, s) => a + s.totalStudents, 0);
+  const totalCompleted  = sections.reduce((a, s) => a + s.completed, 0);
+  const totalAtRisk     = sections.reduce((a, s) => a + s.atRisk, 0);
+  const overallPct      = Math.round(sections.reduce((a, s) => a + s.completionPct, 0) / sections.length);
 
   const statCards = [
-    { label: "Total Students",  value: totalStudents,  Icon: IconUsers,         color: "#7B1D1D" },
-    { label: "Completed",       value: totalCompleted, Icon: IconCircleCheck,   color: "#065F46" },
-    { label: "At Risk",         value: totalAtRisk,    Icon: IconAlertTriangle, color: "#92400E" },
-    { label: "Overall Progress",value: `${overallPct}%`, Icon: IconChartBar,    color: "#1E40AF" },
+    { label: "Total Students",   value: totalStudents,    Icon: IconUsers         },
+    { label: "Completed",        value: totalCompleted,   Icon: IconCircleCheck   },
+    { label: "At Risk",          value: totalAtRisk,      Icon: IconAlertTriangle },
+    { label: "Overall Progress", value: `${overallPct}%`, Icon: IconChartBar      },
   ];
 
   const filteredSections = sections.filter(s =>
@@ -163,6 +179,7 @@ export default function GroupSummaryPage() {
   return (
     <>
       <style>{summaryStyles}</style>
+      <ChartStyles />
       <div className="db-root">
         <Sidebar
           open={sidebarOpen}
@@ -193,13 +210,15 @@ export default function GroupSummaryPage() {
                 </div>
               </div>
 
-              {/* Stat cards */}
+              {/* Top stat cards */}
               <div className="gs-stat-cards">
-                {statCards.map(({ label, value, Icon, color }) => (
-                  <div key={label} className="gs-stat-card">
-                    <div className="gs-stat-label">{label}</div>
-                    <div className="gs-stat-value" style={{ color }}>{value}</div>
-                    <div className="gs-stat-icon-deco" style={{ color }}><Icon size={90} stroke={1.2} /></div>
+                {statCards.map(({ label, value, Icon }) => (
+                  <div key={label} className="db-kpi-card">
+                    <div className="db-kpi-header">
+                      <span className="db-kpi-label">{label}</span>
+                    </div>
+                    <div className="db-kpi-value">{value}</div>
+                    <div className="db-kpi-deco"><Icon size={120} stroke={1.2} /></div>
                   </div>
                 ))}
               </div>
@@ -208,6 +227,15 @@ export default function GroupSummaryPage() {
               <div className="gs-body">
                 {filteredSections.map((section) => {
                   const isOpen = expanded === section.id;
+                  const miniCards = [
+                    { label: "Avg Hours Rendered", value: `${section.avgHours} / ${section.totalHours}`, sub: "hrs per student", Icon: IconClock,         bg: "#FEF3C7", color: "#92400E" },
+                    { label: "Avg Attendance Rate", value: `${section.avgAttendanceRate}%`,              sub: "of sessions",     Icon: IconUsers,         bg: "#DBEAFE", color: "#1E40AF" },
+                    { label: "Files Submitted",      value: section.filesSubmitted,                      sub: "total uploads",   Icon: IconFiles,         bg: "#F3E8FF", color: "#6B21A8" },
+                    { label: "Forms Completion",     value: `${section.formsCompletionRate}%`,           sub: "completed",       Icon: IconClipboardCheck,bg: "#D1FAE5", color: "#065F46" },
+                    { label: "Edit Requests",        value: section.editRequests,                        sub: "pending review",  Icon: IconEdit,          bg: "#FEE2E2", color: "#991B1B" },
+                    { label: "GPS Compliance",       value: `${section.gpsCompliance}%`,                sub: "logged in radius", Icon: IconMapPin,       bg: "#D1FAE5", color: "#065F46" },
+                  ];
+
                   return (
                     <div key={section.id} className="gs-section-card">
                       {/* Section header */}
@@ -239,51 +267,60 @@ export default function GroupSummaryPage() {
 
                       {/* Expanded body */}
                       {isOpen && (
-                        <div className="gs-section-body">
-                          {/* Donut + legend */}
-                          <div className="gs-donut-wrap">
-                            <DonutChart pct={section.completionPct} />
-                            <div className="gs-legend">
-                              <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#059669" }} />{section.completed} Completed</div>
-                              <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#D97706" }} />{section.inProgress} In Progress</div>
-                              <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#EF4444" }} />{section.notStarted} Not Started</div>
-                            </div>
+                        <div style={{ padding: "20px", borderTop: "1px solid var(--border)" }}>
+
+                          {/* 3-column mini metric cards */}
+                          <div className="gs-mini-cards">
+                            {miniCards.map(({ label, value, sub, Icon, bg, color }) => (
+                              <div key={label} className="gs-mini-card">
+                                <div className="gs-mini-icon" style={{ background: bg }}>
+                                  <Icon size={18} stroke={1.75} color={color} />
+                                </div>
+                                <div>
+                                  <div className="gs-mini-label">{label}</div>
+                                  <div className="gs-mini-value">{value}</div>
+                                  <div className="gs-mini-sub">{sub}</div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
 
-                          {/* Student breakdown table */}
-                          <div className="gs-student-table">
-                            <table>
-                              <thead>
-                                <tr>
-                                  <th>Student</th>
-                                  <th>Hours Progress</th>
-                                  <th>Status</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {section.students.map((st) => {
-                                  const pct = Math.round((st.hoursLogged / st.totalHours) * 100);
-                                  return (
+                          {/* Bottom: donut panel left, student table right */}
+                          <div className="gs-bottom-row">
+                            <div className="gs-donut-panel">
+                              <div className="gs-donut-label">Progress Tracker</div>
+                              <DonutChart pct={section.completionPct} />
+                              <div className="gs-legend">
+                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#059669" }} />{section.completed} Completed</div>
+                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#D97706" }} />{section.inProgress} In Progress</div>
+                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#EF4444" }} />{section.notStarted} Not Started</div>
+                              </div>
+                            </div>
+
+                            <div className="gs-student-table">
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th>Student</th>
+                                    <th>Hours</th>
+                                    <th style={{ textAlign: "right" }}>Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {section.students.map((st) => (
                                     <tr key={st.name}>
                                       <td><div className="gs-student-name">{st.name}</div></td>
-                                      <td>
-                                        <div className="gs-hours-bar-wrap">
-                                          <div className="gs-hours-bar-track">
-                                            <div className="gs-hours-bar-fill" style={{ width: `${pct}%`, background: progressBarColor(st.status) }} />
-                                          </div>
-                                          <span className="gs-hours-txt">{st.hoursLogged}/{st.totalHours} hrs</span>
-                                        </div>
-                                      </td>
+                                      <td style={{ fontSize: 12, color: "var(--muted)" }}>{st.hoursLogged}/{st.totalHours} hrs</td>
                                       <td>
                                         <span className="gs-status-badge" style={{ background: statusColor[st.status].bg, color: statusColor[st.status].color }}>
                                           {st.status}
                                         </span>
                                       </td>
                                     </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         </div>
                       )}
