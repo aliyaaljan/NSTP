@@ -573,6 +573,7 @@ export default async function AdminDashboardPage({
       .select(AUDIT_LOG_SELECT)
       .order("created_at", { ascending: false })
       .limit(5),
+
     supabase
       .from("term")
       .select("start_date, end_date")
@@ -777,14 +778,18 @@ export default async function AdminDashboardPage({
 
   // FORMAT FOR LOGGED RECENT ACTIVITIES
   const rawActivities = recentActivityRes.data || []
+
   const processedRecentActivity: RecentActivityItem[] = rawActivities
     .map((dbRow: any) => mapAuditLogDbRow(dbRow))
     .filter((mapped): mapped is NonNullable<typeof mapped> => mapped !== null)
-    .map((act) => ({
-      title: act.title,
-      actor: act.subtitle,
-      timeAgo: formatAuditLogTimestamp(act.createdAt),
-    }))
+    .map((activity) => {
+      // activity.subtitle returns a human-readable string such as: "Admin | Student Enrollment · Created"
+      return {
+        title: activity.title,
+        actor: `Executed by: ${activity.actorName} (${activity.tableLabel})`,
+        timeAgo: formatAuditLogTimestamp(activity.createdAt),
+      }
+    })
 
   const nstpTermStart = activeTermRes.data?.start_date ?? "2025-08-11"
   const nstpCompletionDeadline = "2026-07-17"
