@@ -237,7 +237,7 @@ const myStudentsStyles = `
 
   .ms-requests-thead {
     display: grid;
-grid-template-columns: 2fr 1fr 1fr 1fr 2.5fr 100px;
+    grid-template-columns: 2fr 1fr 1fr 1fr 2.5fr 100px;
     gap: 16px;
     padding: 10px 20px;
     background: #F9FAFB;
@@ -1279,7 +1279,7 @@ function MyStudentsContent() {
                 <div className="ms-table-card">
                   <div className="ms-requests-toolbar">
                     <div>
-                      <div className="ms-table-title">All Requests</div>
+                      <div className="ms-table-title">Request History</div>
                       <div className="ms-table-count">
                         {filteredPending.length} request
                         {filteredPending.length !== 1 ? "s" : ""} found
@@ -1306,10 +1306,15 @@ function MyStudentsContent() {
                           placeholder="Search..."
                         />
                       </div>
+
+                      {/* Type Filter */}
                       <div style={{ position: "relative" }}>
                         <button
                           className="ms-filter-btn"
-                          onClick={() => setShowTypeFilter((v) => !v)}
+                          onClick={() => {
+                            setShowTypeFilter((v) => !v)
+                            setShowRequestStatusFilter(false)
+                          }}
                         >
                           {requestTypeFilter}{" "}
                           <IconChevronDown size={13} stroke={2} />
@@ -1351,7 +1356,6 @@ function MyStudentsContent() {
                                   border: "none",
                                   cursor: "pointer",
                                   fontSize: 13,
-                                  fontFamily: "var(--font)",
                                   fontWeight:
                                     requestTypeFilter === opt ? 700 : 400,
                                   color:
@@ -1366,6 +1370,74 @@ function MyStudentsContent() {
                           </div>
                         )}
                       </div>
+
+                      {/* History Status Filter */}
+                      <div style={{ position: "relative" }}>
+                        <button
+                          className="ms-filter-btn"
+                          onClick={() => {
+                            setShowRequestStatusFilter((v) => !v)
+                            setShowTypeFilter(false)
+                          }}
+                        >
+                          {requestStatusFilter}{" "}
+                          <IconChevronDown size={13} stroke={2} />
+                        </button>
+                        {showRequestStatusFilter && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 6px)",
+                              left: 0,
+                              background: "var(--white)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 10,
+                              boxShadow: "var(--shadow)",
+                              zIndex: 50,
+                              minWidth: 170,
+                              overflow: "hidden",
+                            }}
+                          >
+                            {[
+                              "All Status",
+                              "Open",
+                              "Under Review",
+                              "Approved",
+                              "Rejected",
+                            ].map((opt) => (
+                              <button
+                                key={opt}
+                                onClick={() => {
+                                  setRequestStatusFilter(opt)
+                                  setShowRequestStatusFilter(false)
+                                }}
+                                style={{
+                                  display: "block",
+                                  width: "100%",
+                                  padding: "9px 16px",
+                                  textAlign: "left",
+                                  background:
+                                    requestStatusFilter === opt
+                                      ? "#F9FAFB"
+                                      : "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  fontWeight:
+                                    requestStatusFilter === opt ? 700 : 400,
+                                  color:
+                                    requestStatusFilter === opt
+                                      ? "var(--maroon)"
+                                      : "var(--text)",
+                                }}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {hasPendingFilters && (
                         <button
                           className="ms-filter-btn"
@@ -1375,21 +1447,24 @@ function MyStudentsContent() {
                             borderColor: "var(--maroon)",
                           }}
                         >
-                          <IconX size={13} stroke={2} />
-                          Clear Filters
+                          <IconX size={13} stroke={2} /> Clear Filters
                         </button>
                       )}
                     </div>
                   </div>
+
                   {filteredPending.length === 0 ? (
-                    <div className="ms-empty">No pending requests found.</div>
+                    <div className="ms-empty">
+                      No requests found for this filter.
+                    </div>
                   ) : (
                     <>
                       <div className="ms-requests-thead">
                         <span>Student</span>
                         <span>Type</span>
+                        <span>Status</span>
                         <span>Date</span>
-                        <span>Note</span>
+                        <span>Details</span>
                         <span>Attachment</span>
                       </div>
                       <div className="ms-requests-list">
@@ -1402,6 +1477,18 @@ function MyStudentsContent() {
                             .join("")
                             .toUpperCase()
 
+                          // Define clean history badges
+                          const getStatusBadge = (status: string) => {
+                            if (status === "Approved")
+                              return { bg: "#D1FAE5", color: "#065F46" }
+                            if (status === "Rejected")
+                              return { bg: "#FEE2E2", color: "#991B1B" }
+                            if (status === "Under Review")
+                              return { bg: "#FEF3C7", color: "#92400E" }
+                            return { bg: "#F3F4F6", color: "#374151" } // Open
+                          }
+                          const badge = getStatusBadge(r.status)
+
                           return (
                             <div
                               key={r.appeal_id || i}
@@ -1409,13 +1496,12 @@ function MyStudentsContent() {
                               onClick={() => {
                                 setSelectedRequest(r)
 
+                                // Execute background status update transaction immediately upon reading
                                 startTransition(async () => {
                                   const res = await transitionToUnderReview(
                                     r.appeal_id
                                   )
-                                  if (res.ok) {
-                                    router.refresh()
-                                  }
+                                  if (res.ok) router.refresh()
                                 })
                               }}
                             >
@@ -1443,20 +1529,38 @@ function MyStudentsContent() {
                                   {r.appeal_type_name}
                                 </span>
                               </div>
+                              <div>
+                                <span
+                                  className="ms-request-type"
+                                  style={{
+                                    background: badge.bg,
+                                    color: badge.color,
+                                    borderRadius: "6px",
+                                  }}
+                                >
+                                  {r.status}
+                                </span>
+                              </div>
                               <div className="ms-request-date">{r.date}</div>
 
-                              <div
-                                className="ms-request-note"
-                                style={{
-                                  fontWeight: 500,
-                                  color: "var(--text)",
-                                }}
-                              >
-                                {r.note}
+                              {/* Separated Title and Note - No Triple Pipes! */}
+                              <div>
+                                <div
+                                  className="ms-request-name"
+                                  style={{ fontSize: "13px" }}
+                                >
+                                  {r.title}
+                                </div>
+                                <div
+                                  className="ms-request-note"
+                                  style={{ marginTop: "2px" }}
+                                >
+                                  {r.note}
+                                </div>
                               </div>
 
                               <div className="ms-attachment-tag">
-                                {r.attachment && r.attachment.length > 0 ? (
+                                {r.attachment?.length > 0 ? (
                                   <>
                                     <IconPaperclip size={13} stroke={1.75} />
                                     {r.attachment.length} file
@@ -1690,7 +1794,19 @@ function MyStudentsContent() {
                   </div>
                 </div>
                 <div className="ms-req-modal-section">
-                  <div className="ms-modal-label">Note</div>
+                  <div
+                    className="ms-modal-label"
+                    style={{
+                      fontWeight: 700,
+                      color: "var(--text)",
+                      fontSize: "14px",
+                      textTransform: "none",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    {selectedRequest.title}
+                  </div>
+                  <div className="ms-modal-label">Details</div>
                   <div className="ms-req-modal-note">
                     {selectedRequest.note}
                   </div>
