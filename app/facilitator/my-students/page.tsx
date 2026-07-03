@@ -22,6 +22,7 @@ import { parse, format } from "date-fns"
 import {
   getAdviserPendingRequests,
   resolveStudentRequest,
+  transitionToUnderReview,
 } from "@/lib/facilitator/appeal-actions"
 
 // ── Data ──────────────────────────────────────────────────────────────
@@ -66,7 +67,10 @@ interface PendingRequest {
   appeal_type_id: string
   appeal_type_name: string
   date: string
+  title: string
   note: string
+  status: string
+  statusCode: string
   attachment: Attachment[]
 }
 
@@ -410,7 +414,9 @@ function MyStudentsContent() {
   >("All Classifications")
   const [showClassificationFilter, setShowClassificationFilter] =
     useState(false)
-
+  const [requestStatusFilter, setRequestStatusFilter] =
+    useState<string>("All Status")
+  const [showRequestStatusFilter, setShowRequestStatusFilter] = useState(false)
   const statusOptions: StatusFilter[] = [
     "All Status",
     "Completed",
@@ -460,15 +466,15 @@ function MyStudentsContent() {
   const [resolutionNote, setResolutionNote] = useState("")
 
   // fetch student requests from database
-  // const refreshRequests = async () => {
-  //   const res = await getAdviserPendingRequests()
-  //   if (res.ok) setPendingRequests(res.data)
-  // }
+  const refreshRequests = async () => {
+    const res = await getAdviserPendingRequests()
+    if (res.ok) setPendingRequests(res.data)
+  }
 
   // trigger fetch on mount
-  // useEffect(() => {
-  //   refreshRequests()
-  // }, [])
+  useEffect(() => {
+    refreshRequests()
+  }, [])
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -1389,11 +1395,23 @@ function MyStudentsContent() {
                             .map((w: string) => w[0])
                             .join("")
                             .toUpperCase()
+
                           return (
                             <div
-                              key={i}
+                              key={r.appeal_id || i}
                               className="ms-request-row"
-                              onClick={() => setSelectedRequest(r)}
+                              onClick={() => {
+                                setSelectedRequest(r)
+
+                                startTransition(async () => {
+                                  const res = await transitionToUnderReview(
+                                    r.appeal_id
+                                  )
+                                  if (res.ok) {
+                                    router.refresh()
+                                  }
+                                })
+                              }}
                             >
                               <div className="ms-request-student">
                                 <div className="ms-request-avatar">
@@ -1420,9 +1438,19 @@ function MyStudentsContent() {
                                 </span>
                               </div>
                               <div className="ms-request-date">{r.date}</div>
-                              <div className="ms-request-note">{r.note}</div>
+
+                              <div
+                                className="ms-request-note"
+                                style={{
+                                  fontWeight: 500,
+                                  color: "var(--text)",
+                                }}
+                              >
+                                {r.note}
+                              </div>
+
                               <div className="ms-attachment-tag">
-                                {r.attachment?.length > 0 ? (
+                                {r.attachment && r.attachment.length > 0 ? (
                                   <>
                                     <IconPaperclip size={13} stroke={1.75} />
                                     {r.attachment.length} file
@@ -1767,25 +1795,31 @@ function MyStudentsContent() {
                     Approve Request
                   </button>
                 </div>
-                {selectedRequest.attachment?.length > 0 && (
-                  <div className="ms-req-modal-section">
-                    <div className="ms-modal-label">
-                      Attachment
-                      {selectedRequest.attachment.length > 1 ? "s" : ""}
+                {selectedRequest.attachment &&
+                  selectedRequest.attachment.length > 0 && (
+                    <div className="ms-req-modal-section">
+                      <div className="ms-modal-label">
+                        Attachment
+                        {selectedRequest.attachment.length > 1 ? "s" : ""}
+                      </div>
+                      {selectedRequest.attachment.map((a, i) => (
+                        <a
+                          key={a.storage_path || i}
+                          href={getPublicUrl(a.storage_path)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ms-req-modal-attachment"
+                          style={{
+                            display: "inline-flex",
+                            textDecoration: "none",
+                          }}
+                        >
+                          <IconPaperclip size={16} stroke={1.75} />
+                          {a.file_name}
+                        </a>
+                      ))}
                     </div>
-                    {selectedRequest.attachment.map((a, i) => (
-                      <link
-                        key={i}
-                        href={getPublicUrl(a.storage_path)}
-                        rel="noopener noreferrer"
-                        className="ms-req-modal-attachment"
-                      >
-                        <IconPaperclip size={16} stroke={1.75} />
-                        {a.file_name}
-                      </link>
-                    ))}
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
