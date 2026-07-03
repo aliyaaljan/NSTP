@@ -1903,7 +1903,7 @@ function MyStudentsContent() {
                           resolutionNote
                         )
                         if (res.ok) {
-                          // await refreshRequests()
+                          await refreshRequests()
                           setSelectedRequest(null)
                           setResolutionNote("")
                         } else {

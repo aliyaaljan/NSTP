@@ -126,7 +126,13 @@ export async function resolveStudentRequest(
     if (error) throw error
     revalidatePath("/facilitator/dashboard")
     revalidatePath("/facilitator/my-students")
-    return { ok: true, data: null }
+    return {
+      ok: true,
+      data: {
+        appealId,
+        status: decision === "approved" ? "Approved" : "Rejected",
+      },
+    }
   } catch (err: any) {
     return { ok: false, error: err.message }
   }
