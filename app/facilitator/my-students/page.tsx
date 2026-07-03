@@ -211,7 +211,7 @@ const myStudentsStyles = `
   .ms-requests-list { display: flex; flex-direction: column; }
   .ms-request-row {
     display: grid;
-    grid-template-columns: 2.4fr 1.2fr 1fr 2fr 140px;
+    grid-template-columns: 2fr 1fr 1fr 1fr 2.5fr 100px;
     align-items: center;
     gap: 16px;
     padding: 14px 20px;
@@ -237,7 +237,7 @@ const myStudentsStyles = `
 
   .ms-requests-thead {
     display: grid;
-    grid-template-columns: 2.4fr 1.2fr 1fr 2fr 140px;
+grid-template-columns: 2fr 1fr 1fr 1fr 2.5fr 100px;
     gap: 16px;
     padding: 10px 20px;
     background: #F9FAFB;
@@ -414,9 +414,12 @@ function MyStudentsContent() {
   >("All Classifications")
   const [showClassificationFilter, setShowClassificationFilter] =
     useState(false)
+
   const [requestStatusFilter, setRequestStatusFilter] =
     useState<string>("All Status")
+
   const [showRequestStatusFilter, setShowRequestStatusFilter] = useState(false)
+
   const statusOptions: StatusFilter[] = [
     "All Status",
     "Completed",
@@ -639,12 +642,15 @@ function MyStudentsContent() {
     const matchSection =
       selectedSection === "All Sections" || r.section_name === selectedSection
     const matchSearch =
-      pendingSearch.trim() === "" ||
-      r.student_name.toLowerCase().includes(pendingSearch.toLowerCase())
+      pendingSearch.trim() === " " ||
+      r.student_name.toLocaleLowerCase().includes(pendingSearch.toLowerCase())
     const matchType =
       requestTypeFilter === "All Types" ||
       r.appeal_type_name === requestTypeFilter
-    return matchSearch && matchType && matchSection
+    const matchStatus =
+      requestStatusFilter === "All Status" || r.status === requestStatusFilter
+
+    return matchSearch && matchType && matchSection && matchStatus
   })
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
