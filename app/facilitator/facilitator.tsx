@@ -205,17 +205,6 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
           );
         })}
       </div>
-      {/* <div className="flex flex-row text-[10px] items-center justify-between mt-4">
-        Legend: 
-        <div className="flex flex-row text-[10px] items-center gap-1">
-          <div className="w-4 h-4 rounded-full overflow-hidden bg-maroon shadow-lg"></div>
-          Today
-        </div>
-        <div className="flex flex-row text-[10px] items-center gap-1">
-          <div className="w-4 h-4 rounded-full overflow-hidden bg-[var(--amber)] shadow-lg"></div>
-          End of Semester
-        </div>
-      </div> */}
     </div>
   );
 }
