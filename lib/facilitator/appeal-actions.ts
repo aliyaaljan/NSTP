@@ -24,47 +24,53 @@ export async function getAdviserPendingRequests(): Promise<
     } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "Not authenticated" }
 
-    const openStatusId = await lookupId("appeal_status", "open")
-    const reviewStatusId = await lookupId("appeal_status", "under_review")
-
-    // fetch open or under_review requests matching sections handled by the logged-in adviser
+    // Fetch all requests matching sections handled by the logged-in adviser (No status filter)
     const { data: appeals, error } = await service
       .from("appeal")
       .select(
         `
-        appeal_id,
-        reason,
-        created_at,
-        enrollment!inner (
-            student_user_id,
-            app_user!inner (full_name, student_number),
-            section!inner (name, adviser_user_id)
-        )
+          appeal_id,
+          reason,
+          created_at,
+          appeal_status!inner (name, code),
+          enrollment!inner (
+              student_user_id,
+              app_user!inner (full_name, student_number),
+              section!inner (name, adviser_user_id)
+          )
         `
       )
       .eq("enrollment.section.adviser_user_id", user.id)
-      .in("appeal_status_id", [openStatusId, reviewStatusId])
       .order("created_at", { ascending: false })
 
     if (error) throw error
 
     const mapped = (appeals || []).map((app: any) => {
+      // unpack triple pipe-formatted inputs
       const { type, title, body } = parseReason(app.reason || "")
       const student = app.enrollment?.app_user
 
       return {
-        id: app.appeal_id,
-        name: student?.full_name || "Unknown Student",
-        studentNo: student?.student_number || "—",
-        section: app.enrollment?.section?.name || "—",
-        type: type,
-        dateSubmitted: app.created_at
-          ? new Date(app.created_at).toLocaleDateString()
+        appeal_id: app.appeal_id,
+        student_name: student?.full_name || "Unknown Student",
+        student_number: student?.student_number || "—",
+        section_name: app.enrollment?.section?.name || "—",
+        appeal_type_name: type || "Others",
+        title: title || "Request",
+        note: body || "",
+        status: app.appeal_status?.name || "Open",
+        statusCode: app.appeal_status?.code || "open",
+        date: app.created_at
+          ? new Date(app.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
           : "—",
-        hasAttachment: false,
-        note: `[${title || "Request"}] ${body || ""}`,
+        attachment: app.attachment || [],
       }
     })
+
     return { ok: true, data: mapped }
   } catch (err: any) {
     return { ok: false, error: err.message }
@@ -116,6 +122,53 @@ export async function resolveStudentRequest(
     revalidatePath("/facilitator/my-students")
     return { ok: true, data: null }
   } catch (err: any) {
+    return { ok: false, error: err.message }
+  }
+}
+
+// function so when an adviser opens a request,
+// it turns to 'under review'
+
+export async function transitionToUnderReview(
+  appealId: string
+): Promise<ActionResult<any>> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const service = await createSupabaseServiceClient()
+
+    const openStatusId = await lookupId("appeal_status", "open")
+    const reviewStatusId = await lookupId("appeal_status", "under_review")
+
+    const { data: appeal, error: fetchError } = await service
+      .from("appeal")
+      .select("appeal_status_id")
+      .eq("appeal_id", appealId)
+      .single()
+
+    if (fetchError || !appeal)
+      return { ok: false, error: "Record check failed" }
+
+    // do nothing if request already transitioned to 'open' or 'under review'
+    if (appeal.appeal_status_id !== openStatusId) {
+      return {
+        ok: true,
+        data: "Skipped",
+      }
+    }
+
+    const { error: updateError } = await service
+      .from("appeal")
+      .update({ appeal_status_id: reviewStatusId })
+      .eq("appeal_id", appealId)
+
+    if (updateError) throw updateError
+
+    revalidatePath("/facilitator/dashboard")
+    revalidatePath("/facilitator/my-students")
+
+    return { ok: true, data: null }
+  } catch (err: any) {
+    console.error("[transitionToUnderReview] Framework error: ", err.message)
     return { ok: false, error: err.message }
   }
 }
