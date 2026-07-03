@@ -501,13 +501,11 @@ function MyStudentsContent() {
         { data: sectionData, error: sectionError },
         { data: semData, error: semError },
         { data: studentsData, error: studentsError },
-        { data: requestsData, error: requestsError },
       ] = await Promise.all([
         supabase.rpc("get_students_stats", { p_adviser_user_id: user?.id }),
         supabase.rpc("get_sections", { p_adviser_user_id: user?.id }),
         supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id }),
         supabase.rpc("get_my_students", { p_adviser_user_id: user?.id }),
-        supabase.rpc("get_pending_requests", { p_adviser_user_id: user?.id }),
       ])
 
       if (statError)
@@ -553,17 +551,6 @@ function MyStudentsContent() {
           studentsError.details
         )
       if (studentsData) setStudents(studentsData)
-
-      if (requestsError)
-        console.error(
-          "get_pending_requests error:",
-          requestsError.message,
-          requestsError.details
-        )
-      if (requestsData) {
-        console.log(requestsData)
-        setPendingRequests(requestsData)
-      }
     })
   }, [])
 
@@ -1496,12 +1483,35 @@ function MyStudentsContent() {
                               onClick={() => {
                                 setSelectedRequest(r)
 
-                                // Execute background status update transaction immediately upon reading
+                                if (
+                                  r.status === "Open" ||
+                                  r.statusCode === "open"
+                                ) {
+                                  setPendingRequests((prev) =>
+                                    prev.map((req) =>
+                                      req.appeal_id === r.appeal_id
+                                        ? {
+                                            ...req,
+                                            status: "Under Review",
+                                            statusCode: "under_review",
+                                          }
+                                        : req
+                                    )
+                                  )
+                                }
+
                                 startTransition(async () => {
                                   const res = await transitionToUnderReview(
                                     r.appeal_id
                                   )
-                                  if (res.ok) router.refresh()
+                                  if (res.ok) {
+                                    router.refresh()
+                                  } else {
+                                    console.error(
+                                      "Failed to advance request status:",
+                                      res.error
+                                    )
+                                  }
                                 })
                               }}
                             >
@@ -1860,7 +1870,7 @@ function MyStudentsContent() {
                           resolutionNote
                         )
                         if (res.ok) {
-                          // await refreshRequests()
+                          await refreshRequests()
                           setSelectedRequest(null)
                           setResolutionNote("")
                         } else {
