@@ -55,7 +55,7 @@ const C = {
 interface RequestItem {
   id: string
   title: string
-  status: "Approved" | "Under Review" | "Declined"
+  status: "Approved" | "Under Review" | "Declined" | "Rejected"
   type: string
   body: string
   note: string
@@ -77,6 +77,10 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
     },
 
     Declined: {
+      ...C.declined,
+      icon: "ti-circle-x",
+    },
+    Rejected: {
       ...C.declined,
       icon: "ti-circle-x",
     },
@@ -106,8 +110,8 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
           color: s.icon,
         }}
       />
-
-      {status}
+      {/* If status is database 'Rejected', show 'Declined' visually to the student */}
+      {status === "Rejected" ? "Declined" : status}
     </span>
   )
 }
@@ -283,7 +287,9 @@ export default function RequestsPage() {
   const counts = {
     Approved: requests.filter((r) => r.status === "Approved").length,
     "Under Review": requests.filter((r) => r.status === "Under Review").length,
-    Declined: requests.filter((r) => r.status === "Declined").length,
+    Declined: requests.filter(
+      (r) => r.status === "Declined" || r.status === "Rejected"
+    ).length,
   }
 
   function handleSubmit() {
@@ -572,7 +578,8 @@ export default function RequestsPage() {
                 const statusColor =
                   request.status === "Approved"
                     ? C.approved.icon
-                    : request.status === "Declined"
+                    : request.status === "Declined" ||
+                      request.status === "Rejected"
                     ? C.declined.icon
                     : C.review.icon
 

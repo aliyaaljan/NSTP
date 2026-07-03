@@ -55,7 +55,7 @@ const C = {
 interface RequestItem {
   id: string
   title: string
-  status: "Approved" | "Under Review" | "Declined"
+  status: "Approved" | "Under Review" | "Declined" | "Rejected"
   type: string
   body: string
   note: string
@@ -77,6 +77,10 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
     },
 
     Declined: {
+      ...C.declined,
+      icon: "ti-circle-x",
+    },
+    Rejected: {
       ...C.declined,
       icon: "ti-circle-x",
     },
@@ -106,8 +110,8 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
           color: s.icon,
         }}
       />
-
-      {status}
+      {/* If status is database 'Rejected', show 'Declined' visually to the student */}
+      {status === "Rejected" ? "Declined" : status}
     </span>
   )
 }
@@ -229,6 +233,7 @@ export default function RequestsPage() {
   >([])
   const [formTypeId, setFormTypeId] = useState<string>("")
   const [editTypeId, setEditTypeId] = useState<string>("")
+  const [selectedTypeId, setSelectedTypeId] = useState<string>("")
 
   const [profile, setProfile] = useState({
     enrollmentId: "",
@@ -242,10 +247,13 @@ export default function RequestsPage() {
     if (res.ok) setRequests(res.data)
   }
 
+  const supabase = createClient()
+
   useEffect(() => {
     let cancelled = false
     const supabase = createClient()
 
+    // Fetch dynamic request/appeal types from DB
     supabase
       .from("appeal_type")
       .select("appeal_type_id, name")
@@ -275,11 +283,15 @@ export default function RequestsPage() {
       cancelled = true
     }
   }, [])
+
   const counts = {
     Approved: requests.filter((r) => r.status === "Approved").length,
     "Under Review": requests.filter((r) => r.status === "Under Review").length,
-    Declined: requests.filter((r) => r.status === "Declined").length,
+    Declined: requests.filter(
+      (r) => r.status === "Declined" || r.status === "Rejected"
+    ).length,
   }
+
   function handleSubmit() {
     if (
       !formTitle.trim() ||
@@ -323,7 +335,6 @@ export default function RequestsPage() {
       editBody.trim() !== selectedRequest.body.trim()
     )
   }
-
   function handleEditSave() {
     if (!profile.enrollmentId || !selectedRequest || !editTypeId) return
 
@@ -567,7 +578,8 @@ export default function RequestsPage() {
                 const statusColor =
                   request.status === "Approved"
                     ? C.approved.icon
-                    : request.status === "Declined"
+                    : request.status === "Declined" ||
+                      request.status === "Rejected"
                     ? C.declined.icon
                     : C.review.icon
 
@@ -581,6 +593,7 @@ export default function RequestsPage() {
                       setEditBody(request.body)
                       setEditFile(request.attachment ?? null)
 
+                      // Find the UUID that matches string name
                       const matchingType = requestType.find(
                         (t) => t.name === request.type
                       )
@@ -589,6 +602,11 @@ export default function RequestsPage() {
                           ? matchingType.appeal_type_id
                           : requestType[0]?.appeal_type_id || ""
                       )
+                    }}
+                    style={{
+                      position: "relative",
+                      paddingLeft: 34,
+                      cursor: "pointer",
                     }}
                   >
                     <div
