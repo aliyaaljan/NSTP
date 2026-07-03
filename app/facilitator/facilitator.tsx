@@ -18,6 +18,11 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
+// ── Sidebar constants ─────────────────────────────────────────────────
+const COLLAPSED_W = 88
+const EXPANDED_W  = 272
+const RAIL_MARGIN = 16
+
 // ── Types ─────────────────────────────────────────────────────────────
 export interface NavItem {
   label: string;
@@ -118,12 +123,16 @@ export function DonutChart({ pct = 60 }: { pct?: number }) {
     const t = requestAnimationFrame(() => setDisplayed(pct));
     return () => cancelAnimationFrame(t);
   }, [pct]);
-  const dash = (displayed / 100) * circ;
+  // Minimum arc of 4% so even tiny values are clearly visible
+  const minDash = (4 / 100) * circ;
+  const rawDash = (displayed / 100) * circ;
+  const dash = displayed > 0 ? Math.max(rawDash, minDash) : 0;
   return (
     <svg width="110" height="110" viewBox="0 0 110 110" aria-label={`${pct}% completion rate`} style={{ flexShrink: 0 }}>
       <circle cx="55" cy="55" r={r} fill="none" stroke="#E5E7EB" strokeWidth="11" />
       <circle cx="55" cy="55" r={r} fill="none" stroke="#7B1D1D" strokeWidth="11"
-        strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.25} strokeLinecap="round"
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+        transform="rotate(-90 55 55)"
         style={{ transition: "stroke-dasharray 0.6s cubic-bezier(0.4,0,0.2,1)" }} />
       <text x="55" y="60" textAnchor="middle" fill="#111827" fontSize="15" fontWeight="700" fontFamily="sans-serif">
         {pct}%
@@ -344,18 +353,22 @@ export function Sidebar({ open, activeNav, onToggle, onNavClick, onSignOut }: Si
         style={{ cursor: open ? "default" : "pointer" }}
       >
         <div className="sb-logo">
-          <img
-            src="/icon.jpg" alt="NSTP Logo" className="sb-logo-img"
-            onClick={(e) => { e.stopPropagation(); onToggle(); }}
-            title={open ? "Collapse sidebar" : "Expand sidebar"}
-          />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+            <img
+              src="/icon.jpg" alt="NSTP Logo" className="sb-logo-img"
+              onClick={(e) => { e.stopPropagation(); onToggle(); }}
+              title={open ? "Collapse sidebar" : "Expand sidebar"}
+            />
+          </div>
           <div className="sb-logo-text">
             <div className="sb-logo-name">NSTP</div>
             <div className="sb-logo-sub">University of the Philippines Baguio</div>
           </div>
         </div>
+        <div className="sb-logo-divider" />
 
         <nav className="sb-nav">
+          <div className="sb-nav-section-label">Main</div>
           {navItems.map(({ label, Icon }) => (
             <button
               key={label}
@@ -442,27 +455,31 @@ export function QrScanner({ onClose }: { onClose: () => void }) {
 // ── Styles ────────────────────────────────────────────────────────────
 export const dashboardStyles = `
   .db-root { display: flex; height: 100vh; background: var(--bg); font-family: var(--font); font-size: 14px; color: var(--text); overflow: hidden; }
-  .sb-wrap { padding: 12px; position: fixed; top: 0; left: 0; height: 100vh; z-index: 40; background: transparent; }
-  .sb { width: 280px; height: 100%; background: var(--green); display: flex; flex-direction: column; flex-shrink: 0; border-radius: 20px; overflow: hidden; transition: width 0.25s ease; }
-  .sb.sb-closed { width: 64px; }
-  .sb-logo { display: flex; align-items: center; gap: 10px; padding: 22px 18px 26px; overflow: hidden; flex-shrink: 0; }
-  .sb.sb-closed .sb-logo { padding: 22px 0 26px; justify-content: center; gap: 0; }
-  .sb.sb-closed .sb-logo-img { margin: 0 auto; }
+  .sb-wrap { padding: ${RAIL_MARGIN}px; position: fixed; top: 0; left: 0; height: 100vh; z-index: 40; background: transparent; }
+  .sb { width: ${EXPANDED_W}px; height: 100%; background: var(--green); display: flex; flex-direction: column; flex-shrink: 0; border-radius: 20px; overflow: hidden; transition: width 0.25s ease; }
+  .sb.sb-closed { width: ${COLLAPSED_W}px; }
+  .sb-logo { display: flex; align-items: center; gap: 10px; padding: 22px 18px 20px; overflow: hidden; flex-shrink: 0; }
+  .sb.sb-closed .sb-logo { padding: 22px 0 20px; justify-content: center; gap: 0; }
   .sb-logo-img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; }
+  .sb-logo-divider { height: 1px; background: rgba(255,255,255,0.25); margin: 0 18px 8px; }
+  .sb.sb-closed .sb-logo-divider { width: 46px; margin: 0 auto 8px; }
   .sb-logo-text { overflow: hidden; white-space: nowrap; transition: opacity 0.2s ease, width 0.25s ease; opacity: 1; width: auto; }
   .sb.sb-closed .sb-logo-text { opacity: 0; width: 0; pointer-events: none; }
   .sb-logo-name { color: #fff; font-family: var(--font-title); font-size: 30px; line-height: 1; letter-spacing: 0.5px; }
   .sb-logo-sub { color: var(--green-light); font-family: var(--font-sub); font-style: normal; font-size: 12px; margin-top: 4px; opacity: 0.9; white-space: nowrap; }
   .sb-nav { flex: 1; padding: 8px 0; overflow: hidden; }
-  .sb-nav-btn { width: 100%; display: flex; align-items: center; justify-content: flex-start; padding: 0 10px 0 10px; background: transparent; border: none; cursor: pointer; color: #86EFAC; font-size: 15px; font-family: var(--font); font-weight: 600; text-align: left; transition: color 0.13s; line-height: 1; margin: 4px 0; }
+  .sb-nav-section-label { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; color: rgba(255,255,255,0.45); text-transform: uppercase; padding: 0 20px 4px; }
+  .sb.sb-closed .sb-nav-section-label { display: none; }
+  .sb-nav-btn { width: 100%; display: flex; align-items: center; justify-content: flex-start; padding: 0 10px 0 10px; background: transparent; border: none; cursor: pointer; color: #fff; font-size: 15px; font-family: var(--font); font-weight: 600; text-align: left; transition: color 0.13s; line-height: 1; margin: 4px 0; }
   .sb.sb-closed .sb-nav-btn { padding: 0; justify-content: center; }
-  .sb-nav-btn:hover:not(.sb-active) { color: #d1fae5; }
-  .sb-nav-btn.sb-active { color: var(--green); }
+  .sb-nav-btn:hover:not(.sb-active) { color: rgba(255,255,255,0.8); }
+  .sb-nav-btn.sb-active { color: var(--green-dark); }
   .sb-nav-pill { display: flex; align-items: center; gap: 14px; padding: 13px 20px; border-radius: 999px; width: 100%; transition: background 0.13s; white-space: nowrap; overflow: hidden; }
   .sb.sb-closed .sb-nav-pill { border-radius: 999px; width: 44px; height: 44px; min-width: 44px; padding: 0; display: flex; align-items: center; justify-content: center; margin: 0 auto; gap: 0; }
   .sb-nav-btn.sb-active .sb-nav-pill { background: rgba(232,232,232,0.92); }
   .sb-nav-btn:hover:not(.sb-active) .sb-nav-pill { background: rgba(255,255,255,0.08); }
-  .sb-nav-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .sb-nav-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+  .sb-nav-btn.sb-active .sb-nav-icon { color: var(--green); }
   .sb-nav-label { overflow: hidden; white-space: nowrap; transition: opacity 0.2s ease, max-width 0.25s ease; opacity: 1; max-width: 200px; }
   .sb.sb-closed .sb-nav-label { opacity: 0; max-width: 0; overflow: hidden; pointer-events: none; }
   .sb-footer { padding: 18px 18px 24px; overflow: hidden; flex-shrink: 0; }
@@ -472,7 +489,7 @@ export const dashboardStyles = `
   .sb-logout-label { transition: opacity 0.2s ease, max-width 0.25s ease; opacity: 1; max-width: 200px; overflow: hidden; }
   .sb.sb-closed .sb-logout-label { opacity: 0; max-width: 0; pointer-events: none; }
   .sb-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 25; cursor: pointer; }
-  .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; width: 100%; padding-left: 90px; }
+  .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; width: 100%; padding-left: ${COLLAPSED_W + RAIL_MARGIN}px; }
   .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; width: 100%; }
   .header { display: flex; align-items: center; gap: 16px; padding: 36px 28px 20px; background: var(--bg); flex-shrink: 0; }
   .header-greeting { flex: 1; font-size: 34px; font-weight: 800; color: var(--maroon); font-family: var(--font); white-space: nowrap; }
@@ -486,7 +503,7 @@ export const dashboardStyles = `
   .profile-name { font-weight: 700; font-size: 13px; }
   .profile-sec { font-size: 11px; opacity: 0.75; margin-top: 1px; }
   .body { flex: 1; overflow: auto; padding: 0 28px 28px; display: flex; flex-direction: column; gap: 8px; }
-  .top-row { display: flex; gap: 14px; justify-content: space-between; }
+  .top-row { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; }
   .alert-banner { flex: 1; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius); padding: 13px 16px; display: flex; align-items: center; gap: 12px; }
   .alert-icon { display: flex; align-items: center; color: #D97706; flex-shrink: 0; }
   .alert-text { flex: 1; }
@@ -529,14 +546,15 @@ export const dashboardStyles = `
   font-weight: 600;
   border-radius: 999px;
 }  .bottom-row { display: flex; gap: 14px; align-items: flex-start; flex: 1; }
-  .progress-card { display:flex; flex-direction:column; flex: 1; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; align-items: stretch;}
+  .progress-card { display:flex; flex-direction:column; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; align-items: stretch;}
   .progress-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .view-all-btn { background: none; border: none; color: var(--maroon); font-weight: 700; cursor: pointer; font-size: 13px; font-family: var(--font); text-decoration: underline; text-underline-offset: 2px; padding: 0; }
-  .student-list { display: flex; flex-direction: column; gap: 12px; }
-  .student-row { display: flex; align-items: flex-end; gap: 10px; flex:1}
+  .student-list { display: flex; flex-direction: column; }
+  .student-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F9FAFB; }
+  .student-row:last-child { border-bottom: none; }
   .student-info { flex: 1; min-width: 0; }
   .student-name { font-size: 13px; font-weight: 500; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600;}
+  .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600; }
   .no-results { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 0; }
   .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
   .activity-card-scroll {overflow-y: auto; max-height: 320px; padding-right: 8px;}
@@ -564,7 +582,7 @@ export const dashboardStyles = `
   .scanner-hint { text-align: center; font-size: 12px; color: var(--muted); padding: 12px 20px 16px; }
 
   /* ── Calendar ── */
-  .right-panel { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
+  .right-panel { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
   .cal-wrap { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; flex-shrink: 0; }
   .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .cal-month-label { font-size: 13px; font-weight: 700; color: var(--text); }

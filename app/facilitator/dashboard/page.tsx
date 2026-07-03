@@ -13,8 +13,8 @@ import {
   IconUsers,
   IconClock,
   IconCircleCheck,
+  IconInbox,
 } from "@tabler/icons-react"
-import { RxValueNone } from "react-icons/rx";
 import {
   navRoutes,
   dashboardStyles,
@@ -105,7 +105,6 @@ export default function DashboardPage() {
   const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string }[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const [pageSizeInput, setPageSizeInput] = useState(String(pageSize))
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
 
@@ -157,27 +156,6 @@ export default function DashboardPage() {
     })
   }, [])
 
-  useEffect(() => {
-    setPageSizeInput(String(pageSize))
-  }, [pageSize])
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (pageSizeInput !== "" && Number(pageSizeInput) !== pageSize) {
-        commitPageSize()
-      }
-    }, 500) 
-
-    return () => clearTimeout(timer)
-  }, [pageSizeInput])
-
-  function commitPageSize() {
-    const max = Math.max(1, filtered.length)
-    const next = Math.max(1, Math.min(max, Number(pageSizeInput) || pageSize))
-    setPageSize(next)
-    setCurrentPage(1)
-    setPageSizeInput(String(next)) 
-  }
   async function handleSignOut() {
     await signOutWithAudit()
     router.push("/")
@@ -240,7 +218,7 @@ export default function DashboardPage() {
         <div className="main-wrapper">
           <main className="main">
             <header className="header">
-              <h1 className="header-greeting">Hello, Adviser!</h1>
+              <h1 className="header-greeting">Hello, {firstName || "Adviser"}!</h1>
               <div className="search-bar">
                 <span className="search-icon">
                   <IconSearch size={14} stroke={1.75} />
@@ -252,7 +230,7 @@ export default function DashboardPage() {
                     setSearchVal(e.target.value)
                     setCurrentPage(1)
                   }}
-                  placeholder="Search..."
+                  placeholder="Search students..."
                   aria-label="Search students"
                 />
               </div>
@@ -267,9 +245,9 @@ export default function DashboardPage() {
             </header>
 
             <div className="body">
-              {/* Alert + QR */}
-              <div className="top-row">
-                {pendingCount > 0 && (
+              {/* Alert banner - only when pending */}
+              {pendingCount > 0 && (
+                <div className="top-row">
                   <div className="alert-banner" role="alert">
                     <span className="alert-icon">
                       <IconAlertTriangle size={24} stroke={1.75} />
@@ -287,23 +265,8 @@ export default function DashboardPage() {
                       <IconEye size={13} stroke={1.75} /> Review
                     </button>
                   </div>
-                )}
-                <div
-                  className="qr-card"
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Open QR code scanner"
-                  onClick={() => setScannerOpen(true)}
-                >
-                  <div className="qr-icon-box">
-                    <IconQrcode size={24} stroke={1.5} />
-                  </div>
-                  <div>
-                    <div className="qr-title">Scan QR Code</div>
-                    <div className="qr-sub">Tap to open scanner</div>
-                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Main layout: Left (overview + progress) | Right (completion + calendar + activity) */}
               <div className="dashboard-layout">
@@ -367,13 +330,13 @@ export default function DashboardPage() {
                     </div>
                     <div className="stat-cards">
                       {statCards.map(({ label, value, Icon, onClick }) => (
-                        <button key={label} className="db-kpi-card" onClick={onClick}>
+                        <button key={label} className="db-kpi-card" onClick={onClick} aria-label={`${label}: ${value}`} style={{ cursor: "pointer", textAlign: "left" }}>
                           <div className="db-kpi-header">
                             <span className="db-kpi-label">{label}</span>
                           </div>
                           <div className="db-kpi-value">{value}</div>
                           <div className="db-kpi-deco">
-                            <Icon size={110} stroke={1.2} style={{}}/>
+                            <Icon size={110} stroke={1.2} />
                           </div>
                         </button>
                       ))}
@@ -386,9 +349,13 @@ export default function DashboardPage() {
                       <div className="card-title" style={{ marginBottom: 0 }}>
                         Student Progress
                       </div>
-                      <div className="font-semibold">{currentSemData?.remaining_days ?? ""}</div>
+                      {currentSemData?.remaining_days && (
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          {currentSemData.remaining_days}
+                        </div>
+                      )}
                     </div>
-                    <div className="student-list mb-4" key={animKey}>
+                    <div className="student-list" key={animKey}>
                       {filtered.length === 0 ? (
                         <div className="no-results">
                           No students match your search.
@@ -418,39 +385,21 @@ export default function DashboardPage() {
                         justifyContent: "space-between",
                         padding: "12px 0 0",
                         borderTop: "1px solid var(--border)",
-                        marginTop: "auto",
                       }}
-                      className="w-auto pt-2"
                     >
                       <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                        Showing {
-                          filtered.length === 0 ? "0" : 
-                          filtered.length === 1 ? "1" : (
-                            <>
-                              {(currentPage - 1) * pageSize + 1}  {"to "}
-                              <input 
-                                type="number" 
-                                min={1}
-                                max={filtered.length}
-                                className="px-1 py-1 w-12 text-center border rounded mx-1 inline-block"
-                                value={pageSizeInput}
-                                onChange={(e) => {
-                                  setPageSizeInput(e.target.value)
-                                  setCurrentPage(1)
-                                }}
-                                onBlur={commitPageSize}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault()
-                                    commitPageSize()
-                                    ;(e.target as HTMLInputElement).blur()
-                                  }
-                                }}
-                              />
-                            </>
-                          )
-                        } {" "}of{" "}{filtered.length}
+                        Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
                       </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--muted)" }}>
+                        <span>Rows per page:</span>
+                        <select
+                          value={pageSize}
+                          onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                          style={{ border: "1.5px solid var(--border)", borderRadius: 10, padding: "5px 10px", fontSize: 13, fontFamily: "var(--font)", color: "var(--text)", background: "var(--white)", cursor: "pointer", outline: "none", appearance: "auto", minWidth: 60, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+                        >
+                          {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                      </div>
                       <div
                         style={{
                           position: "absolute",
@@ -460,7 +409,6 @@ export default function DashboardPage() {
                           alignItems: "center",
                           gap: 4,
                         }}
-                        className="pt-2"
                       >
                         <button
                           onClick={() => { setCurrentPage((p) => Math.max(1, p - 1)); setAnimKey((k) => k + 1) }}
@@ -549,12 +497,29 @@ export default function DashboardPage() {
 
                 {/* Right */}
                 <div className="right-panel">
+                  {/* QR Scanner */}
+                  <div
+                    className="qr-card"
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Open QR code scanner"
+                    onClick={() => setScannerOpen(true)}
+                    style={{ width: "100%" }}
+                  >
+                    <div className="qr-icon-box">
+                      <IconQrcode size={24} stroke={1.5} />
+                    </div>
+                    <div>
+                      <div className="qr-title">Scan QR Code</div>
+                      <div className="qr-sub">Tap to open scanner</div>
+                    </div>
+                  </div>
+
                   {/* Section Completion Rate */}
                   <div className="completion-card" style={{ width: "100%" }}>
-                    <div className="flex flex-row items-center gap-1">
+                    <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 4 }}>
                       <div className="card-title">Section Completion Rate</div>
-                      <InfoCircle 
-                        tooltip={"On Track: Students are keeping up with the term's pace.\n At Risk: Students are more than 20% behind schedule."} />
+                      <InfoCircle tooltip={"On Track: Students are keeping up with the term's pace.\nAt Risk: Students are more than 20% behind schedule."} />
                     </div>
                     <div className="completion-inner">
                       <DonutChart key={sectionKey} pct={currentData.completion_pct} />
@@ -578,25 +543,23 @@ export default function DashboardPage() {
                   {/* Calendar */}
                   <Calendar semEndDate={currentSemData?.sem_end_date} />
                   {/* Recent Activity */}
-                  <div className={`activity-card ${recentActivity.length === 0 ? "flex-1" : ""}`} style={{ width: "100%"}}>
-                    <div className="flex flex-row items-center gap-1 mb-1.5">
-                      <div className="card-title">Recent Activity </div>
+                  <div className={`activity-card ${recentActivity.length === 0 ? "flex-1" : ""}`} style={{ width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
+                      <div className="card-title">Recent Activity</div>
                       <InfoCircle tooltip="All recent activity for the last 7 days." />
                     </div>
-                    <div className="activity-card-scroll mb-auto pb-2">
+                    <div className="activity-card-scroll" style={{ paddingBottom: 8 }}>
                       {recentActivity.length > 0 ? (
-                        recentActivity.map((item, index) => {
-                          return (
-                            <div key={index} className="text-xs bg-white border border-gray-300 rounded-(--radius) px-4 py-3 mt-2 shadow-(--shadow)">
-                              <div className="text-justify">{item.summary}</div>
-                              <div className="text-muted mt-1 text-[10px] text-right">{item.created_at_hours}</div>
-                            </div>  
-                          )
-                        })
+                        recentActivity.map((item, index) => (
+                          <div key={index} style={{ fontSize: 12, background: "var(--white)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 14px", marginTop: 8, boxShadow: "var(--shadow)" }}>
+                            <div style={{ textAlign: "justify" }}>{item.summary}</div>
+                            <div style={{ color: "var(--muted)", marginTop: 4, fontSize: 10, textAlign: "right" }}>{item.created_at_hours}</div>
+                          </div>
+                        ))
                       ) : (
                         <div className="activity-empty">
                           <div className="activity-empty-icon">
-                            <RxValueNone size={18} stroke={"1.5"} />
+                            <IconInbox size={18} stroke={1.5} />
                           </div>
                           <div className="activity-empty-text">
                             No activity for the past 7 days.
