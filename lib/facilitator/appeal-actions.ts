@@ -12,6 +12,7 @@ type ActionResult<T = void> =
 
 // fetch pending/open appeals or requests assigned to adviser's section
 
+// fetch pending/open appeals or requests assigned to adviser's section
 export async function getAdviserPendingRequests(): Promise<
   ActionResult<any[]>
 > {
@@ -22,6 +23,7 @@ export async function getAdviserPendingRequests(): Promise<
     const {
       data: { user },
     } = await supabase.auth.getUser()
+
     if (!user) return { ok: false, error: "Not authenticated" }
 
     // Fetch all requests matching sections handled by the logged-in adviser (No status filter)
@@ -30,11 +32,13 @@ export async function getAdviserPendingRequests(): Promise<
       .select(
         `
           appeal_id,
+          appeal_type_id,
           reason,
           created_at,
           appeal_status!inner (name, code),
           enrollment!inner (
               student_user_id,
+              section_id,
               app_user!inner (full_name, student_number),
               section!inner (name, adviser_user_id)
           )
@@ -52,6 +56,8 @@ export async function getAdviserPendingRequests(): Promise<
 
       return {
         appeal_id: app.appeal_id,
+        appeal_type_id: app.appeal_type_id,
+        section_id: app.enrollment?.section_id || "",
         student_name: student?.full_name || "Unknown Student",
         student_number: student?.student_number || "—",
         section_name: app.enrollment?.section?.name || "—",
@@ -134,7 +140,7 @@ export async function transitionToUnderReview(
 ): Promise<ActionResult<any>> {
   try {
     const supabase = await createSupabaseServerClient()
-    const service = await createSupabaseServiceClient()
+    const service = createSupabaseServiceClient()
 
     const openStatusId = await lookupId("appeal_status", "open")
     const reviewStatusId = await lookupId("appeal_status", "under_review")
