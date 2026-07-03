@@ -1,4 +1,9 @@
-import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
+import {
+  FONT_BODY,
+  PAGE_TITLE,
+  PROFILE_PILL,
+  TYPE,
+} from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardFilters from "@/components/shared/DashboardFilters"
@@ -15,6 +20,11 @@ import {
   KpiStatCardGrid,
   type KpiStatCardProps,
 } from "@/components/shared/ChartModule"
+import {
+  AUDIT_LOG_SELECT,
+  mapAuditLogDbRow,
+  formatAuditLogTimestamp,
+} from "@/lib/admin/audit-log"
 
 export const revalidate = 0
 
@@ -265,7 +275,9 @@ function ProfilePill({ user }: { user: CurrentUser }) {
         }}
       />
       <div style={{ lineHeight: 1.2 }}>
-        <div style={{ ...PROFILE_PILL.name, fontFamily: FONT_BODY, color: "#fff" }}>
+        <div
+          style={{ ...PROFILE_PILL.name, fontFamily: FONT_BODY, color: "#fff" }}
+        >
           {user.name}
         </div>
         <div
@@ -555,12 +567,10 @@ export default async function AdminDashboardPage({
       .select("full_name")
       .eq("role_id", adviserRoleId)
       .order("full_name"),
-    // recent activity
+    // recent activity for audit log
     supabase
-      .from("audit_log")
-      .select(
-        "activity_type, description, created_at, app_user:user_id(full_name)"
-      )
+      .from("audit_log_readable")
+      .select(AUDIT_LOG_SELECT)
       .order("created_at", { ascending: false })
       .limit(5),
     supabase
@@ -767,45 +777,16 @@ export default async function AdminDashboardPage({
 
   // FORMAT FOR LOGGED RECENT ACTIVITIES
   const rawActivities = recentActivityRes.data || []
-  const processedRecentActivity: RecentActivityItem[] = rawActivities.map(
-    (act: any) => {
-      const actorName = act.app_user?.full_name || "System Automated"
-      const recordTime = new Date(act.created_at)
-      const minutesDelta = Math.floor(
-        (new Date().getTime() - recordTime.getTime()) / 60000 // convert to minutes
-      )
+  const processedRecentActivity: RecentActivityItem[] = rawActivities
+    .map((dbRow: any) => mapAuditLogDbRow(dbRow))
+    .filter((mapped): mapped is NonNullable<typeof mapped> => mapped !== null)
+    .map((act) => ({
+      title: act.title,
+      actor: act.subtitle,
+      timeAgo: formatAuditLogTimestamp(act.createdAt),
+    }))
 
-      // compute relative time badges
-      let timeLabel = "Just now"
-      if (minutesDelta >= 1440) {
-        timeLabel = recordTime.toLocaleDateString()
-      } else if (minutesDelta >= 60) {
-        timeLabel = `${Math.floor(minutesDelta / 60)} hrs ago`
-      } else if (minutesDelta > 0) {
-        timeLabel = `${minutesDelta} mins. ago`
-      }
-      // formatting actions
-      let actionLabel = "Modified"
-      if (act.action === "INSERT") actionLabel = "Created new"
-      if (act.action === "DELETE") actionLabel = "Removed a"
-      // format table contexts
-      let contextLabel = act.table_name
-      if (act.table_name === "attendance_session")
-        contextLabel = "attendance record"
-      if (act.table_name === "appeal") contextLabel = "edit request/appeal"
-      if (act.table_name === "form") contextLabel = "document file submission"
-      if (act.table_name === "enrollment") contextLabel = "student entry"
-
-      return {
-        title: `${actionLabel} ${contextLabel}`,
-        actor: `Executed by: ${actorName}`,
-        timeAgo: timeLabel,
-      }
-    }
-  )
-
-  const nstpTermStart =
-    activeTermRes.data?.start_date ?? "2025-08-11"
+  const nstpTermStart = activeTermRes.data?.start_date ?? "2025-08-11"
   const nstpCompletionDeadline = "2026-07-17"
 
   const currentSemesterMeta = {
@@ -974,7 +955,9 @@ export default async function AdminDashboardPage({
           </div>
           <SectionProgressPanel
             rows={processedSectionProgress}
-            rowLabel={selectedSection || selectedAdviser ? "students" : "sections"}
+            rowLabel={
+              selectedSection || selectedAdviser ? "students" : "sections"
+            }
           />
         </div>
 
