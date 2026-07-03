@@ -254,7 +254,7 @@ export default function GroupSummaryPage() {
                             <div className="gs-section-stat-lbl">In Progress</div>
                           </div>
                           <div className="gs-section-stat">
-                            <div className="gs-section-stat-val" style={{ color: "#EF4444" }}>{section.notStarted}</div>
+                            <div className="gs-section-stat-val" style={{ color: "#7B1D1D" }}>{section.notStarted}</div>
                             <div className="gs-section-stat-lbl">Not Started</div>
                           </div>
                           <div className="gs-section-stat" style={{ minWidth: 60 }}>

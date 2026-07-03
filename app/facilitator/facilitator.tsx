@@ -100,11 +100,11 @@ export function ProgressBar({ pct }: { pct: number }) {
   return (
     <div
       role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
-      style={{ flex: 1, height: 15, background: "#E5E7EB", borderRadius: 100, overflow: "hidden" }}
+      style={{ flex: 1, height: 10, background: "#E5E7EB", borderRadius: 5, overflow: "hidden" }}
     >
       <div style={{
         height: "100%", width: `${displayed}%`,
-        background: progressColor(pct), borderRadius: 100, transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)",
+        background: progressColor(pct), borderRadius: 5, transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)",
       }} />
     </div>
   );
@@ -486,7 +486,7 @@ export const dashboardStyles = `
   .profile-name { font-weight: 700; font-size: 13px; }
   .profile-sec { font-size: 11px; opacity: 0.75; margin-top: 1px; }
   .body { flex: 1; overflow: auto; padding: 0 28px 28px; display: flex; flex-direction: column; gap: 8px; }
-  .top-row { display: flex; gap: 14px; }
+  .top-row { display: flex; gap: 14px; justify-content: space-between; }
   .alert-banner { flex: 1; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius); padding: 13px 16px; display: flex; align-items: center; gap: 12px; }
   .alert-icon { display: flex; align-items: center; color: #D97706; flex-shrink: 0; }
   .alert-text { flex: 1; }

@@ -269,25 +269,25 @@ export default function DashboardPage() {
             <div className="body">
               {/* Alert + QR */}
               <div className="top-row">
-                <div className="alert-banner" role="alert">
-                  <span className="alert-icon">
-                    <IconAlertTriangle size={24} stroke={1.75} />
-                  </span>
-                  <div className="alert-text">
-                    <div className="alert-title">Action Needed</div>
-                    <div className="alert-sub">
-                      {pendingCount} pending requests
+                {pendingCount > 0 && (
+                  <div className="alert-banner" role="alert">
+                    <span className="alert-icon">
+                      <IconAlertTriangle size={24} stroke={1.75} />
+                    </span>
+                    <div className="alert-text">
+                      <div className="alert-title">Action Needed</div>
+                      <div className="alert-sub">
+                        {pendingCount} pending requests
+                      </div>
                     </div>
+                    <button
+                      className="alert-btn"
+                      onClick={() => router.push(`${navRoutes["My Students"]}?tab=pending`)}
+                    >
+                      <IconEye size={13} stroke={1.75} /> Review
+                    </button>
                   </div>
-                  <button
-                    className="alert-btn"
-                    onClick={() => pendingCount > 0 && router.push(`${navRoutes["My Students"]}?tab=pending`)}
-                    disabled={pendingCount === 0}
-                    style={pendingCount === 0 ? { opacity: 0.4, cursor: "not-allowed", filter: "grayscale(1)" } : undefined}
-                  >
-                    <IconEye size={13} stroke={1.75} /> Review
-                  </button>
-                </div>
+                )}
                 <div
                   className="qr-card"
                   role="button"

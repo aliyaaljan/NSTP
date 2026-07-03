@@ -103,7 +103,8 @@ function Badge({
   return (
     <span
       style={{
-        ...TYPE.bodyBold,
+        ...TYPE.body,
+        fontWeight: 500,
         color,
         background: bg,
         borderRadius: 8,
@@ -1122,10 +1123,8 @@ export default async function AdminDashboardPage({
                 rightSlot={
                   <Badge
                     text={`${a.studentCount} students`}
-                    bg={
-                      i % 2 === 0 ? COLORS.greenBgLight : COLORS.maroonBgLight
-                    }
-                    color={i % 2 === 0 ? COLORS.green : COLORS.maroon}
+                    bg={COLORS.border}
+                    color={COLORS.textGray}
                   />
                 }
               />
