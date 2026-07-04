@@ -32,25 +32,45 @@ const adminNav: NavGroup[] = [
   {
     heading: "MAIN",
     items: [
-      { label: "Dashboard",    href: "/admin/dashboard", icon: "ti-layout-dashboard" },
-      { label: "Student List", href: "/admin/students",  icon: "ti-users" },
-      { label: "Adviser List", href: "/admin/advisers",  icon: "ti-user-cog" },
-      { label: "Section List", href: "/admin/sections", icon: "ti-layout-grid" },
-      { label: "Site List",    href: "/admin/sites",    icon: "ti-map-pin" },
-      { label: "Forms",        href: "/admin/forms",     icon: "ti-clipboard-check" },
+      {
+        label: "Dashboard",
+        href: "/admin/dashboard",
+        icon: "ti-layout-dashboard",
+      },
+      { label: "Student List", href: "/admin/students", icon: "ti-users" },
+      { label: "Adviser List", href: "/admin/advisers", icon: "ti-user-cog" },
+      {
+        label: "Section List",
+        href: "/admin/sections",
+        icon: "ti-layout-grid",
+      },
+      { label: "Site List", href: "/admin/sites", icon: "ti-map-pin" },
+      { label: "Forms", href: "/admin/forms", icon: "ti-clipboard-check" },
     ],
   },
   {
     heading: "SYSTEM",
     items: [
-      { label: "Audit Log",      href: "/admin/audit-log",      icon: "ti-history" },
-      { label: "Access Control", href: "/admin/access-control", icon: "ti-key" },
-      { label: "Settings",       href: "/admin/settings",       icon: "ti-adjustments-horizontal" },
+      { label: "Audit Log", href: "/admin/audit-log", icon: "ti-history" },
+      {
+        label: "Access Control",
+        href: "/admin/access-control",
+        icon: "ti-key",
+      },
+      {
+        label: "Settings",
+        href: "/admin/settings",
+        icon: "ti-adjustments-horizontal",
+      },
     ],
   },
 ]
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const role = await getAppUserRole()
   if (role !== "admin") redirect("/")
 
@@ -59,7 +79,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       className={`admin-root ${goblinOne.variable} ${cormorant.variable} ${montserrat.variable}`}
       style={{
         minHeight: "100vh",
-        ["--font" as string]: "var(--font-content, 'Helvetica Neue', Arial, sans-serif)",
+        ["--font" as string]:
+          "var(--font-content, 'Helvetica Neue', Arial, sans-serif)",
         ["--font-title" as string]: "var(--font-goblin, Georgia, serif)",
         ["--font-sub" as string]: "var(--font-cormorant, Georgia, serif)",
       }}

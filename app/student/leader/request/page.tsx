@@ -335,6 +335,7 @@ export default function RequestsPage() {
       editBody.trim() !== selectedRequest.body.trim()
     )
   }
+
   function handleEditSave() {
     if (!profile.enrollmentId || !selectedRequest || !editTypeId) return
 
