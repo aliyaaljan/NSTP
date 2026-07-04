@@ -542,6 +542,7 @@ export default async function AdminDashboardPage({
     activeTermRes,
     appealStatusesRes,
     enrollmentStatusesRes,
+    attendanceSessionStatusesRes,
   ] = await Promise.all([
     // student counter call
     studentsQuery,
@@ -584,6 +585,9 @@ export default async function AdminDashboardPage({
     // FETCH LOOKUP KEYS DYNAMICALLY
     supabase.from("appeal_status").select("appeal_status_id, name"),
     supabase.from("enrollment_status").select("enrollment_status_id, name"),
+    supabase
+      .from("attendance_session_status")
+      .select("attendance_session_status_id, name"),
   ])
 
   const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
@@ -783,12 +787,16 @@ export default async function AdminDashboardPage({
 
   // dunamic layout key dictionary
   const dashboardUuidMap: Record<string, string> = {}
-  appealStatusesRes.data?.forEach((status) => {
-    dashboardUuidMap[status.appeal_status_id] = status.name.replace(/_/g, " ")
+  appealStatusesRes.data?.forEach((s) => {
+    dashboardUuidMap[s.appeal_status_id] = s.name.replace(/_/g, " ")
   })
-  enrollmentStatusesRes.data?.forEach((status) => {
-    dashboardUuidMap[status.enrollment_status_id] = status.name
+  enrollmentStatusesRes.data?.forEach((s) => {
+    dashboardUuidMap[s.enrollment_status_id] = s.name
   })
+  attendanceSessionStatusesRes.data?.forEach((s) => {
+    dashboardUuidMap[s.attendance_session_status_id] = s.name.replace(/_/g, " ")
+  })
+
   // FORMAT FOR LOGGED RECENT ACTIVITIES
   const rawActivities = recentActivityRes.data || []
 

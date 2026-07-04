@@ -463,6 +463,7 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
   if (fields && oldRaw && newRaw) {
     const changes = fields
       .map((field) => {
+        // Skip redundant or system-internal tracking fields
         if (field === "resolution_time" || field === "updated_at") return null
 
         const rawOld = String(oldRaw[field] ?? "").trim()
@@ -470,17 +471,55 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
 
         if (rawOld === rawNew || (!rawOld && !rawNew)) return null
 
-        // Convert lookup ids to clean descriptive labels or fall back to raw value
-        const oldVal =
-          uuidMap[rawOld] || uuidMap[rawOld.toLowerCase()] || rawOld
-        const newVal =
-          uuidMap[rawNew] || uuidMap[rawNew.toLowerCase()] || rawNew
+        // Default: Map via dictionary, or use the raw string, or label as 'none'
+        let oldVal =
+          uuidMap[rawOld] || uuidMap[rawOld.toLowerCase()] || rawOld || "none"
+        let newVal =
+          uuidMap[rawNew] || uuidMap[rawNew.toLowerCase()] || rawNew || "none"
 
-        // Format field labels (e.g., appeal_status_id -> status)
+        // Smart Formatter 1: Convert raw ISO timestamps into readable dates
+        if (
+          field.endsWith("_at") ||
+          field.includes("time") ||
+          field.includes("date")
+        ) {
+          const formatDate = (iso: string) => {
+            try {
+              const d = new Date(iso)
+              return isNaN(d.getTime())
+                ? iso
+                : d.toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })
+            } catch {
+              return iso
+            }
+          }
+          if (rawOld) oldVal = formatDate(rawOld)
+          if (rawNew) newVal = formatDate(rawNew)
+        }
+
+        // Smart Formatter 2: Convert raw minutes into Hours & Minutes
+        if (field === "duration_minute") {
+          const formatDuration = (minsStr: string) => {
+            const mins = parseInt(minsStr, 10)
+            if (isNaN(mins)) return minsStr
+            const h = Math.floor(mins / 60)
+            const m = mins % 60
+            return h > 0 ? `${h}h ${m}m` : `${m}m`
+          }
+          if (rawOld) oldVal = formatDuration(rawOld)
+          if (rawNew) newVal = formatDuration(rawNew)
+        }
+
+        // Clean field name (e.g., attendance_session_status_id -> session status)
         const fieldLabel = field
           .replace(/_id$/, "")
           .replace(/_/g, " ")
-          .replace("appeal ", "")
+          .replace("attendance ", "")
 
         return `${fieldLabel}: '${oldVal}' → '${newVal}'`
       })
@@ -490,15 +529,15 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
       return `${payload.tableLabel} updated (${changes.join(", ")})`
     }
   }
-  // regex interceptor, if payload values are missing
-  let summaryText = payload.summary || ""
 
+  // Regex Interceptor Fallback
+  let summaryText = payload.summary || ""
   Object.entries(uuidMap).forEach(([uuid, label]) => {
     const regex = new RegExp(uuid, "gi")
     summaryText = summaryText.replace(regex, `'${label}'`)
   })
 
-  // cleanup
+  // Cleanup
   summaryText = summaryText.replace(
     /Changed resolution time from "[^"]+" to "[^"]+",?\s*/gi,
     ""

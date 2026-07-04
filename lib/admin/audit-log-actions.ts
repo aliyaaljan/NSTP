@@ -37,6 +37,7 @@ export async function getAuditLogData(
     { data: enrollmentStatus },
     { data: roles },
     { data: activeTerm },
+    { data: attendanceStatus },
   ] = await Promise.all([
     supabase.from("appeal_status").select("appeal_status_id, name"),
     supabase.from("enrollment_status").select("enrollment_status_id, name"),
@@ -46,6 +47,9 @@ export async function getAuditLogData(
       .select("academic_year, semester")
       .eq("is_active", true)
       .maybeSingle(),
+    supabase
+      .from("attendance_session_status")
+      .select("attendance_session_status_id, name"),
   ])
 
   // build dynamic dictionary server-side
@@ -57,6 +61,13 @@ export async function getAuditLogData(
     (s) => (dynamicUuidMap[s.enrollment_status_id] = s.name)
   )
   roles?.forEach((r) => (dynamicUuidMap[r.role_id] = r.code))
+  attendanceStatus?.forEach(
+    (s) =>
+      (dynamicUuidMap[s.attendance_session_status_id] = s.name.replace(
+        /_/g,
+        " "
+      ))
+  )
 
   // query raw audit logs
   let auditQuery = supabase
