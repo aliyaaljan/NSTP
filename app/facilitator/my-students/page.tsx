@@ -328,16 +328,25 @@ const myStudentsStyles = `
   }
   .ms-session-empty { font-size: 12.5px; color: var(--muted); padding: 12px 0; }
   .ms-modal-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 22px; border-bottom: 1px solid var(--border);
+    background: var(--green);
+    padding: 20px 22px;
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
   }
-  .ms-modal-title  { font-weight: 700; font-size: 16px; }
+  .ms-modal-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; color: #fff;
+  }
+  .ms-modal-header-info { flex: 1; min-width: 0; }
+  .ms-modal-title  { font-weight: 700; font-size: 17px; color: #fff; }
+  .ms-modal-subtitle { font-size: 12px; color: rgba(255,255,255,0.75); margin-top: 2px; }
   .ms-modal-close  {
-    background: none; border: none; cursor: pointer; color: var(--muted);
+    background: none; border: none; cursor: pointer; color: #fff;
     display: flex; align-items: center; padding: 4px;
-    border-radius: 6px; transition: background 0.12s;
+    border-radius: 6px; transition: background 0.12s; flex-shrink: 0;
   }
-  .ms-modal-close:hover { background: var(--border); }
+  .ms-modal-close:hover { background: rgba(255,255,255,0.15); }
   .ms-modal-body   { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
   .ms-modal-row    { display: flex; gap: 12px; }
   .ms-modal-field  { flex: 1; }
@@ -853,22 +862,6 @@ function MyStudentsContent() {
             {/* Header */}
             <div className="ms-header-row">
               <h1 className="ms-title">My Students</h1>
-              <div className="search-bar" style={{ minWidth: 200 }}>
-                <span className="search-icon">
-                  <IconSearch size={14} stroke={1.75} />
-                </span>
-                <input
-                  className="search-input"
-                  value={headerSearch}
-                  onChange={(e) => {
-                    setHeaderSearch(e.target.value)
-                    setTableSearch("")
-                    setCurrentPage(1)
-                  }}
-                  placeholder="Search students..."
-                  aria-label="Search students"
-                />
-              </div>
               <div className="profile-pill">
                 <div className="profile-avatar">{initials}</div>
                 <div>
@@ -1520,14 +1513,17 @@ function MyStudentsContent() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="ms-modal-header">
-                <div className="ms-modal-title">
-                  {selectedStudent.student_name}
+                <div className="ms-modal-avatar">
+                  {selectedStudent.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
                 </div>
-                <button
-                  className="ms-modal-close"
-                  onClick={() => setSelectedStudent(null)}
-                >
-                  <IconX size={18} stroke={1.75} />
+                <div className="ms-modal-header-info">
+                  <div className="ms-modal-title">{selectedStudent.student_name}</div>
+                  <div className="ms-modal-subtitle">
+                    {selectedStudent.section_name} · {selectedStudent.site_location}
+                  </div>
+                </div>
+                <button className="ms-modal-close" onClick={() => setSelectedStudent(null)}>
+                  <IconX size={20} stroke={2} />
                 </button>
               </div>
               <div className="ms-modal-flex">
@@ -1674,26 +1670,17 @@ function MyStudentsContent() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="ms-modal-header">
-                <div>
-                  <div className="ms-modal-title">
-                    {selectedRequest.student_name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--muted)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {selectedRequest.student_number} ·{" "}
-                    {selectedRequest.section_name}
+                <div className="ms-modal-avatar">
+                  {selectedRequest.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
+                </div>
+                <div className="ms-modal-header-info">
+                  <div className="ms-modal-title">{selectedRequest.student_name}</div>
+                  <div className="ms-modal-subtitle">
+                    {selectedRequest.student_number} · {selectedRequest.section_name}
                   </div>
                 </div>
-                <button
-                  className="ms-modal-close"
-                  onClick={() => setSelectedRequest(null)}
-                >
-                  <IconX size={18} stroke={1.75} />
+                <button className="ms-modal-close" onClick={() => setSelectedRequest(null)}>
+                  <IconX size={20} stroke={2} />
                 </button>
               </div>
               <div className="ms-modal-body">
@@ -1937,6 +1924,32 @@ function MyStudentsContent() {
                   <button
                     className="ms-edit-save-btn"
                     onClick={handleSaveSession}
+                    disabled={
+                      !editDate || !editTimeIn || !editTimeOut ||
+                      (
+                        editDate === editingSession.date &&
+                        editTimeIn === to24HourFormat(editingSession.timeIn) &&
+                        editTimeOut === to24HourFormat(editingSession.timeOut)
+                      )
+                    }
+                    style={{
+                      opacity: (
+                        !editDate || !editTimeIn || !editTimeOut ||
+                        (
+                          editDate === editingSession.date &&
+                          editTimeIn === to24HourFormat(editingSession.timeIn) &&
+                          editTimeOut === to24HourFormat(editingSession.timeOut)
+                        )
+                      ) ? 0.4 : 1,
+                      cursor: (
+                        !editDate || !editTimeIn || !editTimeOut ||
+                        (
+                          editDate === editingSession.date &&
+                          editTimeIn === to24HourFormat(editingSession.timeIn) &&
+                          editTimeOut === to24HourFormat(editingSession.timeOut)
+                        )
+                      ) ? "not-allowed" : "pointer",
+                    }}
                   >
                     Save
                   </button>
