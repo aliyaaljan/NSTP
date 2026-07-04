@@ -575,7 +575,7 @@ export default async function AdminDashboardPage({
       .from("audit_log_readable")
       .select(AUDIT_LOG_SELECT)
       .order("created_at", { ascending: false })
-      .limit(5),
+      .limit(10),
 
     supabase
       .from("term")
