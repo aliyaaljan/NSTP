@@ -97,7 +97,9 @@ export default function DashboardExportButton({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const close = useCallback(() => setOpen(false), [])
+  const close = useCallback(() => {
+    if (!isPending) setOpen(false)
+  }, [isPending])
 
   useEffect(() => {
     if (!open) return
@@ -115,19 +117,51 @@ export default function DashboardExportButton({
   }, [open, close])
 
   function handleExport() {
-    // construct query parameters
-    const queryParams = new URLSearchParams()
+    setError(null)
 
-    queryParams.append("sectionId", sectionId || "all") // for section filter bounds
-    queryParams.append("content", content || "all") // handles data
+    startTransition(async () => {
+      try {
+        const queryParams = new URLSearchParams()
+        queryParams.append("sectionId", sectionId || "all")
+        queryParams.append("content", content || "all")
+        queryParams.append("fileType", fileType)
+        // request file stresm
+        const response = await fetch(`/api/export?${queryParams.toString()}`, {
+          method: "GET",
+        })
 
-    // ensure active state value is appended to the parameters stream
-    queryParams.append("fileType", fileType)
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(errorText || "Export failed to generate.")
+        }
 
-    // direct the browser window location to load the stream endpoint
-    window.location.href = `/api/export?${queryParams.toString()}`
+        // convert response to a blob
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
 
-    if (typeof close === "function") close() // close modal window
+        // extract filename from headers, fallback to a default
+        const disposition = response.headers.get("Content-Disposition")
+        let filename = `NSTP_Export_${Date.now()}.${fileType}`
+        if (disposition && disposition.includes("filename=")) {
+          filename = disposition.split("filename=")[1].replace(/["']/g, "")
+        }
+
+        // trigger DL
+        const a = document.createElement("a")
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+
+        // cleanup memory
+        a.remove()
+        window.URL.revokeObjectURL(url)
+
+        close()
+      } catch (err: any) {
+        setError(err.message)
+      }
+    })
   }
 
   function resetAndOpen() {
