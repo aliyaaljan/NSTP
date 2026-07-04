@@ -8,9 +8,7 @@
  */
 
 export type AuditLogAction = "INSERT" | "UPDATE" | "DELETE"
-
 export type AuditLogDateRange = "7d" | "30d" | "90d" | "all"
-
 export const AUDIT_LOG_ALL_ACTIONS = "all"
 
 export interface AuditLogRow {
@@ -217,30 +215,38 @@ export function buildAuditLogSubtitle(
   } | ${tableLabel} · ${actionVerb(action)}`
 }
 
-export function mapAuditLogDbRow(row: AuditLogDbRow): AuditLogRow | null {
+export function mapAuditLogDbRow(
+  row: AuditLogDbRow,
+  uuidDictionary: Record<string, string>
+): AuditLogRow | null {
   const action = row.action as AuditLogAction
   if (!["INSERT", "UPDATE", "DELETE"].includes(action)) return null
 
   const cleanSummary = sanitizeLogSummary({
     summary: row.summary,
-    changedFields: row.changed_fields,
-    oldData: row.old_data,
-    newData: row.new_data,
+    changed_fields: row.changed_fields,
+    old_data: row.old_data,
+    new_data: row.new_data,
     tableLabel: row.table_label,
+    uuidMap: uuidDictionary,
   })
 
   return {
     auditLogId: row.audit_log_id,
     createdAt: row.created_at,
     actorUserId: row.app_user_id,
-    actorName: row.actor_name,
+    actorName: row.actor_name || "System",
     tableName: row.table_name,
     tableLabel: row.table_label,
     recordId: row.record_id,
     action,
     summary: cleanSummary,
-    title: buildAuditLogTitle(action, row.table_label, row.summary),
-    subtitle: buildAuditLogSubtitle(row.actor_name, row.table_label, action),
+    title: cleanSummary,
+    subtitle: buildAuditLogSubtitle(
+      row.actor_name || "System",
+      row.table_label,
+      action
+    ),
     oldData: row.old_data,
     newData: row.new_data,
     changedFields: row.changed_fields,
@@ -259,15 +265,10 @@ export function filterAuditLogRows(
   const rangeStart = auditLogRangeStart(query.dateRange)
 
   return rows.filter((entry) => {
-    if (
-      query.action !== AUDIT_LOG_ALL_ACTIONS &&
-      entry.action !== query.action
-    ) {
+    if (query.action !== AUDIT_LOG_ALL_ACTIONS && entry.action !== query.action)
       return false
-    }
-    if (rangeStart && new Date(entry.createdAt) < new Date(rangeStart)) {
+    if (rangeStart && new Date(entry.createdAt) < new Date(rangeStart))
       return false
-    }
     if (!q) return true
     return (
       entry.title.toLowerCase().includes(q) ||
@@ -347,7 +348,8 @@ export function auditLogActionIcon(action: AuditLogAction): string {
   }
 }
 
-/** Sample rows for layout reference when the database has no audit entries yet. */
+/** */
+/** Sample rows for layout reference when the database has no audit entries yet. 
 const AUDIT_LOG_SAMPLE_DEFINITIONS = [
   {
     title: "Student added: Juan Carlos Fernandez",
@@ -404,6 +406,7 @@ const AUDIT_LOG_SAMPLE_DEFINITIONS = [
     hoursAgo: 72,
   },
 ] as const
+ 
 
 export function buildSampleAuditLogRows(): AuditLogRow[] {
   const now = Date.now()
@@ -432,6 +435,7 @@ export function buildSampleAuditLogRows(): AuditLogRow[] {
     }
   })
 }
+*/
 
 /**
  * Hardcoded static lookup mapping for critical status UUIDs to enforce instant performance.
@@ -451,53 +455,41 @@ const SYSTEM_UUID_LABEL_MAP: Record<string, string> = {
   "9555937b-646a-46ba-ad33-3d759487fd81": "Admin",
 }
 
+interface SanitizePayload {
+  summary: string | null
+  changedFields?: string[] | null
+  changed_fields?: string[] | null
+  oldData?: Record<string, unknown> | null
+  old_data?: Record<string, unknown> | null
+  newData?: Record<string, unknown> | null
+  new_data?: Record<string, unknown> | null
+  tableLabel: string
+  uuidMap: Record<string, string>
+}
 /**
  * strips formatting, converts snake_case fields, and replaces
  * structural database IDs with human-readable text
  */
-export function sanitizeLogSummary(row: {
-  summary: string | null
-  changedFields: string[] | null
-  oldData: Record<string, unknown> | null
-  newData: Record<string, unknown> | null
-  tableLabel: string
-}): string {
-  let summaryText = row.summary || ""
+export function sanitizeLogSummary(payload: SanitizePayload): string {
+  let summaryText = payload.summary || ""
+  const { uuidMap } = payload
 
-  // method A: is summary contains UUID in map / table above
-  Object.entries(SYSTEM_UUID_LABEL_MAP).forEach(([uuid, label]) => {
-    if (summaryText.includes(uuid)) {
-      summaryText = summaryText.split(uuid).join(`"${label}"`)
-    }
-  })
+  const fields = payload.changedFields ?? payload.changed_fields ?? null
+  const oldRaw = payload.oldData ?? payload.old_data ?? null
+  const newRaw = payload.newData ?? payload.new_data ?? null
 
-  // method B: dynamically compute summary text if unreadable from changed_fields, old_data and new_data
-  const { changedFields, oldData, newData } = row
-
-  if (
-    (!summaryText || summaryText.match(/[a-f0-9-]{36}/i)) &&
-    changedFields &&
-    oldData &&
-    newData
-  ) {
-    const changes = changedFields
+  if (fields && oldRaw && newRaw) {
+    const changes = fields
       .map((field) => {
-        // Skip redundant logging of fields that didn't change clean strings or matched identical copies
-        if (oldData[field] === newData[field]) return null
+        const rawOld = String(oldRaw[field] ?? "none")
+        const rawNew = String(newRaw[field] ?? "none")
 
-        // Format snake_case field names to clean spaces (e.g., appeal_status_id -> appeal status)
+        if (rawOld === rawNew) return null
+
         const fieldLabel = field.replace(/_id$/, "").replace(/_/g, " ")
 
-        const rawOld = String(oldData[field] ?? "none")
-        const rawNew = String(newData[field] ?? "none")
-
-        // Map raw values to the map
-        const oldVal = SYSTEM_UUID_LABEL_MAP[rawOld]
-          ? `"${SYSTEM_UUID_LABEL_MAP[rawOld]}"`
-          : `"${rawOld}"`
-        const newVal = SYSTEM_UUID_LABEL_MAP[rawNew]
-          ? `"${SYSTEM_UUID_LABEL_MAP[rawNew]}"`
-          : `"${rawNew}"`
+        const oldVal = uuidMap[rawOld] ? `"${uuidMap[rawOld]}"` : `"${rawOld}"`
+        const newVal = uuidMap[rawNew] ? `"${uuidMap[rawNew]}"` : `"${rawNew}"`
 
         return `${fieldLabel} from ${oldVal} to ${newVal}`
       })
@@ -507,24 +499,28 @@ export function sanitizeLogSummary(row: {
       summaryText = `Changed ${changes.join(", ")}`
     }
   }
-  // method C: clean up self-defeating updates like: Changed resolution time from "X" to "X"
+
+  Object.entries(uuidMap).forEach(([uuid, label]) => {
+    if (summaryText.includes(uuid)) {
+      summaryText = summaryText.split(uuid).join(`"${label}"`)
+    }
+  })
+
   summaryText = summaryText.replace(
-    /resolution time from "[^"]+" to "[^"]+"/,
+    /Changed resolution time from "[^"]+" to "[^"]+",?\s*/gi,
     ""
   )
-
-  // clean trailing commas or connected text after stripping
   summaryText = summaryText
     .replace(/^,\s*|,\s*$/, "")
-    .replace(/\s*for appeal\s*$/, "")
+    .replace(/\s*for appeal\s*$/i, "")
     .trim()
 
-  // final fallback if string is mapped to empty
-  if (!summaryText || summaryText === "for appeal") {
-    summaryText = `Updated parameters for ${row.tableLabel.toLowerCase()} entry`
-  } else {
-    summaryText = `${summaryText} for ${row.tableLabel.toLowerCase()}`
+  if (!summaryText || summaryText.toLowerCase() === "for appeal") {
+    summaryText = "Updated status parameters"
   }
+  return `${summaryText} for ${payload.tableLabel.toLocaleLowerCase()}`
+}
 
-  return summaryText
+export function buildSampleAuditLogRows(): AuditLogRow[] {
+  return []
 }
