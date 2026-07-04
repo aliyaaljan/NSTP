@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense, useTransition } from "react"
+import { useState, useEffect, useRef, useCallback, Suspense, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   IconSearch,
@@ -148,7 +148,7 @@ const myStudentsStyles = `
   .ms-body { flex: 1; overflow: auto; padding: 20px 28px 28px; }
   .ms-table-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); ; }
   .ms-table-toolbar {
-    display: flex; align-items: center;
+    display: flex; align-items: center; justify-content: space-between;
     padding: 16px 20px; border-bottom: 1px solid var(--border);
   }
   .ms-table-title { font-weight: 700; font-size: 15px; }
@@ -205,15 +205,15 @@ const myStudentsStyles = `
 
   /* Pending Requests */
   .ms-requests-toolbar {
-    display: flex; align-items: center;
+    display: flex; align-items: center; justify-content: space-between;
     padding: 16px 20px; border-bottom: 1px solid var(--border);
   }
   .ms-requests-list { display: flex; flex-direction: column; }
   .ms-request-row {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 2.5fr 100px;
+    grid-template-columns: 1.8fr 1.1fr 1fr 1fr 1.8fr 90px;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     padding: 14px 20px;
     border-bottom: 1px solid #F3F4F6;
     cursor: pointer;
@@ -237,8 +237,8 @@ const myStudentsStyles = `
 
   .ms-requests-thead {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 2.5fr 100px;
-    gap: 16px;
+    grid-template-columns: 1.8fr 1.1fr 1fr 1fr 1.8fr 90px;
+    gap: 12px;
     padding: 10px 20px;
     background: #F9FAFB;
     border-bottom: 1px solid var(--border);
@@ -385,6 +385,22 @@ const myStudentsStyles = `
   .ms-edit-save-btn:hover { opacity: 0.9; }
 `
 
+function AnimatedBar({ pct, color }: { pct: number; color: string }) {
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setWidth(pct))
+    return () => cancelAnimationFrame(t)
+  }, [pct])
+  return (
+    <div className="ms-hours-track">
+      <div
+        className="ms-hours-fill"
+        style={{ width: `${width}%`, background: color, transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)" }}
+      />
+    </div>
+  )
+}
+
 function MyStudentsContent() {
   const router = useRouter()
   const supabase = createClient()
@@ -393,39 +409,107 @@ function MyStudentsContent() {
   const [activeTab, setActiveTab] = useState<Tab>("list")
   const [headerSearch, setHeaderSearch] = useState("")
   const [tableSearch, setTableSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All Status")
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [showFilter, setShowFilter] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
   const [pendingSearch, setPendingSearch] = useState("")
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
-  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(
-    null
-  )
-  const [requestType, setRequestTypes] = useState<
-    { appeal_type_id: string; name: string }[]
-  >([])
-  const [requestTypeFilter, setRequestTypeFilter] =
-    useState<string>("All Types")
+  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null)
+  const [requestType, setRequestTypes] = useState<{ appeal_type_id: string; name: string }[]>([])
+  const [requestTypeFilter, setRequestTypeFilter] = useState<string>("All Types")
   const [showTypeFilter, setShowTypeFilter] = useState(false)
-  const [classificationFilter, setClassificationFilter] = useState<
-    "All Classifications" | string
-  >("All Classifications")
-  const [showClassificationFilter, setShowClassificationFilter] =
-    useState(false)
-
-  const [requestStatusFilter, setRequestStatusFilter] =
-    useState<string>("All Status")
-
+  const [requestStatusFilter, setRequestStatusFilter] = useState<string>("All Status")
   const [showRequestStatusFilter, setShowRequestStatusFilter] = useState(false)
 
-  const statusOptions: StatusFilter[] = [
-    "All Status",
-    "Completed",
-    "In Progress",
-    "Not Started",
+  // ── Pending unified filter ─────────────────────────────────────────
+  type PendingFilterField = "appeal_type_name" | "status" | "section_name"
+  type PendingActiveFilters = Partial<Record<PendingFilterField, string[]>>
+  const [pendingActiveFilters, setPendingActiveFilters] = useState<PendingActiveFilters>({})
+  const [showPendingFilterPanel, setShowPendingFilterPanel] = useState(false)
+  const pendingFilterPanelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showPendingFilterPanel) return
+    function handleClickOutside(e: MouseEvent) {
+      if (pendingFilterPanelRef.current && !pendingFilterPanelRef.current.contains(e.target as Node)) {
+        setShowPendingFilterPanel(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showPendingFilterPanel])
+
+  function togglePendingFilter(field: PendingFilterField, value: string) {
+    setPendingActiveFilters(prev => {
+      const current = prev[field] ?? []
+      const updated = current.includes(value) ? current.filter(v => v !== value) : [...current, value]
+      const next = { ...prev }
+      if (updated.length === 0) delete next[field]
+      else next[field] = updated
+      return next
+    })
+    setPendingPage(1)
+  }
+
+  const [pendingPage, setPendingPage] = useState(1)
+  const [pendingPageSize, setPendingPageSize] = useState(5)
+
+  const pendingFilterGroups: { label: string; field: PendingFilterField; values: () => string[] }[] = [
+    { label: "Type",    field: "appeal_type_name", values: () => requestType.map(t => t.name) },
+    { label: "Status",  field: "status",            values: () => ["Open", "Under Review", "Approved", "Rejected"] },
+    { label: "Section", field: "section_name",      values: () => [...new Set(pendingRequests.map(r => r.section_name).filter(Boolean))].sort() },
   ]
+
+  // ── Unified filter system ──────────────────────────────────────────
+  type FilterField = "status" | "classification" | "site_location" | "section" | "program"
+  type ActiveFilters = Partial<Record<FilterField, string[]>>
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const filterPanelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showFilterPanel) return
+    function handleClickOutside(e: MouseEvent) {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)) {
+        setShowFilterPanel(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showFilterPanel])
+
+  const filterGroups: { label: string; field: FilterField; values: () => string[] }[] = [
+    { label: "Status",         field: "status",         values: () => ["Completed", "In Progress", "Not Started"] },
+    { label: "Classification", field: "classification", values: () => ["Freshman", "Sophomore", "Junior", "Senior"] },
+    { label: "Section",        field: "section",        values: () => [...new Set(students.map(s => s.section_name).filter(Boolean))].sort() },
+    { label: "Site Location",  field: "site_location",  values: () => [...new Set(students.map(s => s.site_location).filter(Boolean))].sort() },
+    { label: "Program",        field: "program",        values: () => [...new Set(students.map(s => s.program).filter(Boolean))].sort() },
+  ]
+
+  function toggleFilter(field: FilterField, value: string) {
+    setActiveFilters(prev => {
+      const current = prev[field] ?? []
+      const updated = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value]
+      const next = { ...prev }
+      if (updated.length === 0) delete next[field]
+      else next[field] = updated
+      return next
+    })
+    setCurrentPage(1)
+  }
+
+  function clearAllFilters() {
+    setActiveFilters({})
+    setHeaderSearch("")
+    setTableSearch("")
+    setCurrentPage(1)
+  }
+
+  const totalActiveFilters = Object.values(activeFilters).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)
+
+  const statusOptions: StatusFilter[] = ["All Status", "Completed", "In Progress", "Not Started"]
 
   useEffect(() => {
     const tab = searchParams.get("tab")
@@ -434,8 +518,8 @@ function MyStudentsContent() {
     }
 
     const status = searchParams.get("status")
-    if (status && statusOptions.includes(status as StatusFilter)) {
-      setStatusFilter(status as StatusFilter)
+    if (status && (["Completed", "In Progress", "Not Started"] as string[]).includes(status)) {
+      setActiveFilters({ status: [status] })
       setCurrentPage(1)
     }
   }, [searchParams])
@@ -584,7 +668,7 @@ function MyStudentsContent() {
         onClick: () => {
           setActiveTab("list")
           clearListFilters()
-          setStatusFilter("Completed")
+          setActiveFilters({ status: ["Completed"] })
         },
       },
       {
@@ -594,7 +678,7 @@ function MyStudentsContent() {
         onClick: () => {
           setActiveTab("list")
           clearListFilters()
-          setStatusFilter("In Progress")
+          setActiveFilters({ status: ["In Progress"] })
         },
       },
       {
@@ -610,34 +694,30 @@ function MyStudentsContent() {
   }
 
   const filtered = students.filter((s) => {
-    const matchSection =
-      selectedSection === "All Sections" || s.section_name === selectedSection
     const q = (headerSearch || tableSearch).trim().toLowerCase()
-    const matchSearch =
-      q === "" ||
+    const matchSearch = q === "" ||
       (s.student_name ?? "").toLowerCase().includes(q) ||
       (s.student_number ?? "").includes(q)
-    const matchStatus =
-      statusFilter === "All Status" || s.status === statusFilter
-    const matchClassification =
-      classificationFilter === "All Classifications" ||
-      s.classification === classificationFilter
-    return matchSection && matchSearch && matchStatus && matchClassification
+    const matchFilters = (Object.entries(activeFilters) as [FilterField, string[]][]).every(([field, values]) => {
+      if (!values || values.length === 0) return true
+      if (field === "status")         return values.includes(s.status)
+      if (field === "classification") return values.includes(s.classification)
+      if (field === "site_location")  return values.includes(s.site_location)
+      if (field === "section")        return values.includes(s.section_name)
+      if (field === "program")        return values.includes(s.program)
+      return true
+    })
+    return matchSearch && matchFilters
   })
 
   const filteredPending = pendingRequests.filter((r) => {
-    const matchSection =
-      selectedSection === "All Sections" || r.section_name === selectedSection
-    const matchSearch =
-      pendingSearch.trim() === " " ||
-      r.student_name.toLocaleLowerCase().includes(pendingSearch.toLowerCase())
-    const matchType =
-      requestTypeFilter === "All Types" ||
-      r.appeal_type_name === requestTypeFilter
-    const matchStatus =
-      requestStatusFilter === "All Status" || r.status === requestStatusFilter
-
-    return matchSearch && matchType && matchSection && matchStatus
+    const matchSearch = pendingSearch.trim() === "" ||
+      r.student_name.toLowerCase().includes(pendingSearch.toLowerCase())
+    const matchFilters = (Object.entries(pendingActiveFilters) as [PendingFilterField, string[]][]).every(([field, values]) => {
+      if (!values || values.length === 0) return true
+      return values.includes(r[field] as string)
+    })
+    return matchSearch && matchFilters
   })
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -646,41 +726,25 @@ function MyStudentsContent() {
     currentPage * pageSize
   )
 
-  const classificationOptions = [
-    "All Classifications",
-    "Freshman",
-    "Sophomore",
-    "Junior",
-    "Senior",
-  ]
+  const totalPendingPages = Math.max(1, Math.ceil(filteredPending.length / pendingPageSize))
+  const paginatedPending = filteredPending.slice((pendingPage - 1) * pendingPageSize, pendingPage * pendingPageSize)
+
   const statCards = buildStatCards()
 
-  const hasListFilters =
-    headerSearch.trim() !== "" ||
-    tableSearch.trim() !== "" ||
-    statusFilter !== "All Status" ||
-    classificationFilter !== "All Classifications" ||
-    selectedSection !== "All Sections"
+  const hasListFilters = headerSearch.trim() !== "" || tableSearch.trim() !== "" || totalActiveFilters > 0
 
-  const hasPendingFilters =
-    pendingSearch.trim() !== "" ||
-    requestTypeFilter !== "All Types" ||
-    selectedSection !== "All Sections"
+  const totalPendingActiveFilters = Object.values(pendingActiveFilters).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)
+
+  const hasPendingFilters = pendingSearch.trim() !== "" || totalPendingActiveFilters > 0
 
   function clearListFilters() {
-    setHeaderSearch("")
-    setTableSearch("")
-    setStatusFilter("All Status")
-    setClassificationFilter("All Classifications")
-    setSelectedSection("All Sections")
-    setCurrentPage(1)
+    clearAllFilters()
     router.replace(`${navRoutes["My Students"]}`)
   }
 
   function clearPendingFilters() {
     setPendingSearch("")
-    setRequestTypeFilter("All Types")
-    setSelectedSection("All Sections")
+    setPendingActiveFilters({})
     router.replace(`${navRoutes["My Students"]}`)
   }
 
@@ -762,9 +826,8 @@ function MyStudentsContent() {
           activeNav="My Students"
           onToggle={() => {
             setSidebarOpen((o) => !o)
-            setShowFilter(false)
+            setShowFilterPanel(false)
             setShowTypeFilter(false)
-            setShowClassificationFilter(false)
           }}
           onNavClick={(label) => {
             setSidebarOpen(false)
@@ -778,7 +841,7 @@ function MyStudentsContent() {
             className="sb-overlay"
             onClick={() => {
               setSidebarOpen(false)
-              setShowFilter(false)
+              setShowFilterPanel(false)
               setShowTypeFilter(false)
             }}
             aria-hidden="true"
@@ -920,157 +983,85 @@ function MyStudentsContent() {
                         {filtered.length !== 1 ? "s" : ""} found
                       </div>
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        marginLeft: 24,
-                      }}
-                    >
-                      <div className="ms-search-bar">
-                        <IconSearch
-                          size={13}
-                          stroke={1.75}
-                          color="var(--light)"
-                        />
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid var(--maroon)", borderRadius: 999, padding: "8px 18px", background: "var(--white)", minWidth: 280 }}>
+                        <IconSearch size={16} stroke={1.75} color="var(--muted)" />
                         <input
-                          className="ms-search-input"
+                          style={{ border: "none", outline: "none", fontSize: 13.5, fontFamily: "var(--font)", color: "var(--text)", width: "100%", background: "transparent" }}
                           value={tableSearch}
-                          onChange={(e) => {
-                            setTableSearch(e.target.value)
-                            setHeaderSearch("")
-                            setCurrentPage(1)
-                          }}
+                          onChange={(e) => { setTableSearch(e.target.value); setHeaderSearch(""); setCurrentPage(1) }}
                           placeholder="Search..."
                         />
                       </div>
-                      <div style={{ position: "relative" }}>
-                        <button
-                          className="ms-filter-btn"
-                          onClick={() => setShowClassificationFilter((v) => !v)}
-                        >
-                          {classificationFilter}{" "}
-                          <IconChevronDown size={13} stroke={2} />
-                        </button>
-                        {showClassificationFilter && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "calc(100% + 6px)",
-                              left: 0,
-                              background: "var(--white)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 10,
-                              boxShadow: "var(--shadow)",
-                              zIndex: 50,
-                              minWidth: 160,
-                              overflow: "hidden",
-                            }}
-                          >
-                            {classificationOptions.map((opt) => (
-                              <button
-                                key={opt}
-                                onClick={() => {
-                                  setClassificationFilter(opt)
-                                  setShowClassificationFilter(false)
-                                  setCurrentPage(1)
-                                }}
-                                style={{
-                                  display: "block",
-                                  width: "100%",
-                                  padding: "9px 16px",
-                                  textAlign: "left",
-                                  background:
-                                    classificationFilter === opt
-                                      ? "#F9FAFB"
-                                      : "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  fontFamily: "var(--font)",
-                                  fontWeight:
-                                    classificationFilter === opt ? 700 : 400,
-                                  color:
-                                    classificationFilter === opt
-                                      ? "var(--maroon)"
-                                      : "var(--text)",
-                                }}
-                              >
-                                {opt}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
 
-                      <div style={{ position: "relative" }}>
+                      {/* Filter Button */}
+                      <div ref={filterPanelRef} style={{ position: "relative" }}>
                         <button
                           className="ms-filter-btn"
-                          onClick={() => setShowFilter((v) => !v)}
+                          onClick={() => setShowFilterPanel(v => !v)}
+                          style={{
+                            border: `1.5px solid ${totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
+                            color: totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
+                            borderRadius: 999,
+                            padding: "8px 18px",
+                            fontSize: 13.5,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
                         >
-                          {statusFilter}{" "}
-                          <IconChevronDown size={13} stroke={2} />
+                          <IconChevronDown size={16} stroke={2} />
+                          Filter
+                          {totalActiveFilters > 0 && (
+                            <span style={{ background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>
+                              {totalActiveFilters}
+                            </span>
+                          )}
                         </button>
-                        {showFilter && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "calc(100% + 6px)",
-                              left: 0,
-                              background: "var(--white)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 10,
-                              boxShadow: "var(--shadow)",
-                              zIndex: 50,
-                              minWidth: 160,
-                              overflow: "hidden",
-                            }}
-                          >
-                            {statusOptions.map((opt) => (
-                              <button
-                                key={opt}
-                                onClick={() => {
-                                  setStatusFilter(opt)
-                                  setShowFilter(false)
-                                  setCurrentPage(1)
-                                }}
-                                style={{
-                                  display: "block",
-                                  width: "100%",
-                                  padding: "9px 16px",
-                                  textAlign: "left",
-                                  background:
-                                    statusFilter === opt ? "#F9FAFB" : "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  fontFamily: "var(--font)",
-                                  fontWeight: statusFilter === opt ? 700 : 400,
-                                  color:
-                                    statusFilter === opt
-                                      ? "var(--maroon)"
-                                      : "var(--text)",
-                                }}
-                              >
-                                {opt}
-                              </button>
-                            ))}
+
+                        {showFilterPanel && (
+                          <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, background: "var(--white)", border: "1px solid var(--border)", borderRadius: 14, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 100, padding: 16 }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Filters</span>
+                              {totalActiveFilters > 0 && (
+                                <button onClick={() => { setActiveFilters({}); setCurrentPage(1) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11.5, color: "var(--maroon)", fontWeight: 600, fontFamily: "var(--font)", padding: 0 }}>
+                                  Clear all
+                                </button>
+                              )}
+                            </div>
+
+                            <div style={{ display: "flex", gap: 24 }}>
+                              {filterGroups.map(({ label, field, values }) => {
+                                const opts = values()
+                                if (opts.length === 0) return null
+                                const checked = activeFilters[field] ?? []
+                                return (
+                                  <div key={field} style={{ minWidth: 130 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.4px" }}>{label}</div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                      {opts.map(v => (
+                                        <label key={v} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--text)", fontFamily: "var(--font)" }}>
+                                          <input
+                                            type="checkbox"
+                                            checked={checked.includes(v)}
+                                            onChange={() => toggleFilter(field, v)}
+                                            style={{ accentColor: "var(--maroon)", width: 14, height: 14, cursor: "pointer", flexShrink: 0 }}
+                                          />
+                                          {v}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>
 
                       {hasListFilters && (
-                        <button
-                          className="ms-filter-btn"
-                          onClick={clearListFilters}
-                          style={{
-                            color: "var(--maroon)",
-                            borderColor: "var(--maroon)",
-                          }}
-                        >
-                          <IconX size={13} stroke={2} />
-                          Clear Filters
+                        <button className="ms-filter-btn" onClick={clearListFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
+                          <IconX size={13} stroke={2} /> Clear
                         </button>
                       )}
                     </div>
@@ -1157,20 +1148,10 @@ function MyStudentsContent() {
                                 </td>
                                 <td className="ms-hours-cell">
                                   <div className="ms-hours-label">
-                                    <span>
-                                      {s.hours_logged}/{s.total_hours} hrs
-                                    </span>
+                                    <span>{s.hours_logged}/{s.total_hours} hrs</span>
                                     <span>{pct}%</span>
                                   </div>
-                                  <div className="ms-hours-track">
-                                    <div
-                                      className="ms-hours-fill"
-                                      style={{
-                                        width: `${pct}%`,
-                                        background: progressColor(s.status),
-                                      }}
-                                    />
-                                  </div>
+                                  <AnimatedBar pct={pct} color={progressColor(s.status)} />
                                 </td>
                               </tr>
                             )
@@ -1272,169 +1253,85 @@ function MyStudentsContent() {
                         {filteredPending.length !== 1 ? "s" : ""} found
                       </div>
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        marginLeft: 24,
-                      }}
-                    >
-                      <div className="ms-search-bar" style={{ minWidth: 180 }}>
-                        <IconSearch
-                          size={13}
-                          stroke={1.75}
-                          color="var(--light)"
-                        />
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+                      {/* Search bar */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid var(--maroon)", borderRadius: 999, padding: "8px 18px", background: "var(--white)", minWidth: 280 }}>
+                        <IconSearch size={16} stroke={1.75} color="var(--muted)" />
                         <input
-                          className="ms-search-input"
+                          style={{ border: "none", outline: "none", fontSize: 13.5, fontFamily: "var(--font)", color: "var(--text)", width: "100%", background: "transparent" }}
                           value={pendingSearch}
-                          onChange={(e) => setPendingSearch(e.target.value)}
-                          placeholder="Search..."
+                          onChange={(e) => { setPendingSearch(e.target.value); setPendingPage(1) }}
+                          placeholder="Search student name..."
                         />
                       </div>
 
-                      {/* Type Filter */}
-                      <div style={{ position: "relative" }}>
+                      {/* Unified Filter Button */}
+                      <div ref={pendingFilterPanelRef} style={{ position: "relative" }}>
                         <button
                           className="ms-filter-btn"
-                          onClick={() => {
-                            setShowTypeFilter((v) => !v)
-                            setShowRequestStatusFilter(false)
+                          onClick={() => setShowPendingFilterPanel(v => !v)}
+                          style={{
+                            border: `1.5px solid ${totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
+                            color: totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
+                            borderRadius: 999,
+                            padding: "8px 18px",
+                            fontSize: 13.5,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
                           }}
                         >
-                          {requestTypeFilter}{" "}
-                          <IconChevronDown size={13} stroke={2} />
+                          <IconChevronDown size={16} stroke={2} />
+                          Filter
+                          {totalPendingActiveFilters > 0 && (
+                            <span style={{ background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>
+                              {totalPendingActiveFilters}
+                            </span>
+                          )}
                         </button>
-                        {showTypeFilter && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "calc(100% + 6px)",
-                              left: 0,
-                              background: "var(--white)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 10,
-                              boxShadow: "var(--shadow)",
-                              zIndex: 50,
-                              minWidth: 170,
-                              overflow: "hidden",
-                            }}
-                          >
-                            {[
-                              "All Types",
-                              ...requestType.map((t) => t.name),
-                            ].map((opt) => (
-                              <button
-                                key={opt}
-                                onClick={() => {
-                                  setRequestTypeFilter(opt)
-                                  setShowTypeFilter(false)
-                                }}
-                                style={{
-                                  display: "block",
-                                  width: "100%",
-                                  padding: "9px 16px",
-                                  textAlign: "left",
-                                  background:
-                                    requestTypeFilter === opt
-                                      ? "#F9FAFB"
-                                      : "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  fontWeight:
-                                    requestTypeFilter === opt ? 700 : 400,
-                                  color:
-                                    requestTypeFilter === opt
-                                      ? "var(--maroon)"
-                                      : "var(--text)",
-                                }}
-                              >
-                                {opt}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
 
-                      {/* History Status Filter */}
-                      <div style={{ position: "relative" }}>
-                        <button
-                          className="ms-filter-btn"
-                          onClick={() => {
-                            setShowRequestStatusFilter((v) => !v)
-                            setShowTypeFilter(false)
-                          }}
-                        >
-                          {requestStatusFilter}{" "}
-                          <IconChevronDown size={13} stroke={2} />
-                        </button>
-                        {showRequestStatusFilter && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "calc(100% + 6px)",
-                              left: 0,
-                              background: "var(--white)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 10,
-                              boxShadow: "var(--shadow)",
-                              zIndex: 50,
-                              minWidth: 170,
-                              overflow: "hidden",
-                            }}
-                          >
-                            {[
-                              "All Status",
-                              "Open",
-                              "Under Review",
-                              "Approved",
-                              "Rejected",
-                            ].map((opt) => (
-                              <button
-                                key={opt}
-                                onClick={() => {
-                                  setRequestStatusFilter(opt)
-                                  setShowRequestStatusFilter(false)
-                                }}
-                                style={{
-                                  display: "block",
-                                  width: "100%",
-                                  padding: "9px 16px",
-                                  textAlign: "left",
-                                  background:
-                                    requestStatusFilter === opt
-                                      ? "#F9FAFB"
-                                      : "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  fontWeight:
-                                    requestStatusFilter === opt ? 700 : 400,
-                                  color:
-                                    requestStatusFilter === opt
-                                      ? "var(--maroon)"
-                                      : "var(--text)",
-                                }}
-                              >
-                                {opt}
-                              </button>
-                            ))}
+                        {showPendingFilterPanel && (
+                          <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, background: "var(--white)", border: "1px solid var(--border)", borderRadius: 14, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 100, padding: 16 }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Filters</span>
+                              {totalPendingActiveFilters > 0 && (
+                                <button onClick={() => { setPendingActiveFilters({}); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11.5, color: "var(--maroon)", fontWeight: 600, fontFamily: "var(--font)", padding: 0 }}>
+                                  Clear all
+                                </button>
+                              )}
+                            </div>
+                            <div style={{ display: "flex", gap: 24 }}>
+                              {pendingFilterGroups.map(({ label, field, values }) => {
+                                const opts = values()
+                                if (opts.length === 0) return null
+                                const checked = pendingActiveFilters[field] ?? []
+                                return (
+                                  <div key={field} style={{ minWidth: 130 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.4px" }}>{label}</div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                      {opts.map(v => (
+                                        <label key={v} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--text)", fontFamily: "var(--font)" }}>
+                                          <input
+                                            type="checkbox"
+                                            checked={checked.includes(v)}
+                                            onChange={() => togglePendingFilter(field, v)}
+                                            style={{ accentColor: "var(--maroon)", width: 14, height: 14, cursor: "pointer", flexShrink: 0 }}
+                                          />
+                                          {v}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>
 
                       {hasPendingFilters && (
-                        <button
-                          className="ms-filter-btn"
-                          onClick={clearPendingFilters}
-                          style={{
-                            color: "var(--maroon)",
-                            borderColor: "var(--maroon)",
-                          }}
-                        >
-                          <IconX size={13} stroke={2} /> Clear Filters
+                        <button className="ms-filter-btn" onClick={clearPendingFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
+                          <IconX size={13} stroke={2} /> Clear
                         </button>
                       )}
                     </div>
@@ -1455,7 +1352,7 @@ function MyStudentsContent() {
                         <span>Attachment</span>
                       </div>
                       <div className="ms-requests-list">
-                        {filteredPending.map((r, i) => {
+                        {paginatedPending.map((r, i) => {
                           const typeStyle = requestTypeStyle(r.appeal_type_name)
                           const initials = r.student_name
                             ?.split(" ")
@@ -1583,6 +1480,26 @@ function MyStudentsContent() {
                             </div>
                           )
                         })}
+                      </div>
+                      {/* Pagination */}
+                      <div className="ms-pagination">
+                        <div className="ms-pagination-info">
+                          Showing {filteredPending.length === 0 ? 0 : (pendingPage - 1) * pendingPageSize + 1}–{Math.min(pendingPage * pendingPageSize, filteredPending.length)} of {filteredPending.length}
+                        </div>
+                        <div className="ms-pagination-controls">
+                          <button className="ms-page-btn ms-page-btn-nav" disabled={pendingPage === 1} onClick={() => setPendingPage(p => Math.max(1, p - 1))}>&#8249;</button>
+                          {Array.from({ length: totalPendingPages }, (_, i) => i + 1).map(p => (
+                            <button key={p} className={`ms-page-btn${p === pendingPage ? " ms-page-btn-active" : ""}`} onClick={() => setPendingPage(p)}>{p}</button>
+                          ))}
+                          <button className="ms-page-btn ms-page-btn-nav" disabled={pendingPage === totalPendingPages} onClick={() => setPendingPage(p => Math.min(totalPendingPages, p + 1))}>&#8250;</button>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)" }}>
+                          <span>Rows per page:</span>
+                          <select value={pendingPageSize} onChange={(e) => { setPendingPageSize(Number(e.target.value)); setPendingPage(1) }}
+                            style={{ border: "1.5px solid var(--border)", borderRadius: 10, padding: "4px 8px", fontSize: 12.5, fontFamily: "var(--font)", color: "var(--text)", background: "var(--white)", cursor: "pointer", outline: "none", appearance: "auto" }}>
+                            {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                          </select>
+                        </div>
                       </div>
                     </>
                   )}
