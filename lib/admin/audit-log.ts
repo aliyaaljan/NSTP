@@ -455,7 +455,6 @@ interface SanitizePayload {
  */
 export function sanitizeLogSummary(payload: SanitizePayload): string {
   const { uuidMap } = payload
-
   const fields = payload.changedFields ?? payload.changed_fields ?? null
   const oldRaw = payload.oldData ?? payload.old_data ?? null
   const newRaw = payload.newData ?? payload.new_data ?? null
@@ -463,96 +462,102 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
   if (fields && oldRaw && newRaw) {
     const changes = fields
       .map((field) => {
-        // Skip redundant or system-internal tracking fields
-        if (field === "resolution_time" || field === "updated_at") return null
+        // 1. THE IGNORE LIST: Catch any field containing these words and hide them
+        const ignoredFields = [
+          "updated_at",
+          "created_at",
+          "resolution_time",
+          "resolved_at",
+        ]
+        if (ignoredFields.some((ignored) => field.includes(ignored)))
+          return null
 
         const rawOld = String(oldRaw[field] ?? "").trim()
         const rawNew = String(newRaw[field] ?? "").trim()
 
         if (rawOld === rawNew || (!rawOld && !rawNew)) return null
 
-        // Default: Map via dictionary, or use the raw string, or label as 'none'
         let oldVal =
           uuidMap[rawOld] || uuidMap[rawOld.toLowerCase()] || rawOld || "none"
         let newVal =
           uuidMap[rawNew] || uuidMap[rawNew.toLowerCase()] || rawNew || "none"
 
-        // Smart Formatter 1: Convert raw ISO timestamps into readable dates
+        // Format Timestamps
         if (
           field.endsWith("_at") ||
           field.includes("time") ||
           field.includes("date")
         ) {
-          const formatDate = (iso: string) => {
+          const formatTimeStr = (iso: string) => {
             try {
-              const d = new Date(iso)
-              return isNaN(d.getTime())
-                ? iso
-                : d.toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })
+              const dateObj = new Date(iso)
+              if (isNaN(dateObj.getTime())) return iso
+              return dateObj.toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })
             } catch {
               return iso
             }
           }
-          if (rawOld) oldVal = formatDate(rawOld)
-          if (rawNew) newVal = formatDate(rawNew)
+          if (rawOld) oldVal = formatTimeStr(rawOld)
+          if (rawNew) newVal = formatTimeStr(rawNew)
         }
 
-        // Smart Formatter 2: Convert raw minutes into Hours & Minutes
+        // Format Minutes
         if (field === "duration_minute") {
-          const formatDuration = (minsStr: string) => {
-            const mins = parseInt(minsStr, 10)
-            if (isNaN(mins)) return minsStr
-            const h = Math.floor(mins / 60)
-            const m = mins % 60
-            return h > 0 ? `${h}h ${m}m` : `${m}m`
+          const formatMinutes = (minutesStr: string) => {
+            const minutes = parseInt(minutesStr, 10)
+            if (isNaN(minutes)) return minutesStr
+            const hours = Math.floor(minutes / 60)
+            const remainingMins = minutes % 60
+            return hours > 0
+              ? `${hours}h ${remainingMins}m`
+              : `${remainingMins}m`
           }
-          if (rawOld) oldVal = formatDuration(rawOld)
-          if (rawNew) newVal = formatDuration(rawNew)
+          if (rawOld) oldVal = formatMinutes(rawOld)
+          if (rawNew) newVal = formatMinutes(rawNew)
         }
 
-        // Clean field name (e.g., attendance_session_status_id -> session status)
+        // 2. EQUALITY GUARD: If the formatted strings are identical (e.g., 'Jul 3' -> 'Jul 3'), hide it!
+        if (oldVal === newVal) return null
+
         const fieldLabel = field
           .replace(/_id$/, "")
           .replace(/_/g, " ")
           .replace("attendance ", "")
+          .replace("session ", "")
+          .replace("appeal ", "")
 
         return `${fieldLabel}: '${oldVal}' → '${newVal}'`
       })
       .filter((c): c is string => c !== null)
 
+    // 3. CLEAN FALLBACK: If we hid everything, return a clean background sync message
     if (changes.length > 0) {
       return `${payload.tableLabel} updated (${changes.join(", ")})`
+    } else {
+      return `Background parameters synced for ${payload.tableLabel.toLowerCase()}`
     }
   }
 
-  // Regex Interceptor Fallback
   let summaryText = payload.summary || ""
   Object.entries(uuidMap).forEach(([uuid, label]) => {
     const regex = new RegExp(uuid, "gi")
     summaryText = summaryText.replace(regex, `'${label}'`)
   })
 
-  // Cleanup
-  summaryText = summaryText.replace(
-    /Changed resolution time from "[^"]+" to "[^"]+",?\s*/gi,
-    ""
-  )
-  summaryText = summaryText.replace(
-    /appeal status from '([^']+)' to '([^']+)'/gi,
-    "status: '$1' → '$2'"
-  )
+  // 4. LEGACY CLEANUP: Scrub old database strings that slipped through
   summaryText = summaryText
+    .replace(/Changed resolution time from "[^"]+" to "[^"]+",?\s*/gi, "")
+    .replace(/Changed resolved at from "[^"]+" to "[^"]+",?\s*/gi, "")
     .replace(/^,\s*|,\s*$/, "")
-    .replace(/\s*for appeal\s*$/i, "")
     .trim()
 
   if (!summaryText || summaryText.toLowerCase() === "for appeal") {
-    return `Modified ${payload.tableLabel.toLowerCase()} parameters`
+    return `Modified parameters for ${payload.tableLabel.toLowerCase()}`
   }
 
   return summaryText
