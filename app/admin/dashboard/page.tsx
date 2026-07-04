@@ -540,6 +540,8 @@ export default async function AdminDashboardPage({
     advisersFilterRes,
     recentActivityRes,
     activeTermRes,
+    appealStatusesRes,
+    enrollmentStatusesRes,
   ] = await Promise.all([
     // student counter call
     studentsQuery,
@@ -579,6 +581,9 @@ export default async function AdminDashboardPage({
       .select("start_date, end_date")
       .eq("is_active", true)
       .maybeSingle(),
+    // FETCH LOOKUP KEYS DYNAMICALLY
+    supabase.from("appeal_status").select("appeal_status_id, name"),
+    supabase.from("enrollment_status").select("enrollment_status_id, name"),
   ])
 
   const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
@@ -776,17 +781,25 @@ export default async function AdminDashboardPage({
     )
     .sort((a, b) => b.studentCount - a.studentCount)
 
+  // dunamic layout key dictionary
+  const dashboardUuidMap: Record<string, string> = {}
+  appealStatusesRes.data?.forEach((status) => {
+    dashboardUuidMap[status.appeal_status_id] = status.name.replace(/_/g, " ")
+  })
+  enrollmentStatusesRes.data?.forEach((status) => {
+    dashboardUuidMap[status.enrollment_status_id] = status.name
+  })
   // FORMAT FOR LOGGED RECENT ACTIVITIES
   const rawActivities = recentActivityRes.data || []
 
   const processedRecentActivity: RecentActivityItem[] = rawActivities
-    .map((dbRow: any) => mapAuditLogDbRow(dbRow))
+
+    .map((dbRow: any) => mapAuditLogDbRow(dbRow, dashboardUuidMap))
     .filter((mapped): mapped is NonNullable<typeof mapped> => mapped !== null)
     .map((activity) => {
-      // activity.subtitle returns a human-readable string such as: "Admin | Student Enrollment · Created"
       return {
-        title: activity.title,
-        actor: `Executed by: ${activity.actorName} (${activity.tableLabel})`,
+        title: activity.summary,
+        actor: `Executed by: ${activity.actorName}`,
         timeAgo: formatAuditLogTimestamp(activity.createdAt),
       }
     })

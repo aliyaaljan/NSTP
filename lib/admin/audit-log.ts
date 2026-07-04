@@ -454,7 +454,6 @@ interface SanitizePayload {
  * structural database IDs with human-readable text
  */
 export function sanitizeLogSummary(payload: SanitizePayload): string {
-  let summaryText = payload.summary || ""
   const { uuidMap } = payload
 
   const fields = payload.changedFields ?? payload.changed_fields ?? null
@@ -464,34 +463,49 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
   if (fields && oldRaw && newRaw) {
     const changes = fields
       .map((field) => {
-        const rawOld = String(oldRaw[field] ?? "none")
-        const rawNew = String(newRaw[field] ?? "none")
+        if (field === "resolution_time" || field === "updated_at") return null
 
-        if (rawOld === rawNew) return null
+        const rawOld = String(oldRaw[field] ?? "").trim()
+        const rawNew = String(newRaw[field] ?? "").trim()
 
-        const fieldLabel = field.replace(/_id$/, "").replace(/_/g, " ")
+        if (rawOld === rawNew || (!rawOld && !rawNew)) return null
 
-        const oldVal = uuidMap[rawOld] ? `"${uuidMap[rawOld]}"` : `"${rawOld}"`
-        const newVal = uuidMap[rawNew] ? `"${uuidMap[rawNew]}"` : `"${rawNew}"`
+        // Convert lookup ids to clean descriptive labels or fall back to raw value
+        const oldVal =
+          uuidMap[rawOld] || uuidMap[rawOld.toLowerCase()] || rawOld
+        const newVal =
+          uuidMap[rawNew] || uuidMap[rawNew.toLowerCase()] || rawNew
 
-        return `${fieldLabel} from ${oldVal} to ${newVal}`
+        // Format field labels (e.g., appeal_status_id -> status)
+        const fieldLabel = field
+          .replace(/_id$/, "")
+          .replace(/_/g, " ")
+          .replace("appeal ", "")
+
+        return `${fieldLabel}: '${oldVal}' → '${newVal}'`
       })
       .filter((c): c is string => c !== null)
 
     if (changes.length > 0) {
-      summaryText = `Changed ${changes.join(", ")}`
+      return `${payload.tableLabel} updated (${changes.join(", ")})`
     }
   }
+  // regex interceptor, if payload values are missing
+  let summaryText = payload.summary || ""
 
   Object.entries(uuidMap).forEach(([uuid, label]) => {
-    if (summaryText.includes(uuid)) {
-      summaryText = summaryText.split(uuid).join(`"${label}"`)
-    }
+    const regex = new RegExp(uuid, "gi")
+    summaryText = summaryText.replace(regex, `'${label}'`)
   })
 
+  // cleanup
   summaryText = summaryText.replace(
     /Changed resolution time from "[^"]+" to "[^"]+",?\s*/gi,
     ""
+  )
+  summaryText = summaryText.replace(
+    /appeal status from '([^']+)' to '([^']+)'/gi,
+    "status: '$1' → '$2'"
   )
   summaryText = summaryText
     .replace(/^,\s*|,\s*$/, "")
@@ -499,9 +513,10 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
     .trim()
 
   if (!summaryText || summaryText.toLowerCase() === "for appeal") {
-    summaryText = "Updated status parameters"
+    return `Modified ${payload.tableLabel.toLowerCase()} parameters`
   }
-  return `${summaryText} for ${payload.tableLabel.toLocaleLowerCase()}`
+
+  return summaryText
 }
 
 export function buildSampleAuditLogRows(): AuditLogRow[] {
