@@ -462,7 +462,7 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
   if (fields && oldRaw && newRaw) {
     const changes = fields
       .map((field) => {
-        // 1. THE IGNORE LIST: Catch any field containing these words and hide them
+        // ignore list, for better readability
         const ignoredFields = [
           "updated_at",
           "created_at",
@@ -482,7 +482,7 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
         let newVal =
           uuidMap[rawNew] || uuidMap[rawNew.toLowerCase()] || rawNew || "none"
 
-        // Format Timestamps
+        // format timestamps
         if (
           field.endsWith("_at") ||
           field.includes("time") ||
@@ -506,7 +506,7 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
           if (rawNew) newVal = formatTimeStr(rawNew)
         }
 
-        // Format Minutes
+        // format minutes
         if (field === "duration_minute") {
           const formatMinutes = (minutesStr: string) => {
             const minutes = parseInt(minutesStr, 10)
@@ -521,7 +521,7 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
           if (rawNew) newVal = formatMinutes(rawNew)
         }
 
-        // 2. EQUALITY GUARD: If the formatted strings are identical (e.g., 'Jul 3' -> 'Jul 3'), hide it!
+        // hide identically formatted strings
         if (oldVal === newVal) return null
 
         const fieldLabel = field
@@ -535,7 +535,6 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
       })
       .filter((c): c is string => c !== null)
 
-    // 3. CLEAN FALLBACK: If we hid everything, return a clean background sync message
     if (changes.length > 0) {
       return `${payload.tableLabel} updated (${changes.join(", ")})`
     } else {
@@ -549,7 +548,6 @@ export function sanitizeLogSummary(payload: SanitizePayload): string {
     summaryText = summaryText.replace(regex, `'${label}'`)
   })
 
-  // 4. LEGACY CLEANUP: Scrub old database strings that slipped through
   summaryText = summaryText
     .replace(/Changed resolution time from "[^"]+" to "[^"]+",?\s*/gi, "")
     .replace(/Changed resolved at from "[^"]+" to "[^"]+",?\s*/gi, "")
