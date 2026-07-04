@@ -1,7 +1,7 @@
 "use server"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
-import { createSupabaseServiceClient } from "../supabase/service-client"
+
 import { lookupId } from "../lookups"
 import { revalidatePath } from "next/cache"
 import { parseReason, packReason } from "../student/appeal-utils"
@@ -18,7 +18,6 @@ export async function getAdviserPendingRequests(): Promise<
 > {
   try {
     const supabase = await createSupabaseServerClient()
-    const service = createSupabaseServiceClient()
 
     const {
       data: { user },
@@ -27,7 +26,7 @@ export async function getAdviserPendingRequests(): Promise<
     if (!user) return { ok: false, error: "Not authenticated" }
 
     // Fetch all requests matching sections handled by the logged-in adviser (No status filter)
-    const { data: appeals, error } = await service
+    const { data: appeals, error } = await supabase
       .from("appeal")
       .select(
         `
@@ -92,13 +91,13 @@ export async function resolveStudentRequest(
 ): Promise<ActionResult<any>> {
   try {
     const supabase = await createSupabaseServerClient()
-    const service = createSupabaseServiceClient()
+
     const {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "Not authenticated" }
 
-    const { data: appeal } = await service
+    const { data: appeal } = await supabase
       .from("appeal")
       .select("enrollment_id")
       .eq("appeal_id", appealId)
@@ -113,7 +112,7 @@ export async function resolveStudentRequest(
 
     const statusId = await lookupId("appeal_status", decision)
 
-    const { error } = await service
+    const { error } = await supabase
       .from("appeal")
       .update({
         appeal_status_id: statusId,
@@ -128,10 +127,7 @@ export async function resolveStudentRequest(
     revalidatePath("/facilitator/my-students")
     return {
       ok: true,
-      data: {
-        appealId,
-        status: decision === "approved" ? "Approved" : "Rejected",
-      },
+      data: { appealId, status: decision === "approved" ? "Approved" : "Reje" },
     }
   } catch (err: any) {
     return { ok: false, error: err.message }
@@ -146,12 +142,11 @@ export async function transitionToUnderReview(
 ): Promise<ActionResult<any>> {
   try {
     const supabase = await createSupabaseServerClient()
-    const service = createSupabaseServiceClient()
 
     const openStatusId = await lookupId("appeal_status", "open")
     const reviewStatusId = await lookupId("appeal_status", "under_review")
 
-    const { data: appeal, error: fetchError } = await service
+    const { data: appeal, error: fetchError } = await supabase
       .from("appeal")
       .select("appeal_status_id")
       .eq("appeal_id", appealId)
@@ -168,7 +163,7 @@ export async function transitionToUnderReview(
       }
     }
 
-    const { error: updateError } = await service
+    const { error: updateError } = await supabase
       .from("appeal")
       .update({ appeal_status_id: reviewStatusId })
       .eq("appeal_id", appealId)
