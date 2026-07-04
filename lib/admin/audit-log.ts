@@ -12,35 +12,20 @@ export type AuditLogDateRange = "7d" | "30d" | "90d" | "all"
 export const AUDIT_LOG_ALL_ACTIONS = "all"
 
 export interface AuditLogRow {
-  /** `audit_log_readable.audit_log_id` */
   auditLogId: string
-  /** `audit_log_readable.created_at` */
   createdAt: string
-  /** `audit_log_readable.app_user_id` — actor who performed the action */
   actorUserId: string | null
-  /** `audit_log_readable.actor_name` */
   actorName: string
-  /** `audit_log_readable.table_name` */
   tableName: string
-  /** `audit_log_readable.table_label` */
   tableLabel: string
-  /** `audit_log_readable.record_id` */
   recordId: string
-  /** `audit_log_readable.action` — INSERT | UPDATE | DELETE */
   action: AuditLogAction
-  /** `audit_log_readable.summary` — human-readable change description */
   summary: string
-  /** Short headline for the list row (derived from action + table + summary). */
   title: string
-  /** Secondary line: actor role/context (e.g. "Admin | Section B"). */
   subtitle: string
-  /** `audit_log_readable.old_data` */
   oldData: Record<string, unknown> | null
-  /** `audit_log_readable.new_data` */
   newData: Record<string, unknown> | null
-  /** `audit_log_readable.changed_fields` */
   changedFields: string[] | null
-  /** Hardcoded preview row — not persisted in the database */
   isSample?: boolean
 }
 
@@ -57,10 +42,8 @@ export interface AdminCurrentUser {
 
 export interface AuditLogQuery {
   search: string
-  /** AuditLogAction or AUDIT_LOG_ALL_ACTIONS */
   action: AuditLogAction | typeof AUDIT_LOG_ALL_ACTIONS
   dateRange: AuditLogDateRange
-  /** 1-based page — synced to URL `?page=` */
   page: number
 }
 
