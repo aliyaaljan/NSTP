@@ -1,22 +1,25 @@
 import { Suspense } from "react"
+import { notFound } from "next/navigation"
 import AuditLogClient from "@/components/admin/AuditLogClient"
 import { parseAuditLogQuery } from "@/lib/admin/audit-log"
 import { getAuditLogData } from "@/lib/admin/audit-log-actions"
+import { getAppUserRole } from "@/lib/auth-actions"
 
-export const revalidate = 0
+// enforce dynamice database fetching
+export const dynamic = "force-dynamic"
+
+interface PageParams {
+  q?: string
+  action?: string
+  range?: string
+  page?: string
+}
 
 async function AuditLogContent({
-  searchParams,
+  query,
 }: {
-  searchParams: Promise<{
-    q?: string
-    action?: string
-    range?: string
-    page?: string
-  }>
+  query: ReturnType<typeof parseAuditLogQuery>
 }) {
-  const params = await searchParams
-  const query = parseAuditLogQuery(params)
   const data = await getAuditLogData(query)
 
   return (
@@ -30,19 +33,34 @@ async function AuditLogContent({
   )
 }
 
-export default function AdminAuditLogPage({
+export default async function AdminAuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    q?: string
-    action?: string
-    range?: string
-    page?: string
-  }>
+  searchParams: Promise<PageParams>
 }) {
+  // check user role for authentication
+  const role = await getAppUserRole()
+  if (role !== "admin") {
+    notFound()
+  }
+
+  const params = await searchParams
+  const query = parseAuditLogQuery(params)
+  // suspense on search
+  const suspenseKey = `${params.q || ""}-${params.action || ""}-${
+    params.range || ""
+  }-${params.page || "1"}`
+
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading audit log…</div>}>
-      <AuditLogContent searchParams={searchParams} />
+    <Suspense
+      key={suspenseKey}
+      fallback={
+        <div className="p-6 text-sm text-gray-500 animate-pulse">
+          Loading system audit log records...
+        </div>
+      }
+    >
+      <AuditLogContent query={query} />
     </Suspense>
   )
 }
