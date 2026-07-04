@@ -59,10 +59,7 @@ export async function getAuditLogData(
       ?.map(mapAuditLogDbRow)
       .filter((row): row is NonNullable<typeof row> => row !== null) ?? []
 
-  const entries =
-    dbEntries.length > 0
-      ? dbEntries
-      : buildSampleAuditLogRows()
+  const entries = dbEntries.length > 0 ? dbEntries : buildSampleAuditLogRows()
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
