@@ -122,24 +122,29 @@ export async function GET(request: Request) {
     }
     // FOR PDF (.pdf) generation
     if (fileType === "pdf") {
-      const doc = new jsPDF()
+      const doc = new jsPDF(headers.length > 5 ? "landscape" : "portrait")
       doc.text(`NSTP 2 Analytics Report: ${content.toUpperCase()}`, 14, 15)
       doc.setFontSize(10)
-      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22)
 
-      // exported pdf table styling
+      // lock to PH Time
+      const phtDate = new Date().toLocaleString("en-US", {
+        timeZone: "Asia/Manila",
+      })
+      doc.text(`Generated: ${phtDate} (PHT)`, 14, 22)
+
       autoTable(doc, {
-        startY: 26,
+        startY: 28,
         head: [headers],
         body: rows,
         headStyles: { fillColor: [123, 17, 19] },
         theme: "striped",
       })
+
       const pdfBuffer = Buffer.from(doc.output("arraybuffer"))
       return new NextResponse(pdfBuffer, {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename=${filename}`,
+          "Content-Disposition": `attachment; filename="${filename}"`,
         },
       })
     }
