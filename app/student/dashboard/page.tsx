@@ -45,7 +45,15 @@ const RAIL_MARGIN  = 16
 
 // HOURS FUNCTION --------------- 
 
-function HoursCard({ rendered, target }: { rendered: number; target: number }) {
+function HoursCard({
+  rendered,
+  target,
+  isMobile,
+}: {
+  rendered: number
+  target: number
+  isMobile: boolean
+}) {
   const percent = Math.min(100, Math.round((rendered / target) * 100)) 
   const deadline = "2026-07-14"
   const daysRemaining = Math.max(
@@ -73,8 +81,9 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
           textTransform: "uppercase",
           letterSpacing: "0.03em",
           display: "flex",
-          alignItems: "flex-end",
-          gap: "4px",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: isMobile ? "flex-start" : "flex-end",
+          gap: 6,
           width: "100%",
         }}
       >
@@ -95,11 +104,12 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
 
         <span
           style={{
-            marginLeft: "auto",
+            marginLeft: isMobile ? 0 : "auto",
             fontSize: "clamp(12px, 1vw, 14px)",
             fontWeight: 700,
             color: C.textMuted,
             whiteSpace: "nowrap",
+            alignSelf: isMobile ? "flex-start" : "auto",
           }}
         >
           {daysRemaining} days remaining
@@ -181,13 +191,12 @@ export default function StudentDashboardPage() {
   const hoursRendered = dashboard?.hoursRendered ?? 0
   const hoursTarget = dashboard?.requiredHours ?? 60
 
-  // Calculate left padding
+  // Calculate left padding (edited to cater yung nasa baba na navbar on mobile)
   const getLeftPadding = () => {
     if (isMobile) {
-      // On mobile:
-      return `${COLLAPSED_W + RAIL_MARGIN * 2 + 12}px`
+      return "20px"
     }
-    // On desktop:
+  
     return `${COLLAPSED_W + RAIL_MARGIN * 2}px`
   }
 
@@ -209,7 +218,7 @@ export default function StudentDashboardPage() {
           paddingLeft: getLeftPadding(),
           paddingRight: isMobile ? "20px" : "32px",
           paddingTop: isMobile ? "20px" : "28px",
-          paddingBottom: isMobile ? "20px" : "28px",
+          paddingBottom: isMobile ? "110px" : "28px",
           display: "flex",
           flexDirection: "column",
           gap: isMobile ? "20px" : "20px",
@@ -242,7 +251,7 @@ export default function StudentDashboardPage() {
           />
         </div>
 
-        <HoursCard rendered={hoursRendered} target={hoursTarget} />
+        <HoursCard rendered={hoursRendered} target={hoursTarget} isMobile={isMobile} />
 
         {/* Calendar and Documents */}
         <div style={{ 

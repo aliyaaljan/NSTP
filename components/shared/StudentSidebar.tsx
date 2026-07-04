@@ -28,9 +28,9 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
-  { icon: "ti-presentation", label: "My Class", href: "/student/classlist" },
-  { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
-  { icon: "ti-clipboard-check", label: "Files", href: "/student/files" },
+  { icon: "ti-users", label: "My Class", href: "/student/classlist" },
+  { icon: "ti-qrcode", label: "Attendance", href: "/student/attendance" },
+  { icon: "ti-folder", label: "Files", href: "/student/files" },
   { icon: "ti-pencil", label: "Submit Request", href: "/student/request" },
 ]
 
@@ -39,6 +39,20 @@ export default function StudentSidebar() {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const sidebarRef = useRef<HTMLElement | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
+  
+    handleResize()
+  
+    window.addEventListener("resize", handleResize)
+  
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+  
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -126,6 +140,109 @@ export default function StudentSidebar() {
           background: rgba(255,255,255,0.2);
           border-radius: 999px;
         }
+
+       .nstp-menu {
+        display:flex;
+        flex-direction:column;
+        gap:4px;
+      }
+
+
+      @media(max-width:768px){
+
+        .nstp-menu {
+        display:flex;
+        flex-direction:column;
+        gap:4px;
+      }
+
+      .nstp-logout{
+        padding:0 !important;
+        margin-left:8px;
+      }
+
+      .nstp-logout button{
+        width:46px !important;
+        height:46px !important;
+      }
+
+      .nstp-logout span:first-child{
+        width:46px !important;
+      }
+
+        .nstp-rail{
+          top:auto;
+          left:16px;
+          right:16px;
+          bottom:16px;
+
+          width:auto;
+          height:74px;
+
+          border-radius:999px;
+
+          padding:0 18px;
+
+          flex-direction:row;
+          align-items:center;
+          justify-content:space-between;
+
+          backdrop-filter:blur(18px);
+          -webkit-backdrop-filter:blur(18px);
+
+          background:rgba(20,73,46,.82);
+
+          border:1px solid rgba(255,255,255,.15);
+        }
+
+
+        .nstp-menu{
+          flex-direction:row;
+          align-items:center;
+          justify-content:space-between;
+          width:100%;
+        }
+
+
+        .nstp-header,
+        .nstp-divider {
+          display:none;
+        }
+
+        .nstp-logout {
+          display:flex;
+        }
+
+
+        .nstp-expand{
+          display:none;
+        }
+
+
+        .nstp-link{
+          width:46px;
+          height:46px;
+          justify-content:center;
+        }
+
+
+        .nstp-scroll-dark{
+          overflow:visible !important;
+          padding:0 14px !important;
+          width:100%;
+        }
+
+
+        .nstp-link.active i{
+          transform:scale(1.15);
+        }
+
+
+        .nstp-link i{
+          transition:transform .2s ease;
+        }
+
+      }
       `}</style>
 
       {expanded && (
@@ -145,11 +262,16 @@ export default function StudentSidebar() {
       <aside
         ref={sidebarRef}
         className={`nstp-rail ${expanded ? "expanded" : ""}`}
-        onClick={() => setExpanded((prev) => !prev)}
+        onClick={(e) => {
+          if (!isMobile) {
+            setExpanded((prev) => !prev)
+          }
+        }}
       >
 
         {/* header */}
         <div
+          className="nstp-header"
           style={{
             display: "flex",
             alignItems: "center",
@@ -204,6 +326,7 @@ export default function StudentSidebar() {
         </div>
 
         <div
+          className="nstp-divider"
           style={{
             height: 1,
             background: C.divider,
@@ -211,22 +334,17 @@ export default function StudentSidebar() {
           }}
         />
 
-        <nav
-          className="nstp-scroll-dark"
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            overflowX: "hidden",
-            padding: "6px 14px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-            }}
-          >
+      <nav
+        className="nstp-scroll-dark"
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
+          padding: "6px 14px",
+        }}
+      >
+          <div className="nstp-menu">
+
             {NAV_ITEMS.map((item) => {
               const active =
                 pathname === item.href ||
@@ -237,9 +355,9 @@ export default function StudentSidebar() {
               return (
                 <Link
                   key={item.href}
-                  href={expanded ? item.href : "#"}
+                  href={isMobile || expanded ? item.href : "#"}
                   onClick={(e) => {
-                    if (!expanded) {
+                    if (!isMobile && !expanded) {
                       e.preventDefault()
                       setExpanded(true)
                     }
@@ -252,7 +370,7 @@ export default function StudentSidebar() {
                     borderRadius: 14,
                     textDecoration: "none",
                     overflow: "hidden",
-                    pointerEvents: expanded ? "auto" : "none",
+                    pointerEvents: isMobile || expanded ? "auto" : "none",
                   }}
                 >
                   <span
@@ -289,7 +407,7 @@ export default function StudentSidebar() {
           </div>
         </nav>
 
-        <div style={{ padding: "8px 14px 0" }}>
+        <div className="nstp-logout" style={{ padding: "8px 14px 0" }}>
           <button
             onClick={handleSignOut}
             className="nstp-link"

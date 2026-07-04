@@ -570,8 +570,9 @@ export default function QRGenerationPage() {
         @media(max-width: 600px){
 
           .qr-main {
-            margin-left: 80px;
+            margin-left: 0;
             padding: 20px 12px;
+            padding-bottom: 110px;
           }
 
 

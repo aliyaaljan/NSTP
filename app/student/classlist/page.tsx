@@ -641,26 +641,27 @@ useEffect(() => {
 
         @media(max-width:900px){
 
-          .class-main {
+        .class-main {
             margin-left:100px;
-          }
+        }
 
         }
 
+
         @media(max-width:600px){
 
-          .class-main {
-            margin-left:80px;
-            padding:20px 12px;
-          }
+        .class-main {
+            margin-left:0;
+            padding:20px 12px 110px;
+        }
 
-          .class-title {
+        .class-title {
             font-size:28px;
-          }
+        }
 
-          .search-box {
+        .search-box {
             width:200px;
-          }
+        }
 
         }
 

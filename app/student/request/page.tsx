@@ -496,6 +496,82 @@ export default function RequestsPage() {
         box-shadow:0 12px 25px rgba(26,60,42,.3);
         }
 
+        @media (max-width: 900px){
+
+        .requests-main{
+            margin-left: 0;
+            padding: 28px 20px;
+        }
+
+        .requests-maintitle{
+            font-size:34px;
+        }
+
+        .stats{
+            gap:14px;
+        }
+
+        .stats > div{
+            padding:18px !important;
+        }
+
+        }
+
+
+        @media (max-width:600px){
+
+        .requests-main{
+            margin-left:0;
+            padding:20px 16px;
+            padding-bottom:110px;
+        }
+
+        .requests-header{
+            gap:12px;
+            align-items:center;
+        }
+
+        .requests-maintitle{
+            font-size:24px;
+        }
+
+        .stats{
+            flex-direction:column;
+            gap:12px;
+        }
+
+        .request-header{
+            flex-direction:column;
+            align-items:stretch;
+            gap:14px;
+        }
+
+        .send-btn{
+            width:100%;
+            height:44px;
+        }
+
+        .request-item{
+            padding:20px 18px 20px 28px;
+        }
+
+        }
+
+
+        @media (max-width:420px){
+
+        .requests-main{
+            margin-left:0;
+            padding:16px 12px;
+            padding-bottom:90px;
+        }
+
+        .requests-maintitle{
+            font-size:21px;
+        }
+
+        }
+
       `}</style>
 
       <div className={`${montserrat.variable} requests-page`}>
@@ -680,13 +756,15 @@ export default function RequestsPage() {
         >
           <div
             style={{
-              background: "#fff",
-              borderRadius: 16,
-              padding: "32px 32px 28px",
-              width: "100%",
-              maxWidth: 480,
-              boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
-            }}
+                background:"#fff",
+                borderRadius:16,
+                padding:"32px 24px",
+                width:"calc(100% - 32px)",
+                maxWidth:480,
+                maxHeight:"90vh",
+                overflowY:"auto",
+                boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
+               }}
           >
             <h2
               style={{
@@ -945,13 +1023,15 @@ export default function RequestsPage() {
         >
           <div
             style={{
-              background: "#fff",
-              borderRadius: 18,
-              padding: 32,
-              width: "90%",
-              maxWidth: 520,
-              fontFamily: "var(--font-montserrat), sans-serif",
-            }}
+                background:"#fff",
+                borderRadius:16,
+                padding:"32px 24px",
+                width:"calc(100% - 32px)",
+                maxWidth:480,
+                maxHeight:"90vh",
+                overflowY:"auto",
+                boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
+               }}
           >
             <h2
               style={{
