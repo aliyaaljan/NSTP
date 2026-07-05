@@ -7,11 +7,13 @@ export function StatsCards({
   totalScans,
   onTimeCount,
   lateCount,
+  notScannedCount,
 }: {
   isMobile: boolean
   totalScans: number
   onTimeCount: number
   lateCount: number
+  notScannedCount: number
 }) {
   return (
     <div
@@ -110,6 +112,36 @@ export function StatsCards({
           }}
         >
           Late
+        </div>
+      </div>
+      <div
+        style={{
+          background: C.cardBg,
+          borderRadius: "8px",
+          padding: isMobile ? "12px 8px" : "16px 20px",
+          border: `1px solid ${C.border}`,
+          textAlign: "center",
+          boxShadow: C.cardShadow,
+        }}
+      >
+        <div
+          style={{
+            fontSize: isMobile ? "18px" : "28px",
+            fontWeight: 800,
+            color: C.textGray,
+          }}
+        >
+          {notScannedCount}
+        </div>
+        <div
+          style={{
+            fontSize: isMobile ? "10px" : "12px",
+            color: C.textGray,
+            fontWeight: 500,
+            marginTop: "1px",
+          }}
+        >
+          Not Scanned
         </div>
       </div>
     </div>

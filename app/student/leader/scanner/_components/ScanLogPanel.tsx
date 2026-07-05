@@ -6,6 +6,7 @@ import {
   IconClock,
   IconCheck,
   IconQrcode,
+  IconX,
 } from "@tabler/icons-react"
 import { C } from "./theme"
 import type { ScanRecord, ScanStatus } from "@/lib/student/leader/scan-history"
@@ -24,6 +25,12 @@ const STATUS_STYLES: Record<
     color: C.warning,
     bg: C.warningBg,
     icon: <IconClock size={14} stroke={2.5} />,
+  },
+  // dummy styling
+  "Not Scanned": {
+    color: C.textGray,
+    bg: "#E8E8E8",
+    icon: <IconX size={14} stroke={2.5} />,
   },
 }
 
@@ -240,12 +247,14 @@ export function ScanLogPanel({
   groupedByMonth,
   groupedByDate: groupedByDateProp,
   selectedWeek,
+  notScannedNames,
 }: {
   isMobile: boolean
   scans: ScanRecord[]
   groupedByMonth: Record<string, ScanRecord[]> | null
   groupedByDate: Record<string, ScanRecord[]> | null
   selectedWeek: string
+  notScannedNames: string[]
 }) {
   const totalScans = scans.length
   const isAllView = selectedWeek === "all"
@@ -474,6 +483,41 @@ export function ScanLogPanel({
             >
               Scans will appear here once students start checking in
             </p>
+          </div>
+        )}
+        {notScannedNames.length > 0 && (
+          <div style={{ marginTop: "16px" }}>
+            <div
+              style={{
+                padding: isMobile ? "6px 12px" : "10px 24px",
+                background: "#F0F0F0",
+                borderTop: `1px solid ${C.border}`,
+                borderBottom: `1px solid ${C.border}`,
+                fontSize: isMobile ? "10px" : "13px",
+                fontWeight: 700,
+                color: C.textGray,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Pending / Not Scanned ({notScannedNames.length})
+            </div>
+
+            {notScannedNames.map((name, i) => (
+              <ScanRow
+                key={`missing-${name}`}
+                isMobile={isMobile}
+                isLast={i === notScannedNames.length - 1}
+                scan={{
+                  id: `missing-${name}`,
+                  name: name,
+                  date: "—",
+                  generatedTime: "—",
+                  scannedTime: "—",
+                  status: "Not Scanned",
+                }}
+              />
+            ))}
           </div>
         )}
       </div>
