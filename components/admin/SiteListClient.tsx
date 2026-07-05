@@ -4,12 +4,19 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
+import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddGpsSiteModal from "@/components/admin/AddGpsSiteModal"
 import EditGpsSiteModal from "@/components/admin/EditGpsSiteModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import { deleteSite } from "@/lib/admin/site-list-actions"
 import { validateSiteDelete } from "@/lib/admin/site-edit"
+import {
+  matchesActiveFilters,
+  type ActiveFilters,
+  type FilterGroupDef,
+} from "@/lib/admin/filter-utils"
 import {
   SITE_LIST_ALL_ADVISERS,
   SITE_LIST_ALL_SECTIONS,
@@ -29,7 +36,7 @@ import {
   type SiteListSummary,
 } from "@/lib/admin/site-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
@@ -75,132 +82,15 @@ function ProfilePill({ user }: { user: AdminCurrentUser }) {
   )
 }
 
-function FilterDropdown({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      style={{
-        ...TYPE.bodyBold,
-        fontFamily: FONT_BODY,
-        color: "#fff",
-        background: COLORS.green,
-        borderRadius: 20,
-        padding: "5px 13px",
-        fontSize: "12.5px",
-        fontWeight: 600,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        cursor: "pointer",
-        position: "relative",
-      }}
-    >
-      <span>{label}</span>
-      <i className="ti ti-chevron-down" style={{ fontSize: 16 }} />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        style={ADMIN_FILTER_SELECT_STYLE}
-      >
-        {children}
-      </select>
-    </div>
-  )
-}
-
-const TABLE_COL_WIDTHS = ["22%", "26%", "10%", "20%", "10%", "12%"]
-
-function TableColGroup() {
-  return (
-    <colgroup>
-      {TABLE_COL_WIDTHS.map((width, index) => (
-        <col key={index} style={{ width }} />
-      ))}
-    </colgroup>
-  )
-}
-
-function ColumnHeader({
-  label,
-  align = "left",
-  sortable = false,
-  sortActive = false,
-  sortDirection = "asc",
-  onSort,
-}: {
-  label: string
-  align?: "left" | "center" | "right"
-  sortable?: boolean
-  sortActive?: boolean
-  sortDirection?: "asc" | "desc"
-  onSort?: () => void
-}) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        justifyContent:
-          align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start",
-        width: align !== "left" ? "100%" : undefined,
-      }}
-    >
-      <span style={{ ...TYPE.sectionLabel, color: COLORS.textGray }}>{label}</span>
-      {sortable && (
-        <button
-          type="button"
-          onClick={onSort}
-          aria-label={`Sort by ${label}`}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            display: "inline-flex",
-            flexDirection: "column",
-            lineHeight: 0.8,
-          }}
-        >
-          <i
-            className="ti ti-chevron-up"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "asc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-          <i
-            className="ti ti-chevron-down"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "desc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-        </button>
-      )}
-    </div>
-  )
-}
-
 function SiteStatusBadge({ isActive }: { isActive: boolean }) {
   return (
     <span
       style={{
-        ...TYPE.caption,
-        fontWeight: 700,
         display: "inline-block",
         padding: "4px 12px",
         borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 600,
         background: isActive ? COLORS.greenBgLight : COLORS.maroonBgLight,
         color: isActive ? COLORS.green : COLORS.maroon,
         whiteSpace: "nowrap",
@@ -209,6 +99,20 @@ function SiteStatusBadge({ isActive }: { isActive: boolean }) {
       {isActive ? "Active" : "Inactive"}
     </span>
   )
+}
+
+function initialFiltersFromQuery(query: SiteListQuery): ActiveFilters {
+  const filters: ActiveFilters = {}
+  if (query.status !== SITE_LIST_ALL_STATUSES) {
+    filters.statusCode = [query.status]
+  }
+  if (query.sectionId !== SITE_LIST_ALL_SECTIONS) {
+    filters.sectionId = [query.sectionId]
+  }
+  if (query.adviserId !== SITE_LIST_ALL_ADVISERS) {
+    filters.adviserUserId = [query.adviserId]
+  }
+  return filters
 }
 
 export default function SiteListClient({
@@ -234,6 +138,9 @@ export default function SiteListClient({
   const [editSite, setEditSite] = useState<SiteListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SiteListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
+    initialFiltersFromQuery(query)
+  )
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
@@ -282,9 +189,54 @@ export default function SiteListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleSites = useMemo(
-    () => filterSiteListRows(sites, { ...query, search: searchInput }),
+  const filterGroups: FilterGroupDef[] = useMemo(
+    () => [
+      {
+        label: "Status",
+        field: "statusCode",
+        options: SITE_STATUS_FILTER_OPTIONS.filter(
+          (o) => o.value !== SITE_LIST_ALL_STATUSES
+        ).map((o) => ({ value: o.value, label: o.label })),
+      },
+      {
+        label: "Section",
+        field: "sectionId",
+        options: sections.map((s) => ({ value: s.sectionId, label: s.label })),
+      },
+      {
+        label: "Adviser",
+        field: "adviserUserId",
+        options: advisers.map((a) => ({ value: a.adviserUserId, label: a.fullName })),
+      },
+    ],
+    [sections, advisers]
+  )
+
+  const searchFiltered = useMemo(
+    () =>
+      filterSiteListRows(sites, {
+        ...query,
+        search: searchInput,
+        status: SITE_LIST_ALL_STATUSES,
+        sectionId: SITE_LIST_ALL_SECTIONS,
+        adviserId: SITE_LIST_ALL_ADVISERS,
+      }),
     [sites, query, searchInput]
+  )
+
+  const visibleSites = useMemo(
+    () =>
+      searchFiltered.filter((site) =>
+        matchesActiveFilters(
+          {
+            statusCode: site.isActive ? "active" : "inactive",
+            sectionId: site.sectionId,
+            adviserUserId: site.adviserUserId,
+          },
+          activeFilters
+        )
+      ),
+    [searchFiltered, activeFilters]
   )
 
   const {
@@ -298,25 +250,22 @@ export default function SiteListClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.status, query.sectionId, query.adviserId, query.sort, query.dir])
+  }, [query.page, query.search, query.sort, query.dir, activeFilters])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const statusLabel =
-    SITE_STATUS_FILTER_OPTIONS.find((o) => o.value === query.status)?.label ??
-    "All Status"
-
-  const sectionLabel =
-    query.sectionId !== SITE_LIST_ALL_SECTIONS
-      ? sections.find((s) => s.sectionId === query.sectionId)?.label ?? "All Sections"
-      : "All Sections"
-
-  const adviserLabel =
-    query.adviserId !== SITE_LIST_ALL_ADVISERS
-      ? advisers.find((a) => a.adviserUserId === query.adviserId)?.fullName ?? "All Advisers"
-      : "All Advisers"
+  function setStatusFilter(status: string | null) {
+    setActiveFilters((prev) => {
+      if (!status) {
+        const { statusCode: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, statusCode: [status] }
+    })
+    pushParams({ status, page: "1" })
+  }
 
   function openDeleteConfirm(site: SiteListRow) {
     setDeleteError(null)
@@ -359,8 +308,8 @@ export default function SiteListClient({
       label: "Total Sites",
       value: summary.total,
       note: "geofence locations",
-      onClick: () => pushParams({ status: null, page: "1" }),
-      isActive: query.status === "all",
+      onClick: () => setStatusFilter(null),
+      isActive: !activeFilters.statusCode?.length,
     },
     {
       icon: "ti-circle-check",
@@ -372,8 +321,8 @@ export default function SiteListClient({
         color: COLORS.green,
       },
       note: "of all sites",
-      onClick: () => pushParams({ status: "active", page: "1" }),
-      isActive: query.status === "active",
+      onClick: () => setStatusFilter("active"),
+      isActive: activeFilters.statusCode?.includes("active") ?? false,
     },
     {
       icon: "ti-circle-x",
@@ -385,8 +334,8 @@ export default function SiteListClient({
         color: COLORS.maroon,
       },
       note: "of all sites",
-      onClick: () => pushParams({ status: "inactive", page: "1" }),
-      isActive: query.status === "inactive",
+      onClick: () => setStatusFilter("inactive"),
+      isActive: activeFilters.statusCode?.includes("inactive") ?? false,
     },
     {
       icon: "ti-radar",
@@ -401,11 +350,6 @@ export default function SiteListClient({
   return (
     <>
       <ChartStyles />
-      <style>{`
-        .site-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .site-list-scroll::-webkit-scrollbar { width: 5px; }
-        .site-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
-      `}</style>
 
       <div
         style={{
@@ -421,146 +365,44 @@ export default function SiteListClient({
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
-          <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {filteredCount} GPS geofence {filteredCount === 1 ? "site" : "sites"}
-          </p>
         </div>
         <ProfilePill user={currentUser} />
       </div>
 
-      <div className="admin-list-pre-table">
-        <div className="admin-list-kpi-sticky">
-          <KpiStatCardGrid columns={4}>
-            {statCards.map((card, index) => (
-              <KpiStatCard key={index} {...card} />
-            ))}
-          </KpiStatCardGrid>
-        </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ position: "relative" }}>
-          <i
-            className="ti ti-search"
-            style={{
-              position: "absolute",
-              left: 16,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 14,
-              color: COLORS.light,
-            }}
-          />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search sites, sections, or advisers"
-            style={{
-              width: "100%",
-              fontFamily: FONT_BODY,
-              fontSize: "13.5px",
-              color: COLORS.text,
-              border: `1.5px solid ${COLORS.border}`,
-              borderRadius: 24,
-              padding: "8px 16px 8px 40px",
-              outline: "none",
-              background: COLORS.white,
-            }}
-          />
-        </div>
+      <div className="admin-list-kpi-sticky" style={{ marginBottom: 16 }}>
+        <KpiStatCardGrid columns={4}>
+          {statCards.map((card, index) => (
+            <KpiStatCard key={index} {...card} />
+          ))}
+        </KpiStatCardGrid>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 12,
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-          <FilterDropdown
-            label={statusLabel}
-            value={query.status}
-            onChange={(value) =>
-              pushParams({
-                status: value === SITE_LIST_ALL_STATUSES ? null : value,
-                page: "1",
-              })
-            }
-          >
-            {SITE_STATUS_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </FilterDropdown>
+      <div className="admin-table-card">
+        <AdminTableToolbar
+          title="All Sites"
+          count={`${filteredCount} site${filteredCount !== 1 ? "s" : ""} found`}
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          searchPlaceholder="Search sites, sections, or advisers"
+          filterGroups={filterGroups}
+          activeFilters={activeFilters}
+          onFiltersChange={(next) => {
+            setActiveFilters(next)
+            pushParams({ page: "1" })
+          }}
+          onClearFilters={() => {
+            setActiveFilters({})
+            pushParams({ status: null, sectionId: null, adviserId: null, page: "1" })
+          }}
+          actions={<AdminAddButton label="Add site" onClick={() => setAddOpen(true)} />}
+        />
 
-          <FilterDropdown
-            label={sectionLabel}
-            value={query.sectionId}
-            onChange={(value) =>
-              pushParams({
-                sectionId: value === SITE_LIST_ALL_SECTIONS ? null : value,
-                page: "1",
-              })
-            }
-          >
-            <option value={SITE_LIST_ALL_SECTIONS}>All Sections</option>
-            {sections.map((section) => (
-              <option key={section.sectionId} value={section.sectionId}>
-                {section.label}
-              </option>
-            ))}
-          </FilterDropdown>
-
-          <FilterDropdown
-            label={adviserLabel}
-            value={query.adviserId}
-            onChange={(value) =>
-              pushParams({
-                adviserId: value === SITE_LIST_ALL_ADVISERS ? null : value,
-                page: "1",
-              })
-            }
-          >
-            <option value={SITE_LIST_ALL_ADVISERS}>All Advisers</option>
-            {advisers.map((adviser) => (
-              <option key={adviser.adviserUserId} value={adviser.adviserUserId}>
-                {adviser.fullName}
-              </option>
-            ))}
-          </FilterDropdown>
-        </div>
-
-        <AdminAddButton label="Add site" onClick={() => setAddOpen(true)} />
-      </div>
-      </div>
-
-      <div
-        style={{
-          background: COLORS.cardBg,
-          border: `1px solid ${COLORS.border}`,
-          borderRadius: COLORS.radius,
-          boxShadow: COLORS.cardShadow,
-        }}
-      >
-        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              minWidth: 880,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
+        <div className="admin-table-wrapper">
+          <table className="admin-table" style={{ minWidth: 880 }}>
             <thead>
-              <tr style={{ background: COLORS.tableHeadBg }}>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+              <tr>
+                <th style={{ width: "22%" }}>
+                  <AdminSortHeader
                     label="NSTP Site"
                     sortable
                     sortActive={query.sort === "name"}
@@ -568,8 +410,8 @@ export default function SiteListClient({
                     onSort={() => toggleSort("name")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "26%" }}>
+                  <AdminSortHeader
                     label="Section Adviser"
                     sortable
                     sortActive={query.sort === "adviser"}
@@ -577,8 +419,8 @@ export default function SiteListClient({
                     onSort={() => toggleSort("adviser")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "10%" }}>
+                  <AdminSortHeader
                     label="Radius"
                     sortable
                     sortActive={query.sort === "radius"}
@@ -586,11 +428,9 @@ export default function SiteListClient({
                     onSort={() => toggleSort("radius")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Coordinates" />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "center" }}>
-                  <ColumnHeader
+                <th style={{ width: "20%" }}>Coordinates</th>
+                <th style={{ width: "10%", textAlign: "center" }}>
+                  <AdminSortHeader
                     label="Status"
                     align="center"
                     sortable
@@ -599,111 +439,53 @@ export default function SiteListClient({
                     onSort={() => toggleSort("status")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "center" }}>
-                  <ColumnHeader label="Actions" align="center" />
-                </th>
+                <th style={{ width: "12%" }}>Actions</th>
               </tr>
             </thead>
-          </table>
-        </div>
-
-        <div className="site-list-scroll admin-list-table-scroll">
-          <table
-            style={{
-              width: "100%",
-              minWidth: 880,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
             <tbody key={animKey}>
               {pageSites.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      ...TYPE.body,
-                      color: COLORS.textGray,
-                      textAlign: "center",
-                      padding: "40px 18px",
-                    }}
-                  >
+                  <td colSpan={6} className="admin-table-empty">
                     No GPS sites match your filters.
                   </td>
                 </tr>
               ) : (
                 pageSites.map((site) => (
-                  <tr
-                    key={site.geofenceId}
-                    className="anim-list-item"
-                    style={{ borderTop: `1px solid ${COLORS.border}` }}
-                  >
-                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                      <div
-                        style={{
-                          ...TYPE.bodyBold,
-                          color: COLORS.textDark,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
+                  <tr key={site.geofenceId} className="anim-list-item">
+                    <td>
+                      <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                         {site.siteName}
                       </div>
                     </td>
-                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                      <div
-                        style={{
-                          ...TYPE.bodyBold,
-                          color: COLORS.textDark,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
+                    <td>
+                      <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                         {sectionLabelById.get(site.sectionId) ?? site.sectionName}
                       </div>
-                      <div
-                        style={{
-                          ...TYPE.caption,
-                          color: COLORS.textGray,
-                          marginTop: 2,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
+                      <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                         {site.supervisorName}
                       </div>
                     </td>
-                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                      <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                    <td>
+                      <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                         {site.radiusMeters} m
                       </div>
                     </td>
-                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                    <td>
                       <div
                         style={{
-                          ...TYPE.bodyBold,
+                          fontWeight: 700,
                           color: COLORS.textDark,
                           fontVariantNumeric: "tabular-nums",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
                         }}
                       >
                         {formatSiteCoordinates(site)}
                       </div>
                     </td>
-                    <td style={{ padding: "16px 18px", verticalAlign: "middle", textAlign: "center" }}>
+                    <td style={{ textAlign: "center" }}>
                       <SiteStatusBadge isActive={site.isActive} />
                     </td>
-                    <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 10,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
+                    <td>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                         <button
                           type="button"
                           onClick={() => setEditSite(site)}

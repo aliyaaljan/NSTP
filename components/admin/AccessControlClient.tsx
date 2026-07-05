@@ -8,9 +8,16 @@ import AddAccessUserModal from "@/components/admin/AddAccessUserModal"
 import EditAccessUserModal from "@/components/admin/EditAccessUserModal"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
+import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import {
   deactivateAccessUser,
 } from "@/lib/admin/access-control-actions"
+import {
+  matchesActiveFilters,
+  type ActiveFilters,
+  type FilterGroupDef,
+} from "@/lib/admin/filter-utils"
 import type {
   AccessControlMeta,
   AccessControlQuery,
@@ -30,7 +37,7 @@ import {
   paginateAccessControlRows,
 } from "@/lib/admin/access-control"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
@@ -76,141 +83,36 @@ function ProfilePill({ user }: { user: AdminCurrentUser }) {
   )
 }
 
-function FilterDropdown({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      style={{
-        ...TYPE.bodyBold,
-        fontFamily: FONT_BODY,
-        color: "#fff",
-        background: COLORS.green,
-        borderRadius: 20,
-        padding: "5px 13px",
-        fontSize: "12.5px",
-        fontWeight: 600,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        cursor: "pointer",
-        position: "relative",
-      }}
-    >
-      <span>{label}</span>
-      <i className="ti ti-chevron-down" style={{ fontSize: 16 }} />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        style={ADMIN_FILTER_SELECT_STYLE}
-      >
-        {children}
-      </select>
-    </div>
-  )
-}
-
-const TABLE_COL_WIDTHS = ["30%", "14%", "18%", "12%", "14%", "12%"]
-
-function TableColGroup() {
-  return (
-    <colgroup>
-      {TABLE_COL_WIDTHS.map((width, index) => (
-        <col key={index} style={{ width }} />
-      ))}
-    </colgroup>
-  )
-}
-
-function ColumnHeader({
-  label,
-  align = "left",
-  sortable = false,
-  sortActive = false,
-  sortDirection = "asc",
-  onSort,
-}: {
-  label: string
-  align?: "left" | "center"
-  sortable?: boolean
-  sortActive?: boolean
-  sortDirection?: "asc" | "desc"
-  onSort?: () => void
-}) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        justifyContent: align === "center" ? "center" : "flex-start",
-        width: align === "center" ? "100%" : undefined,
-      }}
-    >
-      <span style={{ ...TYPE.sectionLabel, color: COLORS.textGray }}>{label}</span>
-      {sortable && (
-        <button
-          type="button"
-          onClick={onSort}
-          aria-label={`Sort by ${label}`}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            display: "inline-flex",
-            flexDirection: "column",
-            lineHeight: 0.8,
-          }}
-        >
-          <i
-            className="ti ti-chevron-up"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "asc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-          <i
-            className="ti ti-chevron-down"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "desc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-        </button>
-      )}
-    </div>
-  )
-}
-
 function RoleBadge({ roleCode }: { roleCode: AccessControlRow["roleCode"] }) {
   const roleStyle = ROLE_COLOR_STYLES[roleCode]
 
   return (
     <span
       style={{
-        ...TYPE.bodyBold,
         display: "inline-block",
         padding: "4px 12px",
         borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 600,
         background: roleStyle.bg,
         color: roleStyle.color,
-        fontSize: "12px",
         whiteSpace: "nowrap",
       }}
     >
       {ROLE_CODE_LABELS[roleCode]}
     </span>
   )
+}
+
+function initialFiltersFromQuery(query: AccessControlQuery): ActiveFilters {
+  const filters: ActiveFilters = {}
+  if (query.role !== ACCESS_CONTROL_ALL_ROLES) {
+    filters.roleCode = [query.role]
+  }
+  if (query.status !== "all") {
+    filters.status = [query.status]
+  }
+  return filters
 }
 
 export default function AccessControlClient({
@@ -237,6 +139,9 @@ export default function AccessControlClient({
     name: string
   } | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
+    initialFiltersFromQuery(query)
+  )
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
@@ -270,9 +175,50 @@ export default function AccessControlClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleUsers = useMemo(
-    () => filterAccessControlRows(users, { ...query, search: searchInput }),
+  const filterGroups: FilterGroupDef[] = useMemo(
+    () => [
+      {
+        label: "Role",
+        field: "roleCode",
+        options: roles.map((role) => ({
+          value: role.code,
+          label: ROLE_CODE_LABELS[role.code],
+        })),
+      },
+      {
+        label: "Status",
+        field: "status",
+        options: ACCESS_CONTROL_STATUS_FILTER_OPTIONS.filter((o) => o.value !== "all").map(
+          (o) => ({ value: o.value, label: o.label })
+        ),
+      },
+    ],
+    [roles]
+  )
+
+  const searchFiltered = useMemo(
+    () =>
+      filterAccessControlRows(users, {
+        ...query,
+        search: searchInput,
+        role: ACCESS_CONTROL_ALL_ROLES,
+        status: "all",
+      }),
     [users, query, searchInput]
+  )
+
+  const visibleUsers = useMemo(
+    () =>
+      searchFiltered.filter((user) =>
+        matchesActiveFilters(
+          {
+            roleCode: user.roleCode,
+            status: user.isActive ? "active" : "inactive",
+          },
+          activeFilters
+        )
+      ),
+    [searchFiltered, activeFilters]
   )
 
   const {
@@ -286,19 +232,22 @@ export default function AccessControlClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.role, query.status, query.sort, query.dir])
+  }, [query.page, query.search, query.sort, query.dir, activeFilters])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const roleLabel =
-    query.role !== ACCESS_CONTROL_ALL_ROLES
-      ? ROLE_CODE_LABELS[query.role]
-      : "All Roles"
-  const statusLabel =
-    ACCESS_CONTROL_STATUS_FILTER_OPTIONS.find((o) => o.value === query.status)?.label ??
-    "All Status"
+  function setRoleFilter(role: string | null) {
+    setActiveFilters((prev) => {
+      if (!role) {
+        const { roleCode: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, roleCode: [role] }
+    })
+    pushParams({ role, page: "1" })
+  }
 
   function openDeleteConfirm(appUserId: string, name: string) {
     setDeleteError(null)
@@ -338,8 +287,8 @@ export default function AccessControlClient({
       label: "Total Users",
       value: summary.totalUsers,
       note: "registered accounts",
-      onClick: () => pushParams({ role: null, page: "1" }),
-      isActive: query.role === ACCESS_CONTROL_ALL_ROLES,
+      onClick: () => setRoleFilter(null),
+      isActive: !activeFilters.roleCode?.length,
     },
     {
       icon: "ti-shield",
@@ -351,8 +300,8 @@ export default function AccessControlClient({
         color: ROLE_COLOR_STYLES.admin.color,
       },
       note: "of all users",
-      onClick: () => pushParams({ role: "admin", page: "1" }),
-      isActive: query.role === "admin",
+      onClick: () => setRoleFilter("admin"),
+      isActive: activeFilters.roleCode?.includes("admin") ?? false,
     },
     {
       icon: "ti-user-check",
@@ -364,8 +313,8 @@ export default function AccessControlClient({
         color: ROLE_COLOR_STYLES.adviser.color,
       },
       note: "of all users",
-      onClick: () => pushParams({ role: "adviser", page: "1" }),
-      isActive: query.role === "adviser",
+      onClick: () => setRoleFilter("adviser"),
+      isActive: activeFilters.roleCode?.includes("adviser") ?? false,
     },
     {
       icon: "ti-school",
@@ -377,19 +326,14 @@ export default function AccessControlClient({
         color: ROLE_COLOR_STYLES.student.color,
       },
       note: "of all users",
-      onClick: () => pushParams({ role: "student", page: "1" }),
-      isActive: query.role === "student",
+      onClick: () => setRoleFilter("student"),
+      isActive: activeFilters.roleCode?.includes("student") ?? false,
     },
   ]
 
   return (
     <>
       <ChartStyles />
-      <style>{`
-        .access-control-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .access-control-scroll::-webkit-scrollbar { width: 5px; }
-        .access-control-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
-      `}</style>
 
       <div
         style={{
@@ -412,118 +356,40 @@ export default function AccessControlClient({
         <ProfilePill user={currentUser} />
       </div>
 
-      <div className="admin-list-pre-table">
-        <div className="admin-list-kpi-sticky">
-          <KpiStatCardGrid columns={4}>
-            {statCards.map((card, index) => (
-              <KpiStatCard key={index} {...card} />
-            ))}
-          </KpiStatCardGrid>
-        </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ position: "relative" }}>
-          <i
-            className="ti ti-search"
-            style={{
-              position: "absolute",
-              left: 16,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 14,
-              color: COLORS.light,
-            }}
-          />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search by name, email, or ID"
-            style={{
-              width: "100%",
-              fontFamily: FONT_BODY,
-              fontSize: "13.5px",
-              color: COLORS.text,
-              border: `1.5px solid ${COLORS.border}`,
-              borderRadius: 24,
-              padding: "8px 16px 8px 40px",
-              outline: "none",
-              background: COLORS.white,
-            }}
-          />
-        </div>
+      <div className="admin-list-kpi-sticky" style={{ marginBottom: 16 }}>
+        <KpiStatCardGrid columns={4}>
+          {statCards.map((card, index) => (
+            <KpiStatCard key={index} {...card} />
+          ))}
+        </KpiStatCardGrid>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 12,
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-          <FilterDropdown
-            label={roleLabel}
-            value={query.role}
-            onChange={(value) =>
-              pushParams({
-                role: value === ACCESS_CONTROL_ALL_ROLES ? null : value,
-                page: "1",
-              })
-            }
-          >
-            <option value={ACCESS_CONTROL_ALL_ROLES}>All Roles</option>
-            {roles.map((role) => (
-              <option key={role.roleId} value={role.code}>
-                {ROLE_CODE_LABELS[role.code]}
-              </option>
-            ))}
-          </FilterDropdown>
+      <div className="admin-table-card">
+        <AdminTableToolbar
+          title="All Users"
+          count={`${filteredCount} user${filteredCount !== 1 ? "s" : ""} found`}
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          searchPlaceholder="Search by name, email, or ID"
+          filterGroups={filterGroups}
+          activeFilters={activeFilters}
+          onFiltersChange={(next) => {
+            setActiveFilters(next)
+            pushParams({ page: "1" })
+          }}
+          onClearFilters={() => {
+            setActiveFilters({})
+            pushParams({ role: null, status: null, page: "1" })
+          }}
+          actions={<AdminAddButton label="Add user" onClick={() => setAddUserOpen(true)} />}
+        />
 
-          <FilterDropdown
-            label={statusLabel}
-            value={query.status}
-            onChange={(value) =>
-              pushParams({ status: value === "all" ? null : value, page: "1" })
-            }
-          >
-            {ACCESS_CONTROL_STATUS_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </FilterDropdown>
-        </div>
-
-        <AdminAddButton label="Add user" onClick={() => setAddUserOpen(true)} />
-      </div>
-      </div>
-
-      <div
-        style={{
-          background: COLORS.cardBg,
-          border: `1px solid ${COLORS.border}`,
-          borderRadius: COLORS.radius,
-          boxShadow: COLORS.cardShadow,
-        }}
-      >
-        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              minWidth: 860,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
+        <div className="admin-table-wrapper">
+          <table className="admin-table" style={{ minWidth: 860 }}>
             <thead>
-              <tr style={{ background: COLORS.tableHeadBg }}>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+              <tr>
+                <th style={{ width: "30%" }}>
+                  <AdminSortHeader
                     label="Name"
                     sortable
                     sortActive={query.sort === "name"}
@@ -531,8 +397,8 @@ export default function AccessControlClient({
                     onSort={() => toggleSort("name")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "14%" }}>
+                  <AdminSortHeader
                     label="ID"
                     sortable
                     sortActive={query.sort === "id"}
@@ -540,8 +406,8 @@ export default function AccessControlClient({
                     onSort={() => toggleSort("id")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "18%" }}>
+                  <AdminSortHeader
                     label="Role"
                     sortable
                     sortActive={query.sort === "role"}
@@ -549,42 +415,15 @@ export default function AccessControlClient({
                     onSort={() => toggleSort("role")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "center" }}>
-                  <ColumnHeader label="Status" align="center" />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Last Updated" />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Actions" />
-                </th>
+                <th style={{ width: "12%", textAlign: "center" }}>Status</th>
+                <th style={{ width: "14%" }}>Last Updated</th>
+                <th style={{ width: "12%" }}>Actions</th>
               </tr>
             </thead>
-          </table>
-        </div>
-
-        <div className="access-control-scroll admin-list-table-scroll">
-          <table
-            style={{
-              width: "100%",
-              minWidth: 860,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
             <tbody key={animKey}>
               {pageUsers.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      ...TYPE.body,
-                      color: COLORS.textGray,
-                      textAlign: "center",
-                      padding: "40px 18px",
-                    }}
-                  >
+                  <td colSpan={6} className="admin-table-empty">
                     No users match your filters.
                   </td>
                 </tr>
@@ -606,18 +445,14 @@ export default function AccessControlClient({
                     : "—"
 
                   return (
-                    <tr
-                      key={user.appUserId}
-                      className="anim-list-item"
-                      style={{ borderTop: `1px solid ${COLORS.border}` }}
-                    >
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                    <tr key={user.appUserId} className="anim-list-item">
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {user.fullName}
                           {user.isSample && (
                             <span
                               style={{
-                                ...TYPE.caption,
+                                fontSize: 12,
                                 color: COLORS.textGray,
                                 fontWeight: 400,
                                 marginLeft: 8,
@@ -627,45 +462,39 @@ export default function AccessControlClient({
                             </span>
                           )}
                         </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                           {user.email}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {user.displayId}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <td>
                         <RoleBadge roleCode={user.roleCode} />
                       </td>
-                      <td
-                        style={{
-                          padding: "16px 18px",
-                          verticalAlign: "middle",
-                          textAlign: "center",
-                        }}
-                      >
+                      <td style={{ textAlign: "center" }}>
                         <span
                           style={{
-                            ...TYPE.bodyBold,
                             display: "inline-block",
                             padding: "4px 12px",
                             borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 600,
                             background: statusBadge.bg,
                             color: statusBadge.color,
-                            fontSize: "12px",
                           }}
                         >
                           {statusBadge.label}
                         </span>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray }}>
+                      <td>
+                        <div style={{ fontSize: 12, color: COLORS.textGray }}>
                           {lastUpdated}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <td>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <button
                             type="button"

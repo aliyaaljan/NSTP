@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
@@ -14,17 +15,68 @@ import { deleteAdviser } from "@/lib/admin/adviser-list-actions"
 import {
   ADVISER_LIST_ALL_SECTIONS,
   ADVISER_LIST_PAGE_SIZE,
-  filterAdviserListRowsBySection,
+  filterAdviserListRows,
   paginateAdviserListRows,
   type AdminCurrentUser,
   type AdviserListMeta,
   type AdviserListQuery,
   type AdviserListRow,
   type AdviserListSectionOption,
+  type AdviserListStatusFilter,
   type AdviserListSummary,
 } from "@/lib/admin/adviser-list"
+import {
+  type ActiveFilters,
+  type FilterGroupDef,
+} from "@/lib/admin/filter-utils"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+
+const ADVISER_STATUS_FILTER_OPTIONS: ReadonlyArray<{
+  value: Exclude<AdviserListStatusFilter, "all">
+  label: string
+}> = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "pending", label: "Pending requests" },
+]
+
+function adviserMatchesFilters(
+  adviser: AdviserListRow,
+  activeFilters: ActiveFilters
+): boolean {
+  const statusFilters = activeFilters.status
+  if (statusFilters?.length) {
+    const matchesStatus = statusFilters.some((status) => {
+      if (status === "active") return adviser.isActive
+      if (status === "inactive") return !adviser.isActive
+      if (status === "pending") return adviser.pendingRequestCount > 0
+      return false
+    })
+    if (!matchesStatus) return false
+  }
+
+  const sectionFilters = activeFilters.sectionId
+  if (sectionFilters?.length) {
+    const matchesSection = sectionFilters.some((sectionId) =>
+      adviser.sectionIds.includes(sectionId)
+    )
+    if (!matchesSection) return false
+  }
+
+  return true
+}
+
+function initialFiltersFromQuery(query: AdviserListQuery): ActiveFilters {
+  const filters: ActiveFilters = {}
+  if (query.sectionId !== ADVISER_LIST_ALL_SECTIONS) {
+    filters.sectionId = [query.sectionId]
+  }
+  if (query.status !== "all") {
+    filters.status = [query.status]
+  }
+  return filters
+}
 
 function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
@@ -66,48 +118,6 @@ function ProfilePill({ user }: { user: AdminCurrentUser }) {
           {user.role}
         </div>
       </div>
-    </div>
-  )
-}
-
-function FilterDropdown({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      style={{
-        fontFamily: FONT_BODY,
-        fontSize: "12.5px",
-        fontWeight: 600,
-        color: "#fff",
-        background: COLORS.green,
-        borderRadius: 20,
-        padding: "5px 13px",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        cursor: "pointer",
-        position: "relative",
-      }}
-    >
-      <span>{label}</span>
-      <i className="ti ti-chevron-down" style={{ fontSize: 16 }} />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        style={ADMIN_FILTER_SELECT_STYLE}
-      >
-        {children}
-      </select>
     </div>
   )
 }
@@ -293,6 +303,9 @@ export default function AdviserListClient({
     name: string
   } | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
+    initialFiltersFromQuery(query)
+  )
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
@@ -320,14 +333,39 @@ export default function AdviserListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const filteredAdvisers = useMemo(
+  const filterGroups: FilterGroupDef[] = useMemo(
+    () => [
+      {
+        label: "Status",
+        field: "status",
+        options: ADVISER_STATUS_FILTER_OPTIONS.map((o) => ({
+          value: o.value,
+          label: o.label,
+        })),
+      },
+      {
+        label: "Section",
+        field: "sectionId",
+        options: sections.map((s) => ({ value: s.sectionId, label: s.name })),
+        optionsPerColumn: 7,
+      },
+    ],
+    [sections]
+  )
+
+  const searchFiltered = useMemo(
     () =>
-      filterAdviserListRowsBySection(
-        advisers,
-        { ...query, search: searchInput },
-        sections
-      ),
-    [advisers, query, searchInput, sections]
+      filterAdviserListRows(advisers, {
+        ...query,
+        search: searchInput,
+        status: "all",
+      }),
+    [advisers, query, searchInput]
+  )
+
+  const filteredAdvisers = useMemo(
+    () => searchFiltered.filter((adviser) => adviserMatchesFilters(adviser, activeFilters)),
+    [searchFiltered, activeFilters]
   )
 
   const { rows: pageAdvisers, totalPages, totalCount } = useMemo(
@@ -337,16 +375,22 @@ export default function AdviserListClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sectionId, query.status])
+  }, [query.page, query.search, activeFilters])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const sectionLabel =
-    query.sectionId !== ADVISER_LIST_ALL_SECTIONS
-      ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
-      : "All Sections"
+  function setStatusFilter(status: AdviserListStatusFilter | null) {
+    setActiveFilters((prev) => {
+      if (!status || status === "all") {
+        const { status: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, status: [status] }
+    })
+    pushParams({ status: status === "all" ? null : status, page: "1" })
+  }
 
   function openDeleteConfirm(adviser: AdviserListRow) {
     setDeleteError(null)
@@ -386,8 +430,8 @@ export default function AdviserListClient({
       label: "Total Advisers",
       value: summary.total,
       note: "registered accounts",
-      onClick: () => pushParams({ status: null, page: "1" }),
-      isActive: query.status === "all",
+      onClick: () => setStatusFilter(null),
+      isActive: !activeFilters.status?.length,
     },
     {
       icon: "ti-circle-check",
@@ -399,8 +443,8 @@ export default function AdviserListClient({
         color: COLORS.green,
       },
       note: "of all advisers",
-      onClick: () => pushParams({ status: "active", page: "1" }),
-      isActive: query.status === "active",
+      onClick: () => setStatusFilter("active"),
+      isActive: activeFilters.status?.includes("active") ?? false,
     },
     {
       icon: "ti-users",
@@ -422,8 +466,8 @@ export default function AdviserListClient({
             }
           : undefined,
       note: "open appeals",
-      onClick: () => pushParams({ status: "pending", page: "1" }),
-      isActive: query.status === "pending",
+      onClick: () => setStatusFilter("pending"),
+      isActive: activeFilters.status?.includes("pending") ?? false,
     },
   ]
 
@@ -444,14 +488,11 @@ export default function AdviserListClient({
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
-          <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {totalCount} total advisers
-          </p>
         </div>
         <ProfilePill user={currentUser} />
       </div>
 
-      <div className="admin-list-kpi-sticky">
+      <div className="admin-list-kpi-sticky" style={{ marginBottom: 16 }}>
         <KpiStatCardGrid columns={4}>
           {statCards.map((card, index) => (
             <KpiStatCard key={index} {...card} />
@@ -459,116 +500,65 @@ export default function AdviserListClient({
         </KpiStatCardGrid>
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ position: "relative" }}>
-          <i
-            className="ti ti-search"
-            style={{
-              position: "absolute",
-              left: 16,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 14,
-              color: COLORS.light,
-            }}
-          />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search advisers"
-            style={{
-              width: "100%",
-              fontFamily: FONT_BODY,
-              fontSize: "13.5px",
-              color: COLORS.text,
-              border: `1.5px solid ${COLORS.border}`,
-              borderRadius: 24,
-              padding: "8px 16px 8px 40px",
-              outline: "none",
-              background: COLORS.white,
-            }}
-          />
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 12,
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-          <FilterDropdown
-            label={sectionLabel}
-            value={query.sectionId}
-            onChange={(value) =>
-              pushParams({
-                sectionId: value === ADVISER_LIST_ALL_SECTIONS ? null : value,
-                page: "1",
-              })
-            }
-          >
-            <option value={ADVISER_LIST_ALL_SECTIONS}>All Sections</option>
-            {sections.map((section) => (
-              <option key={section.sectionId} value={section.sectionId}>
-                Section {section.name}
-              </option>
-            ))}
-          </FilterDropdown>
-        </div>
-
-        <AdminAddButton label="Add adviser" onClick={() => setAddChoiceOpen(true)} />
-      </div>
-
-      <div className="admin-list-table-scroll admin-list-card-scroll">
-      {pageAdvisers.length === 0 ? (
-        <div
-          style={{
-            ...TYPE.body,
-            color: COLORS.textGray,
-            textAlign: "center",
-            padding: "60px 20px",
-            background: COLORS.cardBg,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: COLORS.radius,
+      <div className="admin-table-card">
+        <AdminTableToolbar
+          title="All Advisers"
+          count={`${totalCount} adviser${totalCount !== 1 ? "s" : ""} found`}
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          searchPlaceholder="Search advisers"
+          filterGroups={filterGroups}
+          activeFilters={activeFilters}
+          onFiltersChange={(next) => {
+            setActiveFilters(next)
+            pushParams({ page: "1" })
           }}
-        >
-          No advisers match your filters.
-        </div>
-      ) : (
-        <div
-          key={animKey}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 20,
+          onClearFilters={() => {
+            setActiveFilters({})
+            pushParams({ sectionId: null, status: null, page: "1" })
           }}
-        >
-          {pageAdvisers.map((adviser) => (
-            <AdviserCard
-              key={adviser.adviserUserId}
-              adviser={adviser}
-              onEdit={setEditAdviser}
-              onDelete={openDeleteConfirm}
-              isDeleting={isDeleting && deletingId === adviser.adviserUserId}
-            />
-          ))}
-        </div>
-      )}
-      </div>
+          actions={
+            <AdminAddButton label="Add adviser" onClick={() => setAddChoiceOpen(true)} />
+          }
+        />
 
-      <ListPagination
-        page={query.page}
-        totalPages={totalPages}
-        totalCount={totalCount}
-        pageSize={ADVISER_LIST_PAGE_SIZE}
-        onPageChange={goToPage}
-      />
+        <div
+          className="admin-list-table-scroll admin-list-card-scroll"
+          style={{ padding: "16px 20px" }}
+        >
+          {pageAdvisers.length === 0 ? (
+            <div className="admin-table-empty">No advisers match your filters.</div>
+          ) : (
+            <div
+              key={animKey}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: 20,
+              }}
+            >
+              {pageAdvisers.map((adviser) => (
+                <AdviserCard
+                  key={adviser.adviserUserId}
+                  adviser={adviser}
+                  onEdit={setEditAdviser}
+                  onDelete={openDeleteConfirm}
+                  isDeleting={isDeleting && deletingId === adviser.adviserUserId}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <ListPagination
+          page={query.page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={ADVISER_LIST_PAGE_SIZE}
+          onPageChange={goToPage}
+          containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
+        />
+      </div>
 
       <AddChoiceModal
         open={addChoiceOpen}

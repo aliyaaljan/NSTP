@@ -108,6 +108,113 @@ export const ADMIN_THEME_CSS = `
   .admin-list-card-scroll {
     padding: 4px 2px 8px;
   }
+
+  /* Embedded table card — matches adviser (facilitator) adv-table-* pattern */
+  .admin-table-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .admin-table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .admin-table-title { font-weight: 700; font-size: 15px; color: var(--text); }
+  .admin-table-count { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .admin-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1.5px solid var(--maroon);
+    border-radius: 999px;
+    padding: 8px 18px;
+    min-width: 280px;
+    background: var(--white);
+    transition: border-color 0.15s;
+  }
+  .admin-search-bar:focus-within { border-color: var(--green); }
+  .admin-search-input {
+    border: none;
+    outline: none;
+    font-size: 13.5px;
+    font-family: var(--font-content, 'Montserrat', sans-serif);
+    color: var(--text);
+    width: 100%;
+    background: transparent;
+  }
+  .admin-search-input::placeholder { color: var(--light); }
+  .admin-filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 18px;
+    background: var(--white);
+    font-size: 13.5px;
+    font-family: var(--font-content, 'Montserrat', sans-serif);
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text);
+    transition: border-color 0.13s, color 0.13s;
+  }
+  .admin-filter-btn:hover { border-color: #9CA3AF; }
+  .admin-filter-btn-active {
+    border-color: var(--maroon);
+    color: var(--maroon);
+  }
+  .admin-table-wrapper {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 380px);
+    scrollbar-width: thin;
+    scrollbar-color: #CFCFCB transparent;
+  }
+  .admin-table-wrapper::-webkit-scrollbar { width: 5px; height: 5px; }
+  .admin-table-wrapper::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .admin-table thead tr {
+    background: #F9FAFB;
+    border-bottom: 1px solid var(--border);
+  }
+  .admin-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #F9FAFB;
+    padding: 10px 20px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--maroon);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+  .admin-table td {
+    padding: 14px 20px;
+    border-bottom: 1px solid #F3F4F6;
+    vertical-align: middle;
+    font-size: 13px;
+  }
+  .admin-table tbody tr:last-child td { border-bottom: none; }
+  .admin-table tbody tr { transition: background 0.12s; }
+  .admin-table tbody tr:hover td { background: #FAFAFA; }
+  .admin-table-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
 `
 
 /** Overlay <select> used inside green filter pills (opacity 0, covers the pill). */

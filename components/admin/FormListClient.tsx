@@ -4,12 +4,19 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
+import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import CreateFormModal from "@/components/admin/CreateFormModal"
 import ImportFormsModal from "@/components/admin/ImportFormsModal"
 import { deleteForm } from "@/lib/admin/form-list-actions"
 import { formRowToEditPayload } from "@/lib/admin/form-edit"
+import {
+  matchesActiveFilters,
+  type ActiveFilters,
+  type FilterGroupDef,
+} from "@/lib/admin/filter-utils"
 import {
   FORM_LIST_ALL_SECTIONS,
   FORM_LIST_PAGE_SIZE,
@@ -25,7 +32,7 @@ import {
   type FormListSummary,
 } from "@/lib/admin/form-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
@@ -71,120 +78,15 @@ function ProfilePill({ user }: { user: AdminCurrentUser }) {
   )
 }
 
-function FilterDropdown({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      style={{
-        ...TYPE.bodyBold,
-        fontFamily: FONT_BODY,
-        color: "#fff",
-        background: COLORS.green,
-        borderRadius: 20,
-        padding: "5px 13px",
-        fontSize: "12.5px",
-        fontWeight: 600,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        cursor: "pointer",
-        position: "relative",
-      }}
-    >
-      <span>{label}</span>
-      <i className="ti ti-chevron-down" style={{ fontSize: 16 }} />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        style={ADMIN_FILTER_SELECT_STYLE}
-      >
-        {children}
-      </select>
-    </div>
-  )
-}
-
-const TABLE_COL_WIDTHS = ["28%", "22%", "18%", "22%", "10%"]
-
-function TableColGroup() {
-  return (
-    <colgroup>
-      {TABLE_COL_WIDTHS.map((width, index) => (
-        <col key={index} style={{ width }} />
-      ))}
-    </colgroup>
-  )
-}
-
-function ColumnHeader({
-  label,
-  align = "left",
-  sortable = false,
-  sortActive = false,
-  sortDirection = "asc",
-  onSort,
-}: {
-  label: string
-  align?: "left" | "center"
-  sortable?: boolean
-  sortActive?: boolean
-  sortDirection?: "asc" | "desc"
-  onSort?: () => void
-}) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        justifyContent: align === "center" ? "center" : "flex-start",
-        width: align === "center" ? "100%" : undefined,
-      }}
-    >
-      <span style={{ ...TYPE.sectionLabel, color: COLORS.textGray }}>{label}</span>
-      {sortable && (
-        <button
-          type="button"
-          onClick={onSort}
-          aria-label={`Sort by ${label}`}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            display: "inline-flex",
-            flexDirection: "column",
-            lineHeight: 0.8,
-          }}
-        >
-          <i
-            className="ti ti-chevron-up"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "asc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-          <i
-            className="ti ti-chevron-down"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "desc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-        </button>
-      )}
-    </div>
-  )
+function initialFiltersFromQuery(query: FormListQuery): ActiveFilters {
+  const filters: ActiveFilters = {}
+  if (query.sectionId !== FORM_LIST_ALL_SECTIONS) {
+    filters.sectionId = [query.sectionId]
+  }
+  if (query.scope !== "all") {
+    filters.scope = [query.scope]
+  }
+  return filters
 }
 
 export default function FormListClient({
@@ -209,6 +111,9 @@ export default function FormListClient({
   const [viewForm, setViewForm] = useState<FormListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FormListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
+    initialFiltersFromQuery(query)
+  )
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
@@ -242,9 +147,43 @@ export default function FormListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleForms = useMemo(
-    () => filterFormListRows(forms, { ...query, search: searchInput }),
+  const filterGroups: FilterGroupDef[] = useMemo(
+    () => [
+      {
+        label: "Section",
+        field: "sectionId",
+        options: sections.map((s) => ({
+          value: s.sectionId,
+          label: `Section ${s.name}`,
+        })),
+      },
+    ],
+    [sections]
+  )
+
+  const searchFiltered = useMemo(
+    () =>
+      filterFormListRows(forms, {
+        ...query,
+        search: searchInput,
+        sectionId: FORM_LIST_ALL_SECTIONS,
+        scope: "all",
+      }),
     [forms, query, searchInput]
+  )
+
+  const visibleForms = useMemo(
+    () =>
+      searchFiltered.filter((form) =>
+        matchesActiveFilters(
+          {
+            sectionId: form.sectionId,
+            scope: form.isGlobal ? "global" : "section",
+          },
+          activeFilters
+        )
+      ),
+    [searchFiltered, activeFilters]
   )
 
   const {
@@ -258,16 +197,22 @@ export default function FormListClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sectionId, query.scope, query.sort, query.dir])
+  }, [query.page, query.search, query.sort, query.dir, activeFilters])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const sectionLabel =
-    query.sectionId !== FORM_LIST_ALL_SECTIONS
-      ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
-      : "All Sections"
+  function setScopeFilter(scope: string | null) {
+    setActiveFilters((prev) => {
+      if (!scope) {
+        const { scope: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, scope: [scope] }
+    })
+    pushParams({ scope, page: "1" })
+  }
 
   function openDeleteConfirm(form: FormListRow) {
     setDeleteError(null)
@@ -311,8 +256,8 @@ export default function FormListClient({
       label: "Total Forms",
       value: summary.total,
       note: "active requirements",
-      onClick: () => pushParams({ scope: null, page: "1" }),
-      isActive: query.scope === "all",
+      onClick: () => setScopeFilter(null),
+      isActive: !activeFilters.scope?.length,
     },
     {
       icon: "ti-world",
@@ -324,8 +269,8 @@ export default function FormListClient({
         color: COLORS.green,
       },
       note: "of all forms",
-      onClick: () => pushParams({ scope: "global", page: "1" }),
-      isActive: query.scope === "global",
+      onClick: () => setScopeFilter("global"),
+      isActive: activeFilters.scope?.includes("global") ?? false,
     },
     {
       icon: "ti-layout-grid",
@@ -337,8 +282,8 @@ export default function FormListClient({
         color: COLORS.maroon,
       },
       note: "of all forms",
-      onClick: () => pushParams({ scope: "section", page: "1" }),
-      isActive: query.scope === "section",
+      onClick: () => setScopeFilter("section"),
+      isActive: activeFilters.scope?.includes("section") ?? false,
     },
     {
       icon: "ti-chart-bar",
@@ -353,11 +298,6 @@ export default function FormListClient({
   return (
     <>
       <ChartStyles />
-      <style>{`
-        .form-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .form-list-scroll::-webkit-scrollbar { width: 5px; }
-        .form-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
-      `}</style>
 
       <div
         style={{
@@ -373,109 +313,46 @@ export default function FormListClient({
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
-          <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {filteredCount} total forms
-          </p>
         </div>
         <ProfilePill user={currentUser} />
       </div>
 
-      <div className="admin-list-pre-table">
-        <div className="admin-list-kpi-sticky">
-          <KpiStatCardGrid columns={4}>
-            {statCards.map((card, index) => (
-              <KpiStatCard key={index} {...card} />
-            ))}
-          </KpiStatCardGrid>
-        </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ position: "relative" }}>
-          <i
-            className="ti ti-search"
-            style={{
-              position: "absolute",
-              left: 16,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 14,
-              color: COLORS.light,
-            }}
-          />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search forms"
-            style={{
-              width: "100%",
-              fontFamily: FONT_BODY,
-              fontSize: "13.5px",
-              color: COLORS.text,
-              border: `1.5px solid ${COLORS.border}`,
-              borderRadius: 24,
-              padding: "8px 16px 8px 40px",
-              outline: "none",
-              background: COLORS.white,
-            }}
-          />
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 12,
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <FilterDropdown
-          label={sectionLabel}
-          value={query.sectionId}
-          onChange={(value) =>
-            pushParams({
-              sectionId: value === FORM_LIST_ALL_SECTIONS ? null : value,
-              page: "1",
-            })
-          }
-        >
-          <option value={FORM_LIST_ALL_SECTIONS}>All Sections</option>
-          {sections.map((section) => (
-            <option key={section.sectionId} value={section.sectionId}>
-              Section {section.name}
-            </option>
+      <div className="admin-list-kpi-sticky" style={{ marginBottom: 16 }}>
+        <KpiStatCardGrid columns={4}>
+          {statCards.map((card, index) => (
+            <KpiStatCard key={index} {...card} />
           ))}
-        </FilterDropdown>
-
-        <AdminAddButton label="Import form" onClick={() => setImportOpen(true)} />
-      </div>
+        </KpiStatCardGrid>
       </div>
 
-      <div
-        style={{
-          background: COLORS.cardBg,
-          border: `1px solid ${COLORS.border}`,
-          borderRadius: COLORS.radius,
-          boxShadow: COLORS.cardShadow,
-        }}
-      >
-        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              minWidth: 880,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
+      <div className="admin-table-card">
+        <AdminTableToolbar
+          title="All Forms"
+          count={`${filteredCount} form${filteredCount !== 1 ? "s" : ""} found`}
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          searchPlaceholder="Search forms"
+          filterGroups={filterGroups}
+          activeFilters={activeFilters}
+          onFiltersChange={(next) => {
+            setActiveFilters(next)
+            pushParams({ page: "1" })
+          }}
+          onClearFilters={() => {
+            setActiveFilters({})
+            pushParams({ sectionId: null, scope: null, page: "1" })
+          }}
+          actions={
+            <AdminAddButton label="Import form" onClick={() => setImportOpen(true)} />
+          }
+        />
+
+        <div className="admin-table-wrapper">
+          <table className="admin-table" style={{ minWidth: 880 }}>
             <thead>
-              <tr style={{ background: COLORS.tableHeadBg }}>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+              <tr>
+                <th style={{ width: "28%" }}>
+                  <AdminSortHeader
                     label="Form Name"
                     sortable
                     sortActive={query.sort === "name"}
@@ -483,8 +360,8 @@ export default function FormListClient({
                     onSort={() => toggleSort("name")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "22%" }}>
+                  <AdminSortHeader
                     label="Section"
                     sortable
                     sortActive={query.sort === "section"}
@@ -492,8 +369,8 @@ export default function FormListClient({
                     onSort={() => toggleSort("section")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "18%" }}>
+                  <AdminSortHeader
                     label="Analytics"
                     sortable
                     sortActive={query.sort === "analytics"}
@@ -501,8 +378,8 @@ export default function FormListClient({
                     onSort={() => toggleSort("analytics")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "22%" }}>
+                  <AdminSortHeader
                     label="Deadline"
                     sortable
                     sortActive={query.sort === "deadline"}
@@ -510,38 +387,13 @@ export default function FormListClient({
                     onSort={() => toggleSort("deadline")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Actions" />
-                </th>
+                <th style={{ width: "10%" }}>Actions</th>
               </tr>
             </thead>
-          </table>
-        </div>
-
-        <div
-          className="form-list-scroll admin-list-table-scroll"
-        >
-          <table
-            style={{
-              width: "100%",
-              minWidth: 880,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
             <tbody key={animKey}>
               {pageForms.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    style={{
-                      ...TYPE.body,
-                      color: COLORS.textGray,
-                      textAlign: "center",
-                      padding: "40px 18px",
-                    }}
-                  >
+                  <td colSpan={5} className="admin-table-empty">
                     No forms match your filters.
                   </td>
                 </tr>
@@ -549,36 +401,32 @@ export default function FormListClient({
                 pageForms.map((form) => {
                   const deadline = formatFormDeadline(form.dueDate)
                   return (
-                    <tr
-                      key={form.rowId}
-                      className="anim-list-item"
-                      style={{ borderTop: `1px solid ${COLORS.border}` }}
-                    >
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                    <tr key={form.rowId} className="anim-list-item">
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {form.formName}
                         </div>
                         {form.isSample ? (
-                          <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                          <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                             Sample data
                           </div>
                         ) : (
                           form.isGlobal && (
-                            <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                            <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                               Global default
                             </div>
                           )
                         )}
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {form.sectionName} Section
                         </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                           {form.adviserName}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <td>
                         <div
                           style={{
                             fontFamily: FONT_BODY,
@@ -600,7 +448,7 @@ export default function FormListClient({
                           </span>
                           <span
                             style={{
-                              fontSize: "12px",
+                              fontSize: 12,
                               fontWeight: 600,
                               color: COLORS.textGray,
                             }}
@@ -608,21 +456,21 @@ export default function FormListClient({
                             /{form.totalStudents}
                           </span>
                         </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                           students submitted
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {deadline.date}
                         </div>
                         {deadline.time && (
-                          <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                          <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                             {deadline.time}
                           </div>
                         )}
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <td>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <button
                             type="button"

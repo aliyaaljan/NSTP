@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
+import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddStudentModal from "@/components/admin/AddStudentModal"
@@ -11,6 +13,11 @@ import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import EditStudentModal from "@/components/admin/EditStudentModal"
 import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
 import { deleteStudent } from "@/lib/admin/student-list-actions"
+import {
+  matchesActiveFilters,
+  type ActiveFilters,
+  type FilterGroupDef,
+} from "@/lib/admin/filter-utils"
 import {
   PROGRESS_STATUS_FILTER_OPTIONS,
   PROGRESS_STATUS_LABELS,
@@ -32,7 +39,7 @@ import {
   paginateStudentListRows,
 } from "@/lib/admin/student-list"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 const STATUS_BADGE: Record<
   StudentProgressStatus,
@@ -89,120 +96,15 @@ function ProfilePill({ user }: { user: CurrentUser }) {
   )
 }
 
-function FilterDropdown({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      style={{
-        ...TYPE.bodyBold,
-        fontFamily: FONT_BODY,
-        color: "#fff",
-        background: COLORS.green,
-        borderRadius: 20,
-        padding: "5px 13px",
-        fontSize: "12.5px",
-        fontWeight: 600,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        cursor: "pointer",
-        position: "relative",
-      }}
-    >
-      <span>{label}</span>
-      <i className="ti ti-chevron-down" style={{ fontSize: 16 }} />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        style={ADMIN_FILTER_SELECT_STYLE}
-      >
-        {children}
-      </select>
-    </div>
-  )
-}
-
-const TABLE_COL_WIDTHS = ["28%", "14%", "22%", "10%", "18%", "8%"]
-
-function TableColGroup() {
-  return (
-    <colgroup>
-      {TABLE_COL_WIDTHS.map((width, index) => (
-        <col key={index} style={{ width }} />
-      ))}
-    </colgroup>
-  )
-}
-
-function ColumnHeader({
-  label,
-  align = "left",
-  sortable = false,
-  sortActive = false,
-  sortDirection = "asc",
-  onSort,
-}: {
-  label: string
-  align?: "left" | "center"
-  sortable?: boolean
-  sortActive?: boolean
-  sortDirection?: "asc" | "desc"
-  onSort?: () => void
-}) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        justifyContent: align === "center" ? "center" : "flex-start",
-        width: align === "center" ? "100%" : undefined,
-      }}
-    >
-      <span style={{ ...TYPE.sectionLabel, color: COLORS.textGray }}>{label}</span>
-      {sortable && (
-        <button
-          type="button"
-          onClick={onSort}
-          aria-label={`Sort by ${label}`}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            display: "inline-flex",
-            flexDirection: "column",
-            lineHeight: 0.8,
-          }}
-        >
-          <i
-            className="ti ti-chevron-up"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "asc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-          <i
-            className="ti ti-chevron-down"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "desc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-        </button>
-      )}
-    </div>
-  )
+function initialFiltersFromQuery(query: StudentListQuery): ActiveFilters {
+  const filters: ActiveFilters = {}
+  if (query.sectionId !== STUDENT_LIST_ALL_SECTIONS) {
+    filters.sectionId = [query.sectionId]
+  }
+  if (query.progressStatus !== "all") {
+    filters.progressStatus = [query.progressStatus]
+  }
+  return filters
 }
 
 export default function StudentListClient({
@@ -231,6 +133,9 @@ export default function StudentListClient({
     name: string
   } | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
+    initialFiltersFromQuery(query)
+  )
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
@@ -264,9 +169,48 @@ export default function StudentListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleStudents = useMemo(
-    () => filterStudentListRows(students, { ...query, search: searchInput }),
+  const filterGroups: FilterGroupDef[] = useMemo(
+    () => [
+      {
+        label: "Status",
+        field: "progressStatus",
+        options: PROGRESS_STATUS_FILTER_OPTIONS.filter((o) => o.value !== "all").map(
+          (o) => ({ value: o.value, label: o.label })
+        ),
+      },
+      {
+        label: "Section",
+        field: "sectionId",
+        options: sections.map((s) => ({ value: s.sectionId, label: s.name })),
+        optionsPerColumn: 7,
+      },
+    ],
+    [sections]
+  )
+
+  const searchFiltered = useMemo(
+    () =>
+      filterStudentListRows(students, {
+        ...query,
+        search: searchInput,
+        sectionId: STUDENT_LIST_ALL_SECTIONS,
+        progressStatus: "all",
+      }),
     [students, query, searchInput]
+  )
+
+  const visibleStudents = useMemo(
+    () =>
+      searchFiltered.filter((student) =>
+        matchesActiveFilters(
+          {
+            sectionId: student.sectionId,
+            progressStatus: student.progressStatus,
+          },
+          activeFilters
+        )
+      ),
+    [searchFiltered, activeFilters]
   )
 
   const {
@@ -280,26 +224,22 @@ export default function StudentListClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [
-    query.page,
-    query.search,
-    query.sectionId,
-    query.progressStatus,
-    query.sort,
-    query.dir,
-  ])
+  }, [query.page, query.search, query.sort, query.dir, activeFilters])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const sectionLabel =
-    query.sectionId !== STUDENT_LIST_ALL_SECTIONS
-      ? `Section ${sections.find((s) => s.sectionId === query.sectionId)?.name ?? ""}`
-      : "All Sections"
-  const statusLabel =
-    PROGRESS_STATUS_FILTER_OPTIONS.find((o) => o.value === query.progressStatus)
-      ?.label ?? "All Status"
+  function setStatusFilter(status: StudentProgressStatus | null) {
+    setActiveFilters((prev) => {
+      if (!status) {
+        const { progressStatus: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, progressStatus: [status] }
+    })
+    pushParams({ status: status, page: "1" })
+  }
 
   function openDeleteConfirm(enrollmentId: string, name: string) {
     setDeleteError(null)
@@ -339,8 +279,8 @@ export default function StudentListClient({
       label: "Total Students",
       value: summary.total,
       note: "active enrollments",
-      onClick: () => pushParams({ status: null, page: "1" }),
-      isActive: query.progressStatus === "all",
+      onClick: () => setStatusFilter(null),
+      isActive: !activeFilters.progressStatus?.length,
     },
     {
       icon: "ti-circle-check",
@@ -352,8 +292,8 @@ export default function StudentListClient({
         color: COLORS.green,
       },
       note: "of all students",
-      onClick: () => pushParams({ status: "on_track", page: "1" }),
-      isActive: query.progressStatus === "on_track",
+      onClick: () => setStatusFilter("on_track"),
+      isActive: activeFilters.progressStatus?.includes("on_track") ?? false,
     },
     {
       icon: "ti-clock",
@@ -365,8 +305,8 @@ export default function StudentListClient({
         color: COLORS.amber,
       },
       note: "of all students",
-      onClick: () => pushParams({ status: "in_progress", page: "1" }),
-      isActive: query.progressStatus === "in_progress",
+      onClick: () => setStatusFilter("in_progress"),
+      isActive: activeFilters.progressStatus?.includes("in_progress") ?? false,
     },
     {
       icon: "ti-alert-triangle",
@@ -378,19 +318,14 @@ export default function StudentListClient({
         color: COLORS.maroonDark,
       },
       note: "of all students",
-      onClick: () => pushParams({ status: "at_risk", page: "1" }),
-      isActive: query.progressStatus === "at_risk",
+      onClick: () => setStatusFilter("at_risk"),
+      isActive: activeFilters.progressStatus?.includes("at_risk") ?? false,
     },
   ]
 
   return (
     <>
       <ChartStyles />
-      <style>{`
-        .student-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .student-list-scroll::-webkit-scrollbar { width: 5px; }
-        .student-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
-      `}</style>
 
       <div
         style={{
@@ -406,125 +341,46 @@ export default function StudentListClient({
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
-          <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {filteredCount} total students
-          </p>
         </div>
         <ProfilePill user={currentUser} />
       </div>
 
-      <div className="admin-list-pre-table">
-        <div className="admin-list-kpi-sticky">
-          <KpiStatCardGrid columns={4}>
-            {statCards.map((card, index) => (
-              <KpiStatCard key={index} {...card} />
-            ))}
-          </KpiStatCardGrid>
-        </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ position: "relative" }}>
-          <i
-            className="ti ti-search"
-            style={{
-              position: "absolute",
-              left: 16,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 14,
-              color: COLORS.light,
-            }}
-          />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search students"
-            style={{
-              width: "100%",
-              fontFamily: FONT_BODY,
-              fontSize: "13.5px",
-              color: COLORS.text,
-              border: `1.5px solid ${COLORS.border}`,
-              borderRadius: 24,
-              padding: "8px 16px 8px 40px",
-              outline: "none",
-              background: COLORS.white,
-            }}
-          />
-        </div>
+      <div className="admin-list-kpi-sticky" style={{ marginBottom: 16 }}>
+        <KpiStatCardGrid columns={4}>
+          {statCards.map((card, index) => (
+            <KpiStatCard key={index} {...card} />
+          ))}
+        </KpiStatCardGrid>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 12,
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-          <FilterDropdown
-            label={sectionLabel}
-            value={query.sectionId}
-            onChange={(value) =>
-              pushParams({
-                sectionId: value === STUDENT_LIST_ALL_SECTIONS ? null : value,
-                page: "1",
-              })
-            }
-          >
-            <option value={STUDENT_LIST_ALL_SECTIONS}>All Sections</option>
-            {sections.map((section) => (
-              <option key={section.sectionId} value={section.sectionId}>
-                Section {section.name}
-              </option>
-            ))}
-          </FilterDropdown>
+      <div className="admin-table-card">
+        <AdminTableToolbar
+          title="All Students"
+          count={`${filteredCount} student${filteredCount !== 1 ? "s" : ""} found`}
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          searchPlaceholder="Search students"
+          filterGroups={filterGroups}
+          activeFilters={activeFilters}
+          onFiltersChange={(next) => {
+            setActiveFilters(next)
+            pushParams({ page: "1" })
+          }}
+          onClearFilters={() => {
+            setActiveFilters({})
+            pushParams({ sectionId: null, status: null, page: "1" })
+          }}
+          actions={
+            <AdminAddButton label="Add student" onClick={() => setAddChoiceOpen(true)} />
+          }
+        />
 
-          <FilterDropdown
-            label={statusLabel}
-            value={query.progressStatus}
-            onChange={(value) =>
-              pushParams({ status: value === "all" ? null : value, page: "1" })
-            }
-          >
-            {PROGRESS_STATUS_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </FilterDropdown>
-        </div>
-
-        <AdminAddButton label="Add student" onClick={() => setAddChoiceOpen(true)} />
-      </div>
-      </div>
-
-      <div
-        style={{
-          background: COLORS.cardBg,
-          border: `1px solid ${COLORS.border}`,
-          borderRadius: COLORS.radius,
-          boxShadow: COLORS.cardShadow,
-        }}
-      >
-        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              minWidth: 920,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
+        <div className="admin-table-wrapper">
+          <table className="admin-table" style={{ minWidth: 920 }}>
             <thead>
-              <tr style={{ background: COLORS.tableHeadBg }}>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+              <tr>
+                <th style={{ width: "28%" }}>
+                  <AdminSortHeader
                     label="Student Name"
                     sortable
                     sortActive={query.sort === "name"}
@@ -532,11 +388,9 @@ export default function StudentListClient({
                     onSort={() => toggleSort("name")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Student ID" />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "14%" }}>Student ID</th>
+                <th style={{ width: "22%" }}>
+                  <AdminSortHeader
                     label="Section Adviser"
                     sortable
                     sortActive={query.sort === "adviser"}
@@ -544,47 +398,17 @@ export default function StudentListClient({
                     onSort={() => toggleSort("adviser")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Hours" />
+                <th style={{ width: "10%" }}>Hours</th>
+                <th style={{ width: "18%", textAlign: "center" }}>
+                  <AdminSortHeader label="Progress & Status" align="center" />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "center" }}>
-                  <ColumnHeader
-                    label="Progress & Status"
-                    align="center"
-                  />
-                </th>
-                <th style={{ padding: "14px 18px", textAlign: "left", width: 80 }}>
-                  <ColumnHeader label="Actions" />
-                </th>
+                <th style={{ width: "8%" }}>Actions</th>
               </tr>
             </thead>
-          </table>
-        </div>
-
-        <div
-          className="student-list-scroll admin-list-table-scroll"
-        >
-          <table
-            style={{
-              width: "100%",
-              minWidth: 920,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
             <tbody key={animKey}>
               {pageStudents.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      ...TYPE.body,
-                      color: COLORS.textGray,
-                      textAlign: "center",
-                      padding: "40px 18px",
-                    }}
-                  >
+                  <td colSpan={6} className="admin-table-empty">
                     No students match your filters.
                   </td>
                 </tr>
@@ -592,54 +416,45 @@ export default function StudentListClient({
                 pageStudents.map((student) => {
                   const badge = STATUS_BADGE[student.progressStatus]
                   return (
-                    <tr
-                      key={student.enrollmentId}
-                      className="anim-list-item"
-                      style={{ borderTop: `1px solid ${COLORS.border}` }}
-                    >
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                    <tr key={student.enrollmentId} className="anim-list-item">
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {student.fullName}
                         </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                           {student.email}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {student.studentNumber ?? "—"}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {student.sectionName}
                         </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                           {student.adviserName}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {student.hoursCompleted}/{student.hoursRequired}
                         </div>
                       </td>
-                      <td
-                        style={{
-                          padding: "16px 18px",
-                          verticalAlign: "middle",
-                          textAlign: "center",
-                        }}
-                      >
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td style={{ textAlign: "center" }}>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {student.completionPct}%
                         </div>
                         <span
                           style={{
-                            ...TYPE.bodyBold,
                             display: "inline-block",
                             marginTop: 6,
                             padding: "4px 12px",
                             borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 600,
                             background: badge.bg,
                             color: badge.color,
                           }}
@@ -647,7 +462,7 @@ export default function StudentListClient({
                           {PROGRESS_STATUS_LABELS[student.progressStatus]}
                         </span>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <td>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <button
                             type="button"

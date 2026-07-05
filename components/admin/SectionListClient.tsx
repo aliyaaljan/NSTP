@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
+import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import SectionFormModal from "@/components/admin/SectionFormModal"
@@ -26,8 +28,13 @@ import {
   type SectionListStatusOption,
   type SectionListSummary,
 } from "@/lib/admin/section-list"
+import {
+  matchesActiveFilters,
+  type ActiveFilters,
+  type FilterGroupDef,
+} from "@/lib/admin/filter-utils"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
@@ -73,120 +80,15 @@ function ProfilePill({ user }: { user: AdminCurrentUser }) {
   )
 }
 
-function FilterDropdown({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      style={{
-        ...TYPE.bodyBold,
-        fontFamily: FONT_BODY,
-        color: "#fff",
-        background: COLORS.green,
-        borderRadius: 20,
-        padding: "5px 13px",
-        fontSize: "12.5px",
-        fontWeight: 600,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        cursor: "pointer",
-        position: "relative",
-      }}
-    >
-      <span>{label}</span>
-      <i className="ti ti-chevron-down" style={{ fontSize: 16 }} />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        style={ADMIN_FILTER_SELECT_STYLE}
-      >
-        {children}
-      </select>
-    </div>
-  )
-}
-
-const TABLE_COL_WIDTHS = ["22%", "18%", "24%", "14%", "14%", "8%"]
-
-function TableColGroup() {
-  return (
-    <colgroup>
-      {TABLE_COL_WIDTHS.map((width, index) => (
-        <col key={index} style={{ width }} />
-      ))}
-    </colgroup>
-  )
-}
-
-function ColumnHeader({
-  label,
-  align = "left",
-  sortable = false,
-  sortActive = false,
-  sortDirection = "asc",
-  onSort,
-}: {
-  label: string
-  align?: "left" | "center"
-  sortable?: boolean
-  sortActive?: boolean
-  sortDirection?: "asc" | "desc"
-  onSort?: () => void
-}) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        justifyContent: align === "center" ? "center" : "flex-start",
-        width: align === "center" ? "100%" : undefined,
-      }}
-    >
-      <span style={{ ...TYPE.sectionLabel, color: COLORS.textGray }}>{label}</span>
-      {sortable && (
-        <button
-          type="button"
-          onClick={onSort}
-          aria-label={`Sort by ${label}`}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            display: "inline-flex",
-            flexDirection: "column",
-            lineHeight: 0.8,
-          }}
-        >
-          <i
-            className="ti ti-chevron-up"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "asc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-          <i
-            className="ti ti-chevron-down"
-            style={{
-              fontSize: 10,
-              color: sortActive && sortDirection === "desc" ? COLORS.textDark : "#C4C4C0",
-            }}
-          />
-        </button>
-      )}
-    </div>
-  )
+function initialFiltersFromQuery(query: SectionListQuery): ActiveFilters {
+  const filters: ActiveFilters = {}
+  if (query.status !== SECTION_LIST_ALL_STATUSES) {
+    filters.statusCode = [query.status]
+  }
+  if (query.adviserId !== SECTION_LIST_ALL_ADVISERS) {
+    filters.adviserUserId = [query.adviserId]
+  }
+  return filters
 }
 
 export default function SectionListClient({
@@ -213,6 +115,9 @@ export default function SectionListClient({
   const [editSection, setEditSection] = useState<SectionListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SectionListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
+    initialFiltersFromQuery(query)
+  )
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
@@ -252,9 +157,47 @@ export default function SectionListClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  const visibleSections = useMemo(
-    () => filterSectionListRows(sections, { ...query, search: searchInput }),
+  const filterGroups: FilterGroupDef[] = useMemo(
+    () => [
+      {
+        label: "Status",
+        field: "statusCode",
+        options: SECTION_STATUS_FILTER_OPTIONS.filter((o) => o.value !== SECTION_LIST_ALL_STATUSES).map(
+          (o) => ({ value: o.value, label: o.label })
+        ),
+      },
+      {
+        label: "Adviser",
+        field: "adviserUserId",
+        options: advisers.map((a) => ({ value: a.adviserUserId, label: a.fullName })),
+      },
+    ],
+    [advisers]
+  )
+
+  const searchFiltered = useMemo(
+    () =>
+      filterSectionListRows(sections, {
+        ...query,
+        search: searchInput,
+        status: SECTION_LIST_ALL_STATUSES,
+        adviserId: SECTION_LIST_ALL_ADVISERS,
+      }),
     [sections, query, searchInput]
+  )
+
+  const visibleSections = useMemo(
+    () =>
+      searchFiltered.filter((section) =>
+        matchesActiveFilters(
+          {
+            statusCode: section.statusCode,
+            adviserUserId: section.adviserUserId,
+          },
+          activeFilters
+        )
+      ),
+    [searchFiltered, activeFilters]
   )
 
   const {
@@ -268,20 +211,22 @@ export default function SectionListClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.status, query.adviserId, query.sort, query.dir])
+  }, [query.page, query.search, query.sort, query.dir, activeFilters])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
   }
 
-  const statusLabel =
-    SECTION_STATUS_FILTER_OPTIONS.find((o) => o.value === query.status)?.label ??
-    "All Status"
-
-  const adviserLabel =
-    query.adviserId !== SECTION_LIST_ALL_ADVISERS
-      ? advisers.find((a) => a.adviserUserId === query.adviserId)?.fullName ?? "All Advisers"
-      : "All Advisers"
+  function setStatusFilter(status: string | null) {
+    setActiveFilters((prev) => {
+      if (!status) {
+        const { statusCode: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, statusCode: [status] }
+    })
+    pushParams({ status, page: "1" })
+  }
 
   function openCreate() {
     setFormMode("create")
@@ -340,8 +285,8 @@ export default function SectionListClient({
       label: "Total Sections",
       value: summary.total,
       note: "this term",
-      onClick: () => pushParams({ status: null, page: "1" }),
-      isActive: query.status === SECTION_LIST_ALL_STATUSES,
+      onClick: () => setStatusFilter(null),
+      isActive: !activeFilters.statusCode?.length,
     },
     {
       icon: "ti-circle-check",
@@ -353,8 +298,8 @@ export default function SectionListClient({
         color: COLORS.green,
       },
       note: "of all sections",
-      onClick: () => pushParams({ status: "active", page: "1" }),
-      isActive: query.status === "active",
+      onClick: () => setStatusFilter("active"),
+      isActive: activeFilters.statusCode?.includes("active") ?? false,
     },
     {
       icon: "ti-flag",
@@ -366,8 +311,8 @@ export default function SectionListClient({
         color: COLORS.maroon,
       },
       note: "of all sections",
-      onClick: () => pushParams({ status: "completed", page: "1" }),
-      isActive: query.status === "completed",
+      onClick: () => setStatusFilter("completed"),
+      isActive: activeFilters.statusCode?.includes("completed") ?? false,
     },
     {
       icon: "ti-archive",
@@ -379,19 +324,14 @@ export default function SectionListClient({
         color: COLORS.textGray,
       },
       note: "of all sections",
-      onClick: () => pushParams({ status: "archived", page: "1" }),
-      isActive: query.status === "archived",
+      onClick: () => setStatusFilter("archived"),
+      isActive: activeFilters.statusCode?.includes("archived") ?? false,
     },
   ]
 
   return (
     <>
       <ChartStyles />
-      <style>{`
-        .section-list-scroll { scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-        .section-list-scroll::-webkit-scrollbar { width: 5px; }
-        .section-list-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
-      `}</style>
 
       <div
         style={{
@@ -407,128 +347,44 @@ export default function SectionListClient({
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
-          <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {filteredCount} total sections
-          </p>
         </div>
         <ProfilePill user={currentUser} />
       </div>
 
-      <div className="admin-list-pre-table">
-        <div className="admin-list-kpi-sticky">
-          <KpiStatCardGrid columns={4}>
-            {statCards.map((card, index) => (
-              <KpiStatCard key={index} {...card} />
-            ))}
-          </KpiStatCardGrid>
-        </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ position: "relative" }}>
-          <i
-            className="ti ti-search"
-            style={{
-              position: "absolute",
-              left: 16,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 14,
-              color: COLORS.light,
-            }}
-          />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search sections, course codes, or advisers"
-            style={{
-              width: "100%",
-              fontFamily: FONT_BODY,
-              fontSize: "13.5px",
-              color: COLORS.text,
-              border: `1.5px solid ${COLORS.border}`,
-              borderRadius: 24,
-              padding: "8px 16px 8px 40px",
-              outline: "none",
-              background: COLORS.white,
-            }}
-          />
-        </div>
+      <div className="admin-list-kpi-sticky" style={{ marginBottom: 16 }}>
+        <KpiStatCardGrid columns={4}>
+          {statCards.map((card, index) => (
+            <KpiStatCard key={index} {...card} />
+          ))}
+        </KpiStatCardGrid>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 12,
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-          <FilterDropdown
-            label={statusLabel}
-            value={query.status}
-            onChange={(value) =>
-              pushParams({
-                status: value === SECTION_LIST_ALL_STATUSES ? null : value,
-                page: "1",
-              })
-            }
-          >
-            {SECTION_STATUS_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </FilterDropdown>
+      <div className="admin-table-card">
+        <AdminTableToolbar
+          title="All Sections"
+          count={`${filteredCount} section${filteredCount !== 1 ? "s" : ""} found`}
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          searchPlaceholder="Search sections, course codes, or advisers"
+          filterGroups={filterGroups}
+          activeFilters={activeFilters}
+          onFiltersChange={(next) => {
+            setActiveFilters(next)
+            pushParams({ page: "1" })
+          }}
+          onClearFilters={() => {
+            setActiveFilters({})
+            pushParams({ status: null, adviserId: null, page: "1" })
+          }}
+          actions={<AdminAddButton label="Add section" onClick={openCreate} />}
+        />
 
-          <FilterDropdown
-            label={adviserLabel}
-            value={query.adviserId}
-            onChange={(value) =>
-              pushParams({
-                adviserId: value === SECTION_LIST_ALL_ADVISERS ? null : value,
-                page: "1",
-              })
-            }
-          >
-            <option value={SECTION_LIST_ALL_ADVISERS}>All Advisers</option>
-            {advisers.map((adviser) => (
-              <option key={adviser.adviserUserId} value={adviser.adviserUserId}>
-                {adviser.fullName}
-              </option>
-            ))}
-          </FilterDropdown>
-        </div>
-
-        <AdminAddButton label="Add section" onClick={openCreate} />
-      </div>
-      </div>
-
-      <div
-        style={{
-          background: COLORS.cardBg,
-          border: `1px solid ${COLORS.border}`,
-          borderRadius: COLORS.radius,
-          boxShadow: COLORS.cardShadow,
-        }}
-      >
-        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              minWidth: 880,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
+        <div className="admin-table-wrapper">
+          <table className="admin-table" style={{ minWidth: 880 }}>
             <thead>
-              <tr style={{ background: COLORS.tableHeadBg }}>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+              <tr>
+                <th style={{ width: "22%" }}>
+                  <AdminSortHeader
                     label="Section"
                     sortable
                     sortActive={query.sort === "name"}
@@ -536,8 +392,8 @@ export default function SectionListClient({
                     onSort={() => toggleSort("name")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "18%" }}>
+                  <AdminSortHeader
                     label="Course"
                     sortable
                     sortActive={query.sort === "course"}
@@ -545,8 +401,8 @@ export default function SectionListClient({
                     onSort={() => toggleSort("course")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "24%" }}>
+                  <AdminSortHeader
                     label="Adviser"
                     sortable
                     sortActive={query.sort === "adviser"}
@@ -554,8 +410,8 @@ export default function SectionListClient({
                     onSort={() => toggleSort("adviser")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "14%" }}>
+                  <AdminSortHeader
                     label="Students"
                     sortable
                     sortActive={query.sort === "students"}
@@ -563,8 +419,8 @@ export default function SectionListClient({
                     onSort={() => toggleSort("students")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader
+                <th style={{ width: "14%" }}>
+                  <AdminSortHeader
                     label="Status"
                     sortable
                     sortActive={query.sort === "status"}
@@ -572,38 +428,13 @@ export default function SectionListClient({
                     onSort={() => toggleSort("status")}
                   />
                 </th>
-                <th style={{ padding: "14px 18px", textAlign: "left" }}>
-                  <ColumnHeader label="Actions" />
-                </th>
+                <th style={{ width: "8%" }}>Actions</th>
               </tr>
             </thead>
-          </table>
-        </div>
-
-        <div
-          className="section-list-scroll admin-list-table-scroll"
-        >
-          <table
-            style={{
-              width: "100%",
-              minWidth: 880,
-              tableLayout: "fixed",
-              borderCollapse: "collapse",
-            }}
-          >
-            <TableColGroup />
             <tbody key={animKey}>
               {pageSections.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      ...TYPE.body,
-                      color: COLORS.textGray,
-                      textAlign: "center",
-                      padding: "40px 18px",
-                    }}
-                  >
+                  <td colSpan={6} className="admin-table-empty">
                     No sections match your filters.
                   </td>
                 </tr>
@@ -611,42 +442,38 @@ export default function SectionListClient({
                 pageSections.map((section) => {
                   const badge = SECTION_STATUS_BADGE[section.statusCode]
                   return (
-                    <tr
-                      key={section.sectionId}
-                      className="anim-list-item"
-                      style={{ borderTop: `1px solid ${COLORS.border}` }}
-                    >
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                    <tr key={section.sectionId} className="anim-list-item">
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           Section {section.name}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {section.courseCode}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {section.adviserName}
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
-                        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {section.studentCount}
                         </div>
-                        <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                           enrolled
                         </div>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <td>
                         <span
                           style={{
-                            ...TYPE.caption,
-                            fontWeight: 600,
                             display: "inline-block",
                             padding: "4px 10px",
                             borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 600,
                             background: badge.bg,
                             color: badge.color,
                           }}
@@ -654,7 +481,7 @@ export default function SectionListClient({
                           {section.statusLabel}
                         </span>
                       </td>
-                      <td style={{ padding: "16px 18px", verticalAlign: "middle" }}>
+                      <td>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <button
                             type="button"
