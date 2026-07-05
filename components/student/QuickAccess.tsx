@@ -9,12 +9,14 @@ import {
 import Link from "next/link"
 import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
+import { QrGenerator } from "@/components/shared/QrGenerator"
 
 interface QuickAccessProps {
   isMobile: boolean
 }
 
 export default function QuickAccess({ isMobile }: QuickAccessProps) {
+  const [showQrGenerator, setShowQrGenerator] = useState(false)
   // Mock data
   const classData = {
     section: "NSTP 1 - BSCS 2A",
@@ -218,59 +220,70 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
     )
   }
 
-  const handleCardMouseEnter = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleLinkMouseEnter = (e: React.MouseEvent<HTMLAnchorElement>) => {
     Object.assign(e.currentTarget.style, hoverStyle)
   }
 
-  const handleCardMouseLeave = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleLinkMouseLeave = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.currentTarget.style.background = colors.cardBg
+    e.currentTarget.style.borderColor = colors.border
+    e.currentTarget.style.boxShadow = colors.cardShadow
+  }
+
+  const handleDivMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    Object.assign(e.currentTarget.style, hoverStyle)
+  }
+
+  const handleDivMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     e.currentTarget.style.background = colors.cardBg
     e.currentTarget.style.borderColor = colors.border
     e.currentTarget.style.boxShadow = colors.cardShadow
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: sizes.gap,
-        height: "100%",
-        width: "100%",
-        fontFamily: "Montserrat, 'Montserrat Fallback'",
-        overflow: "hidden",
-      }}
-    >
-      {/* My Class Card */}
-      <Link
-        href="/student/classlist"
+    <>
+      <div
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: isMobile ? "6px" : "8px",
-          textDecoration: "none",
-          color: colors.textDark,
-          cursor: "pointer",
-          ...cardBaseStyle,
-          flex: "0 0 auto",
+          gap: sizes.gap,
+          height: "100%",
+          width: "100%",
+          fontFamily: "Montserrat, 'Montserrat Fallback'",
+          overflow: "hidden",
         }}
-        onMouseEnter={handleCardMouseEnter}
-        onMouseLeave={handleCardMouseLeave}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <IconUsers size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textDark} />
-            <span style={{ 
-              fontSize: sizes.textSize, 
-              fontWeight: 700, 
-              color: colors.textDark, 
-              letterSpacing: "0.3px",
-              fontFamily: "Montserrat, 'Montserrat Fallback'",
-            }}>
-              My Class
-            </span>
+        {/* My Class Card */}
+        <Link
+          href="/student/classlist"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: isMobile ? "6px" : "8px",
+            textDecoration: "none",
+            color: colors.textDark,
+            cursor: "pointer",
+            ...cardBaseStyle,
+            flex: "0 0 auto",
+          }}
+          onMouseEnter={handleLinkMouseEnter}
+          onMouseLeave={handleLinkMouseLeave}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <IconUsers size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textDark} />
+              <span style={{ 
+                fontSize: sizes.textSize, 
+                fontWeight: 700, 
+                color: colors.textDark, 
+                letterSpacing: "0.3px",
+                fontFamily: "Montserrat, 'Montserrat Fallback'",
+              }}>
+                My Class
+              </span>
+            </div>
+            <IconChevronRight size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textMuted} />
           </div>
-          <IconChevronRight size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textMuted} />
-        </div>
 
         <div style={{ 
           fontSize: sizes.smallTextSize, 
@@ -281,304 +294,313 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
           {classData.section}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {classData.initials.map((initials, i) => (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              {classData.initials.map((initials, i) => (
+                <div
+                  key={initials}
+                  style={{
+                    width: sizes.avatarSize,
+                    height: sizes.avatarSize,
+                    borderRadius: "50%",
+                    background: colors.greenLight,
+                    border: `2px solid ${colors.cardBg}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: sizes.avatarFontSize,
+                    fontWeight: 700,
+                    color: colors.green,
+                    marginLeft: i === 0 ? 0 : "-6px",
+                    letterSpacing: "0.3px",
+                    fontFamily: "Montserrat, 'Montserrat Fallback'",
+                  }}
+                >
+                  {initials}
+                </div>
+              ))}
               <div
-                key={initials}
                 style={{
                   width: sizes.avatarSize,
                   height: sizes.avatarSize,
                   borderRadius: "50%",
-                  background: colors.greenLight,
+                  background: colors.textMuted,
                   border: `2px solid ${colors.cardBg}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: sizes.avatarFontSize,
+                  fontSize: isMobile ? "8px" : "9px",
                   fontWeight: 700,
-                  color: colors.green,
-                  marginLeft: i === 0 ? 0 : "-6px",
-                  letterSpacing: "0.3px",
+                  color: colors.white,
+                  marginLeft: "-6px",
                   fontFamily: "Montserrat, 'Montserrat Fallback'",
                 }}
               >
-                {initials}
+                +{classData.members - classData.initials.length}
               </div>
-            ))}
-            <div
-              style={{
-                width: sizes.avatarSize,
-                height: sizes.avatarSize,
-                borderRadius: "50%",
-                background: colors.textMuted,
-                border: `2px solid ${colors.cardBg}`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: isMobile ? "8px" : "9px",
-                fontWeight: 700,
-                color: colors.white,
-                marginLeft: "-6px",
-                fontFamily: "Montserrat, 'Montserrat Fallback'",
-              }}
-            >
-              +{classData.members - classData.initials.length}
+            </div>
+
+            <div style={{ 
+              fontSize: sizes.tinyTextSize, 
+              color: colors.textMuted, 
+              textAlign: "right",
+              fontFamily: "Montserrat, 'Montserrat Fallback'",
+            }}>
+              Adviser: <span style={{ color: colors.textGray, fontWeight: 600 }}>{classData.adviser}</span>
             </div>
           </div>
+        </Link>
 
-          <div style={{ 
-            fontSize: sizes.tinyTextSize, 
-            color: colors.textMuted, 
-            textAlign: "right",
-            fontFamily: "Montserrat, 'Montserrat Fallback'",
-          }}>
-            Adviser: <span style={{ color: colors.textGray, fontWeight: 600 }}>{classData.adviser}</span>
-          </div>
-        </div>
-      </Link>
-
-      {/* Generate QR Card */}
-      <Link
-        href="/student/attendance"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          textDecoration: "none",
-          color: colors.textDark,
-          cursor: "pointer",
-          ...cardBaseStyle,
-          flex: "0 0 auto",
-        }}
-        onMouseEnter={handleCardMouseEnter}
-        onMouseLeave={handleCardMouseLeave}
-      >
+        {/* Generate QR Card */}
         <div
+          onClick={() => setShowQrGenerator(true)}
           style={{
-            width: sizes.qrBoxSize,
-            height: sizes.qrBoxSize,
-            borderRadius: 10,
-            background: colors.textDark,
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            color: colors.white,
-            flexShrink: 0,
-          }}
-        >
-          <IconQrcode size={sizes.qrIconSize} stroke={1.5} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ 
-            fontSize: sizes.textSize, 
-            fontWeight: 700, 
+            gap: "12px",
+            textDecoration: "none",
             color: colors.textDark,
-            fontFamily: "Montserrat, 'Montserrat Fallback'",
-          }}>
-            Generate QR
-          </div>
-          <div style={{ 
-            fontSize: sizes.smallTextSize, 
-            color: colors.textGray, 
-            marginTop: "2px",
-            fontFamily: "Montserrat, 'Montserrat Fallback'",
-          }}>
-            Tap to open QR generator
-          </div>
-        </div>
-      </Link>
-
-      {/* Files Card */}
-      <Link
-        href="/student/files"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          textDecoration: "none",
-          color: colors.textDark,
-          cursor: "pointer",
-          ...cardBaseStyle,
-          flex: "0 0 auto",
-        }}
-        onMouseEnter={handleCardMouseEnter}
-        onMouseLeave={handleCardMouseLeave}
-      >
-        <div style={{ position: "relative", width: sizes.chartSize, height: sizes.chartSize, flexShrink: 0 }}>
-          <svg width="100%" height="100%" viewBox="0 0 72 72" style={{ transform: "rotate(-90deg)" }}>
-            <circle cx="36" cy="36" r={radius} fill="none" stroke={colors.border} strokeWidth="7" />
-            <circle
-              cx="36"
-              cy="36"
-              r={radius}
-              fill="none"
-              stroke={colors.maroon}
-              strokeWidth="7"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={dashOffset}
-            />
-          </svg>
+            cursor: "pointer",
+            ...cardBaseStyle,
+            flex: "0 0 auto",
+          }}
+          onMouseEnter={handleDivMouseEnter}
+          onMouseLeave={handleDivMouseLeave}
+        >
           <div
             style={{
-              position: "absolute",
-              inset: 0,
+              width: sizes.qrBoxSize,
+              height: sizes.qrBoxSize,
+              borderRadius: 10,
+              background: colors.textDark,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: sizes.chartFontSize,
-              fontWeight: 700,
-              color: colors.textDark,
-              fontFamily: "Montserrat, 'Montserrat Fallback'",
+              color: colors.white,
+              flexShrink: 0,
             }}
           >
-            {completionPct}%
+            <IconQrcode size={sizes.qrIconSize} stroke={1.5} />
           </div>
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "2px", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ 
               fontSize: sizes.textSize, 
               fontWeight: 700, 
               color: colors.textDark,
               fontFamily: "Montserrat, 'Montserrat Fallback'",
             }}>
-              Submission Completion Rate
+              Generate QR
             </div>
-            <InfoCircleWithTooltip tooltip="Percentage of submitted files out of total requirements." />
-          </div>
-          <div style={{ 
-            fontSize: sizes.smallTextSize, 
-            color: colors.textGray, 
-            marginTop: "3px",
-            fontFamily: "Montserrat, 'Montserrat Fallback'",
-          }}>
-            {filesData.submitted}/{filesData.total} files submitted
-          </div>
-          <div 
-            style={{ 
-              fontSize: sizes.tinyTextSize, 
-              color: colors.textMuted, 
-              marginTop: "4px",
-              fontWeight: 500,
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              fontFamily: "Montserrat, 'Montserrat Fallback'",
-            }}
-          >
-            <IconChevronRight size={isMobile ? 10 : 12} stroke={sizes.iconStroke} />
-            Tap to view all files
-          </div>
-        </div>
-      </Link>
-
-      {/* Recent Request/s Card */}
-      <Link
-        href="/student/request"
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: isMobile ? "6px" : "8px",
-          textDecoration: "none",
-          color: colors.textDark,
-          cursor: "pointer",
-          ...cardBaseStyle,
-          flex: "1 1 auto",
-          minHeight: 0,
-          overflow: "hidden",
-        }}
-        onMouseEnter={handleCardMouseEnter}
-        onMouseLeave={handleCardMouseLeave}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <IconEdit size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textDark} />
-            <span style={{ 
-              fontSize: sizes.textSize, 
-              fontWeight: 700, 
-              color: colors.textDark,
+            <div style={{ 
+              fontSize: sizes.smallTextSize, 
+              color: colors.textGray, 
+              marginTop: "2px",
               fontFamily: "Montserrat, 'Montserrat Fallback'",
             }}>
-              Recent Requests
-            </span>
+              Tap to open QR generator
+            </div>
           </div>
-          <IconChevronRight size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textMuted} />
         </div>
 
-        <div
+        {/* Files Card */}
+        <Link
+          href="/student/files"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            textDecoration: "none",
+            color: colors.textDark,
+            cursor: "pointer",
+            ...cardBaseStyle,
+            flex: "0 0 auto",
+          }}
+          onMouseEnter={handleLinkMouseEnter}
+          onMouseLeave={handleLinkMouseLeave}
+        >
+          <div style={{ position: "relative", width: sizes.chartSize, height: sizes.chartSize, flexShrink: 0 }}>
+            <svg width="100%" height="100%" viewBox="0 0 72 72" style={{ transform: "rotate(-90deg)" }}>
+              <circle cx="36" cy="36" r={radius} fill="none" stroke={colors.border} strokeWidth="7" />
+              <circle
+                cx="36"
+                cy="36"
+                r={radius}
+                fill="none"
+                stroke={colors.maroon}
+                strokeWidth="7"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={dashOffset}
+              />
+            </svg>
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: sizes.chartFontSize,
+                fontWeight: 700,
+                color: colors.textDark,
+                fontFamily: "Montserrat, 'Montserrat Fallback'",
+              }}
+            >
+              {completionPct}%
+            </div>
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "2px", flexWrap: "wrap" }}>
+              <div style={{ 
+                fontSize: sizes.textSize, 
+                fontWeight: 700, 
+                color: colors.textDark,
+                fontFamily: "Montserrat, 'Montserrat Fallback'",
+              }}>
+                Submission Completion Rate
+              </div>
+              <InfoCircleWithTooltip tooltip="Percentage of submitted files out of total requirements." />
+            </div>
+            <div style={{ 
+              fontSize: sizes.smallTextSize, 
+              color: colors.textGray, 
+              marginTop: "3px",
+              fontFamily: "Montserrat, 'Montserrat Fallback'",
+            }}>
+              {filesData.submitted}/{filesData.total} files submitted
+            </div>
+            <div 
+              style={{ 
+                fontSize: sizes.tinyTextSize, 
+                color: colors.textMuted, 
+                marginTop: "4px",
+                fontWeight: 500,
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                fontFamily: "Montserrat, 'Montserrat Fallback'",
+              }}
+            >
+              <IconChevronRight size={isMobile ? 10 : 12} stroke={sizes.iconStroke} />
+              Tap to view all files
+            </div>
+          </div>
+        </Link>
+
+        {/* Recent Request/s Card */}
+        <Link
+          href="/student/request"
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "6px",
+            gap: isMobile ? "6px" : "8px",
+            textDecoration: "none",
+            color: colors.textDark,
+            cursor: "pointer",
+            ...cardBaseStyle,
             flex: "1 1 auto",
-            overflowY: "auto",
             minHeight: 0,
-            paddingRight: "2px",
+            overflow: "hidden",
           }}
+          onMouseEnter={handleLinkMouseEnter}
+          onMouseLeave={handleLinkMouseLeave}
         >
-          {requestData.map((req, i) => {
-            const style = statusStyles[req.status]
-            return (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "8px",
-                  padding: isMobile ? "6px 8px" : "6px 10px",
-                  borderRadius: "6px",
-                  background: "#FAFAF9",
-                  border: `1px solid ${colors.border}`,
-                  flexShrink: 0,
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <IconEdit size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textDark} />
+              <span style={{ 
+                fontSize: sizes.textSize, 
+                fontWeight: 700, 
+                color: colors.textDark,
+                fontFamily: "Montserrat, 'Montserrat Fallback'",
+              }}>
+                Recent Requests
+              </span>
+            </div>
+            <IconChevronRight size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textMuted} />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              flex: "1 1 auto",
+              overflowY: "auto",
+              minHeight: 0,
+              paddingRight: "2px",
+            }}
+          >
+            {requestData.map((req, i) => {
+              const style = statusStyles[req.status]
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "8px",
+                    padding: isMobile ? "6px 8px" : "6px 10px",
+                    borderRadius: "6px",
+                    background: "#FAFAF9",
+                    border: `1px solid ${colors.border}`,
+                    flexShrink: 0,
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: sizes.smallTextSize,
+                        fontWeight: 600,
+                        color: colors.textDark,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        fontFamily: "Montserrat, 'Montserrat Fallback'",
+                      }}
+                    >
+                      {req.title}
+                    </div>
+                    <div style={{ 
+                      fontSize: sizes.tinyTextSize, 
+                      color: colors.textMuted, 
+                      marginTop: "1px",
+                      fontFamily: "Montserrat, 'Montserrat Fallback'",
+                    }}>
+                      {req.time}
+                    </div>
+                  </div>
                   <div
                     style={{
-                      fontSize: sizes.smallTextSize,
-                      fontWeight: 600,
-                      color: colors.textDark,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      flexShrink: 0,
+                      padding: "2px 8px",
+                      borderRadius: "10px",
+                      background: style.bg,
+                      fontSize: sizes.tinyTextSize,
+                      fontWeight: 700,
+                      color: style.text,
+                      letterSpacing: "0.2px",
                       fontFamily: "Montserrat, 'Montserrat Fallback'",
                     }}
                   >
-                    {req.title}
-                  </div>
-                  <div style={{ 
-                    fontSize: sizes.tinyTextSize, 
-                    color: colors.textMuted, 
-                    marginTop: "1px",
-                    fontFamily: "Montserrat, 'Montserrat Fallback'",
-                  }}>
-                    {req.time}
+                    {req.status}
                   </div>
                 </div>
-                <div
-                  style={{
-                    flexShrink: 0,
-                    padding: "2px 8px",
-                    borderRadius: "10px",
-                    background: style.bg,
-                    fontSize: sizes.tinyTextSize,
-                    fontWeight: 700,
-                    color: style.text,
-                    letterSpacing: "0.2px",
-                    fontFamily: "Montserrat, 'Montserrat Fallback'",
-                  }}
-                >
-                  {req.status}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </Link>
-    </div>
+              )
+            })}
+          </div>
+        </Link>
+      </div>
+
+      {/* QR Generator Modal */}
+      {showQrGenerator && (
+        <QrGenerator
+          onClose={() => setShowQrGenerator(false)}
+          onGenerateSuccess={() => {}}
+        />
+      )}
+    </>
   )
 }
