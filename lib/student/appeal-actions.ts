@@ -85,7 +85,7 @@ export async function submitStudentRequest(
     } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "Not authenticated" }
 
-    const openStatusId = await lookupId("appeal_status", "open")
+    const openStatusId = await lookupId("appeal_status", "pending")
 
     // standardize display label (e.g. "Excused Absence")
     const displayLabel = typeName
@@ -151,7 +151,7 @@ export async function updateStudentRequest(
     }
 
     // check if the record is still editable ('open')
-    const openStatusId = await lookupId("appeal_status", "open")
+    const openStatusId = await lookupId("appeal_status", "pending")
     if (existingAppeal.appeal_status_id !== openStatusId) {
       return {
         ok: false,

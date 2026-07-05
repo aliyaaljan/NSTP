@@ -439,7 +439,7 @@ function MyStudentsContent() {
 
   const pendingFilterGroups: { label: string; field: PendingFilterField; values: () => string[] }[] = [
     { label: "Type",    field: "appeal_type_name", values: () => requestType.map(t => t.name) },
-    { label: "Status",  field: "status",            values: () => ["Open", "Under Review", "Approved", "Rejected"] },
+    { label: "Status",  field: "status",            values: () => ["Pending Review", "Under Review", "Approved", "Rejected"] },
     { label: "Section", field: "section_name",      values: () => [...new Set(pendingRequests.map(r => r.section_name).filter(Boolean))].sort() },
   ]
 
@@ -538,6 +538,9 @@ function MyStudentsContent() {
   const [editTimeError, setEditTimeError] = useState<string>("")
   const [isPending, startTransition] = useTransition()
   const [resolutionNote, setResolutionNote] = useState("")
+
+  const isSaveDisabled = !editDate || !editTimeIn || !editTimeOut || !!editTimeError ||
+  (editingSession != null && editDate === formatDate(editingSession.date) && editTimeIn === to24HourFormat(editingSession.timeIn) && editTimeOut === to24HourFormat(editingSession.timeOut))
 
   // fetch student requests from database
   const refreshRequests = async () => {
@@ -1394,8 +1397,10 @@ function MyStudentsContent() {
                               return { bg: "#D1FAE5", color: "#065F46" }
                             if (status === "Rejected")
                               return { bg: "#FEE2E2", color: "#991B1B" }
-                            if (status === "Under Review")
+                            if (status === "Pending Review")
                               return { bg: "#FEF3C7", color: "#92400E" }
+                            if (status === "Under Review")
+                              return { bg: "#DBEAFE", color: "#1E40AF" }
                             return { bg: "#F3F4F6", color: "#374151" } // Open
                           }
                           const badge = getStatusBadge(r.status)
@@ -1408,8 +1413,8 @@ function MyStudentsContent() {
                                 setSelectedRequest(r)
 
                                 if (
-                                  r.status === "Open" ||
-                                  r.statusCode === "open"
+                                  r.status === "Pending Review" ||
+                                  r.statusCode === "pending"
                                 ) {
                                   setPendingRequests((prev) =>
                                     prev.map((req) =>
@@ -1980,31 +1985,10 @@ function MyStudentsContent() {
                   <button
                     className="ms-edit-save-btn"
                     onClick={handleSaveSession}
-                    disabled={
-                      !editDate || !editTimeIn || !editTimeOut || !!editTimeError ||
-                      (
-                        editDate === editingSession.date &&
-                        editTimeIn === to24HourFormat(editingSession.timeIn) &&
-                        editTimeOut === to24HourFormat(editingSession.timeOut)
-                      )
-                    }
+                    disabled={isSaveDisabled}
                     style={{
-                      opacity: (
-                        !editDate || !editTimeIn || !editTimeOut || !!editTimeError ||
-                        (
-                          editDate === editingSession.date &&
-                          editTimeIn === to24HourFormat(editingSession.timeIn) &&
-                          editTimeOut === to24HourFormat(editingSession.timeOut)
-                        )
-                      ) ? 0.4 : 1,
-                      cursor: (
-                        !editDate || !editTimeIn || !editTimeOut || !!editTimeError ||
-                        (
-                          editDate === editingSession.date &&
-                          editTimeIn === to24HourFormat(editingSession.timeIn) &&
-                          editTimeOut === to24HourFormat(editingSession.timeOut)
-                        )
-                      ) ? "not-allowed" : "pointer",
+                      opacity: isSaveDisabled ? 0.4 : 1,
+                      cursor: isSaveDisabled ? "not-allowed" : "pointer",
                     }}
                   >
                     Save
