@@ -121,29 +121,55 @@ export function filterByWeek(
 export function groupByMonth(
   scans: ScanRecord[]
 ): Record<string, ScanRecord[]> {
-  return scans.reduce(
-    (acc, scan) => {
-      const monthKey = new Date(scan.date).toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
-      if (!acc[monthKey]) acc[monthKey] = []
-      acc[monthKey].push(scan)
-      return acc
-    },
-    {} as Record<string, ScanRecord[]>
-  )
+  return scans.reduce((acc, scan) => {
+    const monthKey = new Date(scan.date).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    })
+    if (!acc[monthKey]) acc[monthKey] = []
+    acc[monthKey].push(scan)
+    return acc
+  }, {} as Record<string, ScanRecord[]>)
 }
 
-export function groupByDate(
-  scans: ScanRecord[]
-): Record<string, ScanRecord[]> {
-  return scans.reduce(
-    (acc, scan) => {
-      if (!acc[scan.date]) acc[scan.date] = []
-      acc[scan.date].push(scan)
-      return acc
-    },
-    {} as Record<string, ScanRecord[]>
-  )
+export function groupByDate(scans: ScanRecord[]): Record<string, ScanRecord[]> {
+  return scans.reduce((acc, scan) => {
+    if (!acc[scan.date]) acc[scan.date] = []
+    acc[scan.date].push(scan)
+    return acc
+  }, {} as Record<string, ScanRecord[]>)
+}
+
+export function filterScansByMonthAndWeek(
+  scans: ScanRecord[],
+  monthString: string,
+  weekOption: string
+): ScanRecord[] {
+  if (!scans || scans.length === 0) return []
+
+  // ff "all" is selected, return everything so the dashboard can group by month
+  if (weekOption === "all") return scans
+
+  // parse Month Year
+  const targetDate = new Date(`${monthString} 1`)
+  if (isNaN(targetDate.getTime())) return scans
+
+  const targetMonth = targetDate.getMonth()
+  const targetYear = targetDate.getFullYear()
+  const targetWeek = parseInt(weekOption.replace("week-", ""), 10)
+
+  return scans.filter((scan) => {
+    const [yearStr, monthStr, dayStr] = scan.date.split("-")
+    const scanYear = parseInt(yearStr, 10)
+    const scanMonth = parseInt(monthStr, 10) - 1
+    const scanDay = parseInt(dayStr, 10)
+
+    // check if scan matches the month and year in dropdown
+    if (scanYear !== targetYear || scanMonth !== targetMonth) return false
+
+    // Calculate Week of the Month (Days 1-7 = Week 1, 8-14 = Week 2, etc.)
+    const weekOfMonth = Math.ceil(scanDay / 7)
+
+    return weekOfMonth === targetWeek
+  })
 }

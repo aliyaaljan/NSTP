@@ -20,6 +20,7 @@ import { StatsCards } from "./_components/StatsCards"
 import { QRCard } from "./_components/QRCard"
 import { WeekFilter } from "./_components/WeekFilter"
 import { ScanLogPanel } from "./_components/ScanLogPanel"
+import { filterScansByMonthAndWeek } from "@/lib/student/leader/scan-history"
 
 export default function LeaderScannerPage() {
   const { isMobile } = useIsMobile()
@@ -66,7 +67,11 @@ export default function LeaderScannerPage() {
     ? `${COLLAPSED_W + RAIL_MARGIN * 2 + 8}px`
     : `${COLLAPSED_W + RAIL_MARGIN * 2}px`
 
-  const filteredScans = filterByWeek(scans, selectedWeek)
+  const filteredScans = filterScansByMonthAndWeek(
+    scans,
+    selectedMonth,
+    selectedWeek
+  )
 
   const groupedByMonthData =
     selectedWeek === "all" ? groupByMonth(filteredScans) : null
