@@ -500,11 +500,24 @@ function MyStudentsContent() {
       setActiveTab(tab)
     }
 
-    const status = searchParams.get("status")
-    if (status && (["Completed", "In Progress", "Not Started"] as string[]).includes(status)) {
-      setActiveFilters({ status: [status] })
-      setCurrentPage(1)
-    }
+    const statuses = searchParams.getAll("status")
+      if (statuses.length === 0) return
+
+      const listStatuses = statuses.filter(s =>
+        (["Completed", "In Progress", "Not Started"] as string[]).includes(s)
+      )
+      const pendingStatuses = statuses.filter(s =>
+        (["Pending Review", "Under Review", "Approved", "Rejected"] as string[]).includes(s)
+      )
+
+      if (listStatuses.length > 0) {
+        setActiveFilters({ status: listStatuses })
+        setCurrentPage(1)
+      }
+      if (pendingStatuses.length > 0) {
+        setPendingActiveFilters({ status: pendingStatuses })
+        setPendingPage(1)
+      }
   }, [searchParams])
 
   const [firstName, setFirstName] = useState("")
@@ -682,6 +695,8 @@ function MyStudentsContent() {
         onClick: () => {
           setActiveTab("pending")
           clearPendingFilters()
+          setPendingActiveFilters({ status: ["Pending Review", "Under Review"] })
+          setPendingPage(1)
         },
       },
     ]

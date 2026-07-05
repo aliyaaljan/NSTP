@@ -188,7 +188,7 @@ export default function DashboardPage() {
 
   const statCards = [
     { label: "Total Students", value: currentData.total, Icon: IconUsers, onClick:  () => router.push(`${navRoutes["My Students"]}?tab=list`)},
-    { label: "Pending Requests", value: currentData.pending, Icon: IconAlertCircle, onClick: () => router.push(`${navRoutes["My Students"]}?tab=pending`)},
+    { label: "Pending Requests", value: currentData.pending, Icon: IconAlertCircle, onClick: () => router.push(`${navRoutes["My Students"]}?tab=pending&status=Pending%20Review&status=Under%20Review`)},
     { label: "Completed", value: currentData.completed, Icon: IconCircleCheck, onClick: () => router.push(`${navRoutes["My Students"]}?tab=list&status=Completed`)},
   ]
 

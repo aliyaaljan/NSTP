@@ -51,7 +51,7 @@ export async function getStudentRequests(
         status: uiStatus,
         note: app.resolution_note
           ? `Adviser's Note: ${app.resolution_note}`
-          : "Adviser's Note: Pending review",
+          : `Adviser's Note: ${app.appeal_status.name}`,
         date: new Date(app.created_at).toLocaleDateString("en-US", {
           month: "long",
           day: "numeric",
