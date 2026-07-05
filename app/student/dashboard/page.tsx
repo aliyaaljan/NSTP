@@ -12,6 +12,7 @@ import type { StudentDashboardData } from "@/lib/student/dashboard-actions"
 import { getMyForms } from "@/lib/forms/submission-actions"
 import type { StudentFormView } from "@/lib/forms/submission-actions"
 import { getInitials, formsToDocuments, formsToCalendarEvents } from "@/lib/student/dashboard-view"
+import QuickAccess from "@/components/student/QuickAccess";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -155,6 +156,7 @@ function HoursCard({
 export default function StudentDashboardPage() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
   const [dashboard, setDashboard] = useState<StudentDashboardData | null>(null)
   const [formViews, setFormViews] = useState<StudentFormView[]>([])
 
@@ -163,7 +165,9 @@ export default function StudentDashboardPage() {
     setShowPrivacyModal(accepted !== "true")
 
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
+      const width = window.innerWidth
+      setIsMobile(width < 768)
+      setIsTablet(width >= 768 && width < 1024)
     }
     handleResize()
     window.addEventListener('resize', handleResize)
@@ -193,7 +197,7 @@ export default function StudentDashboardPage() {
 
   // Calculate left padding (edited to cater yung nasa baba na navbar on mobile)
   const getLeftPadding = () => {
-    if (isMobile) {
+    if (isMobile || isTablet) {
       return "20px"
     }
   
@@ -216,12 +220,12 @@ export default function StudentDashboardPage() {
         style={{
           flex: 1,
           paddingLeft: getLeftPadding(),
-          paddingRight: isMobile ? "20px" : "32px",
+          paddingRight: isMobile ? "20px" : isTablet ? "24px" : "32px",
           paddingTop: isMobile ? "20px" : "28px",
-          paddingBottom: isMobile ? "110px" : "28px",
+          paddingBottom: isMobile ? "110px" : isTablet ? "100px" : "28px",
           display: "flex",
           flexDirection: "column",
-          gap: isMobile ? "20px" : "20px",
+          gap: isMobile ? "14px" : "20px",
           minWidth: 0,
           width: "100%",
           maxWidth: "100%",
@@ -254,36 +258,100 @@ export default function StudentDashboardPage() {
         <HoursCard rendered={hoursRendered} target={hoursTarget} isMobile={isMobile} />
 
         {/* Calendar and Documents */}
-        <div style={{ 
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "3fr 2fr",
-          gap: isMobile ? "20px" : "20px",
-          flex: 1,
-          alignItems: "stretch",
-        }}>
+        {isTablet ? (
           <div style={{ 
-            minWidth: 0,
-            display: "flex",       
+            display: "flex",
             flexDirection: "column",
-            minHeight: isMobile ? "450px" : "500px",
-            maxHeight: isMobile ? "500px" : "550px",
+            gap: "20px",
+            flex: 1,
           }}>
-            <CalendarOverview
-              documentEvents={formsToCalendarEvents(formViews)}
-              renderedDaysByMonth={dashboard?.renderedDaysByMonth ?? {}}
-              renderedTimeByMonth={dashboard?.renderedTimeByMonth ?? {}}
-            />
+            {/* QuickAccess */}
+            <div style={{ 
+              width: "100%",
+              minHeight: "auto",
+              maxHeight: "none",
+            }}>
+              <QuickAccess isMobile={isMobile} />
+            </div>
+            
+            {/* Calendar and Documents */}
+            <div style={{ 
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "20px",
+              flex: 1,
+              minHeight: "450px",
+              maxHeight: "500px",
+            }}>
+              <div style={{ 
+                minWidth: 0,
+                display: "flex",       
+                flexDirection: "column",
+                height: "100%",
+              }}>
+                <CalendarOverview
+                  documentEvents={formsToCalendarEvents(formViews)}
+                  renderedDaysByMonth={dashboard?.renderedDaysByMonth ?? {}}
+                  renderedTimeByMonth={dashboard?.renderedTimeByMonth ?? {}}
+                />
+              </div>
+              <div style={{ 
+                minWidth: 0,
+                display: "flex",       
+                flexDirection: "column",
+                height: "100%",
+              }}>
+                <Documents documents={formsToDocuments(formViews)} />
+              </div>
+            </div>
           </div>
+        ) : (
+          // Desktop and Mobile layout
           <div style={{ 
-            minWidth: 0,
-            display: "flex",       
-            flexDirection: "column",
-            minHeight: isMobile ? "400px" : "500px",
-            maxHeight: isMobile ? "500px" : "550px",
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "3.5fr 3.5fr 1.5fr",
+            gap: isMobile ? "8px" : "20px",
+            flex: 1,
+            alignItems: "stretch",
           }}>
-            <Documents documents={formsToDocuments(formViews)} />
+            <div style={{ 
+              minWidth: 0,
+              display: "flex",       
+              flexDirection: "column",
+              minHeight: isMobile ? "450px" : "500px",
+              maxHeight: isMobile ? "500px" : "550px",
+              order: isMobile ? 1 : 0,
+            }}>
+              <CalendarOverview
+                documentEvents={formsToCalendarEvents(formViews)}
+                renderedDaysByMonth={dashboard?.renderedDaysByMonth ?? {}}
+                renderedTimeByMonth={dashboard?.renderedTimeByMonth ?? {}}
+              />
+            </div>
+            <div style={{ 
+              minWidth: 0,
+              display: "flex",       
+              flexDirection: "column",
+              minHeight: isMobile ? "400px" : "500px",
+              maxHeight: isMobile ? "500px" : "550px",
+              order: isMobile ? 2 : 0,
+            }}>
+              <Documents documents={formsToDocuments(formViews)} />
+            </div>
+
+            <div style={{ 
+              minWidth: 0,
+              display: "flex",       
+              flexDirection: "column",
+              minHeight: isMobile ? "350px" : "500px",
+              maxHeight: isMobile ? "500px" : "550px",
+              height: "100%",
+              order: isMobile ? 0 : 0,
+            }}>
+              <QuickAccess isMobile={isMobile} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* MODAL */}
         {showPrivacyModal && (
