@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { updateSite } from "@/lib/admin/site-list-actions"
 import {
   siteRowToUpdatePayload,
@@ -8,6 +8,7 @@ import {
   type SiteUpdatePayload,
 } from "@/lib/admin/site-edit"
 import type { SiteListRow, SiteListSectionOption } from "@/lib/admin/site-list"
+import { clearFormSession, isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
@@ -96,8 +97,10 @@ export default function EditGpsSiteModal({
   onClose: () => void
 }) {
   const [form, setForm] = useState<SiteUpdatePayload | null>(null)
+  const [initialForm, setInitialForm] = useState<SiteUpdatePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const loadedSessionRef = useRef<string | null>(null)
 
   const selectedSupervisor = useMemo(() => {
     if (!form) return ""
@@ -105,21 +108,26 @@ export default function EditGpsSiteModal({
     return section?.supervisorName ?? site?.supervisorName ?? ""
   }, [gpsSections, form, site?.supervisorName])
 
-  const reset = useCallback(() => {
-    setForm(site ? siteRowToUpdatePayload(site) : null)
-    setError(null)
-  }, [site])
-
   const close = useCallback(() => {
-    reset()
+    clearFormSession(loadedSessionRef)
+    setForm(null)
+    setInitialForm(null)
+    setError(null)
     onClose()
-  }, [onClose, reset])
+  }, [onClose])
 
   useEffect(() => {
-    if (open && site) {
-      setForm(siteRowToUpdatePayload(site))
-      setError(null)
+    if (
+      !shouldLoadFormSession(open, site?.geofenceId ?? null, loadedSessionRef) ||
+      !site
+    ) {
+      return
     }
+
+    const next = snapshotForm(siteRowToUpdatePayload(site))
+    setForm(next)
+    setInitialForm(snapshotForm(next))
+    setError(null)
   }, [open, site])
 
   useEffect(() => {
@@ -164,8 +172,12 @@ export default function EditGpsSiteModal({
 
   if (!open || !site || !form) return null
 
+  const isDirty =
+    form && initialForm ? isFormDirty(initialForm, form) : false
+
   const canSave =
     !isPending &&
+    isDirty &&
     Boolean(form.siteName.trim() && form.sectionId && form.radiusMeters > 0)
 
   return (
@@ -395,13 +407,13 @@ export default function EditGpsSiteModal({
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                background: COLORS.headerGreen,
+                background: canSave ? COLORS.headerGreen : "#A8B5AD",
                 color: "#fff",
                 border: "none",
                 borderRadius: 24,
                 padding: "10px 22px",
                 cursor: canSave ? "pointer" : "not-allowed",
-                opacity: canSave ? 1 : 0.5,
+                opacity: canSave ? 1 : 1,
               }}
             >
               <i className="ti ti-device-floppy" style={{ fontSize: 16 }} />

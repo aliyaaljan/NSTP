@@ -7,8 +7,10 @@ import ListPagination from "@/components/shared/ListPagination"
 import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import SectionFormModal from "@/components/admin/SectionFormModal"
+import { adminClickableRowProps } from "@/components/admin/admin-list-row"
 import { deleteSection } from "@/lib/admin/section-list-actions"
 import { sectionRowToEditPayload } from "@/lib/admin/section-edit"
 import {
@@ -113,6 +115,7 @@ export default function SectionListClient({
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<"create" | "edit">("create")
   const [editSection, setEditSection] = useState<SectionListRow | null>(null)
+  const [detailSection, setDetailSection] = useState<SectionListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SectionListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
@@ -428,13 +431,12 @@ export default function SectionListClient({
                     onSort={() => toggleSort("status")}
                   />
                 </th>
-                <th style={{ width: "8%" }}>Actions</th>
               </tr>
             </thead>
             <tbody key={animKey}>
               {pageSections.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="admin-table-empty">
+                  <td colSpan={5} className="admin-table-empty">
                     No sections match your filters.
                   </td>
                 </tr>
@@ -442,24 +444,27 @@ export default function SectionListClient({
                 pageSections.map((section) => {
                   const badge = SECTION_STATUS_BADGE[section.statusCode]
                   return (
-                    <tr key={section.sectionId} className="anim-list-item">
+                    <tr
+                      key={section.sectionId}
+                      {...adminClickableRowProps(() => setDetailSection(section))}
+                    >
                       <td>
                         <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           Section {section.name}
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {section.courseCode}
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {section.adviserName}
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {section.studentCount}
                         </div>
                         <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
@@ -480,42 +485,6 @@ export default function SectionListClient({
                         >
                           {section.statusLabel}
                         </span>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(section)}
-                            aria-label={`Edit section ${section.name}`}
-                            title="Edit section"
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor: "pointer",
-                              color: COLORS.maroon,
-                            }}
-                          >
-                            <i className="ti ti-pencil" style={{ fontSize: 18 }} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openDeleteConfirm(section)}
-                            aria-label={`Delete section ${section.name}`}
-                            title="Delete section"
-                            disabled={isDeleting}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor: isDeleting ? "not-allowed" : "pointer",
-                              color: COLORS.maroon,
-                              opacity: isDeleting ? 0.5 : 1,
-                            }}
-                          >
-                            <i className="ti ti-trash" style={{ fontSize: 18 }} />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   )
@@ -544,6 +513,51 @@ export default function SectionListClient({
         initialEdit={editSection ? sectionRowToEditPayload(editSection) : null}
         onClose={closeForm}
       />
+
+      {detailSection && (
+        <AdminRecordDetailModal
+          open
+          title={`Section ${detailSection.name}`}
+          subtitle={detailSection.courseCode}
+          fields={[
+            { label: "Adviser", value: detailSection.adviserName },
+            { label: "Students", value: `${detailSection.studentCount} enrolled` },
+            {
+              label: "Required Hours",
+              value: `${detailSection.requiredHourTotal} hours`,
+            },
+            { label: "Daily Cutoff", value: detailSection.dailyCutoffTime },
+            {
+              label: "Status",
+              value: (
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: SECTION_STATUS_BADGE[detailSection.statusCode].bg,
+                    color: SECTION_STATUS_BADGE[detailSection.statusCode].color,
+                  }}
+                >
+                  {detailSection.statusLabel}
+                </span>
+              ),
+            },
+          ]}
+          onClose={() => setDetailSection(null)}
+          onEdit={() => {
+            openEdit(detailSection)
+            setDetailSection(null)
+          }}
+          onDelete={() => {
+            openDeleteConfirm(detailSection)
+            setDetailSection(null)
+          }}
+          deleteDisabled={isDeleting}
+        />
+      )}
 
       <ConfirmDeleteModal
         open={Boolean(deleteTarget)}

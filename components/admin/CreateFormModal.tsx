@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { createForm, updateForm } from "@/lib/admin/form-list-actions"
 import {
   emptyFormCreatePayload,
@@ -12,6 +12,7 @@ import {
   type FormEditPayload,
 } from "@/lib/admin/form-edit"
 import type { FormListSectionOption } from "@/lib/admin/form-list"
+import { isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
@@ -155,6 +156,7 @@ export default function CreateFormModal({
   onClose: () => void
 }) {
   const [form, setForm] = useState<FormCreatePayload>(emptyFormCreatePayload())
+  const [initialForm, setInitialForm] = useState<FormCreatePayload | null>(null)
   const [editMeta, setEditMeta] = useState<{
     formRequirementId: string
     listSectionId: string
@@ -162,28 +164,43 @@ export default function CreateFormModal({
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const loadedSessionRef = useRef<string | null>(null)
 
   const reset = useCallback(() => {
     setForm(emptyFormCreatePayload())
+    setInitialForm(null)
     setEditMeta(null)
     setError(null)
   }, [])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      loadedSessionRef.current = null
+      return
+    }
+
     if (mode === "edit" && initialEdit) {
-      setForm({
+      const sessionKey = `edit:${initialEdit.formRequirementId}:${initialEdit.listSectionId}`
+      if (!shouldLoadFormSession(open, sessionKey, loadedSessionRef)) return
+
+      const snapshot = snapshotForm<FormCreatePayload>({
         title: initialEdit.title,
         description: initialEdit.description,
         dueDate: initialEdit.dueDate,
         sectionId: initialEdit.sectionId,
       })
+      setForm(snapshot)
+      setInitialForm(snapshotForm(snapshot))
       setEditMeta({
         formRequirementId: initialEdit.formRequirementId,
         listSectionId: initialEdit.listSectionId,
         isGlobal: initialEdit.isGlobal,
       })
-    } else {
+      return
+    }
+
+    if (mode === "create") {
+      if (!shouldLoadFormSession(open, "create", loadedSessionRef)) return
       reset()
     }
   }, [open, mode, initialEdit, reset])
@@ -254,7 +271,12 @@ export default function CreateFormModal({
     })
   }
 
-  const canSubmit = Boolean(form.title.trim())
+  const isDirty =
+    mode === "edit" && initialForm
+      ? isFormDirty(initialForm, form)
+      : true
+
+  const canSubmit = Boolean(form.title.trim()) && isDirty
 
   return (
     <div
@@ -400,13 +422,13 @@ export default function CreateFormModal({
             disabled={!canSubmit || isPending}
             style={{
               ...TYPE.bodyBold,
-              background: COLORS.headerGreen,
+              background: canSubmit ? COLORS.headerGreen : "#A8B5AD",
               color: "#fff",
               border: "none",
               borderRadius: 8,
               padding: "10px 20px",
               cursor: !canSubmit || isPending ? "not-allowed" : "pointer",
-              opacity: !canSubmit || isPending ? 0.6 : 1,
+              opacity: !canSubmit || isPending ? 1 : 1,
             }}
           >
             {isPending ? "Saving…" : mode === "edit" ? "Save Changes" : "Create Form"}

@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddAccessUserModal from "@/components/admin/AddAccessUserModal"
 import EditAccessUserModal from "@/components/admin/EditAccessUserModal"
+import { adminClickableRowProps } from "@/components/admin/admin-list-row"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
 import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
@@ -133,6 +135,7 @@ export default function AccessControlClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [editUser, setEditUser] = useState<AccessControlRow | null>(null)
+  const [detailUser, setDetailUser] = useState<AccessControlRow | null>(null)
   const [addUserOpen, setAddUserOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string
@@ -416,14 +419,13 @@ export default function AccessControlClient({
                   />
                 </th>
                 <th style={{ width: "12%", textAlign: "center" }}>Status</th>
-                <th style={{ width: "14%" }}>Last Updated</th>
-                <th style={{ width: "12%" }}>Actions</th>
+                <th style={{ width: "16%" }}>Last Updated</th>
               </tr>
             </thead>
             <tbody key={animKey}>
               {pageUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="admin-table-empty">
+                  <td colSpan={5} className="admin-table-empty">
                     No users match your filters.
                   </td>
                 </tr>
@@ -445,7 +447,10 @@ export default function AccessControlClient({
                     : "—"
 
                   return (
-                    <tr key={user.appUserId} className="anim-list-item">
+                    <tr
+                      key={user.appUserId}
+                      {...adminClickableRowProps(() => setDetailUser(user))}
+                    >
                       <td>
                         <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {user.fullName}
@@ -467,7 +472,7 @@ export default function AccessControlClient({
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {user.displayId}
                         </div>
                       </td>
@@ -492,46 +497,6 @@ export default function AccessControlClient({
                       <td>
                         <div style={{ fontSize: 12, color: COLORS.textGray }}>
                           {lastUpdated}
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <button
-                            type="button"
-                            aria-label={`Edit ${user.fullName}`}
-                            title="Edit user"
-                            onClick={() => setEditUser(user)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor: "pointer",
-                              color: COLORS.maroon,
-                            }}
-                          >
-                            <i className="ti ti-pencil" style={{ fontSize: 18 }} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Deactivate ${user.fullName}`}
-                            title="Deactivate user"
-                            disabled={isDeleting && deletingId === user.appUserId}
-                            onClick={() => openDeleteConfirm(user.appUserId, user.fullName)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor:
-                                isDeleting && deletingId === user.appUserId
-                                  ? "not-allowed"
-                                  : "pointer",
-                              color: COLORS.maroon,
-                              opacity:
-                                isDeleting && deletingId === user.appUserId ? 0.5 : 1,
-                            }}
-                          >
-                            <i className="ti ti-trash" style={{ fontSize: 18 }} />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -563,6 +528,47 @@ export default function AccessControlClient({
         roles={roles}
         onClose={() => setEditUser(null)}
       />
+
+      {detailUser && (
+        <AdminRecordDetailModal
+          open
+          title={detailUser.fullName}
+          subtitle={detailUser.email}
+          fields={[
+            { label: "ID", value: detailUser.displayId },
+            { label: "Role", value: <RoleBadge roleCode={detailUser.roleCode} /> },
+            {
+              label: "Status",
+              value: detailUser.isActive ? "Active" : "Inactive",
+            },
+            {
+              label: "Last Updated",
+              value: detailUser.updatedAt
+                ? new Date(detailUser.updatedAt).toLocaleDateString("en-PH", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : "—",
+            },
+          ]}
+          onClose={() => setDetailUser(null)}
+          onEdit={() => {
+            setEditUser(detailUser)
+            setDetailUser(null)
+          }}
+          onDelete={() => {
+            openDeleteConfirm(detailUser.appUserId, detailUser.fullName)
+            setDetailUser(null)
+          }}
+          deleteLabel="Deactivate"
+          editDisabled={detailUser.isSample}
+          deleteDisabled={
+            detailUser.isSample || (isDeleting && deletingId === detailUser.appUserId)
+          }
+        />
+      )}
+
       <ConfirmDeleteModal
         open={deleteTarget !== null}
         title="Deactivate User"

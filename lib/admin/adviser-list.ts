@@ -15,6 +15,8 @@ export interface AdviserListRow {
   email: string
   /** Derived from `fullName` for avatar display. */
   initials: string
+  /** Public URL for adviser photo when backend storage is wired. */
+  photoUrl: string | null
   /** `section.section_id` values for sections this adviser facilitates. */
   sectionIds: string[]
   /** `section.name` values for sections this adviser facilitates. */
@@ -177,6 +179,7 @@ export function mapAdviserDbRowToListRow(
     fullName: row.full_name ?? "Unknown",
     email: row.email ?? "",
     initials: initialsFromName(row.full_name ?? "?"),
+    photoUrl: null,
     sectionIds,
     sectionNames,
     studentCount,

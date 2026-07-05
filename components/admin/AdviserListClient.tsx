@@ -6,11 +6,14 @@ import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from
 import ListPagination from "@/components/shared/ListPagination"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddAdviserModal from "@/components/admin/AddAdviserModal"
 import EditAdviserModal from "@/components/admin/EditAdviserModal"
 import ImportAdvisersModal from "@/components/admin/ImportAdvisersModal"
+import { adminClickableCardProps } from "@/components/admin/admin-list-row"
+import { AdviserAvatar } from "@/components/admin/AdviserPhotoUpload"
 import { deleteAdviser } from "@/lib/admin/adviser-list-actions"
 import {
   ADVISER_LIST_ALL_SECTIONS,
@@ -122,95 +125,99 @@ function ProfilePill({ user }: { user: AdminCurrentUser }) {
   )
 }
 
+function progressBarColor(pct: number): string {
+  if (pct >= 81) return COLORS.green
+  if (pct >= 51) return COLORS.amber
+  return COLORS.maroon
+}
+
+function AvgCompletionBar({ pct, wide = false }: { pct: number; wide?: boolean }) {
+  const clamped = Math.min(100, Math.max(0, pct))
+
+  return (
+    <div style={{ width: "100%", minWidth: wide ? 240 : undefined }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          marginBottom: 6,
+        }}
+      >
+        {!wide && (
+          <span style={{ ...TYPE.body, color: COLORS.textGray }}>Avg Completion</span>
+        )}
+        <span
+          style={{
+            ...TYPE.bodyBold,
+            color: COLORS.textDark,
+            marginLeft: wide ? 0 : "auto",
+          }}
+        >
+          {clamped}%
+        </span>
+      </div>
+      <div
+        role="progressbar"
+        aria-valuenow={clamped}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Average completion ${clamped}%`}
+        style={{
+          height: 6,
+          background: COLORS.track,
+          borderRadius: 999,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${clamped}%`,
+            background: progressBarColor(clamped),
+            borderRadius: 999,
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 function AdviserCard({
   adviser,
-  onEdit,
-  onDelete,
-  isDeleting,
+  photoUrl,
+  onSelect,
 }: {
   adviser: AdviserListRow
-  onEdit: (adviser: AdviserListRow) => void
-  onDelete: (adviser: AdviserListRow) => void
-  isDeleting: boolean
+  photoUrl: string | null
+  onSelect: (adviser: AdviserListRow) => void
 }) {
   const sectionsLabel =
     adviser.sectionNames.length > 0 ? adviser.sectionNames.join(", ") : "—"
 
   return (
     <article
-      className="anim-list-item"
+      {...adminClickableCardProps(() => onSelect(adviser))}
       style={{
         background: COLORS.cardBg,
         border: `1px solid ${COLORS.border}`,
         borderRadius: COLORS.radius,
         boxShadow: COLORS.cardShadow,
         padding: "18px 20px 16px",
-        position: "relative",
         display: "flex",
         flexDirection: "column",
         minHeight: 280,
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          top: 16,
-          right: 16,
-          display: "flex",
-          gap: 10,
-        }}
-      >
-        <button
-          type="button"
-          aria-label={`Edit ${adviser.fullName}`}
-          title="Edit adviser"
-          onClick={() => onEdit(adviser)}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 4,
-            cursor: "pointer",
-            color: COLORS.maroon,
-          }}
-        >
-          <i className="ti ti-pencil" style={{ fontSize: 18 }} />
-        </button>
-        <button
-          type="button"
-          aria-label={`Delete ${adviser.fullName}`}
-          title="Delete adviser"
-          disabled={isDeleting}
-          onClick={() => onDelete(adviser)}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 4,
-            cursor: isDeleting ? "not-allowed" : "pointer",
-            color: COLORS.maroon,
-            opacity: isDeleting ? 0.5 : 1,
-          }}
-        >
-          <i className="ti ti-trash" style={{ fontSize: 18 }} />
-        </button>
-      </div>
-
       <div style={{ textAlign: "center", marginBottom: 16, paddingTop: 8 }}>
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: "50%",
-            background: COLORS.maroon,
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 12px",
-            ...TYPE.bodyBold,
-            fontSize: "14px",
-          }}
-        >
-          {adviser.initials}
+        <div style={{ margin: "0 auto 12px", width: 64, height: 64 }}>
+          <AdviserAvatar
+            fullName={adviser.fullName}
+            initials={adviser.initials}
+            photoUrl={photoUrl}
+            size={64}
+          />
         </div>
         <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>{adviser.fullName}</div>
         <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 4 }}>
@@ -230,23 +237,7 @@ function AdviserCard({
       >
         <StatRow label="Section/s" value={sectionsLabel} />
         <StatRow label="Students" value={String(adviser.studentCount)} />
-        <StatRow
-          label="Avg Completion"
-          value={
-            <span
-              style={{
-                ...TYPE.bodyBold,
-                display: "inline-block",
-                padding: "3px 12px",
-                borderRadius: 999,
-                background: COLORS.greenBgLight,
-                color: COLORS.green,
-              }}
-            >
-              {adviser.avgCompletionPct}%
-            </span>
-          }
-        />
+        <AvgCompletionBar pct={adviser.avgCompletionPct} />
         <StatRow label="Pending Requests" value={String(adviser.pendingRequestCount)} />
       </div>
     </article>
@@ -298,6 +289,7 @@ export default function AdviserListClient({
   const [addManualOpen, setAddManualOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [editAdviser, setEditAdviser] = useState<AdviserListRow | null>(null)
+  const [detailAdviser, setDetailAdviser] = useState<AdviserListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string
     name: string
@@ -310,6 +302,26 @@ export default function AdviserListClient({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
+  const [photoOverrides, setPhotoOverrides] = useState<Record<string, string | null>>(
+    {}
+  )
+
+  function resolvePhotoUrl(adviser: AdviserListRow): string | null {
+    if (adviser.adviserUserId in photoOverrides) {
+      return photoOverrides[adviser.adviserUserId]
+    }
+    return adviser.photoUrl
+  }
+
+  function setAdviserPhoto(adviserUserId: string, photoUrl: string | null) {
+    setPhotoOverrides((prev) => {
+      const previous = prev[adviserUserId]
+      if (previous?.startsWith("blob:") && previous !== photoUrl) {
+        URL.revokeObjectURL(previous)
+      }
+      return { ...prev, [adviserUserId]: photoUrl }
+    })
+  }
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -541,9 +553,8 @@ export default function AdviserListClient({
                 <AdviserCard
                   key={adviser.adviserUserId}
                   adviser={adviser}
-                  onEdit={setEditAdviser}
-                  onDelete={openDeleteConfirm}
-                  isDeleting={isDeleting && deletingId === adviser.adviserUserId}
+                  photoUrl={resolvePhotoUrl(adviser)}
+                  onSelect={setDetailAdviser}
                 />
               ))}
             </div>
@@ -573,9 +584,68 @@ export default function AdviserListClient({
         onClose={() => setAddManualOpen(false)}
       />
       <ImportAdvisersModal open={importOpen} onClose={() => setImportOpen(false)} />
+
+      {detailAdviser && (
+        <AdminRecordDetailModal
+          open
+          title={detailAdviser.fullName}
+          subtitle={detailAdviser.email}
+          fields={[
+            {
+              label: "Photo",
+              align: "center",
+              value: (
+                <AdviserAvatar
+                  fullName={detailAdviser.fullName}
+                  initials={detailAdviser.initials}
+                  photoUrl={resolvePhotoUrl(detailAdviser)}
+                  size={72}
+                />
+              ),
+            },
+            {
+              label: "Sections",
+              value:
+                detailAdviser.sectionNames.length > 0
+                  ? detailAdviser.sectionNames.join(", ")
+                  : "—",
+            },
+            { label: "Students", value: String(detailAdviser.studentCount) },
+            {
+              label: "Avg Completion",
+              value: <AvgCompletionBar pct={detailAdviser.avgCompletionPct} wide />,
+            },
+            {
+              label: "Pending Requests",
+              value: String(detailAdviser.pendingRequestCount),
+            },
+            {
+              label: "Status",
+              value: detailAdviser.isActive ? "Active" : "Inactive",
+            },
+          ]}
+          onClose={() => setDetailAdviser(null)}
+          onEdit={() => {
+            setEditAdviser(detailAdviser)
+            setDetailAdviser(null)
+          }}
+          onDelete={() => {
+            openDeleteConfirm(detailAdviser)
+            setDetailAdviser(null)
+          }}
+          deleteDisabled={isDeleting && deletingId === detailAdviser.adviserUserId}
+        />
+      )}
+
       <EditAdviserModal
         open={editAdviser !== null}
         adviser={editAdviser}
+        photoUrl={editAdviser ? resolvePhotoUrl(editAdviser) : null}
+        onPhotoChange={(photoUrl) => {
+          if (editAdviser) {
+            setAdviserPhoto(editAdviser.adviserUserId, photoUrl)
+          }
+        }}
         onClose={() => setEditAdviser(null)}
       />
       <ConfirmDeleteModal

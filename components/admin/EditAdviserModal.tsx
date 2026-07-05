@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { updateAdviser } from "@/lib/admin/adviser-list-actions"
 import {
   adviserRowToEditPayload,
@@ -8,6 +8,8 @@ import {
   type AdviserEditPayload,
 } from "@/lib/admin/adviser-edit"
 import type { AdviserListRow } from "@/lib/admin/adviser-list"
+import AdviserPhotoUpload from "@/components/admin/AdviserPhotoUpload"
+import { clearFormSession, isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
@@ -86,31 +88,46 @@ function TextInput({
 export default function EditAdviserModal({
   open,
   adviser,
+  photoUrl,
+  onPhotoChange,
   onClose,
 }: {
   open: boolean
   adviser: AdviserListRow | null
+  photoUrl: string | null
+  onPhotoChange: (photoUrl: string | null) => void
   onClose: () => void
 }) {
   const [form, setForm] = useState<AdviserEditPayload | null>(null)
+  const [initialForm, setInitialForm] = useState<AdviserEditPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  const reset = useCallback(() => {
-    setForm(adviser ? adviserRowToEditPayload(adviser) : null)
-    setError(null)
-  }, [adviser])
+  const loadedSessionRef = useRef<string | null>(null)
 
   const close = useCallback(() => {
-    reset()
+    clearFormSession(loadedSessionRef)
+    setForm(null)
+    setInitialForm(null)
+    setError(null)
     onClose()
-  }, [onClose, reset])
+  }, [onClose])
 
   useEffect(() => {
-    if (open && adviser) {
-      setForm(adviserRowToEditPayload(adviser))
-      setError(null)
+    if (
+      !shouldLoadFormSession(
+        open,
+        adviser?.adviserUserId ?? null,
+        loadedSessionRef
+      ) ||
+      !adviser
+    ) {
+      return
     }
+
+    const next = snapshotForm(adviserRowToEditPayload(adviser))
+    setForm(next)
+    setInitialForm(snapshotForm(next))
+    setError(null)
   }, [open, adviser])
 
   useEffect(() => {
@@ -158,8 +175,13 @@ export default function EditAdviserModal({
   const sectionsLabel =
     adviser.sectionNames.length > 0 ? adviser.sectionNames.join(", ") : "—"
 
+  const isDirty =
+    form && initialForm ? isFormDirty(initialForm, form) : false
+
   const canSave =
-    !isPending && Boolean(form.fullName.trim() && form.email.trim())
+    !isPending &&
+    isDirty &&
+    Boolean(form.fullName.trim() && form.email.trim())
 
   return (
     <div
@@ -249,6 +271,13 @@ export default function EditAdviserModal({
             </div>
             <div style={{ marginTop: 4 }}>Section/s: {sectionsLabel}</div>
           </div>
+
+          <AdviserPhotoUpload
+            fullName={adviser.fullName}
+            initials={adviser.initials}
+            photoUrl={photoUrl}
+            onPhotoChange={onPhotoChange}
+          />
 
           <FormField label="Full Name">
             <TextInput

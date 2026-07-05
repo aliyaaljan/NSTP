@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { updateAccessUser, updateUserRole } from "@/lib/admin/access-control-actions"
 import {
   accessUserRowToEditPayload,
@@ -12,6 +12,7 @@ import type {
   AccessControlRow,
 } from "@/lib/admin/access-control"
 import { ROLE_CODE_LABELS } from "@/lib/admin/access-control"
+import { clearFormSession, isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { FONT_BODY, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS } from "@/lib/admin-theme"
 
@@ -102,24 +103,31 @@ export default function EditAccessUserModal({
   onClose: () => void
 }) {
   const [form, setForm] = useState<AccessUserEditPayload | null>(null)
+  const [initialForm, setInitialForm] = useState<AccessUserEditPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  const reset = useCallback(() => {
-    setForm(user ? accessUserRowToEditPayload(user) : null)
-    setError(null)
-  }, [user])
+  const loadedSessionRef = useRef<string | null>(null)
 
   const close = useCallback(() => {
-    reset()
+    clearFormSession(loadedSessionRef)
+    setForm(null)
+    setInitialForm(null)
+    setError(null)
     onClose()
-  }, [onClose, reset])
+  }, [onClose])
 
   useEffect(() => {
-    if (open && user) {
-      setForm(accessUserRowToEditPayload(user))
-      setError(null)
+    if (
+      !shouldLoadFormSession(open, user?.appUserId ?? null, loadedSessionRef) ||
+      !user
+    ) {
+      return
     }
+
+    const next = snapshotForm(accessUserRowToEditPayload(user))
+    setForm(next)
+    setInitialForm(snapshotForm(next))
+    setError(null)
   }, [open, user])
 
   useEffect(() => {
@@ -178,7 +186,11 @@ export default function EditAccessUserModal({
 
   if (!open || !user || !form) return null
 
-  const canSave = !isPending && Boolean(form.fullName.trim() && form.email.trim())
+  const isDirty =
+    form && initialForm ? isFormDirty(initialForm, form) : false
+
+  const canSave =
+    !isPending && isDirty && Boolean(form.fullName.trim() && form.email.trim())
 
   return (
     <div

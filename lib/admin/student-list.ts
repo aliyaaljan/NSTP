@@ -38,7 +38,7 @@ export interface StudentListSectionOption {
   name: string
 }
 
-export type StudentListSortKey = "name" | "adviser"
+export type StudentListSortKey = "name" | "section" | "adviser"
 
 export type StudentListStatusFilter = StudentProgressStatus | "all"
 
@@ -201,7 +201,12 @@ export function parseStudentListQuery(params: {
       ? (params.status as StudentListStatusFilter)
       : "all",
     search: params.q ?? "",
-    sort: params.sort === "adviser" ? "adviser" : "name",
+    sort:
+      params.sort === "section"
+        ? "section"
+        : params.sort === "adviser"
+          ? "adviser"
+          : "name",
     dir: params.dir === "desc" ? "desc" : "asc",
     page: pageNum,
   }
@@ -245,9 +250,10 @@ export function filterStudentListRows(
     if (query.sort === "name") {
       return a.fullName.localeCompare(b.fullName) * factor
     }
-    const aKey = `${a.sectionName}-${a.adviserName}`
-    const bKey = `${b.sectionName}-${b.adviserName}`
-    return aKey.localeCompare(bKey) * factor
+    if (query.sort === "section") {
+      return a.sectionName.localeCompare(b.sectionName) * factor
+    }
+    return a.adviserName.localeCompare(b.adviserName) * factor
   })
 
   return filtered

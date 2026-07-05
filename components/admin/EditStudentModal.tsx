@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { updateStudent } from "@/lib/admin/student-list-actions"
 import {
   studentRowToEditPayload,
@@ -8,6 +8,7 @@ import {
   type StudentEditPayload,
 } from "@/lib/admin/student-edit"
 import type { StudentListRow, StudentListSectionOption } from "@/lib/admin/student-list"
+import { clearFormSession, isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { PROGRESS_STATUS_LABELS } from "@/lib/admin/student-progress"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
@@ -152,24 +153,35 @@ export default function EditStudentModal({
   onClose: () => void
 }) {
   const [form, setForm] = useState<StudentEditPayload | null>(null)
+  const [initialForm, setInitialForm] = useState<StudentEditPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  const reset = useCallback(() => {
-    setForm(student ? studentRowToEditPayload(student) : null)
-    setError(null)
-  }, [student])
+  const loadedSessionRef = useRef<string | null>(null)
 
   const close = useCallback(() => {
-    reset()
+    clearFormSession(loadedSessionRef)
+    setForm(null)
+    setInitialForm(null)
+    setError(null)
     onClose()
-  }, [onClose, reset])
+  }, [onClose])
 
   useEffect(() => {
-    if (open && student) {
-      setForm(studentRowToEditPayload(student))
-      setError(null)
+    if (
+      !shouldLoadFormSession(
+        open,
+        student?.enrollmentId ?? null,
+        loadedSessionRef
+      ) ||
+      !student
+    ) {
+      return
     }
+
+    const next = snapshotForm(studentRowToEditPayload(student))
+    setForm(next)
+    setInitialForm(snapshotForm(next))
+    setError(null)
   }, [open, student])
 
   useEffect(() => {
@@ -214,8 +226,12 @@ export default function EditStudentModal({
 
   if (!open || !student || !form) return null
 
+  const isDirty =
+    form && initialForm ? isFormDirty(initialForm, form) : false
+
   const canSave =
     !isPending &&
+    isDirty &&
     Boolean(form.fullName.trim() && form.email.trim() && form.sectionId)
 
   return (

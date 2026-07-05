@@ -209,6 +209,32 @@ export const ADMIN_THEME_CSS = `
   .admin-table tbody tr:last-child td { border-bottom: none; }
   .admin-table tbody tr { transition: background 0.12s; }
   .admin-table tbody tr:hover td { background: #FAFAFA; }
+  .admin-table-row-clickable {
+    cursor: pointer;
+  }
+  .admin-table-row-clickable:hover td,
+  .admin-table-row-clickable:focus-visible td {
+    background: #F3F4F6;
+  }
+  .admin-table-row-clickable:focus-visible {
+    outline: none;
+  }
+  .admin-table-row-clickable:focus-visible td:first-child {
+    box-shadow: inset 3px 0 0 var(--maroon);
+  }
+  .admin-card-clickable {
+    cursor: pointer;
+    transition: box-shadow 0.12s, border-color 0.12s, transform 0.12s;
+  }
+  .admin-card-clickable:hover,
+  .admin-card-clickable:focus-visible {
+    border-color: #D1D5DB;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  }
+  .admin-card-clickable:focus-visible {
+    outline: 2px solid var(--maroon);
+    outline-offset: 2px;
+  }
   .admin-table-empty {
     text-align: center;
     padding: 48px 20px;

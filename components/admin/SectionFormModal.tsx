@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { createSection, updateSection } from "@/lib/admin/section-list-actions"
 import {
   emptySectionCreatePayload,
@@ -16,6 +16,7 @@ import type {
   SectionListAdviserOption,
   SectionListStatusOption,
 } from "@/lib/admin/section-list"
+import { isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
@@ -158,20 +159,30 @@ export default function SectionFormModal({
   onClose: () => void
 }) {
   const [form, setForm] = useState<SectionCreatePayload>(emptySectionCreatePayload())
+  const [initialForm, setInitialForm] = useState<SectionCreatePayload | null>(null)
   const [editSectionId, setEditSectionId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const loadedSessionRef = useRef<string | null>(null)
 
   const reset = useCallback(() => {
     setForm(emptySectionCreatePayload())
+    setInitialForm(null)
     setEditSectionId(null)
     setError(null)
   }, [])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      loadedSessionRef.current = null
+      return
+    }
+
     if (mode === "edit" && initialEdit) {
-      setForm({
+      const sessionKey = `edit:${initialEdit.sectionId}`
+      if (!shouldLoadFormSession(open, sessionKey, loadedSessionRef)) return
+
+      const snapshot = snapshotForm<SectionCreatePayload>({
         name: initialEdit.name,
         courseCode: isSectionCourseCode(initialEdit.courseCode) ? initialEdit.courseCode : "",
         adviserUserId: initialEdit.adviserUserId,
@@ -179,8 +190,14 @@ export default function SectionFormModal({
         requiredHourTotal: initialEdit.requiredHourTotal,
         dailyCutoffTime: initialEdit.dailyCutoffTime,
       })
+      setForm(snapshot)
+      setInitialForm(snapshotForm(snapshot))
       setEditSectionId(initialEdit.sectionId)
-    } else {
+      return
+    }
+
+    if (mode === "create") {
+      if (!shouldLoadFormSession(open, "create", loadedSessionRef)) return
       reset()
     }
   }, [open, mode, initialEdit, reset])
@@ -249,10 +266,16 @@ export default function SectionFormModal({
     })
   }
 
+  const isDirty =
+    mode === "edit" && initialForm
+      ? isFormDirty(initialForm, form)
+      : true
+
   const canSubmit =
     Boolean(form.name.trim()) &&
     Boolean(form.courseCode.trim()) &&
-    Boolean(form.adviserUserId)
+    Boolean(form.adviserUserId) &&
+    isDirty
 
   return (
     <div
@@ -407,13 +430,13 @@ export default function SectionFormModal({
             disabled={!canSubmit || isPending}
             style={{
               ...TYPE.bodyBold,
-              background: COLORS.headerGreen,
+              background: canSubmit ? COLORS.headerGreen : "#A8B5AD",
               color: "#fff",
               border: "none",
               borderRadius: 8,
               padding: "10px 20px",
               cursor: !canSubmit || isPending ? "not-allowed" : "pointer",
-              opacity: !canSubmit || isPending ? 0.6 : 1,
+              opacity: !canSubmit || isPending ? 1 : 1,
             }}
           >
             {isPending ? "Saving…" : mode === "edit" ? "Save Changes" : "Create Section"}

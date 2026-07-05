@@ -7,9 +7,11 @@ import ListPagination from "@/components/shared/ListPagination"
 import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
+import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import CreateFormModal from "@/components/admin/CreateFormModal"
 import ImportFormsModal from "@/components/admin/ImportFormsModal"
+import { adminClickableRowProps } from "@/components/admin/admin-list-row"
 import { deleteForm } from "@/lib/admin/form-list-actions"
 import { formRowToEditPayload } from "@/lib/admin/form-edit"
 import {
@@ -108,6 +110,7 @@ export default function FormListClient({
   const searchParams = useSearchParams()
   const [importOpen, setImportOpen] = useState(false)
   const [editForm, setEditForm] = useState<FormListRow | null>(null)
+  const [detailForm, setDetailForm] = useState<FormListRow | null>(null)
   const [viewForm, setViewForm] = useState<FormListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FormListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
@@ -387,13 +390,12 @@ export default function FormListClient({
                     onSort={() => toggleSort("deadline")}
                   />
                 </th>
-                <th style={{ width: "10%" }}>Actions</th>
               </tr>
             </thead>
             <tbody key={animKey}>
               {pageForms.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="admin-table-empty">
+                  <td colSpan={4} className="admin-table-empty">
                     No forms match your filters.
                   </td>
                 </tr>
@@ -401,7 +403,10 @@ export default function FormListClient({
                 pageForms.map((form) => {
                   const deadline = formatFormDeadline(form.dueDate)
                   return (
-                    <tr key={form.rowId} className="anim-list-item">
+                    <tr
+                      key={form.rowId}
+                      {...adminClickableRowProps(() => setDetailForm(form))}
+                    >
                       <td>
                         <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {form.formName}
@@ -419,7 +424,7 @@ export default function FormListClient({
                         )}
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {form.sectionName} Section
                         </div>
                         <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
@@ -438,9 +443,7 @@ export default function FormListClient({
                         >
                           <span
                             style={{
-                              fontSize: "18px",
-                              fontWeight: 800,
-                              letterSpacing: "-0.02em",
+                              fontSize: "14px",
                               color: COLORS.textDark,
                             }}
                           >
@@ -449,7 +452,6 @@ export default function FormListClient({
                           <span
                             style={{
                               fontSize: 12,
-                              fontWeight: 600,
                               color: COLORS.textGray,
                             }}
                           >
@@ -461,7 +463,7 @@ export default function FormListClient({
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {deadline.date}
                         </div>
                         {deadline.time && (
@@ -469,67 +471,6 @@ export default function FormListClient({
                             {deadline.time}
                           </div>
                         )}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <button
-                            type="button"
-                            aria-label={`View ${form.formName}`}
-                            title="View submissions"
-                            onClick={() => setViewForm(form)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor: "pointer",
-                              color: COLORS.maroon,
-                            }}
-                          >
-                            <i className="ti ti-eye" style={{ fontSize: 18 }} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Edit ${form.formName}`}
-                            title={form.isSample ? "Sample rows cannot be edited" : "Edit form"}
-                            disabled={form.isSample}
-                            onClick={() => !form.isSample && setEditForm(form)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor: form.isSample ? "not-allowed" : "pointer",
-                              color: COLORS.maroon,
-                              opacity: form.isSample ? 0.35 : 1,
-                            }}
-                          >
-                            <i className="ti ti-pencil" style={{ fontSize: 18 }} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Delete ${form.formName}`}
-                            title={form.isSample ? "Sample rows cannot be deleted" : "Delete form"}
-                            disabled={
-                              form.isSample || (isDeleting && deletingId === form.rowId)
-                            }
-                            onClick={() => !form.isSample && openDeleteConfirm(form)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor:
-                                form.isSample || (isDeleting && deletingId === form.rowId)
-                                  ? "not-allowed"
-                                  : "pointer",
-                              color: COLORS.maroon,
-                              opacity:
-                                form.isSample || (isDeleting && deletingId === form.rowId)
-                                  ? 0.35
-                                  : 1,
-                            }}
-                          >
-                            <i className="ti ti-trash" style={{ fontSize: 18 }} />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   )
@@ -561,6 +502,69 @@ export default function FormListClient({
         initialEdit={editForm ? formRowToEditPayload(editForm) : null}
         onClose={() => setEditForm(null)}
       />
+
+      {detailForm && (
+        <AdminRecordDetailModal
+          open
+          title={detailForm.formName}
+          subtitle={`${detailForm.sectionName} Section · ${detailForm.adviserName}`}
+          fields={[
+            {
+              label: "Submissions",
+              value: `${detailForm.submittedCount} of ${detailForm.totalStudents} students`,
+            },
+            {
+              label: "Deadline",
+              value: detailForm.dueDate
+                ? `${formatFormDeadline(detailForm.dueDate).date}${
+                    formatFormDeadline(detailForm.dueDate).time
+                      ? ` at ${formatFormDeadline(detailForm.dueDate).time}`
+                      : ""
+                  }`
+                : "No deadline",
+            },
+            {
+              label: "Scope",
+              value: detailForm.isGlobal ? "Global default" : "Section-specific",
+            },
+            {
+              label: "Status",
+              value: detailForm.isActive ? "Active" : "Inactive",
+            },
+            ...(detailForm.isSample
+              ? [
+                  {
+                    label: "Note",
+                    value: "Sample preview row — not stored in the database.",
+                  },
+                ]
+              : [
+                  {
+                    label: "Requirement ID",
+                    value: detailForm.formRequirementId,
+                  },
+                ]),
+          ]}
+          onClose={() => setDetailForm(null)}
+          onView={() => {
+            setViewForm(detailForm)
+            setDetailForm(null)
+          }}
+          onEdit={() => {
+            setEditForm(detailForm)
+            setDetailForm(null)
+          }}
+          onDelete={() => {
+            openDeleteConfirm(detailForm)
+            setDetailForm(null)
+          }}
+          viewLabel="View submissions"
+          editDisabled={detailForm.isSample}
+          deleteDisabled={
+            detailForm.isSample || (isDeleting && deletingId === detailForm.rowId)
+          }
+        />
+      )}
 
       {viewForm && (
         <div

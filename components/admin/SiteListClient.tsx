@@ -9,7 +9,9 @@ import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddGpsSiteModal from "@/components/admin/AddGpsSiteModal"
 import EditGpsSiteModal from "@/components/admin/EditGpsSiteModal"
+import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import { adminClickableRowProps } from "@/components/admin/admin-list-row"
 import { deleteSite } from "@/lib/admin/site-list-actions"
 import { validateSiteDelete } from "@/lib/admin/site-edit"
 import {
@@ -136,6 +138,7 @@ export default function SiteListClient({
   const searchParams = useSearchParams()
   const [addOpen, setAddOpen] = useState(false)
   const [editSite, setEditSite] = useState<SiteListRow | null>(null)
+  const [detailSite, setDetailSite] = useState<SiteListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SiteListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
@@ -398,10 +401,10 @@ export default function SiteListClient({
         />
 
         <div className="admin-table-wrapper">
-          <table className="admin-table" style={{ minWidth: 880 }}>
+          <table className="admin-table" style={{ minWidth: 960 }}>
             <thead>
               <tr>
-                <th style={{ width: "22%" }}>
+                <th style={{ width: "20%" }}>
                   <AdminSortHeader
                     label="NSTP Site"
                     sortable
@@ -410,9 +413,18 @@ export default function SiteListClient({
                     onSort={() => toggleSort("name")}
                   />
                 </th>
-                <th style={{ width: "26%" }}>
+                <th style={{ width: "16%" }}>
                   <AdminSortHeader
-                    label="Section Adviser"
+                    label="Section"
+                    sortable
+                    sortActive={query.sort === "section"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("section")}
+                  />
+                </th>
+                <th style={{ width: "18%" }}>
+                  <AdminSortHeader
+                    label="Adviser"
                     sortable
                     sortActive={query.sort === "adviser"}
                     sortDirection={query.dir}
@@ -428,7 +440,7 @@ export default function SiteListClient({
                     onSort={() => toggleSort("radius")}
                   />
                 </th>
-                <th style={{ width: "20%" }}>Coordinates</th>
+                <th style={{ width: "18%" }}>Coordinates</th>
                 <th style={{ width: "10%", textAlign: "center" }}>
                   <AdminSortHeader
                     label="Status"
@@ -439,7 +451,6 @@ export default function SiteListClient({
                     onSort={() => toggleSort("status")}
                   />
                 </th>
-                <th style={{ width: "12%" }}>Actions</th>
               </tr>
             </thead>
             <tbody key={animKey}>
@@ -451,29 +462,33 @@ export default function SiteListClient({
                 </tr>
               ) : (
                 pageSites.map((site) => (
-                  <tr key={site.geofenceId} className="anim-list-item">
+                  <tr
+                    key={site.geofenceId}
+                    {...adminClickableRowProps(() => setDetailSite(site))}
+                  >
                     <td>
                       <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                         {site.siteName}
                       </div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                      <div style={{ color: COLORS.textDark }}>
                         {sectionLabelById.get(site.sectionId) ?? site.sectionName}
                       </div>
-                      <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
+                    </td>
+                    <td>
+                      <div style={{ color: COLORS.textDark }}>
                         {site.supervisorName}
                       </div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                      <div style={{ color: COLORS.textDark }}>
                         {site.radiusMeters} m
                       </div>
                     </td>
                     <td>
                       <div
                         style={{
-                          fontWeight: 700,
                           color: COLORS.textDark,
                           fontVariantNumeric: "tabular-nums",
                         }}
@@ -483,42 +498,6 @@ export default function SiteListClient({
                     </td>
                     <td style={{ textAlign: "center" }}>
                       <SiteStatusBadge isActive={site.isActive} />
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        <button
-                          type="button"
-                          onClick={() => setEditSite(site)}
-                          aria-label={`Edit ${site.siteName}`}
-                          title="Edit site"
-                          style={{
-                            background: "none",
-                            border: "none",
-                            padding: 4,
-                            cursor: "pointer",
-                            color: COLORS.maroon,
-                          }}
-                        >
-                          <i className="ti ti-pencil" style={{ fontSize: 18 }} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openDeleteConfirm(site)}
-                          aria-label={`Delete ${site.siteName}`}
-                          title="Delete site"
-                          disabled={isDeleting}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            padding: 4,
-                            cursor: isDeleting ? "not-allowed" : "pointer",
-                            color: COLORS.maroon,
-                            opacity: isDeleting ? 0.5 : 1,
-                          }}
-                        >
-                          <i className="ti ti-trash" style={{ fontSize: 18 }} />
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))
@@ -549,6 +528,37 @@ export default function SiteListClient({
         gpsSections={sections}
         onClose={() => setEditSite(null)}
       />
+
+      {detailSite && (
+        <AdminRecordDetailModal
+          open
+          title={detailSite.siteName}
+          fields={[
+            {
+              label: "Section",
+              value: sectionLabelById.get(detailSite.sectionId) ?? detailSite.sectionName,
+            },
+            { label: "Adviser", value: detailSite.supervisorName },
+            { label: "Radius", value: `${detailSite.radiusMeters} m` },
+            { label: "Coordinates", value: formatSiteCoordinates(detailSite) },
+            {
+              label: "Status",
+              value: <SiteStatusBadge isActive={detailSite.isActive} />,
+            },
+          ]}
+          onClose={() => setDetailSite(null)}
+          onEdit={() => {
+            setEditSite(detailSite)
+            setDetailSite(null)
+          }}
+          onDelete={() => {
+            openDeleteConfirm(detailSite)
+            setDetailSite(null)
+          }}
+          editDisabled={detailSite.isSample}
+          deleteDisabled={isDeleting || detailSite.isSample}
+        />
+      )}
 
       <ConfirmDeleteModal
         open={Boolean(deleteTarget)}

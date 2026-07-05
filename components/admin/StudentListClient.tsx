@@ -9,9 +9,11 @@ import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddStudentModal from "@/components/admin/AddStudentModal"
+import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import EditStudentModal from "@/components/admin/EditStudentModal"
 import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
+import { adminClickableRowProps } from "@/components/admin/admin-list-row"
 import { deleteStudent } from "@/lib/admin/student-list-actions"
 import {
   matchesActiveFilters,
@@ -48,6 +50,64 @@ const STATUS_BADGE: Record<
   on_track: { bg: COLORS.greenBgLight, color: COLORS.green },
   in_progress: { bg: COLORS.amberBgLight, color: COLORS.amber },
   at_risk: { bg: COLORS.maroonDarkBgLight, color: COLORS.maroonDark },
+}
+
+function progressBarColor(pct: number): string {
+  if (pct >= 81) return COLORS.green
+  if (pct >= 51) return COLORS.amber
+  return COLORS.maroon
+}
+
+function StudentProgressBar({
+  pct,
+  wide = false,
+}: {
+  pct: number
+  wide?: boolean
+}) {
+  const clamped = Math.min(100, Math.max(0, pct))
+
+  return (
+    <div
+      style={{
+        minWidth: wide ? 240 : 72,
+        maxWidth: wide ? "100%" : 120,
+        width: wide ? "100%" : undefined,
+        margin: wide ? 0 : "0 auto",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          color: COLORS.textDark,
+          marginBottom: 4,
+        }}
+      >
+        {clamped}%
+      </div>
+      <div
+        role="progressbar"
+        aria-valuenow={clamped}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        style={{
+          height: 6,
+          background: COLORS.track,
+          borderRadius: 999,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${clamped}%`,
+            background: progressBarColor(clamped),
+            borderRadius: 999,
+          }}
+        />
+      </div>
+    </div>
+  )
 }
 
 interface CurrentUser extends AdminCurrentUser {}
@@ -127,6 +187,7 @@ export default function StudentListClient({
   const [addChoiceOpen, setAddChoiceOpen] = useState(false)
   const [addManualOpen, setAddManualOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [detailStudent, setDetailStudent] = useState<StudentListRow | null>(null)
   const [editStudent, setEditStudent] = useState<StudentListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string
@@ -266,6 +327,7 @@ export default function StudentListClient({
         return
       }
       setDeleteTarget(null)
+      setDetailStudent(null)
       window.location.reload()
     })
   }
@@ -376,10 +438,10 @@ export default function StudentListClient({
         />
 
         <div className="admin-table-wrapper">
-          <table className="admin-table" style={{ minWidth: 920 }}>
+          <table className="admin-table" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
-                <th style={{ width: "28%" }}>
+                <th style={{ width: "24%" }}>
                   <AdminSortHeader
                     label="Student Name"
                     sortable
@@ -388,10 +450,19 @@ export default function StudentListClient({
                     onSort={() => toggleSort("name")}
                   />
                 </th>
-                <th style={{ width: "14%" }}>Student ID</th>
-                <th style={{ width: "22%" }}>
+                <th style={{ width: "12%" }}>Student ID</th>
+                <th style={{ width: "15%" }}>
                   <AdminSortHeader
-                    label="Section Adviser"
+                    label="Section"
+                    sortable
+                    sortActive={query.sort === "section"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("section")}
+                  />
+                </th>
+                <th style={{ width: "17%" }}>
+                  <AdminSortHeader
+                    label="Adviser"
                     sortable
                     sortActive={query.sort === "adviser"}
                     sortDirection={query.dir}
@@ -399,16 +470,18 @@ export default function StudentListClient({
                   />
                 </th>
                 <th style={{ width: "10%" }}>Hours</th>
-                <th style={{ width: "18%", textAlign: "center" }}>
-                  <AdminSortHeader label="Progress & Status" align="center" />
+                <th style={{ width: "14%", textAlign: "center" }}>
+                  <AdminSortHeader label="Progress" align="center" />
                 </th>
-                <th style={{ width: "8%" }}>Actions</th>
+                <th style={{ width: "12%", textAlign: "center" }}>
+                  <AdminSortHeader label="Status" align="center" />
+                </th>
               </tr>
             </thead>
             <tbody key={animKey}>
               {pageStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="admin-table-empty">
+                  <td colSpan={7} className="admin-table-empty">
                     No students match your filters.
                   </td>
                 </tr>
@@ -416,7 +489,10 @@ export default function StudentListClient({
                 pageStudents.map((student) => {
                   const badge = STATUS_BADGE[student.progressStatus]
                   return (
-                    <tr key={student.enrollmentId} className="anim-list-item">
+                    <tr
+                      key={student.enrollmentId}
+                      {...adminClickableRowProps(() => setDetailStudent(student))}
+                    >
                       <td>
                         <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {student.fullName}
@@ -426,31 +502,32 @@ export default function StudentListClient({
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {student.studentNumber ?? "—"}
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {student.sectionName}
                         </div>
-                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
+                      </td>
+                      <td>
+                        <div style={{ color: COLORS.textDark }}>
                           {student.adviserName}
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {student.hoursCompleted}/{student.hoursRequired}
                         </div>
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
-                          {student.completionPct}%
-                        </div>
+                        <StudentProgressBar pct={student.completionPct} />
+                      </td>
+                      <td style={{ textAlign: "center" }}>
                         <span
                           style={{
                             display: "inline-block",
-                            marginTop: 6,
                             padding: "4px 12px",
                             borderRadius: 999,
                             fontSize: 12,
@@ -461,48 +538,6 @@ export default function StudentListClient({
                         >
                           {PROGRESS_STATUS_LABELS[student.progressStatus]}
                         </span>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <button
-                            type="button"
-                            aria-label={`Edit ${student.fullName}`}
-                            title="Edit student"
-                            onClick={() => setEditStudent(student)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor: "pointer",
-                              color: COLORS.maroon,
-                            }}
-                          >
-                            <i className="ti ti-pencil" style={{ fontSize: 18 }} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Delete ${student.fullName}`}
-                            title="Delete student"
-                            disabled={isDeleting && deletingId === student.enrollmentId}
-                            onClick={() =>
-                              openDeleteConfirm(student.enrollmentId, student.fullName)
-                            }
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 4,
-                              cursor:
-                                isDeleting && deletingId === student.enrollmentId
-                                  ? "not-allowed"
-                                  : "pointer",
-                              color: COLORS.maroon,
-                              opacity:
-                                isDeleting && deletingId === student.enrollmentId ? 0.5 : 1,
-                            }}
-                          >
-                            <i className="ti ti-trash" style={{ fontSize: 18 }} />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   )
@@ -536,6 +571,56 @@ export default function StudentListClient({
         onClose={() => setAddManualOpen(false)}
       />
       <ImportStudentsModal open={importOpen} onClose={() => setImportOpen(false)} />
+
+      {detailStudent && (
+        <AdminRecordDetailModal
+          open
+          title={detailStudent.fullName}
+          subtitle={detailStudent.email}
+          fields={[
+            { label: "Student ID", value: detailStudent.studentNumber ?? "—" },
+            { label: "Section", value: detailStudent.sectionName },
+            { label: "Adviser", value: detailStudent.adviserName },
+            {
+              label: "Hours",
+              value: `${detailStudent.hoursCompleted}/${detailStudent.hoursRequired}`,
+            },
+            {
+              label: "Progress",
+              value: <StudentProgressBar pct={detailStudent.completionPct} wide />,
+            },
+            {
+              label: "Status",
+              value: (
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "4px 12px",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: STATUS_BADGE[detailStudent.progressStatus].bg,
+                    color: STATUS_BADGE[detailStudent.progressStatus].color,
+                  }}
+                >
+                  {PROGRESS_STATUS_LABELS[detailStudent.progressStatus]}
+                </span>
+              ),
+            },
+          ]}
+          onClose={() => setDetailStudent(null)}
+          onEdit={() => {
+            setEditStudent(detailStudent)
+            setDetailStudent(null)
+          }}
+          onDelete={() => {
+            openDeleteConfirm(detailStudent.enrollmentId, detailStudent.fullName)
+            setDetailStudent(null)
+          }}
+          deleteDisabled={isDeleting && deletingId === detailStudent.enrollmentId}
+        />
+      )}
+
       <EditStudentModal
         open={editStudent !== null}
         student={editStudent}
