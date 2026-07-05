@@ -30,6 +30,7 @@ export default function LeaderScannerPage() {
 
   const [scans, setScans] = useState<ScanRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [classRoster, setClassRoster] = useState<string[]>([])
 
   const [profile, setProfile] = useState<{
     name: string
@@ -56,6 +57,13 @@ export default function LeaderScannerPage() {
     setIsLoading(true)
     const dbScans = await fetchLeaderScanHistory()
     setScans(dbScans)
+    setClassRoster([
+      "Rhona Shayne Lopez",
+      "Janine Irish Tulic",
+      "Aliya Aljan Mendoza",
+      "Jaerish Kyle Rabang",
+      "Missing Student Example",
+    ])
     setIsLoading(false)
   }
 
@@ -79,9 +87,14 @@ export default function LeaderScannerPage() {
   const groupedByDateData =
     selectedWeek !== "all" ? groupByDate(filteredScans) : null
 
+  // check who has not been scanned
+
+  const scannedNames = new Set(filteredScans.map((s) => s.name))
+  const notScannedNames = classRoster.filter((name) => !scannedNames.has(name))
   const totalScans = scans.length
   const onTimeCount = scans.filter((s) => s.status === "On Time").length
   const lateCount = scans.filter((s) => s.status === "Late").length
+  const notScannedCount = scans.filter((s) => s.status === "Late").length
 
   const months = useMemo(() => {
     if (!scans || scans.length === 0) return []
@@ -148,6 +161,7 @@ export default function LeaderScannerPage() {
           totalScans={totalScans}
           onTimeCount={onTimeCount}
           lateCount={lateCount}
+          notScannedCount={notScannedCount}
         />
 
         <QRCard
@@ -170,6 +184,7 @@ export default function LeaderScannerPage() {
           groupedByMonth={groupedByMonthData}
           groupedByDate={groupedByDateData}
           selectedWeek={selectedWeek}
+          notScannedNames={notScannedNames}
         />
 
         {scannerOpen && (
