@@ -532,7 +532,7 @@ export default function DashboardPage() {
                         <div className="completion-sub text-center">
                           {currentData.on_track} / {currentData.total} students on track
                         </div>
-                        {currentData.at_risk > 0 && (<div className="completion-warn">
+                        {currentData.at_risk > 0 && (<div className="completion-warn py-0.5 pr-2">
                           <IconAlertCircle size={20} stroke={1.75} className="shrink-0 ml-2"/>{" "}
                           {currentData.at_risk}  {currentData.at_risk === 1 ? "student" : "students"} behind
                         </div>)}
