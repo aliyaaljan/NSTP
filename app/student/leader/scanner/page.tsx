@@ -21,6 +21,8 @@ import { QRCard } from "./_components/QRCard"
 import { WeekFilter } from "./_components/WeekFilter"
 import { ScanLogPanel } from "./_components/ScanLogPanel"
 import { filterScansByMonthAndWeek } from "@/lib/student/leader/scan-history"
+import { createClient } from "@/lib/client"
+import { create } from "domain"
 
 export default function LeaderScannerPage() {
   const { isMobile } = useIsMobile()
@@ -55,15 +57,28 @@ export default function LeaderScannerPage() {
 
   const loadDatabaseScans = async () => {
     setIsLoading(true)
+
+    // fetch scan history for logs
     const dbScans = await fetchLeaderScanHistory()
     setScans(dbScans)
-    setClassRoster([
-      "Rhona Shayne Lopez",
-      "Janine Irish Tulic",
-      "Aliya Aljan Mendoza",
-      "Jaerish Kyle Rabang",
-      "Missing Student Example",
-    ])
+
+    // fetch actual enrolled class roster for specific leader
+    const supabase = createClient()
+    const { data: rosterData } = await supabase.rpc(
+      "get_leader_section_dashboard"
+    )
+
+    if (rosterData && rosterData.length > 0) {
+      const row = rosterData[0]
+      // extract only student names
+      const studentNames = ((row.students as any[]) ?? [])
+        .map((s: any) => s.name ?? "")
+        .filter(Boolean) // removes null names
+
+      setClassRoster(studentNames)
+    } else {
+      setClassRoster([])
+    }
     setIsLoading(false)
   }
 
@@ -91,10 +106,12 @@ export default function LeaderScannerPage() {
 
   const scannedNames = new Set(filteredScans.map((s) => s.name))
   const notScannedNames = classRoster.filter((name) => !scannedNames.has(name))
-  const totalScans = scans.length
-  const onTimeCount = scans.filter((s) => s.status === "On Time").length
-  const lateCount = scans.filter((s) => s.status === "Late").length
-  const notScannedCount = scans.filter((s) => s.status === "Late").length
+
+  const totalScans = filteredScans.length
+  const onTimeCount = filteredScans.filter((s) => s.status === "On Time").length
+  const lateCount = filteredScans.filter((s) => s.status === "Late").length
+
+  const notScannedCount = notScannedNames.length
 
   const months = useMemo(() => {
     if (!scans || scans.length === 0) return []
