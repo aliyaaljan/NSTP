@@ -78,6 +78,9 @@ export function WeekFilter({
     setSelectedMonth(monthStr)
     setPickerMonth(monthIndex)
     setIsDropdownOpen(false)
+
+    // if the user is currently viewing "all", automatically put them to first week of the selected month
+    onSelectWeek("week-1")
   }
 
   const navigateYear = (delta: number) => {
@@ -457,7 +460,7 @@ export function WeekFilter({
         }}
       >
         {[1, 2, 3, 4, 5].map((weekNum) => {
-          const isSelected = isWeekSelected(weekNum)
+          const isSelected = selectedWeek === `week-${weekNum}`
           return (
             <button
               key={weekNum}
