@@ -167,7 +167,12 @@ export function filterScansByMonthAndWeek(
     // check if scan matches the month and year in dropdown
     if (scanYear !== targetYear || scanMonth !== targetMonth) return false
 
+    // 2. If "All" weeks is selected, return all days in THIS specific month
+    if (weekOption === "all") return true
+
     // Calculate Week of the Month (Days 1-7 = Week 1, 8-14 = Week 2, etc.)
+    // 3. Otherwise, filter by the specific week
+    const targetWeek = parseInt(weekOption.replace("week-", ""), 10)
     const weekOfMonth = Math.ceil(scanDay / 7)
 
     return weekOfMonth === targetWeek

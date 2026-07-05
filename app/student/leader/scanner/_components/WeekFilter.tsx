@@ -27,7 +27,9 @@ export function WeekFilter({
 
   const getMonthIndex = (monthStr: string) => {
     const date = new Date(monthStr)
-    return Number.isNaN(date.getTime()) ? new Date().getMonth() : date.getMonth()
+    return Number.isNaN(date.getTime())
+      ? new Date().getMonth()
+      : date.getMonth()
   }
 
   const getYearFromMonth = (monthStr: string) => {
@@ -92,6 +94,10 @@ export function WeekFilter({
     setPickerYear(today.getFullYear())
     setPickerMonth(today.getMonth())
     setIsDropdownOpen(false)
+
+    // auto select exact week so the user sees today's data instantly
+    const weekOfMonth = Math.ceil(today.getDate() / 7)
+    onSelectWeek(`week-${weekOfMonth}`)
   }
 
   const MONTHS_SHORT = [
@@ -393,18 +399,19 @@ export function WeekFilter({
                         fontSize: isMobile ? "8px" : "11px",
                         fontWeight: isSelected ? 700 : 600,
                         borderRadius: "2px",
-                        border: `1.5px solid ${isSelected ? C.green : isCurrent ? C.maroon : C.border
-                          }`,
+                        border: `1.5px solid ${
+                          isSelected ? C.green : isCurrent ? C.maroon : C.border
+                        }`,
                         background: isSelected
                           ? C.greenBg
                           : isCurrent
-                            ? "rgba(123, 17, 19, 0.08)"
-                            : C.cardBg,
+                          ? "rgba(123, 17, 19, 0.08)"
+                          : C.cardBg,
                         color: isSelected
                           ? C.green
                           : isCurrent
-                            ? C.maroon
-                            : C.textDark,
+                          ? C.maroon
+                          : C.textDark,
                         cursor: "pointer",
                         transition: "all 0.15s",
                         fontFamily: "'Montserrat', sans-serif",
