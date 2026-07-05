@@ -1,97 +1,218 @@
-// FOR EXPORTING ANALYTICS
 import { NextResponse } from "next/server"
 import { getAppUserRole } from "@/lib/auth-actions"
-import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { lookupId } from "@/lib/lookups"
 import ExcelJS from "exceljs"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
+import { ExportContentType } from "@/lib/admin/export-analytics"
+import {
+  AUDIT_LOG_SELECT,
+  formatAuditLogTimestamp,
+  mapAuditLogDbRow,
+} from "@/lib/admin/audit-log"
 
 export async function GET(request: Request) {
   try {
-    // ensure role bounds
     const role = await getAppUserRole()
     if (role !== "admin") {
-      return new NextResponse("Unauthorized user", { status: 403 })
+      return new NextResponse("Unauthorized access", { status: 403 })
     }
 
-    // parse active filter options
     const { searchParams } = new URL(request.url)
     const sectionId = searchParams.get("sectionId")
-    const content = searchParams.get("content") || "all"
+    const content = (searchParams.get("content") || "all") as ExportContentType
     const fileType = (searchParams.get("fileType") || "csv") as
       | "csv"
       | "xlsx"
       | "pdf"
 
-    const service = createSupabaseServiceClient()
+    // Use Server Client so RLS and security contexts are maintained
+    const supabase = await createSupabaseServerClient()
     const activeStatusId = await lookupId("enrollment_status", "active")
+    const adviserRoleId = await lookupId("role", "adviser")
 
-    // query the records matching current layout parameters
-    let enrollmentQuery = service
-      .from("enrollment")
-      .select(
-        `
-        enrollment_id,
-        app_user(full_name, email, student_number),
-        section!inner(name, required_hour_total, app_user(full_name)),
-        attendance_session(duration_minute)
-      `
-      )
-      .eq("enrollment_status_id", activeStatusId)
+    let headers: string[] = []
+    let rows: any[] = []
 
-    if (sectionId && sectionId !== "all") {
-      enrollmentQuery = enrollmentQuery.eq("section_id", sectionId)
+    // DYNAMIC DATA FETCHING AND FILTERING
+    switch (content) {
+      case "activity": {
+        // fetch translation dictionaries
+        const [
+          { data: auditData },
+          { data: appealStatus },
+          { data: enrollmentStatus },
+          { data: sessionStatus },
+        ] = await Promise.all([
+          supabase
+            .from("audit_log_readable")
+            .select(AUDIT_LOG_SELECT)
+            .order("created_at", { ascending: false })
+            .limit(800),
+          supabase.from("appeal_status").select("appeal_status_id, name"),
+          supabase
+            .from("enrollment_status")
+            .select("enrollment_status_id, name"),
+          supabase
+            .from("attendance_session_status")
+            .select("attendance_session_status_id, name"),
+        ])
+
+        if (!auditData) throw new Error("Failed to fetch audit log")
+
+        // compile the fetched dictionary
+        const dynamicUuidMap: Record<string, string> = {}
+        appealStatus?.forEach(
+          (s) =>
+            (dynamicUuidMap[s.appeal_status_id] = s.name.replace(/_/g, " "))
+        )
+        enrollmentStatus?.forEach(
+          (s) => (dynamicUuidMap[s.enrollment_status_id] = s.name)
+        )
+        sessionStatus?.forEach(
+          (s) =>
+            (dynamicUuidMap[s.attendance_session_status_id] = s.name.replace(
+              /_/g,
+              " "
+            ))
+        )
+
+        headers = ["Date", "Actor", "Action", "Table", "Summary"]
+
+        const mappedLogs = auditData
+          .map((row) => mapAuditLogDbRow(row as any, dynamicUuidMap))
+          .filter(
+            (mapped): mapped is NonNullable<typeof mapped> => mapped !== null
+          )
+
+        rows = mappedLogs.map((log) => [
+          formatAuditLogTimestamp(log.createdAt),
+          log.actorName,
+          log.action,
+          log.tableLabel,
+          log.summary,
+        ])
+        break
+      }
+
+      case "advisers": {
+        let advQuery = supabase
+          .from("app_user")
+          .select(
+            `
+            full_name,
+            email,
+            section!section_adviser_user_id_fkey(section_id, name)
+          `
+          )
+          .eq("role_id", adviserRoleId)
+          .order("full_name")
+
+        const { data: advData, error: advError } = await advQuery
+        if (advError) throw new Error("Failed to fetch advisers")
+
+        headers = ["Adviser Name", "Email", "Assigned Sections"]
+
+        advData.forEach((adv: any) => {
+          const sections = adv.section || []
+          // scope of filtered section
+          if (sectionId && sectionId !== "all") {
+            const handlesSection = sections.some(
+              (s: any) => s.section_id === sectionId
+            )
+            if (!handlesSection) return // skip the adviser if they dont teach the filtered section
+          }
+
+          rows.push([
+            adv.full_name,
+            adv.email,
+            sections.length > 0
+              ? sections.map((s: any) => s.name).join(", ")
+              : "Unassigned",
+          ])
+        })
+        break
+      }
+
+      default: {
+        let enrollmentQUery = supabase
+          .from("enrollment")
+          .select(
+            `
+            enrollment_id,
+            app_user(full_name, email, student_number),
+            section!inner(name, required_hour_total, app_user(full_name)),
+            attendance_session(duration_minute)
+          `
+          )
+          .eq("enrollment_status_id", activeStatusId)
+
+        if (sectionId && sectionId !== "all") {
+          enrollmentQUery = enrollmentQUery.eq("section_id", sectionId)
+        }
+
+        const { data: rawEnrollments, error: dbError } = await enrollmentQUery
+        if (dbError) throw new Error("Failed to fetch enrollment records")
+
+        headers = [
+          "Student Name",
+          "Email",
+          "Student Number",
+          "Section",
+          "Adviser",
+          "Hours Rendered",
+          "Completion %",
+        ]
+
+        rawEnrollments.forEach((en: any) => {
+          const targetHours = en.section?.required_hour_total || 60
+          const totalMinutes =
+            en.attendance_session?.reduce(
+              (sum: number, s: any) => sum + (s.duration_minute || 0),
+              0
+            ) || 0
+          const hoursRendered = parseFloat((totalMinutes / 60).toFixed(1))
+          const pct = Math.min(
+            100,
+            Math.round((hoursRendered / targetHours) * 100)
+          )
+
+          // filter at-risk
+          if (content === "at_risk" && pct >= 45) return
+
+          rows.push([
+            en.app_user?.full_name || "Unkown",
+            en.app_user?.email || "N/A",
+            en.app_user?.student_number || "N/A",
+            `Section ${en.section?.name || ""}`,
+            en.section?.app_user?.full_name || "Unassigned",
+            hoursRendered,
+            `${pct}%`,
+          ])
+        })
+        break
+      }
     }
 
-    const { data: rawEnrollments, error: dbError } = await enrollmentQuery
-    if (dbError || !rawEnrollments) {
-      return new NextResponse("Failed to compile database records.", {
-        status: 500,
+    if (rows.length === 0) {
+      return new NextResponse("No Data found for the selected filters.", {
+        status: 404,
       })
     }
 
-    // filter data rows and build table array
-    const headers = [
-      "Student Name",
-      "Email",
-      "Student Number",
-      "Section",
-      "Hours Rendered",
-      "Completion %",
-    ]
-    const rows: any[] = []
+    // formatting of generated files
+    const phtDateStr = new Date()
+      .toLocaleString("en-US", { timeZone: "Asia/Manila" })
+      .replace(/[,:\s\/]/g, "_")
+    const filename = `NSTP_${content}_Report_${phtDateStr}.${fileType}`
 
-    rawEnrollments.forEach((en: any) => {
-      const targetHours = en.section?.required_hour_total || 60
-      const totalMinutes =
-        en.attendance_session?.reduce(
-          (sum: number, s: any) => sum + (s.duration_minute || 0),
-          0
-        ) || 0
-      const hoursRendered = Math.round(totalMinutes / 60)
-      const pct = Math.min(100, Math.round((hoursRendered / targetHours) * 100))
-
-      // for "at-risk" logic consistency
-      if (content === "at_risk" && pct >= 45) return
-      rows.push([
-        en.app_user?.full_name || "Unkown Identity",
-        en.app_user?.email || "",
-        en.app_user?.student_number || "",
-        `Section ${en.section?.name || ""}`,
-        hoursRendered,
-        `${pct}`,
-      ])
-    })
-
-    const filename = `NSTP_${content}_Report_${Date.now()}.${fileType}`
-
-    // FOR EXCEL (.xlsx) generation
+    // XLSX GENERATION
     if (fileType === "xlsx") {
       const workbook = new ExcelJS.Workbook()
-      const worksheet = workbook.addWorksheet("NSTP 2 Analytics Summary")
+      const worksheet = workbook.addWorksheet(`Analytics - ${content}`)
 
-      // sample style for header of xlsx
+      // SAMPLE STYLING
       const headerRow = worksheet.addRow(headers)
       headerRow.font = {
         name: "Arial",
@@ -105,11 +226,11 @@ export async function GET(request: Request) {
           pattern: "solid",
           fgColor: { argb: "7B1113" },
         }
+        cell.alignment = { vertical: "middle", horizontal: "center" }
       })
 
-      // data rows
       rows.forEach((row) => worksheet.addRow(row))
-      worksheet.columns.forEach((col) => (col.width = 22)) // fallback sizing
+      worksheet.columns.forEach((col) => (col.width = 28))
 
       const buffer = await workbook.xlsx.writeBuffer()
       return new NextResponse(buffer, {
@@ -120,17 +241,17 @@ export async function GET(request: Request) {
         },
       })
     }
-    // FOR PDF (.pdf) generation
+
+    // PDF GENERATION
     if (fileType === "pdf") {
       const doc = new jsPDF(headers.length > 5 ? "landscape" : "portrait")
       doc.text(`NSTP 2 Analytics Report: ${content.toUpperCase()}`, 14, 15)
       doc.setFontSize(10)
 
-      // lock to PH Time
-      const phtDate = new Date().toLocaleString("en-US", {
+      const printDate = new Date().toLocaleString("en-US", {
         timeZone: "Asia/Manila",
       })
-      doc.text(`Generated: ${phtDate} (PHT)`, 14, 22)
+      doc.text(`Generated: ${printDate} (PHT)`, 14, 22)
 
       autoTable(doc, {
         startY: 28,
@@ -148,18 +269,23 @@ export async function GET(request: Request) {
         },
       })
     }
-    // FOR CSV (.csv) generation -- DEFAULT FALLBACK
+
+    // CSV GENERATION (default)
     const csvContent = [
       headers.join(","),
-      ...rows.map((r) => r.map((cell: any) => `"${cell}"`).join(",")),
+      ...rows.map((r) =>
+        r.map((cell: any) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      ),
     ].join("\n")
+
     return new NextResponse(csvContent, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     })
   } catch (error) {
+    console.error("Export Error:", error)
     return new NextResponse((error as Error).message, { status: 500 })
   }
 }
