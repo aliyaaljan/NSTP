@@ -70,6 +70,7 @@ export default function CalendarOverview({
   const [selectedEvent, setSelectedEvent] = useState<{ event: CalendarEvent; day: number } | null>(null)
   const [selectedDayEvents, setSelectedDayEvents] = useState<{ events: CalendarEvent[]; day: number } | null>(null)
   const [selectedRenderedDay, setSelectedRenderedDay] = useState<number | null>(null)
+  const [isTodaySelected, setIsTodaySelected] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -139,7 +140,9 @@ export default function CalendarOverview({
     const d = new Date()
     setCurrentYear(d.getFullYear())
     setCurrentMonth(d.getMonth())
+    setIsTodaySelected(true)
     onMonthChange?.(d.getFullYear(), d.getMonth())
+    setTimeout(() => setIsTodaySelected(false), 300)
   }
 
   const isHoliday = (day: number) => {
@@ -317,6 +320,32 @@ export default function CalendarOverview({
 
   return (
     <div className="cal-wrap" style={styles.container}>
+      {/* Today Button */}
+      <div style={styles.todayContainer}>
+        <button
+          onClick={goToToday}
+          style={{
+            ...styles.todayButton,
+            ...(isTodaySelected ? styles.todayButtonSelected : {}),
+          }}
+          onMouseEnter={(e) => {
+            if (!isTodaySelected) {
+              e.currentTarget.style.backgroundColor = '#F5F5F5'
+              e.currentTarget.style.borderColor = '#9CA3AF'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isTodaySelected) {
+              e.currentTarget.style.backgroundColor = '#FFFFFF'
+              e.currentTarget.style.borderColor = '#E5E7EB'
+            }
+          }}
+        >
+          Today
+        </button>
+      </div>
+
+      {/* Month and Navigation */}
       <div style={styles.calHeader}>
         <button style={styles.calNavBtn} onClick={() => navigate(-1)}>
           <IconChevronLeft size={15} stroke={2} />
@@ -326,33 +355,6 @@ export default function CalendarOverview({
         </span>
         <button style={styles.calNavBtn} onClick={() => navigate(1)}>
           <IconChevronRight size={15} stroke={2} />
-        </button>
-      </div>
-
-      {/* Today Button */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-        <button
-          onClick={goToToday}
-          style={{
-            padding: '4px 16px',
-            border: '1.5px solid #E5E7EB',
-            background: '#FFFFFF',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 600,
-            color: '#111827',
-            transition: 'all 0.15s',
-            fontFamily: 'var(--font-content, sans-serif)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#F5F5F5'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#FFFFFF'
-          }}
-        >
-          Today
         </button>
       </div>
 
@@ -427,7 +429,7 @@ export default function CalendarOverview({
               style={{
                 ...styles.calCell,
                 cursor: hasAnyContent ? 'pointer' : 'default',
-                background: isToday ? '#7B1D1D' : 'transparent',
+                backgroundColor: isToday ? '#7B1D1D' : 'transparent',
                 color: isToday ? '#FFFFFF' : '#111827',
                 fontWeight: isToday ? 700 : 500,
                 borderRadius: isToday ? '50%' : '6px',
@@ -435,12 +437,12 @@ export default function CalendarOverview({
               }}
               onMouseEnter={(e) => {
                 if (hasAnyContent && !isToday) {
-                  e.currentTarget.style.background = '#F5F5F5'
+                  e.currentTarget.style.backgroundColor = '#F5F5F5'
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isToday) {
-                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.backgroundColor = 'transparent'
                 }
               }}
             >
@@ -455,7 +457,7 @@ export default function CalendarOverview({
                   width: 14,
                   height: 4,
                   borderRadius: 3,
-                  background: isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
+                  backgroundColor: isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
                   transition: 'all 0.2s ease',
                 }} />
               )}
@@ -471,7 +473,7 @@ export default function CalendarOverview({
             width: 24,
             height: 16,
             borderRadius: '50%',
-            background: '#7B1D1D',
+            backgroundColor: '#7B1D1D',
             flexShrink: 0,
           }} />
           <span style={{ fontSize: 11, color: '#6B7280' }}>Today</span>
@@ -481,7 +483,7 @@ export default function CalendarOverview({
             width: 14,
             height: 4,
             borderRadius: 3,
-            background: '#D97706',
+            backgroundColor: '#D97706',
             flexShrink: 0,
           }} />
           <span style={{ fontSize: 11, color: '#6B7280' }}>Holiday</span>
@@ -491,7 +493,7 @@ export default function CalendarOverview({
             width: 14,
             height: 4,
             borderRadius: 3,
-            background: '#1B4332',
+            backgroundColor: '#1B4332',
             flexShrink: 0,
           }} />
           <span style={{ fontSize: 11, color: '#6B7280' }}>Rendered</span>
@@ -510,13 +512,46 @@ const styles = {
     boxShadow: '0 2px 6px rgba(0,0,0,0.07)',
     padding: '28px 24px',
     width: '100%',
+    height: '100%',
+    boxSizing: 'border-box' as const,
     fontFamily: 'var(--font-content, sans-serif)',
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+  todayContainer: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    marginBottom: '12px',
+    flexShrink: 0,
+  },
+  todayButton: {
+    padding: '4px 14px',
+    borderWidth: '1.5px',
+    borderStyle: 'solid',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '11px',
+    fontWeight: 600,
+    color: '#111827',
+    transition: 'all 0.15s ease',
+    fontFamily: 'var(--font-content, sans-serif)',
+    whiteSpace: 'nowrap' as const,
+  },
+  todayButtonSelected: {
+    backgroundColor: '#7B1D1D',
+    borderColor: '#7B1D1D',
+    color: '#FFFFFF',
+    opacity: 0.85,
+    transform: 'scale(0.98)',
   },
   calHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: '8px',
+    flexShrink: 0,
   },
   calNavBtn: {
     background: 'none',
@@ -537,7 +572,9 @@ const styles = {
   calGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(7, 1fr)',
-    gap: '6px',
+    gap: '8px',
+    flex: 1,
+    alignContent: 'start' as const,
   },
   calDayLabel: {
     textAlign: 'center' as const,
@@ -552,12 +589,16 @@ const styles = {
     position: 'relative' as const,
     textAlign: 'center' as const,
     fontSize: '12px',
-    padding: '5px 2px',
+    padding: '8px 2px',
     borderRadius: '6px',
     color: '#111827',
     cursor: 'default',
     lineHeight: 1,
     transition: 'all 0.15s',
+    minHeight: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   calCellEmpty: {
     visibility: 'hidden' as const,
@@ -684,6 +725,7 @@ const styles = {
     borderTop: '1px solid #E5E7EB',
     marginTop: '12px',
     flexWrap: 'wrap' as const,
+    flexShrink: 0,
   },
   legendItem: {
     display: 'flex',
