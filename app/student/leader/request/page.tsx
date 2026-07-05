@@ -524,14 +524,12 @@ export default function RequestsPage() {
 
           <div className="stats">
             <StatCard
-              label="Approved"
-              count={counts.Approved}
-              status="Approved"
-              active={activeFilter === "Approved"}
+              label="Pending Review"
+              count={counts["Pending Review"]}
+              status="Pending Review"
+              active={activeFilter === "Pending Review"}
               onClick={() =>
-                setActiveFilter(
-                  activeFilter === "Approved" ? "All" : "Approved"
-                )
+                setActiveFilter(activeFilter === "Pending Review" ? "All" : "Pending Review")
               }
             />
 
@@ -543,6 +541,18 @@ export default function RequestsPage() {
               onClick={() =>
                 setActiveFilter(
                   activeFilter === "Under Review" ? "All" : "Under Review"
+                )
+              }
+            />
+
+            <StatCard
+              label="Approved"
+              count={counts.Approved}
+              status="Approved"
+              active={activeFilter === "Approved"}
+              onClick={() =>
+                setActiveFilter(
+                  activeFilter === "Approved" ? "All" : "Approved"
                 )
               }
             />
