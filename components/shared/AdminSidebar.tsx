@@ -76,7 +76,7 @@ export default function AdminSidebar({
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: ADMIN_COLORS.bg, fontFamily: FONT_BODY, fontSize: 14, color: ADMIN_COLORS.text }}>
+    <div style={{ display: 'flex', height: '100vh', background: ADMIN_COLORS.bg, fontFamily: FONT_BODY, fontSize: 14, color: ADMIN_COLORS.text }}>
       <style>{`
         .nstp-rail {
           position: fixed;
@@ -263,6 +263,7 @@ export default function AdminSidebar({
 
       {/* Main content — offset by the collapsed rail so it never shifts on hover */}
       <main
+        className="admin-main-scroll"
         style={{
           flex: 1,
           marginLeft: COLLAPSED_W + RAIL_MARGIN * 2,

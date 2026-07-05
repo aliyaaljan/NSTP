@@ -54,9 +54,41 @@ function StatBox({
   )
 }
 
-export default function AdminAttendanceStrip({ data }: { data: TodayAttendance }) {
+export default function AdminAttendanceStrip({
+  data,
+  noClasses = false,
+}: {
+  data: TodayAttendance
+  noClasses?: boolean
+}) {
   const presentPct = data.total > 0 ? (data.present / data.total) * 100 : 0
   const absentPct = data.total > 0 ? (data.absent / data.total) * 100 : 0
+
+  if (noClasses) {
+    return (
+      <div style={{ marginTop: "auto", paddingTop: 20 }}>
+        <div
+          style={{
+            background: "#F7F5F2",
+            borderRadius: 10,
+            padding: "20px 12px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: FONT_BODY,
+              fontSize: 14,
+              fontWeight: 600,
+              color: COLORS.textGray,
+            }}
+          >
+            No classes today
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ marginTop: "auto", paddingTop: 20 }}>
@@ -106,7 +138,7 @@ export default function AdminAttendanceStrip({ data }: { data: TodayAttendance }
         }}
       >
         <span style={{ color: COLORS.green }}>{data.presentPct}% present</span>
-        <span style={{ color: COLORS.textGray }}>{data.total} total</span>
+        <span style={{ color: COLORS.textGray }}>{data.total} total students</span>
       </div>
     </div>
   )

@@ -20,7 +20,21 @@ const MONTHS = [
   "December",
 ]
 
-export default function AdminCalendar() {
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+export default function AdminCalendar({
+  selectedDate,
+  onSelectDate,
+}: {
+  selectedDate: Date
+  onSelectDate: (date: Date) => void
+}) {
   const today = new Date()
   const [current, setCurrent] = useState({
     year: today.getFullYear(),
@@ -33,10 +47,11 @@ export default function AdminCalendar() {
     i < firstDay ? null : i - firstDay + 1
   )
 
-  const isToday = (d: number) =>
-    d === today.getDate() &&
-    current.month === today.getMonth() &&
-    current.year === today.getFullYear()
+  const dateForDay = (d: number) => new Date(current.year, current.month, d)
+
+  const isToday = (d: number) => isSameDay(dateForDay(d), today)
+
+  const isSelected = (d: number) => isSameDay(dateForDay(d), selectedDate)
 
   const prev = () =>
     setCurrent((c) =>
@@ -128,23 +143,46 @@ export default function AdminCalendar() {
           </div>
         ))}
         {cells.map((d, i) => {
-          const todayCell = d !== null && isToday(d)
+          if (d === null) {
+            return (
+              <div
+                key={i}
+                style={{
+                  textAlign: "center",
+                  fontSize: 12,
+                  padding: "5px 2px",
+                  color: "transparent",
+                }}
+              />
+            )
+          }
+
+          const selected = isSelected(d)
+          const todayCell = isToday(d)
+
           return (
-            <div
+            <button
               key={i}
+              type="button"
+              onClick={() => onSelectDate(dateForDay(d))}
+              aria-label={`Select ${MONTHS[current.month]} ${d}, ${current.year}`}
+              aria-pressed={selected}
               style={{
                 textAlign: "center",
                 fontSize: 12,
                 padding: "5px 2px",
-                borderRadius: todayCell ? "50%" : 6,
-                color: d === null ? "transparent" : todayCell ? "#fff" : COLORS.textDark,
-                background: todayCell ? COLORS.maroon : "transparent",
-                fontWeight: todayCell ? 700 : 400,
+                borderRadius: selected ? "50%" : 6,
+                color: selected ? "#fff" : COLORS.textDark,
+                background: selected ? COLORS.maroon : "transparent",
+                fontWeight: selected ? 700 : 400,
                 lineHeight: 1,
+                border: todayCell && !selected ? `1px solid ${COLORS.maroon}` : "none",
+                cursor: "pointer",
+                fontFamily: FONT_BODY,
               }}
             >
-              {d ?? ""}
-            </div>
+              {d}
+            </button>
           )
         })}
       </div>

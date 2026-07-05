@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   IconSearch, IconChevronDown, IconClipboardText,
@@ -11,6 +11,7 @@ import {
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions";
 import { ChartStyles } from "@/components/shared/ChartModule";
+import { createClient } from "@/lib/client";
 
 // ── Types ──────────────────────────────────────────────────────────────
 type FormTab    = "repository" | "submissions";
@@ -70,60 +71,24 @@ const typeConfig: Record<FormType, { bg: string; color: string }> = {
   "Incident Report":       { bg: "#FEE2E2", color: "#991B1B" },
 };
 
-const submissionStatCards = [
-  { label: "Total",             value: formEntries.length,                                              Icon: IconClipboardText,   color: "#7B1D1D" },
-  { label: "Submitted",         value: formEntries.filter(f => f.status === "Submitted").length,        Icon: IconCircleCheck,     color: "#065F46" },
-  { label: "Not Yet Submitted", value: formEntries.filter(f => f.status === "Not Yet Submitted").length,Icon: IconClock,           color: "#991B1B" },
+const submissionStatCards = (entries: FormEntry[]) => [
+  { label: "Total",             value: entries.length,                                              Icon: IconClipboardText,   filter: "All" as const },
+  { label: "Submitted",         value: entries.filter(f => f.status === "Submitted").length,        Icon: IconCircleCheck,     filter: "Submitted" as const },
+  { label: "Not Yet Submitted", value: entries.filter(f => f.status === "Not Yet Submitted").length,Icon: IconClock,           filter: "Not Yet Submitted" as const },
 ];
 
 const formsStyles = `
   ${dashboardStyles}
 
-  .fm-root { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-  .fm-header-row { display: flex; align-items: center; gap: 16px; padding: 28px 28px 0; flex-shrink: 0; }
-  .fm-title { font-size: 38px; font-weight: 800; color: var(--maroon); font-family: var(--font); flex: 1; }
-
-  /* Tabs */
-  .fm-tabs { display: flex; gap: 0; padding: 20px 28px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .fm-tab {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 22px; background: none; border: none;
-    font-size: 14px; font-weight: 600; font-family: var(--font);
-    color: var(--muted); cursor: pointer;
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
-    transition: color 0.13s;
-  }
-  .fm-tab.active { color: var(--maroon); border-bottom-color: var(--maroon); }
-  .fm-tab:hover:not(.active) { color: var(--text); }
-
-  /* Stat cards */
-  .fm-stat-cards { display: flex; gap: 12px; padding: 18px 28px 0; flex-shrink: 0; }
-
-  .fm-body { flex: 1; overflow: auto; padding: 20px 28px 28px; }
-  .fm-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-
-  /* Toolbar */
-  .fm-toolbar { display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); gap: 12px; }
-  .fm-toolbar-info .fm-toolbar-title { font-weight: 700; font-size: 15px; }
-  .fm-toolbar-info .fm-toolbar-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .fm-toolbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-  .fm-search-bar {
-    display: flex; align-items: center; gap: 8px;
-    border: 1.5px solid var(--border); border-radius: 20px;
-    padding: 6px 14px; min-width: 180px; background: var(--white);
-    transition: border-color 0.15s;
-  }
-  .fm-search-bar:focus-within { border-color: var(--maroon); }
-  .fm-search-input { border: none; outline: none; font-size: 13px; font-family: var(--font); color: var(--text); width: 100%; background: transparent; }
-  .fm-search-input::placeholder { color: var(--light); }
-  .fm-filter-btn {
-    display: flex; align-items: center; gap: 6px;
-    border: 1.5px solid var(--border); border-radius: 20px;
-    padding: 6px 14px; background: var(--white); font-size: 13px;
-    font-family: var(--font); font-weight: 500; cursor: pointer;
-    color: var(--text); transition: border-color 0.13s;
-  }
-  .fm-filter-btn:hover { border-color: #9CA3AF; }
+  .fm-body { flex: 1; overflow: auto; padding-top: 16px; }
+  .adv-table th:nth-child(1) { width: 28%; }
+  .adv-table th:nth-child(2) { width: 12%; }
+  .adv-table th:nth-child(3) { width: 24%; }
+  .adv-table th:nth-child(4) { width: 18%; }
+  .adv-table th:nth-child(5) { width: 18%; }
+  .fm-student-name { font-weight: 600; color: var(--text); }
+  .fm-student-no   { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .fm-week { font-size: 12px; color: var(--muted); }
   .fm-upload-btn {
     display: flex; align-items: center; gap: 7px;
     background: var(--green); color: #fff; border: none;
@@ -156,37 +121,6 @@ const formsStyles = `
   .fm-icon-btn:hover { border-color: var(--maroon); color: var(--maroon); background: #FEF2F2; }
   .fm-icon-btn.danger:hover { border-color: #EF4444; color: #EF4444; background: #FEF2F2; }
 
-  /* Submission table */
-  .fm-table-wrapper { overflow-y: auto; max-height: calc(100vh - 420px); scrollbar-width: none; }
-  .fm-table-wrapper::-webkit-scrollbar { display: none; }
-  .fm-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .fm-table thead tr { background: #F9FAFB; border-bottom: 1px solid var(--border); }
-  .fm-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700; color: var(--maroon); letter-spacing: 0.8px; text-transform: uppercase; }
-  .fm-table th:nth-child(1) { width: 28%; }
-  .fm-table th:nth-child(2) { width: 12%; }
-  .fm-table th:nth-child(3) { width: 24%; }
-  .fm-table th:nth-child(4) { width: 18%; }
-  .fm-table th:nth-child(5) { width: 18%; }
-  .fm-table td { padding: 13px 16px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; font-size: 13px; }
-  .fm-table tbody tr:last-child td { border-bottom: none; }
-  .fm-table tbody tr { cursor: pointer; transition: background 0.12s; }
-  .fm-table tbody tr:hover td { background: #FAFAFA; }
-  .fm-student-name { font-weight: 600; color: var(--text); }
-  .fm-student-no   { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-  .fm-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
-  .fm-week { font-size: 12px; color: var(--muted); }
-  .fm-actions { display: flex; gap: 6px; }
-  .fm-empty { text-align: center; padding: 48px 0; color: var(--muted); font-size: 13px; }
-
-  /* Pagination */
-  .fm-pagination { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid var(--border); position: relative; }
-  .fm-pagination-info { font-size: 12.5px; color: var(--muted); }
-  .fm-pagination-controls { display: flex; align-items: center; gap: 4px; position: absolute; left: 50%; transform: translateX(-50%); }
-  .fm-page-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--white); font-size: 13px; font-family: var(--font); font-weight: 500; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.12s, border-color 0.12s; }
-  .fm-page-btn:hover:not(.fm-page-btn-active):not(:disabled) { background: #F9FAFB; border-color: #9CA3AF; }
-  .fm-page-btn.fm-page-btn-active { background: var(--maroon); color: #fff; border-color: var(--maroon); font-weight: 700; }
-  .fm-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
   /* Modal */
   .fm-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; }
   .fm-modal { background: var(--white); border-radius: 20px; width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
@@ -205,8 +139,6 @@ const formsStyles = `
   .fm-modal-btn-approve:hover { background: #A7F3D0; }
   .fm-modal-btn-reject  { background: #FEE2E2; color: #991B1B; }
   .fm-modal-btn-reject:hover  { background: #FECACA; }
-
-  /* Upload modal */
   .fm-upload-zone {
     border: 2px dashed var(--border); border-radius: 12px;
     padding: 32px; text-align: center; cursor: pointer;
@@ -232,7 +164,23 @@ export default function FormsPage() {
   const [pageSize, setPageSize]                 = useState(5);
   const [selected, setSelected]                 = useState<FormEntry | null>(null);
   const [showUpload, setShowUpload]             = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [initials, setInitials] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const full: string = user?.user_metadata?.full_name ?? "";
+      const parts = full.trim().split(" ");
+      const fName = parts[0] ?? "";
+      const lName = parts.at(-1) ?? "";
+      setFirstName(fName);
+      setLastName(lName);
+      setInitials((fName[0] ?? "") + (lName[0] ?? ""));
+    });
+  }, []);
 
   const sections = ["All", ...Array.from(new Set(formEntries.map(f => f.section)))];
 
@@ -253,6 +201,7 @@ export default function FormsPage() {
 
   const totalPages = Math.max(1, Math.ceil(filteredSubmissions.length / pageSize));
   const paginated  = filteredSubmissions.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const statCards = submissionStatCards(formEntries);
 
   return (
     <>
@@ -270,58 +219,54 @@ export default function FormsPage() {
 
         <div className="main-wrapper">
           <main className="main">
-            <div className="fm-root">
-
-              {/* Header */}
-              <div className="fm-header-row">
-                <h1 className="fm-title">Forms</h1>
-                <div className="search-bar" style={{ minWidth: 200 }}>
-                  <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
-                  <input
-                    className="search-input"
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-                    placeholder="Search student..."
-                  />
-                </div>
-                <div className="profile-pill">
-                  <div className="profile-avatar">KM</div>
-                  <div>
-                    <div className="profile-name">Kim, Mingyu</div>
-                    <div className="profile-sec">NSTP – H</div>
-                  </div>
+            <header className="header">
+              <h1 className="header-greeting">Forms</h1>
+              <div className="search-bar">
+                <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
+                <input
+                  className="search-input"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                  placeholder="Search student..."
+                  aria-label="Search student"
+                />
+              </div>
+              <div className="profile-pill">
+                <div className="profile-avatar">{initials || "A"}</div>
+                <div>
+                  <div className="profile-name">{lastName ? `${lastName}, ${firstName}` : "Adviser"}</div>
                 </div>
               </div>
+            </header>
 
-              {/* Tabs */}
-              <div className="fm-tabs">
+            <div className="body">
+              <div className="page-tabs">
                 <button
-                  className={`fm-tab${activeTab === "repository" ? " active" : ""}`}
+                  className={`page-tab${activeTab === "repository" ? " page-tab-active" : ""}`}
                   onClick={() => setActiveTab("repository")}
                 >
                   <IconFolder size={16} stroke={1.75} /> Repository
                 </button>
                 <button
-                  className={`fm-tab${activeTab === "submissions" ? " active" : ""}`}
+                  className={`page-tab${activeTab === "submissions" ? " page-tab-active" : ""}`}
                   onClick={() => setActiveTab("submissions")}
                 >
                   <IconInbox size={16} stroke={1.75} /> Submission Bin
                 </button>
               </div>
 
-              {/* ── REPOSITORY TAB ─────────────────────────────────────── */}
               {activeTab === "repository" && (
                 <div className="fm-body">
-                  <div className="fm-card">
-                    <div className="fm-toolbar">
-                      <div className="fm-toolbar-info">
-                        <div className="fm-toolbar-title">All Forms</div>
-                        <div className="fm-toolbar-sub">Official NSTP Documents</div>
+                  <div className="adv-table-card">
+                    <div className="adv-table-toolbar">
+                      <div>
+                        <div className="adv-table-title">All Forms</div>
+                        <div className="adv-table-count">Official NSTP Documents</div>
                       </div>
-                      <div className="fm-toolbar-right">
-                        <div className="fm-search-bar">
-                          <IconSearch size={13} stroke={1.75} color="var(--light)" />
-                          <input className="fm-search-input" placeholder="Search forms..." />
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
+                        <div className="adv-search-bar">
+                          <IconSearch size={16} stroke={1.75} color="var(--muted)" />
+                          <input className="adv-search-input" placeholder="Search forms..." />
                         </div>
                         <button className="fm-upload-btn" onClick={() => setShowUpload(true)}>
                           <IconPlus size={15} stroke={2.5} /> Upload Form
@@ -341,7 +286,7 @@ export default function FormsPage() {
                               <div>
                                 <div className="fm-repo-name">{f.name}</div>
                                 <div className="fm-repo-meta">{f.fileSize} · Uploaded {f.uploadedDate}</div>
-                                <span className="fm-badge" style={{ background: tc.bg, color: tc.color, marginTop: 6, display: "inline-block" }}>
+                                <span className="adv-badge" style={{ background: tc.bg, color: tc.color, marginTop: 6, display: "inline-block" }}>
                                   {f.type}
                                 </span>
                               </div>
@@ -361,40 +306,43 @@ export default function FormsPage() {
                 </div>
               )}
 
-              {/* ── SUBMISSION BIN TAB ──────────────────────────────────── */}
               {activeTab === "submissions" && (
                 <>
-                  {/* Stat cards */}
-                  <div className="fm-stat-cards">
-                    {submissionStatCards.map(({ label, value, Icon }) => (
-                      <div key={label} className="db-kpi-card">
+                  <div className="stat-cards">
+                    {statCards.map(({ label, value, Icon, filter }) => (
+                      <button
+                        key={label}
+                        className="db-kpi-card db-kpi-card--interactive"
+                        onClick={() => { setStatusFilter(filter); setCurrentPage(1); }}
+                        aria-label={`${label}: ${value}`}
+                      >
                         <div className="db-kpi-header">
                           <span className="db-kpi-label">{label}</span>
                         </div>
                         <div className="db-kpi-value">{value}</div>
                         <div className="db-kpi-deco">
-                          <Icon size={120} stroke={1.2} />
+                          <Icon size={110} stroke={1.2} />
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
 
                   <div className="fm-body">
-                    <div className="fm-card">
-                      <div className="fm-toolbar">
-                        <div className="fm-toolbar-info">
-                          <div className="fm-toolbar-title">All Submissions</div>
-                          <div className="fm-toolbar-sub">{filteredSubmissions.length} form{filteredSubmissions.length !== 1 ? "s" : ""} found</div>
+                    <div className="adv-table-card">
+                      <div className="adv-table-toolbar">
+                        <div>
+                          <div className="adv-table-title">All Submissions</div>
+                          <div className="adv-table-count">{filteredSubmissions.length} form{filteredSubmissions.length !== 1 ? "s" : ""} found</div>
                         </div>
-                        <div className="fm-toolbar-right">
-                          <div className="fm-search-bar">
-                            <IconSearch size={13} stroke={1.75} color="var(--light)" />
-                            <input className="fm-search-input" value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} placeholder="Search student..." />
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
+                          <div className="adv-search-bar">
+                            <IconSearch size={16} stroke={1.75} color="var(--muted)" />
+                            <input className="adv-search-input" value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} placeholder="Search student..." />
                           </div>
 
                           {/* Status filter */}
                           <div style={{ position: "relative" }}>
-                            <button className="fm-filter-btn" onClick={() => { setShowStatusDrop(v => !v); setShowTypeDrop(false); }}>
+                            <button className="adv-filter-btn" onClick={() => { setShowStatusDrop(v => !v); setShowTypeDrop(false); }}>
                               <IconFilter size={13} stroke={2} />
                               {statusFilter === "All" ? "All Status" : statusFilter}
                               <IconChevronDown size={13} stroke={2} />
@@ -413,7 +361,7 @@ export default function FormsPage() {
 
                           {/* Type filter */}
                           <div style={{ position: "relative" }}>
-                            <button className="fm-filter-btn" onClick={() => { setShowTypeDrop(v => !v); setShowStatusDrop(false); }}>
+                            <button className="adv-filter-btn" onClick={() => { setShowTypeDrop(v => !v); setShowStatusDrop(false); }}>
                               <IconClipboardText size={13} stroke={2} />
                               {typeFilter === "All" ? "All Types" : typeFilter}
                               <IconChevronDown size={13} stroke={2} />
@@ -431,7 +379,7 @@ export default function FormsPage() {
                           </div>
                           {/* Section filter */}
                           <div style={{ position: "relative" }}>
-                            <button className="fm-filter-btn" onClick={() => { setShowSectionDrop(v => !v); setShowStatusDrop(false); setShowTypeDrop(false); }}>
+                            <button className="adv-filter-btn" onClick={() => { setShowSectionDrop(v => !v); setShowStatusDrop(false); setShowTypeDrop(false); }}>
                               <IconFilter size={13} stroke={2} />
                               {sectionFilter === "All" ? "All Sections" : sectionFilter}
                               <IconChevronDown size={13} stroke={2} />
@@ -450,8 +398,8 @@ export default function FormsPage() {
                         </div>
                       </div>
 
-                      <div className="fm-table-wrapper">
-                        <table className="fm-table">
+                      <div className="adv-table-wrapper">
+                        <table className="adv-table">
                           <thead>
                             <tr>
                               <th>Student</th>
@@ -463,7 +411,7 @@ export default function FormsPage() {
                           </thead>
                           <tbody>
                             {filteredSubmissions.length === 0 ? (
-                              <tr><td colSpan={5} className="fm-empty">No forms match your search.</td></tr>
+                              <tr><td colSpan={5} className="adv-empty">No forms match your search.</td></tr>
                             ) : paginated.map((f) => (
                               <tr key={f.id} onClick={() => setSelected(f)}>
                                 <td>
@@ -472,11 +420,11 @@ export default function FormsPage() {
                                 </td>
                                 <td style={{ fontSize: 12.5, color: "var(--muted)" }}>{f.section}</td>
                                 <td>
-                                  <span className="fm-badge" style={{ background: typeConfig[f.type].bg, color: typeConfig[f.type].color }}>{f.type}</span>
+                                  <span className="adv-badge" style={{ background: typeConfig[f.type].bg, color: typeConfig[f.type].color }}>{f.type}</span>
                                 </td>
                                 <td style={{ fontSize: 12.5, color: "var(--muted)" }}>{f.submittedDate}</td>
                                 <td>
-                                  <span className="fm-badge" style={{ background: statusConfig[f.status].bg, color: statusConfig[f.status].color }}>{f.status}</span>
+                                  <span className="adv-badge" style={{ background: statusConfig[f.status].bg, color: statusConfig[f.status].color }}>{f.status}</span>
                                 </td>
                               </tr>
                             ))}
@@ -484,23 +432,23 @@ export default function FormsPage() {
                         </table>
                       </div>
 
-                      <div className="fm-pagination">
-                        <div className="fm-pagination-info">
+                      <div className="adv-pagination">
+                        <div className="adv-pagination-info">
                           Showing {filteredSubmissions.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredSubmissions.length)} of {filteredSubmissions.length}
                         </div>
-                        <div className="fm-pagination-controls">
-                          <button className="fm-page-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>&#8249;</button>
+                        <div className="adv-pagination-controls">
+                          <button className="adv-page-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>&#8249;</button>
                           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                            <button key={p} className={`fm-page-btn${p === currentPage ? " fm-page-btn-active" : ""}`} onClick={() => setCurrentPage(p)}>{p}</button>
+                            <button key={p} className={`adv-page-btn${p === currentPage ? " adv-page-btn-active" : ""}`} onClick={() => setCurrentPage(p)}>{p}</button>
                           ))}
-                          <button className="fm-page-btn" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>&#8250;</button>
+                          <button className="adv-page-btn" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>&#8250;</button>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)" }}>
                           <span>Rows per page:</span>
                           <select
                             value={pageSize}
                             onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                            style={{ border: "1.5px solid var(--border)", borderRadius: 8, padding: "4px 8px", fontSize: 12.5, fontFamily: "var(--font)", color: "var(--text)", background: "var(--white)", cursor: "pointer", outline: "none" }}
+                            style={{ border: "1.5px solid var(--border)", borderRadius: 10, padding: "4px 8px", fontSize: 12.5, fontFamily: "var(--font)", color: "var(--text)", background: "var(--white)", cursor: "pointer", outline: "none", appearance: "auto" }}
                           >
                             {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
                           </select>
@@ -550,7 +498,7 @@ export default function FormsPage() {
                   </div>
                   <div className="fm-modal-field">
                     <div className="fm-modal-label">Status</div>
-                    <span className="fm-badge" style={{ background: statusConfig[selected.status].bg, color: statusConfig[selected.status].color }}>{selected.status}</span>
+                    <span className="adv-badge" style={{ background: statusConfig[selected.status].bg, color: statusConfig[selected.status].color }}>{selected.status}</span>
                   </div>
                 </div>
               </div>

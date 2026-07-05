@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AdminAddButton from "@/components/admin/AdminAddButton"
 import SectionFormModal from "@/components/admin/SectionFormModal"
 import { deleteSection } from "@/lib/admin/section-list-actions"
 import { sectionRowToEditPayload } from "@/lib/admin/section-edit"
@@ -339,42 +340,47 @@ export default function SectionListClient({
       label: "Total Sections",
       value: summary.total,
       note: "this term",
+      onClick: () => pushParams({ status: null, page: "1" }),
+      isActive: query.status === SECTION_LIST_ALL_STATUSES,
     },
     {
       icon: "ti-circle-check",
       label: "Active Sections",
       value: summary.active,
-      valueColor: COLORS.green,
       badge: {
         text: pctOfTotal(summary.active),
         bg: COLORS.greenBgLight,
         color: COLORS.green,
       },
       note: "of all sections",
+      onClick: () => pushParams({ status: "active", page: "1" }),
+      isActive: query.status === "active",
     },
     {
       icon: "ti-flag",
       label: "Completed Sections",
       value: summary.completed,
-      valueColor: COLORS.maroon,
       badge: {
         text: pctOfTotal(summary.completed),
         bg: COLORS.maroonBgLight,
         color: COLORS.maroon,
       },
       note: "of all sections",
+      onClick: () => pushParams({ status: "completed", page: "1" }),
+      isActive: query.status === "completed",
     },
     {
       icon: "ti-archive",
       label: "Archived Sections",
       value: summary.archived,
-      valueColor: COLORS.light,
       badge: {
         text: pctOfTotal(summary.archived),
         bg: COLORS.iconBg,
         color: COLORS.textGray,
       },
       note: "of all sections",
+      onClick: () => pushParams({ status: "archived", page: "1" }),
+      isActive: query.status === "archived",
     },
   ]
 
@@ -408,11 +414,14 @@ export default function SectionListClient({
         <ProfilePill user={currentUser} />
       </div>
 
-      <KpiStatCardGrid columns={4}>
-        {statCards.map((card, index) => (
-          <KpiStatCard key={index} {...card} />
-        ))}
-      </KpiStatCardGrid>
+      <div className="admin-list-pre-table">
+        <div className="admin-list-kpi-sticky">
+          <KpiStatCardGrid columns={4}>
+            {statCards.map((card, index) => (
+              <KpiStatCard key={index} {...card} />
+            ))}
+          </KpiStatCardGrid>
+        </div>
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ position: "relative" }}>
@@ -494,27 +503,8 @@ export default function SectionListClient({
           </FilterDropdown>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreate}
-          aria-label="Add section"
-          title="Add section"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "none",
-            background: COLORS.green,
-            color: "#fff",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 18 }} />
-        </button>
+        <AdminAddButton label="Add section" onClick={openCreate} />
+      </div>
       </div>
 
       <div
@@ -523,10 +513,9 @@ export default function SectionListClient({
           border: `1px solid ${COLORS.border}`,
           borderRadius: COLORS.radius,
           boxShadow: COLORS.cardShadow,
-          overflow: "hidden",
         }}
       >
-        <div style={{ overflowX: "auto" }}>
+        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
           <table
             style={{
               width: "100%",
@@ -592,8 +581,7 @@ export default function SectionListClient({
         </div>
 
         <div
-          className="section-list-scroll"
-          style={{ overflowX: "auto", overflowY: "auto" }}
+          className="section-list-scroll admin-list-table-scroll"
         >
           <table
             style={{

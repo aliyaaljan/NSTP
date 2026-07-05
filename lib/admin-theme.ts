@@ -66,6 +66,48 @@ export const ADMIN_THEME_CSS = `
   .admin-root select option:disabled {
     color: #6B7280;
   }
+
+  /* Main content scrollport — required for position: sticky on list pages. */
+  .admin-main-scroll {
+    max-height: 100vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #CFCFCB transparent;
+  }
+  .admin-main-scroll::-webkit-scrollbar { width: 6px; }
+  .admin-main-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
+
+  /* Sticky summary cards until table headers reach the top (admin list pages). */
+  .admin-list-kpi-sticky {
+    position: sticky;
+    top: 12px;
+    z-index: 10;
+    background: var(--bg);
+    padding-top: 8px;
+    padding-bottom: 4px;
+    margin-top: -8px;
+  }
+
+  .admin-list-thead-wrap {
+    position: sticky;
+    top: 12px;
+    z-index: 11;
+    background: #F3F4F6;
+  }
+
+  .admin-list-table-scroll {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 380px);
+    scrollbar-width: thin;
+    scrollbar-color: #CFCFCB transparent;
+  }
+  .admin-list-table-scroll::-webkit-scrollbar { width: 5px; }
+  .admin-list-table-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
+
+  .admin-list-card-scroll {
+    padding: 4px 2px 8px;
+  }
 `
 
 /** Overlay <select> used inside green filter pills (opacity 0, covers the pill). */

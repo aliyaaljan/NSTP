@@ -10,6 +10,7 @@ async function FormListContent({
 }: {
   searchParams: Promise<{
     sectionId?: string
+    scope?: string
     q?: string
     sort?: string
     dir?: string
@@ -37,6 +38,7 @@ export default function AdminFormsPage({
 }: {
   searchParams: Promise<{
     sectionId?: string
+    scope?: string
     q?: string
     sort?: string
     dir?: string

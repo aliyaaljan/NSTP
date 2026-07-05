@@ -1,3 +1,6 @@
+"use client"
+
+import Link from "next/link"
 import type { ReactNode } from "react"
 
 export type KpiStatCardProps = {
@@ -5,39 +8,33 @@ export type KpiStatCardProps = {
   label: string
   value: string | number
   valueSuffix?: string
-  valueColor?: string
   badge?: { text: string; bg: string; color: string }
   note?: string
+  href?: string
+  scrollTarget?: string
+  onClick?: () => void
+  isActive?: boolean
+  static?: boolean
 }
 
-export function KpiStatCard({
+function scrollToElement(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
+}
+
+function KpiStatCardContent({
   icon,
   label,
   value,
   valueSuffix,
-  valueColor,
   badge,
   note,
-}: KpiStatCardProps) {
+}: Omit<KpiStatCardProps, "href" | "scrollTarget" | "onClick" | "isActive" | "static">) {
   return (
-    <div className="db-kpi-card">
+    <>
       <div className="db-kpi-header">
         <span className="db-kpi-label">{label}</span>
       </div>
-      <div
-        className="db-kpi-value"
-        style={
-          valueColor
-            ? {
-                background: "none",
-                WebkitBackgroundClip: "unset",
-                backgroundClip: "unset",
-                WebkitTextFillColor: valueColor,
-                color: valueColor,
-              }
-            : undefined
-        }
-      >
+      <div className="db-kpi-value">
         {value}
         {valueSuffix && <span className="db-kpi-value-suffix">{valueSuffix}</span>}
       </div>
@@ -57,8 +54,82 @@ export function KpiStatCard({
       <div className="db-kpi-deco" aria-hidden="true">
         <i className={`ti ${icon}`} />
       </div>
-    </div>
+    </>
   )
+}
+
+export function KpiStatCard({
+  icon,
+  label,
+  value,
+  valueSuffix,
+  badge,
+  note,
+  href,
+  scrollTarget,
+  onClick,
+  isActive,
+  static: isStatic,
+}: KpiStatCardProps) {
+  const className = [
+    "db-kpi-card",
+    isStatic && "db-kpi-card--static",
+    !isStatic && (href || scrollTarget || onClick) && "db-kpi-card--interactive",
+  ]
+    .filter(Boolean)
+    .join(" ")
+
+  const content = (
+    <KpiStatCardContent
+      icon={icon}
+      label={label}
+      value={value}
+      valueSuffix={valueSuffix}
+      badge={badge}
+      note={note}
+    />
+  )
+
+  if (scrollTarget) {
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => scrollToElement(scrollTarget)}
+        aria-label={`${label}: ${value}`}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={className}
+        aria-label={`${label}: ${value}`}
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={onClick}
+        aria-label={`${label}: ${value}`}
+        aria-pressed={isActive}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return <div className={className}>{content}</div>
 }
 
 export function KpiStatCardGrid({
@@ -90,6 +161,9 @@ export function ChartStyles() {
       .db-kpi-card {
         position: relative;
         flex: 1;
+        display: block;
+        width: 100%;
+        text-align: left;
         background: var(--white);
         background-image: linear-gradient(to bottom right, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0));
         border: 1px solid var(--border);
@@ -98,8 +172,19 @@ export function ChartStyles() {
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         overflow: hidden;
+        text-decoration: none;
+        color: inherit;
       }
-      .db-kpi-card:hover {
+      .db-kpi-card--interactive {
+        cursor: pointer;
+      }
+      .db-kpi-card--static {
+        cursor: default;
+      }
+      button.db-kpi-card {
+        font: inherit;
+      }
+      .db-kpi-card--interactive:hover {
         border-color: var(--maroon);
         transform: translateY(-2px);
         box-shadow: 0 10px 25px -5px rgba(123, 29, 29, 0.15), 0 8px 10px -6px rgba(123, 29, 29, 0.1);
@@ -124,10 +209,7 @@ export function ChartStyles() {
         font-weight: 800;
         line-height: 1.1;
         font-family: var(--font);
-        background: linear-gradient(135deg, var(--maroon) 0%, #ef4444 100%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: var(--maroon);
         position: relative;
         z-index: 1;
         display: flex;
@@ -179,7 +261,7 @@ export function ChartStyles() {
         font-size: 110px;
         line-height: 1;
       }
-      .db-kpi-card:hover .db-kpi-deco {
+      .db-kpi-card--interactive:hover .db-kpi-deco {
         opacity: 0.2;
         transform: rotate(0deg) scale(1.08);
       }

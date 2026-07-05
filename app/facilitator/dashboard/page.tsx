@@ -330,7 +330,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="stat-cards">
                       {statCards.map(({ label, value, Icon, onClick }) => (
-                        <button key={label} className="db-kpi-card" onClick={onClick} aria-label={`${label}: ${value}`} style={{ cursor: "pointer", textAlign: "left" }}>
+                        <button key={label} className="db-kpi-card db-kpi-card--interactive" onClick={onClick} aria-label={`${label}: ${value}`} style={{ cursor: "pointer", textAlign: "left" }}>
                           <div className="db-kpi-header">
                             <span className="db-kpi-label">{label}</span>
                           </div>

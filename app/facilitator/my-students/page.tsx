@@ -127,81 +127,19 @@ const myStudentsStyles = `
   ${dashboardStyles}
 
   /* ── My Students extras ── */
-  .ms-header-row { display: flex; align-items: center; gap: 16px; padding: 28px 28px 0; flex-shrink: 0; }
-  .ms-title { font-size: 38px; font-weight: 800; color: var(--maroon); font-family: var(--font); flex: 1; }
-  .ms-stat-cards { display: flex; gap: 12px; padding: 18px 28px 0; flex-shrink: 0; }
-
-  /* Tabs */
-  .ms-tabs { display: flex; gap: 0; padding: 20px 0 0; margin: 0 28px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .ms-tab {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 20px; background: none; border: none;
-    font-size: 14px; font-weight: 600; font-family: var(--font);
-    color: var(--muted); cursor: pointer;
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
-    transition: color 0.13s;
-  }
-  .ms-tab.ms-tab-active { color: var(--maroon); border-bottom-color: var(--maroon); }
-  .ms-tab:hover:not(.ms-tab-active) { color: var(--text); }
-
-  /* Table card */
-  .ms-body { flex: 1; overflow: auto; padding: 20px 28px 28px; }
-  .ms-table-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); ; }
-  .ms-table-toolbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; border-bottom: 1px solid var(--border);
-  }
-  .ms-table-title { font-weight: 700; font-size: 15px; }
-  .ms-table-count { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .ms-toolbar-right { display: flex; align-items: center; gap: 10px; }
-  .ms-search-bar {
-    display: flex; align-items: center; gap: 8px;
-    border: 1.5px solid var(--border); border-radius: 20px;
-    padding: 6px 14px; min-width: 180px; background: var(--white);
-    transition: border-color 0.15s;
-  }
-  .ms-search-bar:focus-within { border-color: var(--maroon); }
-  .ms-search-input { border: none; outline: none; font-size: 13px; font-family: var(--font); color: var(--text); width: 100%; background: transparent; }
-  .ms-search-input::placeholder { color: var(--light); }
-  .ms-filter-btn {
-    display: flex; align-items: center; gap: 6px;
-    border: 1.5px solid var(--border); border-radius: 20px;
-    padding: 6px 14px; background: var(--white); font-size: 13px;
-    font-family: var(--font); font-weight: 500; cursor: pointer;
-    color: var(--text); transition: border-color 0.13s;
-  }
-  .ms-filter-btn:hover { border-color: #9CA3AF; }
-
-  /* Table */
-  .ms-table-wrapper { overflow-y: auto; max-height: calc(100vh - 420px); scrollbar-width: none; }
-  .ms-table-wrapper::-webkit-scrollbar { display: none; }
-  .ms-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .ms-table thead tr { background: #F9FAFB; border-bottom: 1px solid var(--border); }
-  .ms-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 700; color: var(--maroon); letter-spacing: 0.8px; text-transform: uppercase; }
-  .ms-table th:nth-child(1) { width: 24%; }
-  .ms-table th:nth-child(2) { width: 14%; }
-  .ms-table th:nth-child(3) { width: 15%; }
-  .ms-table th:nth-child(4) { width: 13%; }
-  .ms-table th:nth-child(5) { width: 14%; }
-  .ms-table th:nth-child(6) { width: 20%; }
+  .ms-body { flex: 1; overflow: auto; padding-top: 16px; }
+  .adv-table th:nth-child(1) { width: 24%; }
+  .adv-table th:nth-child(2) { width: 14%; }
+  .adv-table th:nth-child(3) { width: 15%; }
+  .adv-table th:nth-child(4) { width: 13%; }
+  .adv-table th:nth-child(5) { width: 14%; }
+  .adv-table th:nth-child(6) { width: 20%; }
   .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center; }
-  .ms-table td { padding: 14px 20px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
-  .ms-table tbody tr:last-child td { border-bottom: none; }
-  .ms-table tbody tr { cursor: pointer; }
-  .ms-table tbody tr:hover td { background: #FAFAFA; }
-  .ms-student-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
-  .ms-student-no   { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-  .ms-site-badge {
-    display: inline-block; padding: 3px 0;
-    font-size: 12px; font-weight: 500; color: var(--text);
-
-  }
+  .ms-site-badge { display: inline-block; padding: 3px 0; font-size: 12px; font-weight: 500; color: var(--text); }
   .ms-hours-cell { min-width: 160px; }
   .ms-hours-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
   .ms-hours-track { height: 11px; background: var(--border); border-radius: 999px; overflow: hidden; }
   .ms-hours-fill  { height: 100%; border-radius: 999px; transition: width 0.35s ease; }
-  /* Empty / pending */
-  .ms-empty { text-align: center; padding: 48px 0; color: var(--muted); font-size: 13px; }
 
   /* Pending Requests */
   .ms-requests-toolbar {
@@ -262,27 +200,6 @@ const myStudentsStyles = `
     background: #FEF2F2; border-radius: 10px; padding: 10px 14px;
     margin-top: 4px; cursor: pointer;
   }
-
-  /* Pagination */
-  .ms-pagination {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 20px; border-top: 1px solid var(--border);
-  }
-  .ms-pagination-info { font-size: 12.5px; color: var(--muted); }
-  .ms-pagination-controls { display: flex; align-items: center; gap: 4px; position: absolute; left: 50%; transform: translateX(-50%); }
-  .ms-pagination { position: relative; }
-  .ms-page-btn {
-    width: 32px; height: 32px; border-radius: 8px;
-    border: 1px solid var(--border); background: var(--white);
-    font-size: 13px; font-family: var(--font); font-weight: 500;
-    color: var(--text); cursor: pointer; display: flex;
-    align-items: center; justify-content: center;
-    transition: background 0.12s, border-color 0.12s;
-  }
-  .ms-page-btn:hover:not(.ms-page-btn-active):not(:disabled) { background: #F9FAFB; border-color: #9CA3AF; }
-  .ms-page-btn.ms-page-btn-active { background: var(--maroon); color: #fff; border-color: var(--maroon); font-weight: 700; }
-  .ms-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-  .ms-page-btn-nav { width: 32px; height: 32px; }
 
   /* Modal */
   .ms-modal-backdrop {
@@ -860,8 +777,8 @@ function MyStudentsContent() {
         <div className="main-wrapper">
           <main className="main">
             {/* Header */}
-            <div className="ms-header-row">
-              <h1 className="ms-title">My Students</h1>
+            <header className="header">
+              <h1 className="header-greeting">My Students</h1>
               <div className="profile-pill">
                 <div className="profile-avatar">{initials}</div>
                 <div>
@@ -870,11 +787,13 @@ function MyStudentsContent() {
                   </div>
                 </div>
               </div>
-            </div>
+            </header>
 
+            <div className="body">
             {/* Sections filter */}
-            <div style={{ position: "relative", padding: "12px 28px 0" }}>
-              <div onMouseLeave={() => setSectionDropdownOpen(false)}>
+            <div className="overview-header">
+              <div className="overview-label">Class Overview</div>
+              <div style={{ position: "relative" }} onMouseLeave={() => setSectionDropdownOpen(false)}>
                 <button
                   className="sections-btn"
                   onClick={() => setSectionDropdownOpen((o) => !o)}
@@ -886,8 +805,8 @@ function MyStudentsContent() {
                   <div
                     style={{
                       position: "absolute",
-                      // top: "100%",
-                      // right: 0,
+                      top: "100%",
+                      right: 0,
                       paddingTop: 6,
                       zIndex: 10,
                     }}
@@ -928,9 +847,9 @@ function MyStudentsContent() {
             </div>
 
             {/* Stat cards */}
-            <div className="ms-stat-cards">
+            <div className="stat-cards">
               {statCards.map(({ label, value, Icon, onClick }) => (
-                <button key={label} className="db-kpi-card" onClick={onClick}>
+                <button key={label} className="db-kpi-card db-kpi-card--interactive" onClick={onClick} aria-label={`${label}: ${value}`}>
                   <div className="db-kpi-header">
                     <span className="db-kpi-label">{label}</span>
                   </div>
@@ -943,10 +862,10 @@ function MyStudentsContent() {
             </div>
 
             {/* Tabs */}
-            <div className="ms-tabs">
+            <div className="page-tabs">
               <button
-                className={`ms-tab${
-                  activeTab === "list" ? " ms-tab-active" : ""
+                className={`page-tab${
+                  activeTab === "list" ? " page-tab-active" : ""
                 }`}
                 onClick={() => setActiveTab("list")}
               >
@@ -954,8 +873,8 @@ function MyStudentsContent() {
                 List of Students
               </button>
               <button
-                className={`ms-tab${
-                  activeTab === "pending" ? " ms-tab-active" : ""
+                className={`page-tab${
+                  activeTab === "pending" ? " page-tab-active" : ""
                 }`}
                 onClick={() => setActiveTab("pending")}
               >
@@ -967,20 +886,20 @@ function MyStudentsContent() {
             {/* Body */}
             <div className="ms-body">
               {activeTab === "list" ? (
-                <div className="ms-table-card">
-                  <div className="ms-table-toolbar">
+                <div className="adv-table-card">
+                  <div className="adv-table-toolbar">
                     <div>
-                      <div className="ms-table-title">All Students</div>
-                      <div className="ms-table-count">
+                      <div className="adv-table-title">All Students</div>
+                      <div className="adv-table-count">
                         {filtered.length} student
                         {filtered.length !== 1 ? "s" : ""} found
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid var(--maroon)", borderRadius: 999, padding: "8px 18px", background: "var(--white)", minWidth: 280 }}>
+                      <div className="adv-search-bar">
                         <IconSearch size={16} stroke={1.75} color="var(--muted)" />
                         <input
-                          style={{ border: "none", outline: "none", fontSize: 13.5, fontFamily: "var(--font)", color: "var(--text)", width: "100%", background: "transparent" }}
+                          className="adv-search-input"
                           value={tableSearch}
                           onChange={(e) => { setTableSearch(e.target.value); setHeaderSearch(""); setCurrentPage(1) }}
                           placeholder="Search..."
@@ -990,7 +909,7 @@ function MyStudentsContent() {
                       {/* Filter Button */}
                       <div ref={filterPanelRef} style={{ position: "relative" }}>
                         <button
-                          className="ms-filter-btn"
+                          className="adv-filter-btn"
                           onClick={() => setShowFilterPanel(v => !v)}
                           style={{
                             border: `1.5px solid ${totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
@@ -1053,15 +972,15 @@ function MyStudentsContent() {
                       </div>
 
                       {hasListFilters && (
-                        <button className="ms-filter-btn" onClick={clearListFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
+                        <button className="adv-filter-btn" onClick={clearListFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
                         </button>
                       )}
                     </div>
                   </div>
 
-                  <div className="ms-table-wrapper">
-                    <table className="ms-table">
+                  <div className="adv-table-wrapper">
+                    <table className="adv-table">
                       <thead>
                         <tr>
                           <th>Student</th>
@@ -1075,7 +994,7 @@ function MyStudentsContent() {
                       <tbody>
                         {filtered.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="ms-empty">
+                            <td colSpan={6} className="adv-empty">
                               No students match your search.
                             </td>
                           </tr>
@@ -1155,8 +1074,8 @@ function MyStudentsContent() {
                   </div>
 
                   {/* Pagination */}
-                  <div className="ms-pagination">
-                    <div className="ms-pagination-info">
+                  <div className="adv-pagination">
+                    <div className="adv-pagination-info">
                       Showing{" "}
                       {filtered.length === 0
                         ? 0
@@ -1164,9 +1083,9 @@ function MyStudentsContent() {
                       –{Math.min(currentPage * pageSize, filtered.length)} of{" "}
                       {filtered.length} students
                     </div>
-                    <div className="ms-pagination-controls">
+                    <div className="adv-pagination-controls">
                       <button
-                        className="ms-page-btn ms-page-btn-nav"
+                        className="adv-page-btn adv-page-btn-nav"
                         disabled={currentPage === 1}
                         onClick={() =>
                           setCurrentPage((p) => Math.max(1, p - 1))
@@ -1179,8 +1098,8 @@ function MyStudentsContent() {
                         (p) => (
                           <button
                             key={p}
-                            className={`ms-page-btn${
-                              p === currentPage ? " ms-page-btn-active" : ""
+                            className={`adv-page-btn${
+                              p === currentPage ? " adv-page-btn-active" : ""
                             }`}
                             onClick={() => setCurrentPage(p)}
                           >
@@ -1189,7 +1108,7 @@ function MyStudentsContent() {
                         )
                       )}
                       <button
-                        className="ms-page-btn ms-page-btn-nav"
+                        className="adv-page-btn adv-page-btn-nav"
                         disabled={currentPage === totalPages}
                         onClick={() =>
                           setCurrentPage((p) => Math.min(totalPages, p + 1))
@@ -1237,21 +1156,21 @@ function MyStudentsContent() {
                   </div>
                 </div>
               ) : (
-                <div className="ms-table-card">
-                  <div className="ms-requests-toolbar">
+                <div className="adv-table-card">
+                  <div className="adv-table-toolbar">
                     <div>
-                      <div className="ms-table-title">Request History</div>
-                      <div className="ms-table-count">
+                      <div className="adv-table-title">Request History</div>
+                      <div className="adv-table-count">
                         {filteredPending.length} request
                         {filteredPending.length !== 1 ? "s" : ""} found
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                       {/* Search bar */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid var(--maroon)", borderRadius: 999, padding: "8px 18px", background: "var(--white)", minWidth: 280 }}>
+                      <div className="adv-search-bar">
                         <IconSearch size={16} stroke={1.75} color="var(--muted)" />
                         <input
-                          style={{ border: "none", outline: "none", fontSize: 13.5, fontFamily: "var(--font)", color: "var(--text)", width: "100%", background: "transparent" }}
+                          className="adv-search-input"
                           value={pendingSearch}
                           onChange={(e) => { setPendingSearch(e.target.value); setPendingPage(1) }}
                           placeholder="Search student name..."
@@ -1261,7 +1180,7 @@ function MyStudentsContent() {
                       {/* Unified Filter Button */}
                       <div ref={pendingFilterPanelRef} style={{ position: "relative" }}>
                         <button
-                          className="ms-filter-btn"
+                          className="adv-filter-btn"
                           onClick={() => setShowPendingFilterPanel(v => !v)}
                           style={{
                             border: `1.5px solid ${totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
@@ -1323,7 +1242,7 @@ function MyStudentsContent() {
                       </div>
 
                       {hasPendingFilters && (
-                        <button className="ms-filter-btn" onClick={clearPendingFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
+                        <button className="adv-filter-btn" onClick={clearPendingFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
                         </button>
                       )}
@@ -1331,7 +1250,7 @@ function MyStudentsContent() {
                   </div>
 
                   {filteredPending.length === 0 ? (
-                    <div className="ms-empty">
+                    <div className="adv-empty">
                       No requests found for this filter.
                     </div>
                   ) : (
@@ -1475,16 +1394,16 @@ function MyStudentsContent() {
                         })}
                       </div>
                       {/* Pagination */}
-                      <div className="ms-pagination">
-                        <div className="ms-pagination-info">
+                      <div className="adv-pagination">
+                        <div className="adv-pagination-info">
                           Showing {filteredPending.length === 0 ? 0 : (pendingPage - 1) * pendingPageSize + 1}–{Math.min(pendingPage * pendingPageSize, filteredPending.length)} of {filteredPending.length}
                         </div>
-                        <div className="ms-pagination-controls">
-                          <button className="ms-page-btn ms-page-btn-nav" disabled={pendingPage === 1} onClick={() => setPendingPage(p => Math.max(1, p - 1))}>&#8249;</button>
+                        <div className="adv-pagination-controls">
+                          <button className="adv-page-btn adv-page-btn-nav" disabled={pendingPage === 1} onClick={() => setPendingPage(p => Math.max(1, p - 1))}>&#8249;</button>
                           {Array.from({ length: totalPendingPages }, (_, i) => i + 1).map(p => (
-                            <button key={p} className={`ms-page-btn${p === pendingPage ? " ms-page-btn-active" : ""}`} onClick={() => setPendingPage(p)}>{p}</button>
+                            <button key={p} className={`adv-page-btn${p === pendingPage ? " adv-page-btn-active" : ""}`} onClick={() => setPendingPage(p)}>{p}</button>
                           ))}
-                          <button className="ms-page-btn ms-page-btn-nav" disabled={pendingPage === totalPendingPages} onClick={() => setPendingPage(p => Math.min(totalPendingPages, p + 1))}>&#8250;</button>
+                          <button className="adv-page-btn adv-page-btn-nav" disabled={pendingPage === totalPendingPages} onClick={() => setPendingPage(p => Math.min(totalPendingPages, p + 1))}>&#8250;</button>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)" }}>
                           <span>Rows per page:</span>
@@ -1498,6 +1417,7 @@ function MyStudentsContent() {
                   )}
                 </div>
               )}
+            </div>
             </div>
           </main>
         </div>

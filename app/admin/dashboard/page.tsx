@@ -8,8 +8,7 @@ import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardFilters from "@/components/shared/DashboardFilters"
 import DashboardExportButton from "@/components/admin/DashboardExportButton"
-import AdminCalendar from "@/components/admin/AdminCalendar"
-import AdminAttendanceStrip from "@/components/admin/AdminAttendanceStrip"
+import AdminCalendarPanel from "@/components/admin/AdminCalendarPanel"
 import SectionProgressPanel from "@/components/admin/SectionProgressPanel"
 import RemainingDaysChart from "@/components/admin/RemainingDaysChart"
 import CompletionDonutChart from "@/components/admin/CompletionDonutChart"
@@ -831,6 +830,7 @@ export default async function AdminDashboardPage({
       value: rawEnrollments.length,
       badge: { text: `↑ 4%`, bg: COLORS.greenBgLight, color: COLORS.green },
       note: "v.s. last sem",
+      href: "/admin/students",
     },
     {
       icon: "ti-user-check",
@@ -839,6 +839,7 @@ export default async function AdminDashboardPage({
       note: `avg ${(totalStudentsCount / (advisersRes.count || 1)).toFixed(
         0
       )} students each`,
+      href: "/admin/advisers",
     },
     {
       icon: "ti-clock",
@@ -851,42 +852,47 @@ export default async function AdminDashboardPage({
         color: COLORS.amber,
       },
       note: "completion",
+      scrollTarget: "dashboard-hours-by-section",
     },
     {
       icon: "ti-clock-check",
       label: "Average attendance rate",
       value: `${computedAttendanceRate}%`,
       note: "this week",
+      scrollTarget: "dashboard-calendar",
     },
     {
       icon: "ti-alert-triangle",
       label: "At-risk Students",
       value: atRiskCount,
-      valueColor: COLORS.maroonDark,
       badge: {
         text: `${processedCompletionStatus.atRiskPct}%`,
         bg: COLORS.maroonDarkBgLight,
         color: COLORS.maroonDark,
       },
       note: "of total active students",
+      href: "/admin/students?status=at_risk",
     },
     {
       icon: "ti-clipboard-list",
       label: "Files submitted",
       value: filesRes.count || 0,
       note: "throughout the semester",
+      href: "/admin/forms",
     },
     {
       icon: "ti-pencil",
-      label: "Edit Requests",
+      label: "Pending Requests",
       value: appealsRes.count || 0,
       note: "pending review",
+      href: "/admin/advisers?status=pending",
     },
     {
       icon: "ti-map-pin",
       label: "GPS compliance",
       value: `94%`,
       note: "Logged within radius",
+      href: "/admin/sites?status=active",
     },
   ]
 
@@ -964,12 +970,14 @@ export default async function AdminDashboardPage({
         }}
       >
         <div
+          id="dashboard-hours-by-section"
           style={{
             background: COLORS.cardBg,
             border: `1px solid ${COLORS.border}`,
             borderRadius: COLORS.radius,
             padding: "18px 20px",
             boxShadow: COLORS.cardShadow,
+            scrollMarginTop: 24,
           }}
         >
           <div style={{ ...TYPE.h2, color: COLORS.textDark, marginBottom: 20 }}>
@@ -988,6 +996,7 @@ export default async function AdminDashboardPage({
         </div>
 
         <div
+          id="dashboard-calendar"
           style={{
             background: COLORS.cardBg,
             border: `1px solid ${COLORS.border}`,
@@ -997,6 +1006,7 @@ export default async function AdminDashboardPage({
             display: "flex",
             flexDirection: "column",
             minHeight: "100%",
+            scrollMarginTop: 24,
           }}
         >
           <div
@@ -1029,8 +1039,7 @@ export default async function AdminDashboardPage({
             endDate={nstpCompletionDeadline}
             startDate={nstpTermStart}
           />
-          <AdminCalendar />
-          <AdminAttendanceStrip data={todayAttendance} />
+          <AdminCalendarPanel attendance={todayAttendance} />
         </div>
       </div>
 

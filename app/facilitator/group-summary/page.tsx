@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   IconSearch, IconChevronDown, IconUsers,
@@ -11,6 +11,7 @@ import {
 import { Sidebar, dashboardStyles, navRoutes, DonutChart } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions";
 import { ChartStyles } from "@/components/shared/ChartModule";
+import { createClient } from "@/lib/client";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface SectionSummary {
@@ -83,13 +84,7 @@ function progressBarColor(status: string) {
 const summaryStyles = `
   ${dashboardStyles}
 
-  .gs-root { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-  .gs-header-row { display: flex; align-items: center; gap: 16px; padding: 28px 28px 0; flex-shrink: 0; }
-  .gs-title { font-size: 38px; font-weight: 800; color: var(--maroon); font-family: var(--font); flex: 1; }
-
-  .gs-stat-cards { display: flex; gap: 12px; padding: 18px 28px 0; flex-shrink: 0; }
-
-  .gs-body { flex: 1; overflow: auto; padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 16px; }
+  .gs-body { flex: 1; overflow: auto; padding-top: 16px; display: flex; flex-direction: column; gap: 16px; }
 
   /* Section cards */
   .gs-section-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
@@ -130,9 +125,15 @@ const summaryStyles = `
 
   .gs-student-table { flex: 1; min-width: 0; background: #F9FAFB; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
   .gs-student-table table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  .gs-student-table thead th { font-size: 10.5px; font-weight: 700; color: var(--maroon); text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 12px; text-align: left; background: #F3F4F6; border-bottom: 1px solid var(--border); }
-  .gs-student-table tbody { display: block; max-height: 260px; overflow-y: auto; scrollbar-width: none; }
-  .gs-student-table tbody::-webkit-scrollbar { display: none; }
+  .gs-student-table thead th {
+    position: sticky; top: 0; z-index: 2; background: #F9FAFB;
+    font-size: 11px; font-weight: 700; color: var(--maroon);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    padding: 10px 20px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  .gs-student-table tbody { display: block; max-height: 260px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
+  .gs-student-table tbody::-webkit-scrollbar { width: 5px; }
+  .gs-student-table tbody::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
   .gs-student-table thead, .gs-student-table tbody tr { display: table; width: 100%; table-layout: fixed; }
   .gs-student-table thead th:nth-child(1),
   .gs-student-table tbody td:nth-child(1) { width: 40%; }
@@ -140,18 +141,38 @@ const summaryStyles = `
   .gs-student-table tbody td:nth-child(2) { width: 35%; }
   .gs-student-table thead th:nth-child(3),
   .gs-student-table tbody td:nth-child(3) { width: 25%; }
-  .gs-student-table td { padding: 7px 12px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; font-size: 12.5px; }
+  .gs-student-table td { padding: 14px 20px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; font-size: 13px; }
   .gs-student-table tr:last-child td { border-bottom: none; }
+  .gs-student-table tbody tr:hover td { background: #FAFAFA; }
   .gs-student-name { font-weight: 600; color: var(--text); }
-  .gs-status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; float: right; }
+  .gs-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; float: right; }
   .gs-donut-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; align-self: flex-start; }
 `;
+
+type SummaryFilter = "all" | "completed" | "atRisk" | "progress";
 
 export default function GroupSummaryPage() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch]           = useState("");
   const [expanded, setExpanded]       = useState<string | null>("s1");
+  const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>("all");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [initials, setInitials] = useState("");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const full: string = user?.user_metadata?.full_name ?? "";
+      const parts = full.trim().split(" ");
+      const fName = parts[0] ?? "";
+      const lName = parts.at(-1) ?? "";
+      setFirstName(fName);
+      setLastName(lName);
+      setInitials((fName[0] ?? "") + (lName[0] ?? ""));
+    });
+  }, []);
 
   async function handleSignOut() {
     await signOutWithAudit();
@@ -165,16 +186,21 @@ export default function GroupSummaryPage() {
   const overallPct      = Math.round(sections.reduce((a, s) => a + s.completionPct, 0) / sections.length);
 
   const statCards = [
-    { label: "Total Students",   value: totalStudents,    Icon: IconUsers         },
-    { label: "Completed",        value: totalCompleted,   Icon: IconCircleCheck   },
-    { label: "At Risk",          value: totalAtRisk,      Icon: IconAlertTriangle },
-    { label: "Overall Progress", value: `${overallPct}%`, Icon: IconChartBar      },
+    { label: "Total Students",   value: totalStudents,    Icon: IconUsers,         filter: "all" as const },
+    { label: "Completed",        value: totalCompleted,   Icon: IconCircleCheck,   filter: "completed" as const },
+    { label: "At Risk",          value: totalAtRisk,      Icon: IconAlertTriangle, filter: "atRisk" as const },
+    { label: "Overall Progress", value: `${overallPct}%`, Icon: IconChartBar,      filter: "progress" as const },
   ];
 
-  const filteredSections = sections.filter(s =>
-    !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.students.some(st => st.name.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredSections = sections.filter(s => {
+    const matchSearch = !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()) ||
+      s.students.some(st => st.name.toLowerCase().includes(search.toLowerCase()));
+    if (!matchSearch) return false;
+    if (summaryFilter === "completed") return s.completed > 0;
+    if (summaryFilter === "atRisk") return s.atRisk > 0;
+    if (summaryFilter === "progress") return s.completionPct > 0;
+    return true;
+  });
 
   return (
     <>
@@ -192,38 +218,49 @@ export default function GroupSummaryPage() {
 
         <div className="main-wrapper">
           <main className="main">
-            <div className="gs-root">
-
-              {/* Header */}
-              <div className="gs-header-row">
-                <h1 className="gs-title">Group Summary</h1>
-                <div className="search-bar" style={{ minWidth: 200 }}>
-                  <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
-                  <input className="search-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search section or student..." />
-                </div>
-                <div className="profile-pill">
-                  <div className="profile-avatar">KM</div>
-                  <div>
-                    <div className="profile-name">Kim, Mingyu</div>
-                    <div className="profile-sec">NSTP – H</div>
-                  </div>
+            <header className="header">
+              <h1 className="header-greeting">Group Summary</h1>
+              <div className="search-bar">
+                <span className="search-icon"><IconSearch size={14} stroke={1.75} /></span>
+                <input
+                  className="search-input"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search section or student..."
+                  aria-label="Search section or student"
+                />
+              </div>
+              <div className="profile-pill">
+                <div className="profile-avatar">{initials || "A"}</div>
+                <div>
+                  <div className="profile-name">{lastName ? `${lastName}, ${firstName}` : "Adviser"}</div>
                 </div>
               </div>
+            </header>
 
-              {/* Top stat cards */}
-              <div className="gs-stat-cards">
-                {statCards.map(({ label, value, Icon }) => (
-                  <div key={label} className="db-kpi-card">
+            <div className="body">
+              <div className="overview-header">
+                <div className="overview-label">Class Overview</div>
+              </div>
+
+              <div className="stat-cards">
+                {statCards.map(({ label, value, Icon, filter }) => (
+                  <button
+                    key={label}
+                    className="db-kpi-card db-kpi-card--interactive"
+                    onClick={() => setSummaryFilter(filter)}
+                    aria-label={`${label}: ${value}`}
+                    aria-pressed={summaryFilter === filter}
+                  >
                     <div className="db-kpi-header">
                       <span className="db-kpi-label">{label}</span>
                     </div>
                     <div className="db-kpi-value">{value}</div>
-                    <div className="db-kpi-deco"><Icon size={120} stroke={1.2} /></div>
-                  </div>
+                    <div className="db-kpi-deco"><Icon size={110} stroke={1.2} /></div>
+                  </button>
                 ))}
               </div>
 
-              {/* Section accordion cards */}
               <div className="gs-body">
                 {filteredSections.map((section) => {
                   const isOpen = expanded === section.id;

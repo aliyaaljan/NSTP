@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddAdviserModal from "@/components/admin/AddAdviserModal"
 import EditAdviserModal from "@/components/admin/EditAdviserModal"
@@ -336,7 +337,7 @@ export default function AdviserListClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sectionId])
+  }, [query.page, query.search, query.sectionId, query.status])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
@@ -385,30 +386,33 @@ export default function AdviserListClient({
       label: "Total Advisers",
       value: summary.total,
       note: "registered accounts",
+      onClick: () => pushParams({ status: null, page: "1" }),
+      isActive: query.status === "all",
     },
     {
       icon: "ti-circle-check",
       label: "Active Advisers",
       value: summary.active,
-      valueColor: COLORS.green,
       badge: {
         text: pctOfTotal(summary.active),
         bg: COLORS.greenBgLight,
         color: COLORS.green,
       },
       note: "of all advisers",
+      onClick: () => pushParams({ status: "active", page: "1" }),
+      isActive: query.status === "active",
     },
     {
       icon: "ti-users",
       label: "Students Supervised",
       value: summary.studentsSupervised,
       note: "across all sections",
+      href: "/admin/students",
     },
     {
       icon: "ti-pencil",
       label: "Pending Requests",
       value: summary.pendingRequests,
-      valueColor: summary.pendingRequests > 0 ? COLORS.maroon : COLORS.textDark,
       badge:
         summary.pendingRequests > 0
           ? {
@@ -418,6 +422,8 @@ export default function AdviserListClient({
             }
           : undefined,
       note: "open appeals",
+      onClick: () => pushParams({ status: "pending", page: "1" }),
+      isActive: query.status === "pending",
     },
   ]
 
@@ -445,11 +451,13 @@ export default function AdviserListClient({
         <ProfilePill user={currentUser} />
       </div>
 
-      <KpiStatCardGrid columns={4}>
-        {statCards.map((card, index) => (
-          <KpiStatCard key={index} {...card} />
-        ))}
-      </KpiStatCardGrid>
+      <div className="admin-list-kpi-sticky">
+        <KpiStatCardGrid columns={4}>
+          {statCards.map((card, index) => (
+            <KpiStatCard key={index} {...card} />
+          ))}
+        </KpiStatCardGrid>
+      </div>
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ position: "relative" }}>
@@ -514,29 +522,10 @@ export default function AdviserListClient({
           </FilterDropdown>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setAddChoiceOpen(true)}
-          aria-label="Add adviser"
-          title="Add adviser"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "none",
-            background: COLORS.green,
-            color: "#fff",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 18 }} />
-        </button>
+        <AdminAddButton label="Add adviser" onClick={() => setAddChoiceOpen(true)} />
       </div>
 
+      <div className="admin-list-table-scroll admin-list-card-scroll">
       {pageAdvisers.length === 0 ? (
         <div
           style={{
@@ -571,6 +560,7 @@ export default function AdviserListClient({
           ))}
         </div>
       )}
+      </div>
 
       <ListPagination
         page={query.page}

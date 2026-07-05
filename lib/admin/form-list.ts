@@ -53,9 +53,12 @@ export const FORM_LIST_ALL_SECTIONS = "all"
 /** Rows per page on the forms list table. */
 export const FORM_LIST_PAGE_SIZE = 10
 
+export type FormListScopeFilter = "all" | "global" | "section"
+
 export interface FormListQuery {
   /** `section.section_id`, or FORM_LIST_ALL_SECTIONS for all. */
   sectionId: string
+  scope: FormListScopeFilter
   search: string
   sort: FormListSortKey
   dir: "asc" | "desc"
@@ -150,6 +153,7 @@ const VALID_SORT: FormListSortKey[] = ["name", "section", "deadline", "analytics
 
 export function parseFormListQuery(params: {
   sectionId?: string
+  scope?: string
   q?: string
   sort?: string
   dir?: string
@@ -159,9 +163,12 @@ export function parseFormListQuery(params: {
   const sort = VALID_SORT.includes(params.sort as FormListSortKey)
     ? (params.sort as FormListSortKey)
     : "name"
+  const scope: FormListScopeFilter =
+    params.scope === "global" || params.scope === "section" ? params.scope : "all"
 
   return {
     sectionId: params.sectionId ?? FORM_LIST_ALL_SECTIONS,
+    scope,
     search: params.q ?? "",
     sort,
     dir: params.dir === "desc" ? "desc" : "asc",
@@ -284,6 +291,8 @@ export function filterFormListRows(
     if (query.sectionId !== FORM_LIST_ALL_SECTIONS && form.sectionId !== query.sectionId) {
       return false
     }
+    if (query.scope === "global" && !form.isGlobal) return false
+    if (query.scope === "section" && form.isGlobal) return false
     if (!q) return true
     return (
       form.formName.toLowerCase().includes(q) ||

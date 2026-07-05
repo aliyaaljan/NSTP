@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddAccessUserModal from "@/components/admin/AddAccessUserModal"
 import EditAccessUserModal from "@/components/admin/EditAccessUserModal"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
@@ -337,42 +338,47 @@ export default function AccessControlClient({
       label: "Total Users",
       value: summary.totalUsers,
       note: "registered accounts",
+      onClick: () => pushParams({ role: null, page: "1" }),
+      isActive: query.role === ACCESS_CONTROL_ALL_ROLES,
     },
     {
       icon: "ti-shield",
       label: "Administrators",
       value: summary.adminCount,
-      valueColor: ROLE_COLOR_STYLES.admin.color,
       badge: {
         text: pctOfTotal(summary.adminCount),
         bg: ROLE_COLOR_STYLES.admin.bg,
         color: ROLE_COLOR_STYLES.admin.color,
       },
       note: "of all users",
+      onClick: () => pushParams({ role: "admin", page: "1" }),
+      isActive: query.role === "admin",
     },
     {
       icon: "ti-user-check",
       label: "Advisers",
       value: summary.adviserCount,
-      valueColor: ROLE_COLOR_STYLES.adviser.color,
       badge: {
         text: pctOfTotal(summary.adviserCount),
         bg: ROLE_COLOR_STYLES.adviser.bg,
         color: ROLE_COLOR_STYLES.adviser.color,
       },
       note: "of all users",
+      onClick: () => pushParams({ role: "adviser", page: "1" }),
+      isActive: query.role === "adviser",
     },
     {
       icon: "ti-school",
       label: "Students",
       value: summary.studentCount,
-      valueColor: ROLE_COLOR_STYLES.student.color,
       badge: {
         text: pctOfTotal(summary.studentCount),
         bg: ROLE_COLOR_STYLES.student.bg,
         color: ROLE_COLOR_STYLES.student.color,
       },
       note: "of all users",
+      onClick: () => pushParams({ role: "student", page: "1" }),
+      isActive: query.role === "student",
     },
   ]
 
@@ -406,11 +412,14 @@ export default function AccessControlClient({
         <ProfilePill user={currentUser} />
       </div>
 
-      <KpiStatCardGrid columns={4}>
-        {statCards.map((card, index) => (
-          <KpiStatCard key={index} {...card} />
-        ))}
-      </KpiStatCardGrid>
+      <div className="admin-list-pre-table">
+        <div className="admin-list-kpi-sticky">
+          <KpiStatCardGrid columns={4}>
+            {statCards.map((card, index) => (
+              <KpiStatCard key={index} {...card} />
+            ))}
+          </KpiStatCardGrid>
+        </div>
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ position: "relative" }}>
@@ -489,27 +498,8 @@ export default function AccessControlClient({
           </FilterDropdown>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setAddUserOpen(true)}
-          aria-label="Add user"
-          title="Add user"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "none",
-            background: COLORS.green,
-            color: "#fff",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 18 }} />
-        </button>
+        <AdminAddButton label="Add user" onClick={() => setAddUserOpen(true)} />
+      </div>
       </div>
 
       <div
@@ -518,10 +508,9 @@ export default function AccessControlClient({
           border: `1px solid ${COLORS.border}`,
           borderRadius: COLORS.radius,
           boxShadow: COLORS.cardShadow,
-          overflow: "hidden",
         }}
       >
-        <div style={{ overflowX: "auto" }}>
+        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
           <table
             style={{
               width: "100%",
@@ -574,10 +563,7 @@ export default function AccessControlClient({
           </table>
         </div>
 
-        <div
-          className="access-control-scroll"
-          style={{ overflowX: "auto", overflowY: "auto", maxHeight: 480 }}
-        >
+        <div className="access-control-scroll admin-list-table-scroll">
           <table
             style={{
               width: "100%",

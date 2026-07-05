@@ -78,7 +78,8 @@ export default async function AdminLayout({
     <div
       className={`admin-root ${goblinOne.variable} ${cormorant.variable} ${montserrat.variable}`}
       style={{
-        minHeight: "100vh",
+        height: "100vh",
+        overflow: "hidden",
         ["--font" as string]:
           "var(--font-content, 'Helvetica Neue', Arial, sans-serif)",
         ["--font-title" as string]: "var(--font-goblin, Georgia, serif)",

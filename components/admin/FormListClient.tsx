@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import AdminAddButton from "@/components/admin/AdminAddButton"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import CreateFormModal from "@/components/admin/CreateFormModal"
 import ImportFormsModal from "@/components/admin/ImportFormsModal"
@@ -257,7 +258,7 @@ export default function FormListClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sectionId, query.sort, query.dir])
+  }, [query.page, query.search, query.sectionId, query.scope, query.sort, query.dir])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
@@ -310,30 +311,34 @@ export default function FormListClient({
       label: "Total Forms",
       value: summary.total,
       note: "active requirements",
+      onClick: () => pushParams({ scope: null, page: "1" }),
+      isActive: query.scope === "all",
     },
     {
       icon: "ti-world",
       label: "Global Forms",
       value: summary.global,
-      valueColor: COLORS.green,
       badge: {
         text: pctOfTotal(summary.global),
         bg: COLORS.greenBgLight,
         color: COLORS.green,
       },
       note: "of all forms",
+      onClick: () => pushParams({ scope: "global", page: "1" }),
+      isActive: query.scope === "global",
     },
     {
       icon: "ti-layout-grid",
       label: "Section Forms",
       value: summary.sectionSpecific,
-      valueColor: COLORS.maroon,
       badge: {
         text: pctOfTotal(summary.sectionSpecific),
         bg: COLORS.maroonBgLight,
         color: COLORS.maroon,
       },
       note: "of all forms",
+      onClick: () => pushParams({ scope: "section", page: "1" }),
+      isActive: query.scope === "section",
     },
     {
       icon: "ti-chart-bar",
@@ -341,6 +346,7 @@ export default function FormListClient({
       value: summary.avgSubmissionPct,
       valueSuffix: "%",
       note: "across all forms",
+      static: true,
     },
   ]
 
@@ -374,11 +380,14 @@ export default function FormListClient({
         <ProfilePill user={currentUser} />
       </div>
 
-      <KpiStatCardGrid columns={4}>
-        {statCards.map((card, index) => (
-          <KpiStatCard key={index} {...card} />
-        ))}
-      </KpiStatCardGrid>
+      <div className="admin-list-pre-table">
+        <div className="admin-list-kpi-sticky">
+          <KpiStatCardGrid columns={4}>
+            {statCards.map((card, index) => (
+              <KpiStatCard key={index} {...card} />
+            ))}
+          </KpiStatCardGrid>
+        </div>
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ position: "relative" }}>
@@ -441,27 +450,8 @@ export default function FormListClient({
           ))}
         </FilterDropdown>
 
-        <button
-          type="button"
-          onClick={() => setImportOpen(true)}
-          aria-label="Import form"
-          title="Import form"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "none",
-            background: COLORS.green,
-            color: "#fff",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 18 }} />
-        </button>
+        <AdminAddButton label="Import form" onClick={() => setImportOpen(true)} />
+      </div>
       </div>
 
       <div
@@ -470,10 +460,9 @@ export default function FormListClient({
           border: `1px solid ${COLORS.border}`,
           borderRadius: COLORS.radius,
           boxShadow: COLORS.cardShadow,
-          overflow: "hidden",
         }}
       >
-        <div style={{ overflowX: "auto" }}>
+        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
           <table
             style={{
               width: "100%",
@@ -530,8 +519,7 @@ export default function FormListClient({
         </div>
 
         <div
-          className="form-list-scroll"
-          style={{ overflowX: "auto", overflowY: "auto" }}
+          className="form-list-scroll admin-list-table-scroll"
         >
           <table
             style={{

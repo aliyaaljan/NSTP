@@ -10,6 +10,7 @@ async function AdviserListContent({
 }: {
   searchParams: Promise<{
     sectionId?: string
+    status?: string
     q?: string
     page?: string
   }>
@@ -35,6 +36,7 @@ export default function AdminAdvisersPage({
 }: {
   searchParams: Promise<{
     sectionId?: string
+    status?: string
     q?: string
     page?: string
   }>

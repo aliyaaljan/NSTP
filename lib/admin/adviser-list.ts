@@ -39,9 +39,12 @@ export const ADVISER_LIST_ALL_SECTIONS = "all"
 /** Cards per page — 4 columns × 2 rows. */
 export const ADVISER_LIST_PAGE_SIZE = 8
 
+export type AdviserListStatusFilter = "all" | "active" | "inactive" | "pending"
+
 export interface AdviserListQuery {
   /** `section.section_id`, or ADVISER_LIST_ALL_SECTIONS for all. */
   sectionId: string
+  status: AdviserListStatusFilter
   search: string
   /** 1-based page index. */
   page: number
@@ -219,8 +222,16 @@ export function buildPendingAppealCounts(
   return counts
 }
 
+const VALID_ADVISER_STATUS: AdviserListStatusFilter[] = [
+  "all",
+  "active",
+  "inactive",
+  "pending",
+]
+
 export function parseAdviserListQuery(params: {
   sectionId?: string
+  status?: string
   q?: string
   page?: string
 }): AdviserListQuery {
@@ -228,6 +239,9 @@ export function parseAdviserListQuery(params: {
 
   return {
     sectionId: params.sectionId ?? ADVISER_LIST_ALL_SECTIONS,
+    status: VALID_ADVISER_STATUS.includes(params.status as AdviserListStatusFilter)
+      ? (params.status as AdviserListStatusFilter)
+      : "all",
     search: params.q ?? "",
     page: pageNum,
   }
@@ -242,14 +256,18 @@ export function filterAdviserListRows(
   query: AdviserListQuery
 ): AdviserListRow[] {
   const q = query.search.trim().toLowerCase()
-  if (!q) return rows
 
-  return rows.filter(
-    (adviser) =>
+  return rows.filter((adviser) => {
+    if (query.status === "active" && !adviser.isActive) return false
+    if (query.status === "inactive" && adviser.isActive) return false
+    if (query.status === "pending" && adviser.pendingRequestCount === 0) return false
+    if (!q) return true
+    return (
       adviser.fullName.toLowerCase().includes(q) ||
       adviser.email.toLowerCase().includes(q) ||
       adviser.sectionNames.some((s) => s.toLowerCase().includes(q))
-  )
+    )
+  })
 }
 
 /** Filter advisers by section name (client-side helper when sectionId is known). */

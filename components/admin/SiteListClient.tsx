@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddGpsSiteModal from "@/components/admin/AddGpsSiteModal"
 import EditGpsSiteModal from "@/components/admin/EditGpsSiteModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
@@ -358,30 +359,34 @@ export default function SiteListClient({
       label: "Total Sites",
       value: summary.total,
       note: "geofence locations",
+      onClick: () => pushParams({ status: null, page: "1" }),
+      isActive: query.status === "all",
     },
     {
       icon: "ti-circle-check",
       label: "Active Sites",
       value: summary.active,
-      valueColor: COLORS.green,
       badge: {
         text: pctOfTotal(summary.active),
         bg: COLORS.greenBgLight,
         color: COLORS.green,
       },
       note: "of all sites",
+      onClick: () => pushParams({ status: "active", page: "1" }),
+      isActive: query.status === "active",
     },
     {
       icon: "ti-circle-x",
       label: "Inactive Sites",
       value: summary.inactive,
-      valueColor: COLORS.maroon,
       badge: {
         text: pctOfTotal(summary.inactive),
         bg: COLORS.maroonBgLight,
         color: COLORS.maroon,
       },
       note: "of all sites",
+      onClick: () => pushParams({ status: "inactive", page: "1" }),
+      isActive: query.status === "inactive",
     },
     {
       icon: "ti-radar",
@@ -389,6 +394,7 @@ export default function SiteListClient({
       value: summary.avgRadiusMeters,
       valueSuffix: "m",
       note: "across all sites",
+      static: true,
     },
   ]
 
@@ -422,11 +428,14 @@ export default function SiteListClient({
         <ProfilePill user={currentUser} />
       </div>
 
-      <KpiStatCardGrid columns={4}>
-        {statCards.map((card, index) => (
-          <KpiStatCard key={index} {...card} />
-        ))}
-      </KpiStatCardGrid>
+      <div className="admin-list-pre-table">
+        <div className="admin-list-kpi-sticky">
+          <KpiStatCardGrid columns={4}>
+            {statCards.map((card, index) => (
+              <KpiStatCard key={index} {...card} />
+            ))}
+          </KpiStatCardGrid>
+        </div>
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ position: "relative" }}>
@@ -526,27 +535,8 @@ export default function SiteListClient({
           </FilterDropdown>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          aria-label="Add site"
-          title="Add site"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "none",
-            background: COLORS.green,
-            color: "#fff",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 18 }} />
-        </button>
+        <AdminAddButton label="Add site" onClick={() => setAddOpen(true)} />
+      </div>
       </div>
 
       <div
@@ -555,10 +545,9 @@ export default function SiteListClient({
           border: `1px solid ${COLORS.border}`,
           borderRadius: COLORS.radius,
           boxShadow: COLORS.cardShadow,
-          overflow: "hidden",
         }}
       >
-        <div style={{ overflowX: "auto" }}>
+        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
           <table
             style={{
               width: "100%",
@@ -618,7 +607,7 @@ export default function SiteListClient({
           </table>
         </div>
 
-        <div className="site-list-scroll" style={{ overflowX: "auto", overflowY: "auto" }}>
+        <div className="site-list-scroll admin-list-table-scroll">
           <table
             style={{
               width: "100%",

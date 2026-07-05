@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddStudentModal from "@/components/admin/AddStudentModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
@@ -338,42 +339,47 @@ export default function StudentListClient({
       label: "Total Students",
       value: summary.total,
       note: "active enrollments",
+      onClick: () => pushParams({ status: null, page: "1" }),
+      isActive: query.progressStatus === "all",
     },
     {
       icon: "ti-circle-check",
       label: "On Track",
       value: summary.onTrack,
-      valueColor: COLORS.green,
       badge: {
         text: pctOfTotal(summary.onTrack),
         bg: COLORS.greenBgLight,
         color: COLORS.green,
       },
       note: "of all students",
+      onClick: () => pushParams({ status: "on_track", page: "1" }),
+      isActive: query.progressStatus === "on_track",
     },
     {
       icon: "ti-clock",
       label: "In Progress",
       value: summary.inProgress,
-      valueColor: COLORS.amber,
       badge: {
         text: pctOfTotal(summary.inProgress),
         bg: COLORS.amberBgLight,
         color: COLORS.amber,
       },
       note: "of all students",
+      onClick: () => pushParams({ status: "in_progress", page: "1" }),
+      isActive: query.progressStatus === "in_progress",
     },
     {
       icon: "ti-alert-triangle",
       label: "At Risk",
       value: summary.atRisk,
-      valueColor: COLORS.maroonDark,
       badge: {
         text: pctOfTotal(summary.atRisk),
         bg: COLORS.maroonDarkBgLight,
         color: COLORS.maroonDark,
       },
       note: "of all students",
+      onClick: () => pushParams({ status: "at_risk", page: "1" }),
+      isActive: query.progressStatus === "at_risk",
     },
   ]
 
@@ -407,11 +413,14 @@ export default function StudentListClient({
         <ProfilePill user={currentUser} />
       </div>
 
-      <KpiStatCardGrid columns={4}>
-        {statCards.map((card, index) => (
-          <KpiStatCard key={index} {...card} />
-        ))}
-      </KpiStatCardGrid>
+      <div className="admin-list-pre-table">
+        <div className="admin-list-kpi-sticky">
+          <KpiStatCardGrid columns={4}>
+            {statCards.map((card, index) => (
+              <KpiStatCard key={index} {...card} />
+            ))}
+          </KpiStatCardGrid>
+        </div>
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ position: "relative" }}>
@@ -490,27 +499,8 @@ export default function StudentListClient({
           </FilterDropdown>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setAddChoiceOpen(true)}
-          aria-label="Add student"
-          title="Add student"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "none",
-            background: COLORS.green,
-            color: "#fff",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 18 }} />
-        </button>
+        <AdminAddButton label="Add student" onClick={() => setAddChoiceOpen(true)} />
+      </div>
       </div>
 
       <div
@@ -519,10 +509,9 @@ export default function StudentListClient({
           border: `1px solid ${COLORS.border}`,
           borderRadius: COLORS.radius,
           boxShadow: COLORS.cardShadow,
-          overflow: "hidden",
         }}
       >
-        <div style={{ overflowX: "auto" }}>
+        <div className="admin-list-thead-wrap" style={{ overflowX: "auto" }}>
           <table
             style={{
               width: "100%",
@@ -573,8 +562,7 @@ export default function StudentListClient({
         </div>
 
         <div
-          className="student-list-scroll"
-          style={{ overflowX: "auto", overflowY: "auto" }}
+          className="student-list-scroll admin-list-table-scroll"
         >
           <table
             style={{
