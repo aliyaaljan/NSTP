@@ -25,6 +25,13 @@ import {
   type CreateAdviserResult,
 } from "@/lib/admin/adviser-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import {
+  deactivateUser,
+  provisionUser,
+  syncAuthBan,
+  syncUserEmail,
+} from "@/lib/admin/user-provision"
 
 /**
  * Fetches everything the admin adviser list page needs.
@@ -173,16 +180,15 @@ export async function createAdviser(
     return { ok: false, error: validationError }
   }
 
-  // TODO(backend): implement adviser creation.
-  console.info("[createAdviser] pending implementation", {
+  const service = createSupabaseServiceClient()
+  const result = await provisionUser(service, {
     email: payload.email,
+    fullName: payload.fullName,
+    roleCode: "adviser",
+    isActive: payload.isActive,
   })
-
-  return {
-    ok: false,
-    error:
-      "Add is not available yet. Backend handler still needs to be implemented.",
-  }
+  if (!result.ok) return result
+  return { ok: true }
 }
 
 /**
@@ -209,25 +215,55 @@ export async function updateAdviser(
     return { ok: false, error: validationError }
   }
 
-  // TODO(backend): implement adviser update.
-  console.info("[updateAdviser] pending implementation", {
-    adviserUserId: payload.adviserUserId,
-    isActive: payload.isActive,
-  })
+  const service = createSupabaseServiceClient()
 
-  return {
-    ok: false,
-    error:
-      "Edit is not available yet. Backend handler still needs to be implemented.",
+  const { data: current, error: currentError } = await service
+    .from("app_user")
+    .select("email, is_active")
+    .eq("app_user_id", payload.adviserUserId)
+    .maybeSingle()
+
+  if (currentError || !current) {
+    console.error("[updateAdviser] target lookup failed", currentError)
+    return { ok: false, error: "Facilitator not found." }
   }
+
+  const nextEmail = payload.email.trim().toLowerCase()
+  if (nextEmail !== (current.email ?? "").toLowerCase()) {
+    const emailResult = await syncUserEmail(service, payload.adviserUserId, nextEmail)
+    if (!emailResult.ok) return emailResult
+  }
+
+  const { error: updateError } = await service
+    .from("app_user")
+    .update({
+      full_name: payload.fullName.trim(),
+      email: nextEmail,
+      is_active: payload.isActive,
+    })
+    .eq("app_user_id", payload.adviserUserId)
+
+  if (updateError) {
+    console.error("[updateAdviser] update failed", updateError)
+    if ((updateError as { code?: string }).code === "23505") {
+      return { ok: false, error: "That email is already in use." }
+    }
+    return { ok: false, error: "Failed to update the facilitator." }
+  }
+
+  if (current.is_active !== payload.isActive) {
+    const banResult = await syncAuthBan(service, payload.adviserUserId, payload.isActive)
+    if (!banResult.ok) return banResult
+  }
+
+  return { ok: true }
 }
 
 /**
- * Remove an adviser account.
- *
- * Backend checklist:
- * 1. Reassign or clear `section.adviser_user_id` for their sections.
- * 2. Soft-delete via `is_active = false` or hard-delete per product rules.
+ * Archive-only: deactivates the facilitator's account (is_active=false + auth
+ * ban + login_session revoke). Never hard-deletes the `app_user` row. Sections
+ * keep their `adviser_user_id` unchanged — reassignment is handled on the
+ * Section List page.
  */
 export async function deleteAdviser(
   adviserUserId: string
@@ -241,12 +277,6 @@ export async function deleteAdviser(
     return { ok: false, error: "Adviser ID is required." }
   }
 
-  // TODO(backend): implement adviser deletion / deactivation.
-  console.info("[deleteAdviser] pending implementation", { adviserUserId })
-
-  return {
-    ok: false,
-    error:
-      "Delete is not available yet. Backend handler still needs to be implemented.",
-  }
+  const service = createSupabaseServiceClient()
+  return deactivateUser(service, adviserUserId)
 }
