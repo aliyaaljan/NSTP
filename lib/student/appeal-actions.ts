@@ -5,6 +5,8 @@ import { lookupId } from "@/lib/lookups"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { packReason, parseReason } from "@/lib/student/appeal-utils"
 
+const MAX_NUM_ATTACHMENT = 3
+
 type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string }
@@ -26,7 +28,8 @@ export async function getStudentRequests(
             resolution_note,
             created_at,
             updated_at,
-            appeal_status:appeal_status_id ( code, name )
+            appeal_status:appeal_status_id ( code, name ),
+            appeal_attachment ( storage_path, file_name )
             `
       )
       .eq("enrollment_id", enrollmentId)
@@ -61,6 +64,7 @@ export async function getStudentRequests(
           app.updated_at !== app.created_at
             ? new Date(app.updated_at).toLocaleString()
             : null,
+        attachments: app.appeal_attachment ?? [],
       }
     })
     return { ok: true, data: mappedRequests }
@@ -76,7 +80,13 @@ export async function submitStudentRequest(
   appealTypeId: string,
   typeName: string,
   title: string,
-  body: string
+  body: string,
+  attachments: {
+    storage_path: string
+    file_name: string
+    content_type: string
+    file_size_byte: number
+  }[] = []
 ): Promise<ActionResult<any>> {
   try {
     const supabase = await createSupabaseServerClient()
@@ -84,6 +94,9 @@ export async function submitStudentRequest(
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "Not authenticated" }
+    if (attachments.length > MAX_NUM_ATTACHMENT) {
+      return { ok: false, error: `You can attach at most ${MAX_NUM_ATTACHMENT} files per request` }
+    }
 
     const openStatusId = await lookupId("appeal_status", "pending")
 
@@ -96,15 +109,38 @@ export async function submitStudentRequest(
     // pack reason securely using helper (type|||title|||body)
     const combinedReason = packReason(displayLabel, title, body)
 
-    const { error } = await supabase.from("appeal").insert({
+    const { data, error } = await supabase.from("appeal").insert({
       enrollment_id: enrollmentId,
       requester_user_id: user.id,
       appeal_status_id: openStatusId,
       appeal_type_id: appealTypeId,
       reason: combinedReason,
     })
+    .select("appeal_id")
+    .single()
 
     if (error) throw error
+
+    //insert attachments to appeal attachment table
+    if (attachments.length > 0) {
+      const rows = attachments.map((a) => ({
+        appeal_id: data.appeal_id,
+        storage_path: a.storage_path,
+        file_name: a.file_name,
+        content_type: a.content_type,
+        file_size_byte: a.file_size_byte,
+      }))
+
+      const { error: attachmentError } = await supabase
+        .from("appeal_attachment")
+        .insert(rows)
+
+      if (attachmentError) {
+        await supabase.from("appeal").delete().eq("appeal_id", data.appeal_id)
+        throw attachmentError
+      }
+    }
+
     return { ok: true, data: null }
   } catch (err: any) {
     return { ok: false, error: err.message }
