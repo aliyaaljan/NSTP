@@ -8,29 +8,48 @@ import {
   IconQrcode,
   IconX,
 } from "@tabler/icons-react"
-import { C } from "./theme"
 import type { ScanRecord, ScanStatus } from "@/lib/student/leader/scan-history"
 import { formatDate, groupByDate } from "@/lib/student/leader/scan-history"
+
+const C = {
+  green: '#14492E',
+  maroon: "#7B1113",
+  maroonDark: "#6B0D10",
+  gold: "#C8A84B",
+  goldBg: "#FFF3CD",
+  goldText: "#4A2C00",
+  pageBg: "#F0F0F0",
+  cardBg: "#FFFFFF",
+  cardShadow: "0 1px 4px rgba(0,0,0,0.06)",
+  border: "#ECECEA",
+  hoursBg: "#E8EDE5",
+  hoursBorder: "#C5D4BC",
+  track: "#D4D9CC",
+  textDark: "#111827",
+  textGray: "#6B7280",
+  textMuted: "#9CA3AF",
+  textSub: "#5A5A58",
+  iconBg: "#F8DCDD",
+}
 
 const STATUS_STYLES: Record<
   ScanStatus,
   { color: string; bg: string; icon: React.ReactNode }
 > = {
   "On Time": {
-    color: C.success,
-    bg: C.successBg,
-    icon: <IconCheck size={14} stroke={2.5} />,
+    color: '#14492E',
+    bg: '#E8EDE5',
+    icon: <IconCheck size={12} stroke={2.5} />,
   },
   Late: {
-    color: C.warning,
-    bg: C.warningBg,
-    icon: <IconClock size={14} stroke={2.5} />,
+    color: '#4A2C00',
+    bg: '#FFF3CD',
+    icon: <IconClock size={12} stroke={2.5} />,
   },
-  // dummy styling
   "Not Scanned": {
-    color: C.textGray,
-    bg: "#E8E8E8",
-    icon: <IconX size={14} stroke={2.5} />,
+    color: '#6B7280',
+    bg: '#F3F4F6',
+    icon: <IconX size={12} stroke={2.5} />,
   },
 }
 
@@ -61,7 +80,7 @@ function ScanRow({
         <div
           style={{
             padding: isMobile ? "3px 12px" : "8px 24px",
-            background: "#F7F7F7",
+            background: "#F9FAFB",
             borderBottom: `1px solid ${C.border}`,
             borderTop: `1px solid ${C.border}`,
             display: "flex",
@@ -76,9 +95,12 @@ function ScanRow({
           />
           <span
             style={{
-              fontSize: isMobile ? "9px" : "13px",
-              fontWeight: 600,
-              color: C.textDark,
+              fontSize: "11px",
+              fontWeight: 700,
+              color: C.textGray,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              fontFamily: "'Montserrat', sans-serif",
             }}
           >
             {dateHeader}
@@ -89,33 +111,34 @@ function ScanRow({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr auto" : "2fr 1.2fr 0.8fr",
+          gridTemplateColumns: isMobile ? "1fr auto" : "1.5fr 1.5fr 0.8fr",
           alignItems: "center",
-          padding: isMobile ? "6px 12px" : "12px 24px",
+          padding: isMobile ? "6px 12px" : "clamp(10px, 1.2vw, 14px) clamp(12px, 1.5vw, 24px)",
           borderBottom: isLast ? "none" : `1px solid ${C.border}`,
           gap: isMobile ? "6px" : "16px",
           transition: "background 0.15s ease",
           background: "#FFFFFF",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = C.greenBg
+          e.currentTarget.style.background = "#F9FAFB"
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.background = "#FFFFFF"
         }}
       >
+        {/* Student Column */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "6px",
+            gap: "8px",
             minWidth: 0,
           }}
         >
           <div
             style={{
-              width: isMobile ? "24px" : "36px",
-              height: isMobile ? "24px" : "36px",
+              width: isMobile ? "24px" : "32px",
+              height: isMobile ? "24px" : "32px",
               borderRadius: "50%",
               background: C.maroon,
               display: "flex",
@@ -125,111 +148,110 @@ function ScanRow({
               fontSize: isMobile ? "7px" : "12px",
               fontWeight: 700,
               flexShrink: 0,
+              fontFamily: "'Montserrat', sans-serif",
             }}
           >
             {initials}
           </div>
-          <div style={{ minWidth: 0 }}>
-            <p
-              style={{
-                fontSize: isMobile ? "10px" : "14px",
-                fontWeight: 600,
-                color: C.textDark,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                margin: 0,
-              }}
-            >
-              {scan.name}
-            </p>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "3px",
-                marginTop: "1px",
-                flexWrap: "wrap",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: isMobile ? "7px" : "11px",
-                  color: C.textGray,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "2px",
-                }}
-              >
-                <IconClock size={isMobile ? 6 : 12} stroke={1.5} />
-                <span style={{ fontWeight: 400, color: C.textGray }}>
-                  QR generated:
-                </span>
-                <span
-                  style={{
-                    fontFamily: "monospace",
-                    fontWeight: 700,
-                    color: C.textDark,
-                  }}
-                >
-                  {scan.generatedTime}
-                </span>
-              </span>
-              {!isMobile && (
-                <span
-                  style={{
-                    fontSize: "8px",
-                    color: C.textMuted,
-                  }}
-                >
-                  •
-                </span>
-              )}
-              <span
-                style={{
-                  fontSize: isMobile ? "7px" : "11px",
-                  color: C.textGray,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "2px",
-                }}
-              >
-                <IconQrcode size={isMobile ? 6 : 12} stroke={1.5} />
-                <span style={{ fontWeight: 400, color: C.textGray }}>
-                  QR scanned:
-                </span>
-                <span
-                  style={{
-                    fontFamily: "monospace",
-                    fontWeight: 700,
-                    color: C.green,
-                  }}
-                >
-                  {scan.scannedTime}
-                </span>
-              </span>
-            </div>
-          </div>
+          <p
+            style={{
+              fontSize: "13px",
+              fontWeight: 600,
+              color: C.textDark,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              margin: 0,
+              fontFamily: "'Montserrat', sans-serif",
+            }}
+          >
+            {scan.name}
+          </p>
         </div>
 
+        {/* Time Column */}
         <div
           style={{
             display: "flex",
-            justifyContent: "flex-end",
+            flexDirection: "column",
+            gap: "2px",
+            minWidth: 0,
+            alignItems: "center",
           }}
         >
           <span
             style={{
-              fontSize: isMobile ? "7px" : "12px",
-              fontWeight: 700,
+              fontSize: "11px",
+              color: C.textGray,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontFamily: "'Montserrat', sans-serif",
+              fontWeight: 400,
+            }}
+          >
+            <IconClock size={12} stroke={1.5} />
+            <span style={{ fontWeight: 400, color: C.textGray }}>
+              QR Generated:
+            </span>
+            <span
+              style={{
+                fontFamily: "'Montserrat', sans-serif",
+                fontWeight: 400,
+                color: C.textDark,
+              }}
+            >
+              {scan.generatedTime}
+            </span>
+          </span>
+          <span
+            style={{
+              fontSize: "11px",
+              color: C.textGray,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontFamily: "'Montserrat', sans-serif",
+              fontWeight: 400,
+            }}
+          >
+            <IconQrcode size={12} stroke={1.5} />
+            <span style={{ fontWeight: 400, color: C.textGray }}>
+              QR Scanned:
+            </span>
+            <span
+              style={{
+                fontFamily: "'Montserrat', sans-serif",
+                fontWeight: 400,
+                color: C.textDark,
+              }}
+            >
+              {scan.scannedTime}
+            </span>
+          </span>
+        </div>
+
+        {/* Status Column */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
               padding: isMobile ? "2px 6px" : "4px 14px",
               borderRadius: "20px",
               background: bg,
               color: color,
               display: "inline-flex",
               alignItems: "center",
-              gap: "2px",
+              gap: "4px",
               whiteSpace: "nowrap",
+              fontFamily: "'Montserrat', sans-serif",
             }}
           >
             {!isMobile && icon}
@@ -269,7 +291,7 @@ export function ScanLogPanel({
     <div
       style={{
         background: C.cardBg,
-        borderRadius: "10px",
+        borderRadius: "14px",
         border: `1px solid ${C.border}`,
         boxShadow: C.cardShadow,
         display: "flex",
@@ -278,31 +300,34 @@ export function ScanLogPanel({
         flex: 1,
         minHeight: isMobile ? "200px" : "300px",
         maxHeight: isMobile ? "calc(100vh - 400px)" : "calc(100vh - 380px)",
+        fontFamily: "'Montserrat', sans-serif",
       }}
     >
+      {/* Header */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: isMobile ? "8px 12px" : "16px 24px",
+          padding: isMobile ? "8px 12px" : "clamp(12px, 1.5vw, 14px) clamp(16px, 2vw, 24px)",
           borderBottom: `1px solid ${C.border}`,
           flexWrap: "wrap",
           gap: "4px",
-          background: "#FAFAFA",
+          background: "#F9FAFB",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <IconUser
-            size={isMobile ? 12 : 20}
+            size={isMobile ? 12 : 18}
             stroke={1.5}
-            style={{ color: C.textGray }}
+            style={{ color: C.textDark }}
           />
           <span
             style={{
-              fontSize: isMobile ? "10px" : "15px",
+              fontSize: "13px",
               fontWeight: 700,
               color: C.textDark,
+              fontFamily: "'Montserrat', sans-serif",
             }}
           >
             Scan Records
@@ -310,25 +335,25 @@ export function ScanLogPanel({
         </div>
         <span
           style={{
-            fontSize: isMobile ? "8px" : "12px",
-            fontWeight: 700,
+            fontSize: "11px",
+            fontWeight: 400,
             color: C.textGray,
             padding: "2px 8px",
-            borderRadius: "20px",
-            background: C.pageBg,
+            fontFamily: "'Montserrat', sans-serif",
           }}
         >
           {totalScans} entries
         </span>
       </div>
 
+      {/* Table Header */}
       {!isMobile && (
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1.2fr 0.8fr",
-            padding: "10px 24px",
-            background: "#F7F7F7",
+            gridTemplateColumns: "1.5fr 1.5fr 0.8fr",
+            padding: "clamp(10px, 1.2vw, 14px) clamp(12px, 1.5vw, 24px)",
+            background: "#F9FAFB",
             borderBottom: `1px solid ${C.border}`,
             gap: "16px",
             alignItems: "center",
@@ -336,23 +361,38 @@ export function ScanLogPanel({
         >
           <div
             style={{
-              fontSize: "12px",
+              fontSize: "11px",
               fontWeight: 700,
-              color: C.textGray,
+              color: C.maroon,
               textTransform: "uppercase",
-              letterSpacing: "0.5px",
+              letterSpacing: "0.05em",
+              fontFamily: "'Montserrat', sans-serif",
             }}
           >
-            Student / Time
+            Student
           </div>
           <div
             style={{
-              fontSize: "12px",
+              fontSize: "11px",
               fontWeight: 700,
-              color: C.textGray,
+              color: C.maroon,
               textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              textAlign: "right",
+              letterSpacing: "0.05em",
+              fontFamily: "'Montserrat', sans-serif",
+              textAlign: "center",
+            }}
+          >
+            Time
+          </div>
+          <div
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              color: C.maroon,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              fontFamily: "'Montserrat', sans-serif",
+              textAlign: "center",
             }}
           >
             Status
@@ -360,9 +400,35 @@ export function ScanLogPanel({
         </div>
       )}
 
+      {/* Content */}
       <div
-        style={{ overflowY: "auto", flex: 1, WebkitOverflowScrolling: "touch" }}
+        style={{
+          overflowY: "auto",
+          flex: 1,
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "thin",
+          scrollbarColor: "#D1D5DB #F9FAFB",
+        }}
+        className="custom-scrollbar"
       >
+        <style jsx>{`
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: #F9FAFB;
+            border-radius: 8px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #D1D5DB;
+            border-radius: 8px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #9CA3AF;
+          }
+        `}</style>
+
         {hasScans ? (
           isAllView ? (
             <>
@@ -383,8 +449,8 @@ export function ScanLogPanel({
                     <div key={monthKey}>
                       <div
                         style={{
-                          padding: isMobile ? "6px 12px" : "12px 24px",
-                          background: C.greenBg,
+                          padding: isMobile ? "6px 12px" : "clamp(10px, 1.2vw, 14px) clamp(12px, 1.5vw, 24px)",
+                          background: "#F9FAFB",
                           borderBottom: `1px solid ${C.border}`,
                           borderTop:
                             monthIndex > 0 ? `1px solid ${C.border}` : "none",
@@ -396,22 +462,26 @@ export function ScanLogPanel({
                         <IconCalendar
                           size={isMobile ? 10 : 16}
                           stroke={1.5}
-                          style={{ color: C.green }}
+                          style={{ color: C.textGray }}
                         />
                         <span
                           style={{
-                            fontSize: isMobile ? "10px" : "15px",
+                            fontSize: "11px",
                             fontWeight: 700,
-                            color: C.green,
+                            color: C.textGray,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            fontFamily: "'Montserrat', sans-serif",
                           }}
                         >
                           {monthKey}
                         </span>
                         <span
                           style={{
-                            fontSize: isMobile ? "8px" : "12px",
+                            fontSize: "11px",
                             color: C.textGray,
                             fontWeight: 500,
+                            fontFamily: "'Montserrat', sans-serif",
                           }}
                         >
                           • {scansForMonth.length} entries
@@ -470,34 +540,42 @@ export function ScanLogPanel({
             }}
           >
             <p
-              style={{ fontSize: isMobile ? "11px" : "14px", fontWeight: 500 }}
+              style={{ 
+                fontSize: "13px",
+                fontWeight: 500,
+                fontFamily: "'Montserrat', sans-serif",
+              }}
             >
               No scan history for this period
             </p>
             <p
               style={{
-                fontSize: isMobile ? "9px" : "12px",
-                color: C.textLight,
+                fontSize: "11px",
+                color: C.textGray,
                 marginTop: "4px",
+                fontFamily: "'Montserrat', sans-serif",
               }}
             >
               Scans will appear here once students start checking in
             </p>
           </div>
         )}
+        
+        {/* Not Scanned Section */}
         {notScannedNames.length > 0 && (
           <div style={{ marginTop: "16px" }}>
             <div
               style={{
-                padding: isMobile ? "6px 12px" : "10px 24px",
-                background: "#F0F0F0",
+                padding: isMobile ? "6px 12px" : "clamp(10px, 1.2vw, 14px) clamp(12px, 1.5vw, 24px)",
+                background: "#F9FAFB",
                 borderTop: `1px solid ${C.border}`,
                 borderBottom: `1px solid ${C.border}`,
-                fontSize: isMobile ? "10px" : "13px",
+                fontSize: "11px",
                 fontWeight: 700,
                 color: C.textGray,
                 textTransform: "uppercase",
-                letterSpacing: "0.5px",
+                letterSpacing: "0.05em",
+                fontFamily: "'Montserrat', sans-serif",
               }}
             >
               Pending / Not Scanned ({notScannedNames.length})
