@@ -5,7 +5,7 @@ import { lookupId } from "@/lib/lookups"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { packReason, parseReason } from "@/lib/student/appeal-utils"
 
-const MAX_NUM_ATTACHMENT = 3
+const MAX_NUM_ATTACHMENT = 1
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -18,7 +18,7 @@ export async function getStudentRequests(
   try {
     const supabase = await createSupabaseServerClient()
 
-    // fetch appeals and join with status to get the code
+    // fetch appeals and join with status to get the code with attachments
     const { data: appeals, error } = await supabase
       .from("appeal")
       .select(

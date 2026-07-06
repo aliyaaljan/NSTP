@@ -17,7 +17,7 @@ import { createClient } from "@/lib/client"
 import {KpiStatCard, KpiStatCardGrid, ChartStyles,} from "@/components/shared/ChartModule"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
-const MAX_NUM_ATTACHMENT = 3
+const MAX_NUM_ATTACHMENT = 1
 
 function checkDuplicateName (filename: string, existingNames: Set<string>): string {
   const i = filename.lastIndexOf(".")
@@ -1029,8 +1029,8 @@ export default function RequestsPage() {
                     onChange={(e) => {
                       if (e.target.files) {
                         const files = Array.from(e.target.files)
-                        if (formFiles.length + files.length > 3) {
-                          alert("You can attach at most 3 files.")
+                        if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
+                          alert(`You can attach at most ${MAX_NUM_ATTACHMENT} ${MAX_NUM_ATTACHMENT === 1 ? "file" : "files"}.`)
                           return
                         }
                         setFormFiles((prev) => [...prev, ...files])
