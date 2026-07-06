@@ -413,9 +413,10 @@ export default function SectionListClient({
                     onSort={() => toggleSort("adviser")}
                   />
                 </th>
-                <th style={{ width: "14%" }}>
+                <th style={{ width: "14%", textAlign: "center" }}>
                   <AdminSortHeader
                     label="Students"
+                    align="center"
                     sortable
                     sortActive={query.sort === "students"}
                     sortDirection={query.dir}
@@ -463,12 +464,9 @@ export default function SectionListClient({
                           {section.adviserName}
                         </div>
                       </td>
-                      <td>
-                        <div style={{ color: COLORS.textDark }}>
+                      <td style={{ textAlign: "center" }}>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {section.studentCount}
-                        </div>
-                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
-                          enrolled
                         </div>
                       </td>
                       <td>

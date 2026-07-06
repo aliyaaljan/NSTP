@@ -5,7 +5,6 @@ import { lookupId } from "@/lib/lookups"
 import {
   buildFormListRows,
   buildFormListSummary,
-  buildSampleFormRows,
   FORM_REQUIREMENT_LIST_SELECT,
   type AdminCurrentUser,
   type FormListMeta,
@@ -29,7 +28,7 @@ import {
 } from "@/lib/admin/form-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
-import { uploadFormFile, deleteFormFile } from "@/lib/forms/storage"
+import { uploadFormFile, deleteFormFile, getSignedUrl } from "@/lib/forms/storage"
 import {
   isAcceptedFormImportFile,
   titleFromImportFileName,
@@ -104,16 +103,13 @@ export async function getFormListData(query: FormListQuery): Promise<FormListPag
     name: section.name,
   }))
 
-  const forms = [
-    ...buildSampleFormRows(sectionOptions),
-    ...buildFormListRows(
+  const forms = buildFormListRows(
       (requirementsRes.data ?? []) as unknown as FormRequirementListDbRow[],
       sections,
       (exclusionsRes.data ?? []) as FormRequirementExclusionDbRow[],
       enrollmentCounts,
       submissionCounts
-    ),
-  ]
+  )
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
@@ -384,4 +380,180 @@ export async function importFormTemplate(formData: FormData): Promise<ImportForm
   }
 
   return { ok: true, formRequirementId: data.form_requirement_id as string }
+}
+
+export type FormSubmissionListEntry = {
+  enrollmentId: string
+  studentName: string
+  studentNumber: string | null
+  status: "missing" | "submitted" | "approved" | "rejected"
+  submittedAt: string | null
+  isLate: boolean
+  submissionId: string | null
+  fileName: string | null
+}
+
+async function requireAdminRole(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Access denied" }
+  return { ok: true }
+}
+
+/** Admin: signed URL for a form requirement template. */
+export async function getFormTemplateUrlForAdmin(
+  formRequirementId: string
+): Promise<
+  { ok: true; url: string; fileName: string } | { ok: false; error: string }
+> {
+  const auth = await requireAdminRole()
+  if (!auth.ok) return auth
+
+  const service = createSupabaseServiceClient()
+  const { data } = await service
+    .from("form_requirement")
+    .select("template_storage_path, template_file_name")
+    .eq("form_requirement_id", formRequirementId)
+    .maybeSingle()
+
+  if (!data?.template_storage_path) {
+    return { ok: false, error: "No template file is attached to this form." }
+  }
+
+  const signed = await getSignedUrl(data.template_storage_path)
+  if (!signed.ok) return signed
+
+  return {
+    ok: true,
+    url: signed.url,
+    fileName: data.template_file_name ?? "form-template",
+  }
+}
+
+/** Admin: signed URL for a student submission file. */
+export async function getSubmissionDownloadUrlForAdmin(
+  submissionId: string
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const auth = await requireAdminRole()
+  if (!auth.ok) return auth
+
+  const service = createSupabaseServiceClient()
+  const { data } = await service
+    .from("form_submission")
+    .select("storage_path")
+    .eq("form_submission_id", submissionId)
+    .maybeSingle()
+
+  if (!data?.storage_path) {
+    return { ok: false, error: "Submission not found" }
+  }
+
+  return getSignedUrl(data.storage_path)
+}
+
+/** Admin: per-student submission status for one form in one section. */
+export async function getFormSubmissionsForAdmin(
+  formRequirementId: string,
+  sectionId: string
+): Promise<
+  { ok: true; data: FormSubmissionListEntry[] } | { ok: false; error: string }
+> {
+  const auth = await requireAdminRole()
+  if (!auth.ok) return auth
+
+  const service = createSupabaseServiceClient()
+  const activeStatusId = await lookupId("enrollment_status", "active")
+
+  const { data: requirement } = await service
+    .from("form_requirement")
+    .select("due_date")
+    .eq("form_requirement_id", formRequirementId)
+    .maybeSingle()
+
+  if (!requirement) {
+    return { ok: false, error: "Form not found" }
+  }
+
+  const { data: enrollments } = await service
+    .from("enrollment")
+    .select("enrollment_id, app_user:app_user!inner(full_name, student_number)")
+    .eq("section_id", sectionId)
+    .eq("enrollment_status_id", activeStatusId)
+
+  const enrollmentIds = (enrollments ?? []).map((row) => row.enrollment_id as string)
+
+  const [{ data: submissions }, { data: statuses }] = await Promise.all([
+    enrollmentIds.length > 0
+      ? service
+          .from("form_submission")
+          .select(
+            "form_submission_id, enrollment_id, file_name, submitted_at, form_submission_status_id"
+          )
+          .eq("form_requirement_id", formRequirementId)
+          .in("enrollment_id", enrollmentIds)
+      : Promise.resolve({ data: [] as const }),
+    service.from("form_submission_status").select("form_submission_status_id, code"),
+  ])
+
+  const statusCodes = new Map<string, FormSubmissionListEntry["status"]>()
+  for (const row of statuses ?? []) {
+    const code = row.code as string
+    if (
+      code === "submitted" ||
+      code === "approved" ||
+      code === "rejected"
+    ) {
+      statusCodes.set(row.form_submission_status_id as string, code)
+    }
+  }
+
+  type SubmissionRow = {
+    form_submission_id: string
+    enrollment_id: string
+    file_name: string
+    submitted_at: string
+    form_submission_status_id: string
+  }
+
+  const submissionMap = new Map<string, SubmissionRow>()
+  for (const sub of (submissions ?? []) as SubmissionRow[]) {
+    submissionMap.set(sub.enrollment_id, sub)
+  }
+
+  const dueDate = requirement.due_date as string | null
+  const now = new Date()
+
+  const entries: FormSubmissionListEntry[] = (enrollments ?? []).map((enr) => {
+    const appUser = enr.app_user as
+      | { full_name: string; student_number: string | null }
+      | { full_name: string; student_number: string | null }[]
+      | null
+    const user = Array.isArray(appUser) ? appUser[0] : appUser
+    const sub = submissionMap.get(enr.enrollment_id as string) ?? null
+    let status: FormSubmissionListEntry["status"] = "missing"
+    if (sub) {
+      status = statusCodes.get(sub.form_submission_status_id) ?? "submitted"
+    }
+
+    const isLate =
+      dueDate != null &&
+      (status === "missing"
+        ? now > new Date(`${dueDate}T23:59:59+08:00`)
+        : sub != null &&
+          new Date(sub.submitted_at) > new Date(`${dueDate}T23:59:59+08:00`))
+
+    return {
+      enrollmentId: enr.enrollment_id as string,
+      studentName: user?.full_name ?? "Unknown",
+      studentNumber: user?.student_number ?? null,
+      status,
+      submittedAt: sub?.submitted_at ?? null,
+      isLate,
+      submissionId: sub?.form_submission_id ?? null,
+      fileName: sub?.file_name ?? null,
+    }
+  })
+
+  entries.sort((a, b) => a.studentName.localeCompare(b.studentName))
+
+  return { ok: true, data: entries }
 }

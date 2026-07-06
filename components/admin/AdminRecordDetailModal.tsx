@@ -10,6 +10,19 @@ export type AdminDetailField = {
   align?: "start" | "center"
 }
 
+const DELETE_ICON_BTN = {
+  width: 40,
+  height: 40,
+  borderRadius: 10,
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+} as const
+
 const BTN_BASE = {
   ...TYPE.bodyBold,
   border: "none",
@@ -30,12 +43,17 @@ export default function AdminRecordDetailModal({
   onEdit,
   onDelete,
   onView,
+  onViewSecondary,
   editLabel = "Edit",
   deleteLabel = "Delete",
   viewLabel = "View",
+  viewSecondaryLabel = "View more",
   editDisabled = false,
   deleteDisabled = false,
   viewDisabled = false,
+  viewSecondaryDisabled = false,
+  maxWidth = 520,
+  footerNoWrap = false,
 }: {
   open: boolean
   title: string
@@ -45,12 +63,17 @@ export default function AdminRecordDetailModal({
   onEdit?: () => void
   onDelete?: () => void
   onView?: () => void
+  onViewSecondary?: () => void
   editLabel?: string
   deleteLabel?: string
   viewLabel?: string
+  viewSecondaryLabel?: string
   editDisabled?: boolean
   deleteDisabled?: boolean
   viewDisabled?: boolean
+  viewSecondaryDisabled?: boolean
+  maxWidth?: number
+  footerNoWrap?: boolean
 }) {
   useEffect(() => {
     if (!open) return
@@ -69,7 +92,7 @@ export default function AdminRecordDetailModal({
 
   if (!open) return null
 
-  const hasActions = onEdit || onDelete || onView
+  const hasActions = onEdit || onDelete || onView || onViewSecondary
 
   return (
     <div
@@ -94,7 +117,7 @@ export default function AdminRecordDetailModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxWidth: 520,
+          maxWidth,
           borderRadius: 16,
           overflow: "hidden",
           background: "#fff",
@@ -190,7 +213,7 @@ export default function AdminRecordDetailModal({
               alignItems: "center",
               justifyContent: "space-between",
               gap: 12,
-              flexWrap: "wrap",
+              flexWrap: footerNoWrap ? "nowrap" : "wrap",
             }}
           >
             {onDelete ? (
@@ -198,23 +221,23 @@ export default function AdminRecordDetailModal({
                 type="button"
                 onClick={onDelete}
                 disabled={deleteDisabled}
+                aria-label={deleteLabel}
+                title={deleteLabel}
                 style={{
-                  ...BTN_BASE,
-                  fontFamily: FONT_HEADING,
+                  ...DELETE_ICON_BTN,
                   color: deleteDisabled ? COLORS.textGray : COLORS.maroon,
                   background: deleteDisabled ? COLORS.track : COLORS.maroonBgLight,
                   cursor: deleteDisabled ? "not-allowed" : "pointer",
                   opacity: deleteDisabled ? 0.7 : 1,
                 }}
               >
-                <i className="ti ti-trash" style={{ fontSize: 16 }} />
-                {deleteLabel}
+                <i className="ti ti-trash" style={{ fontSize: 18 }} />
               </button>
             ) : (
               <span />
             )}
 
-            <div style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
+            <div style={{ display: "flex", gap: 10, marginLeft: "auto", flexWrap: "wrap", justifyContent: "flex-end" }}>
               {onView && (
                 <button
                   type="button"
@@ -228,8 +251,25 @@ export default function AdminRecordDetailModal({
                     opacity: viewDisabled ? 0.7 : 1,
                   }}
                 >
-                  <i className="ti ti-eye" style={{ fontSize: 16 }} />
+                  <i className="ti ti-file-text" style={{ fontSize: 16 }} />
                   {viewLabel}
+                </button>
+              )}
+              {onViewSecondary && (
+                <button
+                  type="button"
+                  onClick={onViewSecondary}
+                  disabled={viewSecondaryDisabled}
+                  style={{
+                    ...BTN_BASE,
+                    color: viewSecondaryDisabled ? COLORS.textGray : COLORS.textDark,
+                    background: viewSecondaryDisabled ? COLORS.track : "#EBEBE8",
+                    cursor: viewSecondaryDisabled ? "not-allowed" : "pointer",
+                    opacity: viewSecondaryDisabled ? 0.7 : 1,
+                  }}
+                >
+                  <i className="ti ti-inbox" style={{ fontSize: 16 }} />
+                  {viewSecondaryLabel}
                 </button>
               )}
               {onEdit && (

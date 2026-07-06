@@ -8,6 +8,8 @@ import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
+import FormDetailModal from "@/components/admin/FormDetailModal"
+import FormSubmissionsModal from "@/components/admin/FormSubmissionsModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import CreateFormModal from "@/components/admin/CreateFormModal"
 import ImportFormsModal from "@/components/admin/ImportFormsModal"
@@ -111,7 +113,8 @@ export default function FormListClient({
   const [importOpen, setImportOpen] = useState(false)
   const [editForm, setEditForm] = useState<FormListRow | null>(null)
   const [detailForm, setDetailForm] = useState<FormListRow | null>(null)
-  const [viewForm, setViewForm] = useState<FormListRow | null>(null)
+  const [formDetailView, setFormDetailView] = useState<FormListRow | null>(null)
+  const [submissionsView, setSubmissionsView] = useState<FormListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FormListRow | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
@@ -374,7 +377,7 @@ export default function FormListClient({
                 </th>
                 <th style={{ width: "18%" }}>
                   <AdminSortHeader
-                    label="Analytics"
+                    label="Total Submissions"
                     sortable
                     sortActive={query.sort === "analytics"}
                     sortDirection={query.dir}
@@ -445,6 +448,7 @@ export default function FormListClient({
                             style={{
                               fontSize: "14px",
                               color: COLORS.textDark,
+                              fontWeight: 700,
                             }}
                           >
                             {form.submittedCount}
@@ -453,6 +457,7 @@ export default function FormListClient({
                             style={{
                               fontSize: 12,
                               color: COLORS.textGray,
+                              fontWeight: 700,
                             }}
                           >
                             /{form.totalStudents}
@@ -506,12 +511,21 @@ export default function FormListClient({
       {detailForm && (
         <AdminRecordDetailModal
           open
+          maxWidth={680}
+          footerNoWrap
           title={detailForm.formName}
           subtitle={`${detailForm.sectionName} Section · ${detailForm.adviserName}`}
           fields={[
             {
               label: "Submissions",
-              value: `${detailForm.submittedCount} of ${detailForm.totalStudents} students`,
+              value: (
+                <>
+                  <span style={{ fontWeight: 700 }}>{detailForm.submittedCount}</span>
+                  {" of "}
+                  <span style={{ fontWeight: 700 }}>{detailForm.totalStudents}</span>
+                  {" students"}
+                </>
+              ),
             },
             {
               label: "Deadline",
@@ -547,9 +561,15 @@ export default function FormListClient({
           ]}
           onClose={() => setDetailForm(null)}
           onView={() => {
-            setViewForm(detailForm)
+            setFormDetailView(detailForm)
             setDetailForm(null)
           }}
+          onViewSecondary={() => {
+            setSubmissionsView(detailForm)
+            setDetailForm(null)
+          }}
+          viewLabel="View form"
+          viewSecondaryLabel="View submissions"
           onEdit={() => {
             setEditForm(detailForm)
             setDetailForm(null)
@@ -558,7 +578,6 @@ export default function FormListClient({
             openDeleteConfirm(detailForm)
             setDetailForm(null)
           }}
-          viewLabel="View submissions"
           editDisabled={detailForm.isSample}
           deleteDisabled={
             detailForm.isSample || (isDeleting && deletingId === detailForm.rowId)
@@ -566,76 +585,15 @@ export default function FormListClient({
         />
       )}
 
-      {viewForm && (
-        <div
-          role="presentation"
-          onClick={() => setViewForm(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 24,
-            background: "rgba(44, 44, 42, 0.35)",
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 440,
-              borderRadius: 16,
-              overflow: "hidden",
-              background: "#fff",
-              padding: "24px",
-            }}
-          >
-            <h2 style={{ ...TYPE.h1, color: COLORS.textDark, margin: "0 0 8px" }}>
-              {viewForm.formName}
-            </h2>
-            <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "0 0 16px" }}>
-              {viewForm.sectionName} Section · {viewForm.adviserName}
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
-                <strong>Submissions:</strong> {viewForm.submittedCount} of{" "}
-                {viewForm.totalStudents} students
-              </div>
-              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
-                <strong>Deadline:</strong>{" "}
-                {formatFormDeadline(viewForm.dueDate).date}
-                {viewForm.dueDate ? ` at ${formatFormDeadline(viewForm.dueDate).time}` : ""}
-              </div>
-              <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 8 }}>
-                {viewForm.isSample
-                  ? "Sample preview row — not stored in the database."
-                  : `Requirement ID: ${viewForm.formRequirementId}`}
-              </div>
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-              <button
-                type="button"
-                onClick={() => setViewForm(null)}
-                style={{
-                  ...TYPE.bodyBold,
-                  background: COLORS.green,
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "10px 20px",
-                  cursor: "pointer",
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {formDetailView && (
+        <FormDetailModal form={formDetailView} onClose={() => setFormDetailView(null)} />
+      )}
+
+      {submissionsView && (
+        <FormSubmissionsModal
+          form={submissionsView}
+          onClose={() => setSubmissionsView(null)}
+        />
       )}
 
       <ConfirmDeleteModal

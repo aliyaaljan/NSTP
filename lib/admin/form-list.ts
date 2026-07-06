@@ -38,6 +38,12 @@ export interface FormListRow {
   isGlobal: boolean
   /** Hardcoded preview row — not persisted in the database */
   isSample?: boolean
+  /** `form_requirement.description` */
+  description: string | null
+  /** `form_requirement.template_file_name` */
+  templateFileName: string | null
+  /** True when `template_storage_path` is set */
+  hasTemplate: boolean
 }
 
 export interface FormListSectionOption {
@@ -107,6 +113,8 @@ export const FORM_REQUIREMENT_LIST_SELECT = `
   due_date,
   is_active,
   created_by_user_id,
+  template_file_name,
+  template_storage_path,
   section:section_id(
     section_id,
     name,
@@ -124,6 +132,8 @@ export interface FormRequirementListDbRow {
   due_date: string | null
   is_active: boolean
   created_by_user_id: string
+  template_file_name: string | null
+  template_storage_path: string | null
   section: {
     section_id: string
     name: string
@@ -245,6 +255,9 @@ export function buildFormListRows(
         dueDate: requirement.due_date,
         isActive: requirement.is_active,
         isGlobal: requirement.section_id === null,
+        description: requirement.description,
+        templateFileName: requirement.template_file_name,
+        hasTemplate: requirement.template_storage_path != null,
       })
     }
   }
@@ -343,64 +356,4 @@ export function paginateFormListRows<T>(
     totalPages,
     totalCount,
   }
-}
-
-/** Preview rows for UI reference — remove when live data is seeded. */
-const FORM_LIST_SAMPLE_DEFINITIONS = [
-  {
-    formName: "Daily Time Record",
-    sectionName: "B",
-    adviserName: "Kim, Mingyu",
-    submittedCount: 1,
-    totalStudents: 56,
-    dueDate: "2026-06-19",
-    isGlobal: true,
-  },
-  {
-    formName: "Service Rendered Report",
-    sectionName: "A",
-    adviserName: "Reyes, Ana",
-    submittedCount: 12,
-    totalStudents: 48,
-    dueDate: "2026-07-15",
-    isGlobal: false,
-  },
-  {
-    formName: "Final Reflection Paper",
-    sectionName: "C",
-    adviserName: "Santos, Maria",
-    submittedCount: 34,
-    totalStudents: 52,
-    dueDate: "2026-05-30",
-    isGlobal: true,
-  },
-] as const
-
-/**
- * Builds three hardcoded sample rows for layout reference.
- * Uses real `section.section_id` values when sections are available.
- */
-export function buildSampleFormRows(sections: FormListSectionOption[]): FormListRow[] {
-  return FORM_LIST_SAMPLE_DEFINITIONS.map((def, index) => {
-    const section =
-      sections.find((s) => s.name === def.sectionName) ?? sections[index] ?? null
-
-    const sectionId = section?.sectionId ?? `sample-section-${def.sectionName.toLowerCase()}`
-
-    return {
-      rowId: `sample:${index}`,
-      formRequirementId: `sample-form-${index}`,
-      requirementSectionId: def.isGlobal ? null : sectionId,
-      sectionId,
-      formName: def.formName,
-      sectionName: section?.name ?? def.sectionName,
-      adviserName: def.adviserName,
-      submittedCount: def.submittedCount,
-      totalStudents: def.totalStudents,
-      dueDate: def.dueDate,
-      isActive: true,
-      isGlobal: def.isGlobal,
-      isSample: true,
-    }
-  })
 }

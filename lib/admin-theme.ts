@@ -222,6 +222,18 @@ export const ADMIN_THEME_CSS = `
   .admin-table-row-clickable:focus-visible td:first-child {
     box-shadow: inset 3px 0 0 var(--maroon);
   }
+  .admin-list-item-clickable {
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .admin-list-item-clickable:hover,
+  .admin-list-item-clickable:focus-visible {
+    background: #F3F4F6;
+  }
+  .admin-list-item-clickable:focus-visible {
+    outline: none;
+    box-shadow: inset 3px 0 0 var(--maroon);
+  }
   .admin-card-clickable {
     cursor: pointer;
     transition: box-shadow 0.12s, border-color 0.12s, transform 0.12s;

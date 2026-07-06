@@ -100,6 +100,13 @@ export default function AdminSidebar({
         .nstp-rail:hover .nstp-expand { opacity: 1; }
         .nstp-link:hover { background: ${C.greenHover}; }
         .nstp-link.active:hover { background: ${C.activeBg}; }
+        .nstp-rail-nav {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .nstp-rail-nav::-webkit-scrollbar {
+          display: none;
+        }
       `}</style>
 
       {expanded && (
@@ -157,9 +164,12 @@ export default function AdminSidebar({
         <div style={{ height: 1, background: C.divider, margin: '20px 22px 8px' }} />
 
         {/* Nav groups */}
-        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 14px' }} className="nstp-scroll-dark">
+        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 14px' }} className="nstp-rail-nav">
           {navGroups.map((group, gi) => (
-            <div key={group.heading} style={{ marginTop: gi === 0 ? 0 : 22 }}>
+            <div key={group.heading} style={{ marginTop: gi === 0 ? 0 : 8 }}>
+              {gi > 0 && (
+                <div style={{ height: 1, background: C.divider, margin: '12px 8px 16px' }} />
+              )}
               <div
                 className="nstp-expand"
                 style={{
