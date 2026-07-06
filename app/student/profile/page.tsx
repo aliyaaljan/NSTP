@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Montserrat } from "next/font/google"
-import Sidebar from "@/components/shared/StudentLeaderSidebar"
+import Sidebar from "@/components/shared/StudentSidebar"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import type { StudentDashboardData } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
