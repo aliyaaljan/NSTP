@@ -686,12 +686,9 @@ async function getStatusCodeMap(
   return map
 }
 
-// lib/forms/submission-actions.ts
-// Add this below your existing submitForm function
-
 /**
  * Saves a Google Drive submission record into the database.
- * This is called by the client AFTER the file is successfully uploaded to Google Drive.
+ * called by the client AFTER the file is successfully uploaded to Google Drive.
  */
 export async function saveDriveSubmission(
   enrollmentId: string,
@@ -768,6 +765,38 @@ export async function saveDriveSubmission(
     }
 
     return { ok: true, data: submission as FormSubmission }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+export async function getFacilitatorSectionId(): Promise<
+  { ok: true; data: string } | { ok: false; error: string }
+> {
+  try {
+    const { supabase, user } = await requireAuth()
+    const service = createSupabaseServiceClient()
+
+    const { data: section, error } = await service
+      .from("section")
+      .select("section_id")
+      .eq("adviser_user_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle()
+
+    if (error) {
+      console.error("[getFacilitatorSectionId] DB Error:", error)
+      return { ok: false, error: "Database error fetching assigned section." }
+    }
+
+    if (!section) {
+      return {
+        ok: false,
+        error: "No active section found assigned to your account.",
+      }
+    }
+
+    return { ok: true, data: section.section_id }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
