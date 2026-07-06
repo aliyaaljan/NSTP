@@ -1,4 +1,4 @@
-export type ScanStatus = "On Time" | "Late"
+export type ScanStatus = "On Time" | "Late" | "Not Scanned"
 
 export type ScanRecord = {
   id: string
