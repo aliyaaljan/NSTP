@@ -42,8 +42,10 @@ interface StudentSession {
 interface Student {
   section_id: string
   section_name: string
+  enrollment_id: string
   student_name: string
   student_number: string
+  is_student_leader: boolean
   sais_id: number
   site_location: string
   program: string
@@ -84,6 +86,12 @@ const statusConfig: Record<
   Completed: { bg: "#D1FAE5", color: "#065F46", label: "Completed" },
   "In Progress": { bg: "#FEF3C7", color: "#92400E", label: "In Progress" },
   "Not Started": { bg: "#FEE2E2", color: "#991B1B", label: "Not Started" },
+}
+
+function roleBadgeStyle(isLeader: boolean): { bg: string; color: string } {
+  return isLeader
+    ? { bg: "#EDE9FE", color: "#5B21B6" }
+    : { bg: "#E0F2FE", color: "#075985" }
 }
 
 function progressColor(status: Status): string {
@@ -190,6 +198,7 @@ const myStudentsStyles = `
   .adv-table th:nth-child(6) { width: 20%; }
   .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center; }
   .ms-site-badge { display: inline-block; padding: 3px 0; font-size: 12px; font-weight: 500; color: var(--text); }
+  .ms-role-badge {display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center;}
   .ms-hours-cell { min-width: 160px; }
   .ms-hours-label { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
   .ms-hours-track { height: 11px; background: var(--border); border-radius: 999px; overflow: hidden; }
@@ -268,9 +277,10 @@ const myStudentsStyles = `
   .ms-modal-wide { width: 900px; }
   .ms-modal-flex { display: flex; }
   .ms-modal-left { flex: 1; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
-  .ms-modal-right { width: 420px; flex-shrink: 0; border-left: 1px solid var(--border); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+  .ms-modal-right { width: 430px; flex-shrink: 0; border-left: 1px solid var(--border); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
   .ms-modal-right-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
-  .ms-session-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .ms-session-table-wrapper {overflow: auto; max-height:500px }
+  .ms-session-table { width: 100%; border-collapse: collapse; table-layout: fixed;}
   .ms-session-table th:nth-child(1) { width: 28%; }
   .ms-session-table th:nth-child(2) { width: 21%; }
   .ms-session-table th:nth-child(3) { width: 21%; }
@@ -444,7 +454,7 @@ function MyStudentsContent() {
   ]
 
   // ── Unified filter system ──────────────────────────────────────────
-  type FilterField = "status" | "classification" | "site_location" | "section" | "program"
+  type FilterField = "status" | "classification" | "site_location" | "section" | "program" | "is_student_leader"
   type ActiveFilters = Partial<Record<FilterField, string[]>>
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
   const [showFilterPanel, setShowFilterPanel] = useState(false)
@@ -465,6 +475,7 @@ function MyStudentsContent() {
     { label: "Classification", field: "classification", values: () => ["Freshman", "Sophomore", "Junior", "Senior"] },
     { label: "Program",        field: "program",        values: () => [...new Set(students.map(s => s.program).filter(Boolean))].sort() },
     // { label: "Section",        field: "section",        values: () => [...new Set(students.map(s => s.section_name).filter(Boolean))].sort() },
+    { label: "Role", field: "is_student_leader", values: () => ["Student", "Student Leader"] },
     { label: "Site Location",  field: "site_location",  values: () => [...new Set(students.map(s => s.site_location).filter(Boolean))].sort() },
     { label: "Status",         field: "status",         values: () => ["Completed", "In Progress", "Not Started"] },
   ]
@@ -715,6 +726,10 @@ function MyStudentsContent() {
       if (field === "site_location")  return values.includes(s.site_location)
       if (field === "section")        return values.includes(s.section_name)
       if (field === "program")        return values.includes(s.program)
+      if (field === "is_student_leader") {
+        const label = s.is_student_leader ? "Student Leader" : "Student"
+        return values.includes(label)
+      }
       return true
     })
     return matchSearch && matchSection && matchFilters 
@@ -757,6 +772,29 @@ function MyStudentsContent() {
     setPendingSearch("")
     setPendingActiveFilters({})
     router.replace(`${navRoutes["My Students"]}`)
+  }
+
+  async function handleRoleChange() {
+    if (!selectedStudent || !userId) return
+
+
+    const { error } = await supabase.rpc("update_student_role", {
+      p_adviser_user_id: userId,
+      p_enrollment_id: selectedStudent.enrollment_id
+    })
+
+    if (error) {
+      console.error("update_student_role: ", error.message, error.details)
+      return
+    }
+
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.enrollment_id === selectedStudent.enrollment_id
+          ? { ...s, is_student_leader: !s.is_student_leader }
+          : s
+      )
+    )
   }
 
   async function handleSaveSession() {
@@ -1637,6 +1675,41 @@ function MyStudentsContent() {
                         {selectedStudent.total_hours} hrs
                       </div>
                     </div> */}
+                  </div>
+
+                  <div className="ms-modal-row">
+                    <div className="ms-modal-field">
+                      <div className="ms-modal-label">Role</div>
+                      <div className="ms-role-badge" style={{background: roleBadgeStyle(selectedStudent.is_student_leader).bg, color: roleBadgeStyle(selectedStudent.is_student_leader).color}}>
+                        {selectedStudent.is_student_leader ? "Student Leader" : "Student"}
+                      </div>
+                    </div>
+                    <div className="ms-modal-field">
+                      <div className="ms-modal-label">{selectedStudent.is_student_leader ? "Revert to Student" : "Assign as Leader"}</div>
+                     <button
+                      id="leader-toggle"
+                      type="button"
+                      role="switch"
+                      aria-checked={selectedStudent.is_student_leader}
+                      onClick={handleRoleChange}
+                      className={`
+                        relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
+                        transition-colors duration-200 ease-in-out focus:outline-none 
+                        ${selectedStudent.is_student_leader ? "bg-[#a797e4]" : "bg-[#9fcae7]"} 
+                      `}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`
+                          pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 
+                          transition duration-200 ease-in-out
+                          ${selectedStudent.is_student_leader ? 'translate-x-5' : 'translate-x-0'}
+                        `}
+                      />
+                      
+                    </button>
+                    </div>
+                    
                   </div>
                   <div className="ms-modal-field ms-modal-progress">
                     <div className="ms-modal-label">Progress</div>
