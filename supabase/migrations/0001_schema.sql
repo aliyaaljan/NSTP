@@ -60,6 +60,31 @@ create table section_status (
 );
 
 -- ============================================================
+-- Academic org lookups (college → program) + student classification.
+-- Captured here from production (originally created ad hoc in the SQL
+-- editor). enrollment.program_id / student_classification_id reference
+-- these; get_my_students joins them for the facilitator roster view.
+-- ============================================================
+create table college (
+  college_id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  name text not null
+);
+
+create table program (
+  program_id uuid primary key default gen_random_uuid(),
+  college_id uuid not null references college(college_id),
+  code text not null unique,
+  name text not null
+);
+
+create table student_classification (
+  student_classification_id uuid primary key default gen_random_uuid(),
+  code text not null unique,          -- 'freshman' | 'sophomore' | 'junior' | 'senior'
+  name text not null
+);
+
+-- ============================================================
 -- Identity & organization
 -- ============================================================
 create table app_user (
@@ -119,7 +144,10 @@ create table enrollment (
   is_student_leader    boolean not null default false,
   program              text,
   classification       text,
-  enlistment_status    text,           -- registrar-side status from CSV import
+  enlistment_status    text,
+  program_id                uuid references program(program_id),
+  student_classification_id uuid references student_classification(student_classification_id),
+  assigned_geofence_id      uuid references section_geofence(section_geofence_id),
   joined_at            timestamptz not null default now(),
   created_at           timestamptz not null default now(),
   updated_at           timestamptz not null default now(),
@@ -391,6 +419,33 @@ insert into section_status (code, name) values
   ('active',    'Active'),
   ('completed', 'Completed'),
   ('archived',  'Archived')
+on conflict (code) do nothing;
+
+insert into college (code, name) values
+  ('CAC', 'College of Arts and Communication'),
+  ('CS',  'College of Science'),
+  ('CSS', 'College of Social Science')
+on conflict (code) do nothing;
+
+insert into student_classification (code, name) values
+  ('freshman',  'Freshman'),
+  ('sophomore', 'Sophomore'),
+  ('junior',    'Junior'),
+  ('senior',    'Senior')
+on conflict (code) do nothing;
+
+-- Program codes use the client's official abbreviated format
+insert into program (code, name, college_id) values
+  ('BACOM', 'BA Communication',           (select college_id from college where code = 'CAC')),
+  ('BALL',  'BA Language and Literature', (select college_id from college where code = 'CAC')),
+  ('BFA',   'BA Fine Arts',               (select college_id from college where code = 'CAC')),
+  ('CFA',   'Certificate in Fine Arts',   (select college_id from college where code = 'CAC')),
+  ('BSBIO', 'BS Biology',                 (select college_id from college where code = 'CS')),
+  ('BSCS',  'BS Computer Science',        (select college_id from college where code = 'CS')),
+  ('BSMAT', 'BS Mathematics',             (select college_id from college where code = 'CS')),
+  ('BSPHY', 'BS Physics',                 (select college_id from college where code = 'CS')),
+  ('BASS',  'BA Social Science',          (select college_id from college where code = 'CSS')),
+  ('BSME',  'BS Management Economics',    (select college_id from college where code = 'CSS'))
 on conflict (code) do nothing;
 
 -- ============================================================
