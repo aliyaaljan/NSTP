@@ -14,6 +14,8 @@ import {
   updateStudentRequest,
 } from "@/lib/student/appeal-actions"
 import { createClient } from "@/lib/client"
+import {KpiStatCard, KpiStatCardGrid, ChartStyles,} from "@/components/shared/ChartModule"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -25,7 +27,7 @@ const C = {
   maroon: "#6B1A1A",
   green: "#1A3C2A",
   gold: "#C8963C",
-  pageBg: "#F0EFE8",
+  pageBg: "#F0F0F0",
   border: "#D9D9D9",
   textDark: "#2C2C2A",
   textMuted: "#7A7A7A",
@@ -71,15 +73,15 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
       icon: "ti-circle-check",
     },
 
-    "Pending Review": { 
-      ...C.review, 
-      icon: "ti-hourglass" 
-    },
-
     "Under Review": {
       ...C.review,
       icon: "ti-clock",
     },
+
+    "Pending Review": { 
+        ...C.review, 
+        icon: "ti-hourglass" 
+      },
 
     Declined: {
       ...C.declined,
@@ -91,7 +93,7 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
     },
   }
 
-  const s = map[status] || map["Under Review"]
+  const s = map[status] || map["Pending Review"]
 
   return (
     <span
@@ -118,104 +120,6 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
       {/* If status is database 'Rejected', show 'Declined' visually to the student */}
       {status === "Rejected" ? "Declined" : status}
     </span>
-  )
-}
-
-function StatCard({
-  label,
-  count,
-  status,
-  active,
-  onClick,
-}: {
-  label: string
-  count: number
-  status:  "Pending Review" | "Approved" | "Under Review" | "Declined"
-  active: boolean
-  onClick: () => void
-}) {
-  const map = {
-    Approved: C.approved,
-    "Pending Review": C.review,
-    "Under Review": C.review,
-    Declined: C.declined,
-  }
-
-  const s = map[status]
-  const icons = {
-    Approved: "ti-circle-check",
-    "Pending Review": "ti-hourglass",
-    "Under Review": "ti-clock",
-    Declined: "ti-circle-x",
-  }
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        flex: 1,
-        background: active ? C.pageBg : "#FFFFFF",
-        border: `1px solid ${s.border}`,
-        borderRadius: 22,
-        padding: "22px 24px",
-        minWidth: 150,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        transition: "0.2s ease",
-        cursor: "pointer",
-        transform: active ? "translateY(-3px)" : "none",
-        boxShadow: active
-          ? "0 12px 25px rgba(0,0,0,.12)"
-          : "0 8px 20px rgba(0,0,0,.05)",
-      }}
-    >
-      <div>
-        <div
-          style={{
-            fontSize: 13,
-            fontWeight: 700,
-            color: s.text,
-            marginBottom: 8,
-          }}
-        >
-          {label}
-        </div>
-
-        <div
-          style={{
-            fontSize: 40,
-            fontWeight: 800,
-            color: C.textDark,
-            lineHeight: 1,
-          }}
-        >
-          {count}
-        </div>
-      </div>
-
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: "50%",
-          background: s.bg,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          fontSize: 22,
-          fontWeight: 800,
-          color: s.icon,
-        }}
-      >
-        <i
-          className={`ti ${icons[status]}`}
-          style={{
-            fontSize: 22,
-            color: s.icon,
-          }}
-        />
-      </div>
-    </div>
   )
 }
 
@@ -292,12 +196,18 @@ export default function RequestsPage() {
   }, [])
 
   const counts = {
-    Approved: requests.filter((r) => r.status === "Approved").length,
-    "Pending Review": requests.filter((r) => r.status === "Pending Review").length,
-    "Under Review": requests.filter((r) => r.status === "Under Review").length,
-    Declined: requests.filter(
-      (r) => r.status === "Declined" || r.status === "Rejected"
+    Approved: requests.filter(
+      (r) => r.status?.trim().toLowerCase() === "approved"
     ).length,
+  
+    "Pending Review": requests.filter(
+      (r) => r.status?.trim().toLowerCase() === "pending review"
+    ).length,
+  
+    Declined: requests.filter((r) => {
+      const status = r.status?.trim().toLowerCase()
+      return status === "declined" || status === "rejected"
+    }).length,
   }
 
   function handleSubmit() {
@@ -370,8 +280,42 @@ export default function RequestsPage() {
     })
   }
 
+  const stats = [
+    {
+      label: "Approved",
+      value: counts.Approved,
+      icon: "ti-circle-check",
+      color: C.approved,
+      valueColor: C.approved.icon,
+    },
+    {
+      label: "Pending Review",
+      value: counts["Pending Review"],
+      icon: "ti-hourglass",
+      color: C.review,
+      valueColor: C.review.icon,
+    },
+    {
+      label: "Declined",
+      value: counts.Declined,
+      icon: "ti-circle-x",
+      color: C.declined,
+      valueColor: C.declined.icon,
+    },
+  ]
+
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null)
+
+  function normalizeStatus(status: string) {
+    return status?.trim().toLowerCase()
+  }
+
   return (
     <>
+
+    <ChartStyles />
+
+
       <style>{`
 
         .requests-page{
@@ -587,7 +531,7 @@ export default function RequestsPage() {
 
         <main className="requests-main">
           <div className="requests-header">
-            <h1 className="requests-maintitle">REQUESTS</h1>
+            <h1 className="requests-maintitle">Requests</h1>
 
             <ProfilePill
               name={profile.fullName}
@@ -598,53 +542,53 @@ export default function RequestsPage() {
 
           <div className="divider" />
 
-          <div className="stats">
-            <StatCard
-              label="Pending Review"
-              count={counts["Pending Review"]}
-              status="Pending Review"
-              active={activeFilter === "Pending Review"}
-              onClick={() =>
-                setActiveFilter(activeFilter === "Pending Review" ? "All" : "Pending Review")
-              }
-            />
+          <ChartStyles />
 
-            <StatCard
-              label="Under Review"
-              count={counts["Under Review"]}
-              status="Under Review"
-              active={activeFilter === "Under Review"}
-              onClick={() =>
-                setActiveFilter(
-                  activeFilter === "Under Review" ? "All" : "Under Review"
-                )
-              }
-            />
+          <KpiStatCardGrid columns={3}>
+            {stats.map((stat) => {
+                const isHovered = hoveredCard === stat.label
+                const isActive = activeFilter === stat.label
 
-            <StatCard
-              label="Approved"
-              count={counts.Approved}
-              status="Approved"
-              active={activeFilter === "Approved"}
-              onClick={() =>
-                setActiveFilter(
-                  activeFilter === "Approved" ? "All" : "Approved"
+                return (
+                    <div
+                    key={stat.label}
+                    onClick={() =>
+                      setActiveFilter(
+                        activeFilter === stat.label ? "All" : stat.label
+                      )
+                    }
+                    onMouseEnter={() => setHoveredCard(stat.label)}
+                    onMouseLeave={() => setHoveredCard(null)}
+                    style={{
+                      cursor: "pointer",
+                      borderRadius: COLORS.radius,
+                      overflow: "hidden",
+                      background: COLORS.cardBg,
+                  
+                      color:
+                        hoveredCard === stat.label || activeFilter === stat.label
+                          ? stat.color.icon
+                          : "#666",
+                  
+                      border: `2px solid ${
+                        hoveredCard === stat.label || activeFilter === stat.label
+                          ? stat.color.icon
+                          : COLORS.border
+                      }`,
+                  
+                      transition: "all .18s ease",
+                    }}
+                  >
+                    <KpiStatCard
+                        icon={stat.icon}
+                        label={stat.label}
+                        value={stat.value}
+                        valueColor={stat.valueColor}
+                        />
+                  </div>
                 )
-              }
-            />
-
-            <StatCard
-              label="Declined"
-              count={counts.Declined}
-              status="Declined"
-              active={activeFilter === "Declined"}
-              onClick={() =>
-                setActiveFilter(
-                  activeFilter === "Declined" ? "All" : "Declined"
-                )
-              }
-            />
-          </div>
+            })}
+            </KpiStatCardGrid>
 
           <div className="request-header">
             <h2>
@@ -661,9 +605,26 @@ export default function RequestsPage() {
 
           <div className="request-card">
             {requests
-              .filter((request) =>
-                activeFilter === "All" ? true : request.status === activeFilter
-              )
+              .filter((request) => {
+                const status = normalizeStatus(request.status)
+              
+                if (activeFilter === "All") return true
+              
+                if (activeFilter === "Declined") {
+                  return status === "declined" || status === "rejected"
+                }
+              
+                if (activeFilter === "Under Review") {
+                  return status === "pending review" //gahahah nag normalize po aq akala ko yun problem, open pala sa under review
+                }
+              
+                if (activeFilter === "Approved") {
+                  return status === "approved"
+                }
+              
+                return false
+              })
+
               .sort(
                 (a, b) =>
                   new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -784,18 +745,48 @@ export default function RequestsPage() {
                 boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
                }}
           >
-            <h2
-              style={{
-                margin: "0 0 20px",
-                fontSize: 20,
-                fontWeight: 800,
-                color: C.maroon,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-              }}
-            >
-              Send Request / Concern
-            </h2>
+            <div
+                style={{
+                    background: C.green,
+                    color: "#fff",
+                    margin: "-32px -24px 24px",
+                    padding: "18px 24px",
+                    borderTopLeftRadius: 16,
+                    borderTopRightRadius: 16,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontFamily: "var(--font-montserrat), sans-serif",
+                }}
+                >
+                <h2
+                    style={{
+                    margin: 0,
+                    fontSize: 20,
+                    fontWeight: 800,
+                    color: "#fff",
+                    letterSpacing: 0.5,
+                    }}
+                >
+                    Send Request / Concern
+                </h2>
+
+                <button
+                    onClick={() => setShowModal(false)}
+                    style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#fff",
+                    fontSize: 24,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    lineHeight: 1,
+                    padding: 0,
+                    }}
+                >
+                    ×
+                </button>
+                </div>
             <div style={{ marginBottom: 16 }}>
               <label
                 style={{
@@ -843,24 +834,31 @@ export default function RequestsPage() {
               >
                 Title
               </label>
-              <input
-                type="text"
+              
+              <textarea
+                rows={1}
                 value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                placeholder="Enter request title"
                 maxLength={50}
-                required
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  border: "1px solid #ccc",
-                  fontSize: 14,
-                  outline: "none",
-                  boxSizing: "border-box",
+                onChange={(e) => {
+                    setFormTitle(e.target.value)
+                    e.target.style.height = "auto"
+                    e.target.style.height = `${e.target.scrollHeight}px`
                 }}
-              />
+                style={{
+                    width: "100%",
+                    minHeight: 48,
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #ccc",
+                    fontSize: 14,
+                    fontFamily: "inherit",
+                    resize: "none",
+                    overflow: "hidden",
+                    boxSizing: "border-box",
+                }}
+                />
             </div>
+
             <div style={{ marginBottom: 24 }}>
               <label
                 style={{
@@ -981,22 +979,30 @@ export default function RequestsPage() {
               style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
             >
               <button
-                onClick={() => setShowModal(false)}
-                style={{
-                  padding: "10px 22px",
-                  borderRadius: 10,
-                  border: "1px solid #D9D9D9",
-                  background: "#FFFFFF",
-                  fontFamily: "inherit",
-                  fontSize: 14,
-                  cursor: "pointer",
-                  fontWeight: 700,
-                  color: C.textDark,
-                  transition: ".2s ease",
+                onClick={() => {
+                    setShowModal(false)
+                    setFormTitle("")
+                    setFormBody("")
+                    setFormFile(null)
+                    if (requestType.length > 0) {
+                    setFormTypeId(requestType[0].appeal_type_id)
+                    }
                 }}
-              >
+                style={{
+                    padding: "10px 22px",
+                    borderRadius: 10,
+                    border: "1px solid #D9D9D9",
+                    background: "#FFFFFF",
+                    fontFamily: "inherit",
+                    fontSize: 14,
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    color: C.textDark,
+                    transition: ".2s ease",
+                }}
+                >
                 Cancel
-              </button>
+                </button>
               <button
                 onClick={handleSubmit}
                 disabled={isPending || !formTitle.trim() || !formBody.trim()}
@@ -1049,17 +1055,51 @@ export default function RequestsPage() {
                 maxHeight:"90vh",
                 overflowY:"auto",
                 boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
+                fontFamily: "var(--font-montserrat), sans-serif",
                }}
           >
-            <h2
-              style={{
-                color: C.maroon,
-                fontWeight: 800,
-                marginBottom: 20,
-              }}
-            >
-              Request Details
-            </h2>
+            <div
+                style={{
+                    background: C.green,
+                    color: "#fff",
+                    margin: "-32px -24px 24px",
+                    padding: "18px 24px",
+                    borderTopLeftRadius: 16,
+                    borderTopRightRadius: 16,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontFamily: "var(--font-montserrat), sans-serif",
+                }}
+                >
+                <h2
+                    style={{
+                    margin: 0,
+                    fontSize: 20,
+                    fontWeight: 800,
+                    color: "#fff",
+                    letterSpacing: 0.5,
+                    }}
+                >
+                    Review Request
+                </h2>
+
+                <button
+                    onClick={() => setSelectedRequest(null)}
+                    style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: 24,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        lineHeight: 1,
+                        padding: 0,
+                    }}
+                    >
+                    ×
+                    </button>
+                </div>
 
             <label
               style={{
@@ -1099,36 +1139,70 @@ export default function RequestsPage() {
               )}
             </select>
 
-            <label>Title</label>
-
-            <input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              maxLength={50}
+            <label
               style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 10,
-                border: "1px solid #ccc",
-                marginBottom: 16,
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#555",
+                display: "block",
+                marginBottom: 6,
               }}
-            />
+            >
+              Title
+            </label>
 
-            <label>Details</label>
+            <textarea
+                rows={1}
+                value={editTitle}
+                maxLength={50}
+                onChange={(e) => {
+                    setEditTitle(e.target.value)
+                    e.target.style.height = "auto"
+                    e.target.style.height = `${e.target.scrollHeight}px`
+                }}
+                style={{
+                    width: "100%",
+                    minHeight: 48,
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #ccc",
+                    fontSize: 14,
+                    fontFamily: "inherit",
+                    resize: "none",
+                    overflow: "hidden",
+                    boxSizing: "border-box",
+                }}
+                />
+
+            <label
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#555",
+                display: "block",
+                marginBottom: 6,
+              }}
+            >
+              Description
+            </label>
 
             <textarea
               value={editBody}
-              disabled={selectedRequest.status !== "Pending Review"}
+              disabled={normalizeStatus(selectedRequest.status) !== "pending review"}
               onChange={(e) => setEditBody(e.target.value)}
               rows={5}
               maxLength={500}
               style={{
                 width: "100%",
-                padding: 12,
-                borderRadius: 10,
+                padding: "10px 14px",
+                borderRadius: 8,
                 border: "1px solid #ccc",
-                resize: "vertical",
+                fontSize: 14,
+                outline: "none",
                 boxSizing: "border-box",
+                marginBottom: 16,
+                fontFamily: "inherit",
+                cursor: "pointer",
               }}
             />
 
@@ -1216,7 +1290,7 @@ export default function RequestsPage() {
                 Cancel
               </button>
 
-              {selectedRequest.status === "Pending Review" && (
+              {normalizeStatus(selectedRequest.status) === "pending review" && (
                 <button
                   onClick={handleEditSave}
                   disabled={isPending || !hasChanges()}
