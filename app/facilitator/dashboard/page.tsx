@@ -19,13 +19,13 @@ import {
   navRoutes,
   dashboardStyles,
   Sidebar,
-  QrScanner,
   StudentAvatar,
   ProgressBar,
   DonutChart,
   Calendar,
   InfoCircle
 } from "../facilitator"
+import { QrScanner } from "@/components/shared/QrScanner"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { createClient } from "@/lib/client"
 import { ChartStyles } from "@/components/shared/ChartModule"
@@ -587,7 +587,12 @@ export default function DashboardPage() {
           </main>
         </div>
 
-        {scannerOpen && <QrScanner onClose={() => setScannerOpen(false)} />}
+        {scannerOpen && (
+          <QrScanner
+            onClose={() => setScannerOpen(false)}
+            onScanSuccess={() => { if (userId) fetchDashboardBundle(userId) }}
+          />
+        )}
       </div>
     </>
   )

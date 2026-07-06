@@ -7,8 +7,6 @@ import {
   IconClipboardText,
   IconChartBar,
   IconLogout2,
-  IconX,
-  IconCamera,
   IconUsers,
   IconClock,
   IconCircleCheck,
@@ -388,59 +386,6 @@ export function Sidebar({ open, activeNav, onToggle, onNavClick, onSignOut }: Si
   );
 }
 
-export function QrScanner({ onClose }: { onClose: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(false);
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    async function startCamera() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        if (videoRef.current) { videoRef.current.srcObject = stream; setScanning(true); }
-      } catch {
-        setError("Unable to access camera. Please allow camera permissions.");
-      }
-    }
-    startCamera();
-    return () => stream?.getTracks().forEach((t) => t.stop());
-  }, []);
-
-  return (
-    <div className="scanner-backdrop" onClick={onClose}>
-      <div className="scanner-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="scanner-header">
-          <span className="scanner-title">Scan QR Code</span>
-          <button className="scanner-close" onClick={onClose} aria-label="Close">
-            <IconX size={20} stroke={1.75} />
-          </button>
-        </div>
-        <div className="scanner-body">
-          {error ? (
-            <div className="scanner-error">
-              <IconCamera size={40} stroke={1.5} />
-              <p>{error}</p>
-            </div>
-          ) : (
-            <>
-              <video ref={videoRef} autoPlay playsInline muted className="scanner-video" />
-              <div className="scanner-frame">
-                <div className="scanner-corner tl" />
-                <div className="scanner-corner tr" />
-                <div className="scanner-corner bl" />
-                <div className="scanner-corner br" />
-                {scanning && <div className="scanner-line" />}
-              </div>
-            </>
-          )}
-        </div>
-        <p className="scanner-hint">Point your camera at a QR code</p>
-      </div>
-    </div>
-  );
-}
-
 // ── Styles ────────────────────────────────────────────────────────────
 export const dashboardStyles = `
   .db-root { display: flex; height: 100vh; background: var(--bg); font-family: var(--font); font-size: 14px; color: var(--text); overflow: hidden; }
@@ -551,25 +496,6 @@ export const dashboardStyles = `
   .activity-empty-icon { width: 36px; height: 36px; border-radius: 50%; background: #F3F4F6; display: flex; align-items: center; justify-content: center; color: var(--light); }
   .activity-empty-text { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.5; }
   .activity-empty-cta { font-size: 12px; color: var(--maroon); font-weight: 700; background: none; border: none; cursor: pointer; font-family: var(--font); text-decoration: underline; text-underline-offset: 2px; padding: 0; margin-top: 2px; }
-  .scanner-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 100; display: flex; align-items: center; justify-content: center; }
-  .scanner-modal { background: var(--white); border-radius: 20px; width: 360px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
-  .scanner-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-  .scanner-title { font-weight: 700; font-size: 15px; color: var(--text); }
-  .scanner-close { background: none; border: none; cursor: pointer; color: var(--muted); display: flex; align-items: center; padding: 4px; border-radius: 6px; transition: background 0.12s; }
-  .scanner-close:hover { background: var(--border); }
-  .scanner-body { position: relative; width: 360px; height: 360px; background: #000; overflow: hidden; }
-  .scanner-video { width: 100%; height: 100%; object-fit: cover; }
-  .scanner-frame { position: absolute; inset: 0; }
-  .scanner-corner { position: absolute; width: 28px; height: 28px; border-color: #fff; border-style: solid; border-width: 0; }
-  .scanner-corner.tl { top: 40px; left: 40px; border-top-width: 3px; border-left-width: 3px; border-radius: 4px 0 0 0; }
-  .scanner-corner.tr { top: 40px; right: 40px; border-top-width: 3px; border-right-width: 3px; border-radius: 0 4px 0 0; }
-  .scanner-corner.bl { bottom: 40px; left: 40px; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 4px; }
-  .scanner-corner.br { bottom: 40px; right: 40px; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 4px 0; }
-  .scanner-line { position: absolute; left: 44px; right: 44px; height: 2px; background: linear-gradient(90deg, transparent, #1B4332, transparent); animation: scan 2s ease-in-out infinite; top: 44px; }
-  @keyframes scan { 0% { top: 44px; opacity: 1; } 90% { top: calc(100% - 44px); opacity: 1; } 100% { top: calc(100% - 44px); opacity: 0; } }
-  .scanner-error { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--muted); padding: 20px; text-align: center; font-size: 13px; }
-  .scanner-hint { text-align: center; font-size: 12px; color: var(--muted); padding: 12px 20px 16px; }
-
   /* ── Calendar ── */
   .right-panel { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
   .cal-wrap { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; flex-shrink: 0; width: 100%; font-size: clamp(10px, calc((100% - 32px) / 20), 13px); }
