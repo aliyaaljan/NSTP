@@ -100,6 +100,7 @@ alter table program                   enable row level security;
 alter table student_classification    enable row level security;
 alter table appeal_type               enable row level security;
 alter table enlistment_status         enable row level security;
+alter table nstp_component             enable row level security;
 
 create policy lookup_read on role                      for select to authenticated using (true);
 create policy lookup_read on enrollment_status         for select to authenticated using (true);
@@ -113,6 +114,7 @@ create policy lookup_read on program                   for select to authenticat
 create policy lookup_read on student_classification    for select to authenticated using (true);
 create policy lookup_read on appeal_type               for select to authenticated using (true);
 create policy lookup_read on enlistment_status         for select to authenticated using (true);
+create policy lookup_read on nstp_component             for select to authenticated using (true);
 
 -- ============================================================
 -- Identity & organization

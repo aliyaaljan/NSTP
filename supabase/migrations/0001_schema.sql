@@ -96,6 +96,12 @@ create table appeal_type (
   name text not null
 );
 
+create table nstp_component (
+  nstp_component_id uuid primary key default gen_random_uuid(),
+  code text not null unique,          -- 'CWTS' | 'LTS' | 'ROTC'
+  name text not null
+);
+
 -- ============================================================
 -- Identity & organization
 -- ============================================================
@@ -106,6 +112,9 @@ create table app_user (
   full_name      text not null,
   student_number text,
   sais_id        text,
+  college_id        uuid references college(college_id),
+  nstp_component_id uuid references nstp_component(nstp_component_id),
+  partnership_type  text,
   is_active      boolean not null default true,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
@@ -546,6 +555,12 @@ insert into appeal_type (code, name) values
   ('hour adjustment',     'Hour Adjustment'),
   ('leader role transfer','Leader Role Transfer'),
   ('others',              'Others')
+on conflict (code) do nothing;
+
+insert into nstp_component (code, name) values
+  ('CWTS', 'Civic Welfare Training Service'),
+  ('LTS',  'Literacy Training Service'),
+  ('ROTC', 'Reserve Officers'' Training Corps')
 on conflict (code) do nothing;
 
 -- Default NSTP required hours (Admin Settings → academic config).
