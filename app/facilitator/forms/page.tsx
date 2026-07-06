@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   IconSearch,
@@ -25,9 +25,18 @@ import { createClient } from "@/lib/client"
 
 import {
   getSubmissionsByForm,
-  reviewSubmission,
-  getSubmissionDownloadUrl,
+  getFacilitatorSectionId,
+  type SubmissionByFormEntry,
 } from "@/lib/forms/submission-actions"
+
+import {
+  getRequirementsForSection,
+  deleteSectionRequirement,
+  uploadRequirementFromData,
+  getTemplateDownloadUrl,
+  type FormRequirement,
+} from "@/lib/forms/requirement-actions"
+
 // ── Types ──────────────────────────────────────────────────────────────
 type FormTab = "repository" | "submissions"
 type FormStatus = "Submitted" | "Not Yet Submitted"
@@ -36,202 +45,32 @@ type FormType =
   | "Accomplishment Report"
   | "Attendance Sheet"
   | "Incident Report"
+  | "All"
 
-interface RepoForm {
-  id: string
-  name: string
-  type: FormType
-  uploadedDate: string
-  fileSize: string
-  downloads: number
+interface DisplayEntry extends SubmissionByFormEntry {
+  type: string
+  dueDate: string | null
 }
 
-interface FormEntry {
-  id: string
-  studentName: string
-  studentNo: string
-  section: string
-  type: FormType
-  submittedDate: string
-  status: FormStatus
-  week?: string
-}
-
-// ── Mock Data ──────────────────────────────────────────────────────────
-const repoForms: RepoForm[] = [
-  {
-    id: "r1",
-    name: "Daily Time Record Template",
-    type: "Daily Time Record",
-    uploadedDate: "Jun 1, 2025",
-    fileSize: "124 KB",
-    downloads: 38,
-  },
-  {
-    id: "r2",
-    name: "Accomplishment Report Template",
-    type: "Accomplishment Report",
-    uploadedDate: "Jun 1, 2025",
-    fileSize: "98 KB",
-    downloads: 31,
-  },
-  {
-    id: "r3",
-    name: "Attendance Sheet Template",
-    type: "Attendance Sheet",
-    uploadedDate: "Jun 2, 2025",
-    fileSize: "76 KB",
-    downloads: 27,
-  },
-  {
-    id: "r4",
-    name: "Incident Report Template",
-    type: "Incident Report",
-    uploadedDate: "Jun 3, 2025",
-    fileSize: "88 KB",
-    downloads: 12,
-  },
-]
-
-const formEntries: FormEntry[] = [
-  {
-    id: "f1",
-    studentName: "Rhona Shayne Lopez",
-    studentNo: "20201234",
-    section: "NSTP-H",
-    type: "Daily Time Record",
-    submittedDate: "Jun 18, 2025",
-    status: "Submitted",
-    week: "Week 5",
-  },
-  {
-    id: "f2",
-    studentName: "Jaerish Kyle Rabang",
-    studentNo: "20123421",
-    section: "NSTP-H",
-    type: "Accomplishment Report",
-    submittedDate: "—",
-    status: "Not Yet Submitted",
-    week: "Week 5",
-  },
-  {
-    id: "f3",
-    studentName: "Saffi Limbaro",
-    studentNo: "20198765",
-    section: "NSTP-H",
-    type: "Attendance Sheet",
-    submittedDate: "Jun 16, 2025",
-    status: "Submitted",
-    week: "Week 4",
-  },
-  {
-    id: "f4",
-    studentName: "Aliya Aljan Mendoza",
-    studentNo: "20152314",
-    section: "NSTP-H",
-    type: "Daily Time Record",
-    submittedDate: "Jun 15, 2025",
-    status: "Submitted",
-    week: "Week 4",
-  },
-  {
-    id: "f5",
-    studentName: "Charles Ansbert Joaquin",
-    studentNo: "20201111",
-    section: "NSTP-H",
-    type: "Incident Report",
-    submittedDate: "—",
-    status: "Not Yet Submitted",
-    week: "Week 4",
-  },
-  {
-    id: "f6",
-    studentName: "Axel Xandrei Valido",
-    studentNo: "20203333",
-    section: "NSTP-H",
-    type: "Accomplishment Report",
-    submittedDate: "Jun 13, 2025",
-    status: "Submitted",
-    week: "Week 3",
-  },
-  {
-    id: "f7",
-    studentName: "Janine Irish Tulic",
-    studentNo: "20204444",
-    section: "NSTP-H",
-    type: "Daily Time Record",
-    submittedDate: "—",
-    status: "Not Yet Submitted",
-    week: "Week 3",
-  },
-  {
-    id: "f8",
-    studentName: "Marco Dela Cruz",
-    studentNo: "20205555",
-    section: "NSTP-H",
-    type: "Attendance Sheet",
-    submittedDate: "Jun 11, 2025",
-    status: "Submitted",
-    week: "Week 3",
-  },
-  {
-    id: "f9",
-    studentName: "Patricia Santos",
-    studentNo: "20206666",
-    section: "NSTP-H",
-    type: "Accomplishment Report",
-    submittedDate: "Jun 10, 2025",
-    status: "Submitted",
-    week: "Week 2",
-  },
-  {
-    id: "f10",
-    studentName: "Luis Miguel Reyes",
-    studentNo: "20207777",
-    section: "NSTP-H",
-    type: "Daily Time Record",
-    submittedDate: "—",
-    status: "Not Yet Submitted",
-    week: "Week 2",
-  },
-]
-
-const statusConfig: Record<FormStatus, { bg: string; color: string }> = {
+const statusConfig: Record<string, { bg: string; color: string }> = {
   Submitted: { bg: "#D1FAE5", color: "#065F46" },
   "Not Yet Submitted": { bg: "#FEE2E2", color: "#991B1B" },
+  missing: { bg: "#FEE2E2", color: "#991B1B" },
+  submitted: { bg: "#D1FAE5", color: "#065F46" },
+  approved: { bg: "#D1FAE5", color: "#065F46" },
+  rejected: { bg: "#FEE2E2", color: "#991B1B" },
 }
 
-const typeConfig: Record<FormType, { bg: string; color: string }> = {
+const typeConfig: Record<string, { bg: string; color: string }> = {
   "Daily Time Record": { bg: "#F3E8FF", color: "#6B21A8" },
   "Accomplishment Report": { bg: "#FEF3C7", color: "#92400E" },
   "Attendance Sheet": { bg: "#DBEAFE", color: "#1E40AF" },
   "Incident Report": { bg: "#FEE2E2", color: "#991B1B" },
+  default: { bg: "#F3F4F6", color: "#374151" },
 }
-
-const submissionStatCards = (entries: FormEntry[]) => [
-  {
-    label: "Total",
-    value: entries.length,
-    Icon: IconClipboardText,
-    filter: "All" as const,
-  },
-  {
-    label: "Submitted",
-    value: entries.filter((f) => f.status === "Submitted").length,
-    Icon: IconCircleCheck,
-    filter: "Submitted" as const,
-  },
-  {
-    label: "Not Yet Submitted",
-    value: entries.filter((f) => f.status === "Not Yet Submitted").length,
-    Icon: IconClock,
-    filter: "Not Yet Submitted" as const,
-  },
-]
 
 const formsStyles = `
   ${dashboardStyles}
-
   .fm-body { flex: 1; overflow: auto; padding-top: 16px; }
   .adv-table th:nth-child(1) { width: 28%; }
   .adv-table th:nth-child(2) { width: 12%; }
@@ -240,7 +79,6 @@ const formsStyles = `
   .adv-table th:nth-child(5) { width: 18%; }
   .fm-student-name { font-weight: 600; color: var(--text); }
   .fm-student-no   { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-  .fm-week { font-size: 12px; color: var(--muted); }
   .fm-upload-btn {
     display: flex; align-items: center; gap: 7px;
     background: var(--green); color: #fff; border: none;
@@ -249,8 +87,6 @@ const formsStyles = `
     cursor: pointer; transition: background 0.13s;
   }
   .fm-upload-btn:hover { background: var(--green-dark); }
-
-  /* Repository grid */
   .fm-repo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; padding: 20px; }
   .fm-repo-card {
     background: var(--white); border: 1px solid var(--border); border-radius: var(--radius);
@@ -259,11 +95,10 @@ const formsStyles = `
   }
   .fm-repo-card:hover { border-color: var(--maroon); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
   .fm-repo-card-top { display: flex; align-items: flex-start; gap: 12px; }
-  .fm-repo-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .fm-repo-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #F3E8FF; }
   .fm-repo-name { font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.3; }
   .fm-repo-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
   .fm-repo-card-bottom { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid #F3F4F6; }
-  .fm-repo-downloads { font-size: 11.5px; color: var(--muted); }
   .fm-repo-actions { display: flex; gap: 6px; }
   .fm-icon-btn {
     width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
@@ -272,8 +107,6 @@ const formsStyles = `
   }
   .fm-icon-btn:hover { border-color: var(--maroon); color: var(--maroon); background: #FEF2F2; }
   .fm-icon-btn.danger:hover { border-color: #EF4444; color: #EF4444; background: #FEF2F2; }
-
-  /* Modal */
   .fm-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; }
   .fm-modal { background: var(--white); border-radius: 20px; width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
   .fm-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border); }
@@ -282,15 +115,9 @@ const formsStyles = `
   .fm-modal-close:hover { background: var(--border); }
   .fm-modal-body   { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
   .fm-modal-label  { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
-  .fm-modal-value  { font-size: 14px; font-weight: 600; color: var(--text); }
-  .fm-modal-row    { display: flex; gap: 16px; }
-  .fm-modal-field  { flex: 1; }
   .fm-modal-actions { display: flex; gap: 10px; padding: 0 22px 22px; }
   .fm-modal-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; cursor: pointer; font-size: 13.5px; font-weight: 700; font-family: var(--font); transition: background 0.13s; }
   .fm-modal-btn-approve { background: #D1FAE5; color: #065F46; }
-  .fm-modal-btn-approve:hover { background: #A7F3D0; }
-  .fm-modal-btn-reject  { background: #FEE2E2; color: #991B1B; }
-  .fm-modal-btn-reject:hover  { background: #FECACA; }
   .fm-upload-zone {
     border: 2px dashed var(--border); border-radius: 12px;
     padding: 32px; text-align: center; cursor: pointer;
@@ -305,21 +132,69 @@ export default function FormsPage() {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<FormTab>("repository")
+
+  // Filters
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<"All" | FormStatus>("All")
-  const [typeFilter, setTypeFilter] = useState<"All" | FormType>("All")
+  const [typeFilter, setTypeFilter] = useState<FormType>("All")
+  const [sectionFilter, setSectionFilter] = useState("All")
+
+  // Dropdown toggles
   const [showStatusDrop, setShowStatusDrop] = useState(false)
   const [showTypeDrop, setShowTypeDrop] = useState(false)
   const [showSectionDrop, setShowSectionDrop] = useState(false)
-  const [sectionFilter, setSectionFilter] = useState("All")
+
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(5)
-  const [selected, setSelected] = useState<FormEntry | null>(null)
-  const [showUpload, setShowUpload] = useState(false)
+  const [pageSize, setPageSize] = useState(10)
+
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [initials, setInitials] = useState("")
+  const [sectionId, setSectionId] = useState<string | null>(null)
+
+  // Data States
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [realEntries, setRealEntries] = useState<DisplayEntry[]>([])
+  const [repoForms, setRepoForms] = useState<FormRequirement[]>([])
+  const [isLoading, startTransition] = useTransition()
+
+  // Upload Modal States
+  const [showUpload, setShowUpload] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadTitle, setUploadTitle] = useState("Daily Time Record")
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const loadData = async () => {
+    const secRes = await getFacilitatorSectionId()
+    if (!secRes.ok) {
+      setErrorMsg(secRes.error)
+      return
+    }
+    setSectionId(secRes.data)
+
+    const [subRes, reqRes] = await Promise.all([
+      getSubmissionsByForm(secRes.data),
+      getRequirementsForSection(secRes.data),
+    ])
+
+    if (subRes.ok) {
+      const flattened: DisplayEntry[] = subRes.data.flatMap((group) =>
+        group.entries.map((entry) => ({
+          ...entry,
+          type: group.requirement.title,
+          dueDate: group.requirement.due_date,
+        }))
+      )
+      setRealEntries(flattened)
+    }
+
+    if (reqRes.ok) setRepoForms(reqRes.data)
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -334,36 +209,95 @@ export default function FormsPage() {
     })
   }, [])
 
-  const sections = [
-    "All",
-    ...Array.from(new Set(formEntries.map((f) => f.section))),
-  ]
-
   async function handleSignOut() {
     await signOutWithAudit()
     router.push("/")
     router.refresh()
   }
 
-  const filteredSubmissions = formEntries.filter((f) => {
+  const handleUploadSubmit = async () => {
+    if (!uploadTitle.trim() || !sectionId) return
+    setIsUploading(true)
+
+    const formData = new FormData()
+    formData.append("title", uploadTitle)
+    if (uploadFile) formData.append("file", uploadFile)
+
+    const res = await uploadRequirementFromData(formData, sectionId)
+    setIsUploading(false)
+
+    if (res.ok) {
+      setShowUpload(false)
+      setUploadFile(null)
+      loadData()
+    } else {
+      alert(`Upload Failed: ${res.error}`)
+    }
+  }
+
+  const handleDelete = async (reqId: string) => {
+    if (!sectionId) return
+    if (
+      !confirm(
+        "Are you sure you want to delete this form template? This action cannot be undone."
+      )
+    )
+      return
+
+    startTransition(async () => {
+      const res = await deleteSectionRequirement(reqId, sectionId)
+      if (res.ok) loadData()
+      else alert(`Delete Failed: ${res.error}`)
+    })
+  }
+
+  const handleDownload = async (reqId: string) => {
+    const res = await getTemplateDownloadUrl(reqId)
+    if (res.ok) window.open(res.url, "_blank")
+    else alert(`Download Error: ${res.error}`)
+  }
+
+  const filteredForms = repoForms.filter(
+    (f) =>
+      !search ||
+      f.title.toLowerCase().includes(search.toLowerCase()) ||
+      (f.template_file_name &&
+        f.template_file_name.toLowerCase().includes(search.toLowerCase()))
+  )
+
+  const filteredSubmissions = realEntries.filter((f) => {
     const q = search.trim().toLowerCase()
     const matchSearch =
-      !q || f.studentName.toLowerCase().includes(q) || f.studentNo.includes(q)
-    const matchStatus = statusFilter === "All" || f.status === statusFilter
+      !q ||
+      f.full_name.toLowerCase().includes(q) ||
+      (f.student_number && f.student_number.includes(q))
+
+    const dbStatusMap: Record<string, string> = {
+      Submitted: "submitted",
+      "Not Yet Submitted": "missing",
+    }
+    const mappedFilterStatus =
+      statusFilter === "All" ? "All" : dbStatusMap[statusFilter]
+    const matchStatus =
+      statusFilter === "All" || f.status === mappedFilterStatus
+
     const matchType = typeFilter === "All" || f.type === typeFilter
-    const matchSection = sectionFilter === "All" || f.section === sectionFilter
-    return matchSearch && matchStatus && matchType && matchSection
+    return matchSearch && matchStatus && matchType
   })
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredSubmissions.length / pageSize)
-  )
   const paginated = filteredSubmissions.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   )
-  const statCards = submissionStatCards(formEntries)
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredSubmissions.length / pageSize)
+  )
+
+  const formatBytes = (bytes: number | null) => {
+    if (!bytes) return "0 KB"
+    return `${(bytes / 1024).toFixed(1)} KB`
+  }
 
   return (
     <>
@@ -403,8 +337,7 @@ export default function FormsPage() {
                     setSearch(e.target.value)
                     setCurrentPage(1)
                   }}
-                  placeholder="Search student..."
-                  aria-label="Search student"
+                  placeholder="Search student or form..."
                 />
               </div>
               <div className="profile-pill">
@@ -416,6 +349,20 @@ export default function FormsPage() {
                 </div>
               </div>
             </header>
+
+            {errorMsg && (
+              <div
+                style={{
+                  margin: "20px 40px 0",
+                  padding: "12px",
+                  background: "#FEE2E2",
+                  color: "#991B1B",
+                  borderRadius: "8px",
+                }}
+              >
+                {errorMsg}
+              </div>
+            )}
 
             <div className="body">
               <div className="page-tabs">
@@ -464,6 +411,8 @@ export default function FormsPage() {
                           <input
                             className="adv-search-input"
                             placeholder="Search forms..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
                           />
                         </div>
                         <button
@@ -476,10 +425,13 @@ export default function FormsPage() {
                     </div>
 
                     <div className="fm-repo-grid">
-                      {repoForms.map((f) => {
-                        const tc = typeConfig[f.type]
+                      {filteredForms.map((f) => {
+                        const tc = typeConfig[f.title] || typeConfig.default
                         return (
-                          <div key={f.id} className="fm-repo-card">
+                          <div
+                            key={f.form_requirement_id}
+                            className="fm-repo-card"
+                          >
                             <div className="fm-repo-card-top">
                               <div
                                 className="fm-repo-icon"
@@ -492,346 +444,289 @@ export default function FormsPage() {
                                 />
                               </div>
                               <div>
-                                <div className="fm-repo-name">{f.name}</div>
+                                <div className="fm-repo-name">{f.title}</div>
                                 <div className="fm-repo-meta">
-                                  {f.fileSize} · Uploaded {f.uploadedDate}
+                                  {f.template_file_name ||
+                                    "No template attached"}
+                                  {f.template_file_size_byte
+                                    ? ` · ${formatBytes(
+                                        f.template_file_size_byte
+                                      )}`
+                                    : ""}
                                 </div>
-                                <span
-                                  className="adv-badge"
-                                  style={{
-                                    background: tc.bg,
-                                    color: tc.color,
-                                    marginTop: 6,
-                                    display: "inline-block",
-                                  }}
-                                >
-                                  {f.type}
-                                </span>
                               </div>
                             </div>
                             <div className="fm-repo-card-bottom">
-                              <span className="fm-repo-downloads">
-                                {f.downloads} downloads
-                              </span>
+                              {f.section_id === null ? (
+                                <span
+                                  style={{
+                                    fontSize: "11px",
+                                    color: "var(--muted)",
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  GLOBAL TEMPLATE
+                                </span>
+                              ) : (
+                                <div style={{ width: "10px" }}></div>
+                              )}
                               <div className="fm-repo-actions">
-                                <button
-                                  className="fm-icon-btn"
-                                  title="Download"
-                                >
-                                  <IconDownload size={14} stroke={1.75} />
-                                </button>
-                                <button
-                                  className="fm-icon-btn danger"
-                                  title="Delete"
-                                >
-                                  <IconTrash size={14} stroke={1.75} />
-                                </button>
+                                {f.template_storage_path && (
+                                  <button
+                                    className="fm-icon-btn"
+                                    title="Download"
+                                    onClick={() =>
+                                      handleDownload(f.form_requirement_id)
+                                    }
+                                  >
+                                    <IconDownload size={14} stroke={1.75} />
+                                  </button>
+                                )}
+                                {f.section_id !== null && (
+                                  <button
+                                    className="fm-icon-btn danger"
+                                    title="Delete"
+                                    onClick={() =>
+                                      handleDelete(f.form_requirement_id)
+                                    }
+                                    disabled={isLoading}
+                                  >
+                                    <IconTrash size={14} stroke={1.75} />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
                         )
                       })}
+                      {filteredForms.length === 0 && (
+                        <div
+                          style={{
+                            gridColumn: "1 / -1",
+                            textAlign: "center",
+                            padding: "40px",
+                            color: "var(--muted)",
+                          }}
+                        >
+                          No templates found.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
 
               {activeTab === "submissions" && (
-                <>
-                  <div className="stat-cards">
-                    {statCards.map(({ label, value, Icon, filter }) => (
-                      <button
-                        key={label}
-                        className="db-kpi-card db-kpi-card--interactive"
-                        onClick={() => {
-                          setStatusFilter(filter)
-                          setCurrentPage(1)
-                        }}
-                        aria-label={`${label}: ${value}`}
-                      >
-                        <div className="db-kpi-header">
-                          <span className="db-kpi-label">{label}</span>
-                        </div>
-                        <div className="db-kpi-value">{value}</div>
-                        <div className="db-kpi-deco">
-                          <Icon size={110} stroke={1.2} />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="fm-body">
-                    <div className="adv-table-card">
-                      <div className="adv-table-toolbar">
-                        <div>
-                          <div className="adv-table-title">All Submissions</div>
-                          <div className="adv-table-count">
-                            {filteredSubmissions.length} form
-                            {filteredSubmissions.length !== 1 ? "s" : ""} found
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            marginLeft: "auto",
-                          }}
-                        >
-                          <div className="adv-search-bar">
-                            <IconSearch
-                              size={16}
-                              stroke={1.75}
-                              color="var(--muted)"
-                            />
-                            <input
-                              className="adv-search-input"
-                              value={search}
-                              onChange={(e) => {
-                                setSearch(e.target.value)
-                                setCurrentPage(1)
-                              }}
-                              placeholder="Search student..."
-                            />
-                          </div>
-
-                          {/* Status filter */}
-                          <div style={{ position: "relative" }}>
-                            <button
-                              className="adv-filter-btn"
-                              onClick={() => {
-                                setShowStatusDrop((v) => !v)
-                                setShowTypeDrop(false)
-                              }}
-                            >
-                              <IconFilter size={13} stroke={2} />
-                              {statusFilter === "All"
-                                ? "All Status"
-                                : statusFilter}
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                            {showStatusDrop && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "calc(100% + 6px)",
-                                  right: 0,
-                                  background: "var(--white)",
-                                  border: "1px solid var(--border)",
-                                  borderRadius: 10,
-                                  boxShadow: "var(--shadow)",
-                                  zIndex: 50,
-                                  minWidth: 180,
-                                  overflow: "hidden",
-                                }}
-                              >
-                                {(
-                                  [
-                                    "All",
-                                    "Submitted",
-                                    "Not Yet Submitted",
-                                  ] as const
-                                ).map((opt) => (
-                                  <button
-                                    key={opt}
-                                    onClick={() => {
-                                      setStatusFilter(opt)
-                                      setShowStatusDrop(false)
-                                      setCurrentPage(1)
-                                    }}
-                                    style={{
-                                      display: "block",
-                                      width: "100%",
-                                      padding: "9px 16px",
-                                      textAlign: "left",
-                                      background:
-                                        statusFilter === opt
-                                          ? "#F9FAFB"
-                                          : "none",
-                                      border: "none",
-                                      cursor: "pointer",
-                                      fontSize: 13,
-                                      fontFamily: "var(--font)",
-                                      fontWeight:
-                                        statusFilter === opt ? 700 : 400,
-                                      color:
-                                        statusFilter === opt
-                                          ? "var(--maroon)"
-                                          : "var(--text)",
-                                    }}
-                                  >
-                                    {opt === "All" ? "All Status" : opt}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Type filter */}
-                          <div style={{ position: "relative" }}>
-                            <button
-                              className="adv-filter-btn"
-                              onClick={() => {
-                                setShowTypeDrop((v) => !v)
-                                setShowStatusDrop(false)
-                              }}
-                            >
-                              <IconClipboardText size={13} stroke={2} />
-                              {typeFilter === "All" ? "All Types" : typeFilter}
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                            {showTypeDrop && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "calc(100% + 6px)",
-                                  right: 0,
-                                  background: "var(--white)",
-                                  border: "1px solid var(--border)",
-                                  borderRadius: 10,
-                                  boxShadow: "var(--shadow)",
-                                  zIndex: 50,
-                                  minWidth: 210,
-                                  overflow: "hidden",
-                                }}
-                              >
-                                {(
-                                  [
-                                    "All",
-                                    "Daily Time Record",
-                                    "Accomplishment Report",
-                                    "Attendance Sheet",
-                                    "Incident Report",
-                                  ] as const
-                                ).map((opt) => (
-                                  <button
-                                    key={opt}
-                                    onClick={() => {
-                                      setTypeFilter(opt)
-                                      setShowTypeDrop(false)
-                                      setCurrentPage(1)
-                                    }}
-                                    style={{
-                                      display: "block",
-                                      width: "100%",
-                                      padding: "9px 16px",
-                                      textAlign: "left",
-                                      background:
-                                        typeFilter === opt ? "#F9FAFB" : "none",
-                                      border: "none",
-                                      cursor: "pointer",
-                                      fontSize: 13,
-                                      fontFamily: "var(--font)",
-                                      fontWeight:
-                                        typeFilter === opt ? 700 : 400,
-                                      color:
-                                        typeFilter === opt
-                                          ? "var(--maroon)"
-                                          : "var(--text)",
-                                    }}
-                                  >
-                                    {opt === "All" ? "All Types" : opt}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          {/* Section filter */}
-                          <div style={{ position: "relative" }}>
-                            <button
-                              className="adv-filter-btn"
-                              onClick={() => {
-                                setShowSectionDrop((v) => !v)
-                                setShowStatusDrop(false)
-                                setShowTypeDrop(false)
-                              }}
-                            >
-                              <IconFilter size={13} stroke={2} />
-                              {sectionFilter === "All"
-                                ? "All Sections"
-                                : sectionFilter}
-                              <IconChevronDown size={13} stroke={2} />
-                            </button>
-                            {showSectionDrop && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "calc(100% + 6px)",
-                                  right: 0,
-                                  background: "var(--white)",
-                                  border: "1px solid var(--border)",
-                                  borderRadius: 10,
-                                  boxShadow: "var(--shadow)",
-                                  zIndex: 50,
-                                  minWidth: 160,
-                                  overflow: "hidden",
-                                }}
-                              >
-                                {sections.map((opt) => (
-                                  <button
-                                    key={opt}
-                                    onClick={() => {
-                                      setSectionFilter(opt)
-                                      setShowSectionDrop(false)
-                                      setCurrentPage(1)
-                                    }}
-                                    style={{
-                                      display: "block",
-                                      width: "100%",
-                                      padding: "9px 16px",
-                                      textAlign: "left",
-                                      background:
-                                        sectionFilter === opt
-                                          ? "#F9FAFB"
-                                          : "none",
-                                      border: "none",
-                                      cursor: "pointer",
-                                      fontSize: 13,
-                                      fontFamily: "var(--font)",
-                                      fontWeight:
-                                        sectionFilter === opt ? 700 : 400,
-                                      color:
-                                        sectionFilter === opt
-                                          ? "var(--maroon)"
-                                          : "var(--text)",
-                                    }}
-                                  >
-                                    {opt === "All" ? "All Sections" : opt}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                <div className="fm-body">
+                  <div className="adv-table-card">
+                    <div className="adv-table-toolbar">
+                      <div>
+                        <div className="adv-table-title">All Submissions</div>
+                        <div className="adv-table-count">
+                          {filteredSubmissions.length} record(s) found
                         </div>
                       </div>
 
-                      <div className="adv-table-wrapper">
-                        <table className="adv-table">
-                          <thead>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          marginLeft: "auto",
+                        }}
+                      >
+                        <div className="adv-search-bar">
+                          <IconSearch
+                            size={16}
+                            stroke={1.75}
+                            color="var(--muted)"
+                          />
+                          <input
+                            className="adv-search-input"
+                            value={search}
+                            onChange={(e) => {
+                              setSearch(e.target.value)
+                              setCurrentPage(1)
+                            }}
+                            placeholder="Search student..."
+                          />
+                        </div>
+
+                        {/* Status filter */}
+                        <div style={{ position: "relative" }}>
+                          <button
+                            className="adv-filter-btn"
+                            onClick={() => {
+                              setShowStatusDrop((v) => !v)
+                              setShowTypeDrop(false)
+                              setShowSectionDrop(false)
+                            }}
+                          >
+                            <IconFilter size={13} stroke={2} />
+                            {statusFilter === "All"
+                              ? "All Status"
+                              : statusFilter}
+                            <IconChevronDown size={13} stroke={2} />
+                          </button>
+                          {showStatusDrop && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "calc(100% + 6px)",
+                                right: 0,
+                                background: "var(--white)",
+                                border: "1px solid var(--border)",
+                                borderRadius: 10,
+                                boxShadow: "var(--shadow)",
+                                zIndex: 50,
+                                minWidth: 180,
+                                overflow: "hidden",
+                              }}
+                            >
+                              {(
+                                [
+                                  "All",
+                                  "Submitted",
+                                  "Not Yet Submitted",
+                                ] as const
+                              ).map((opt) => (
+                                <button
+                                  key={opt}
+                                  onClick={() => {
+                                    setStatusFilter(opt)
+                                    setShowStatusDrop(false)
+                                    setCurrentPage(1)
+                                  }}
+                                  style={{
+                                    display: "block",
+                                    width: "100%",
+                                    padding: "9px 16px",
+                                    textAlign: "left",
+                                    background:
+                                      statusFilter === opt ? "#F9FAFB" : "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    fontSize: 13,
+                                    fontFamily: "var(--font)",
+                                    fontWeight:
+                                      statusFilter === opt ? 700 : 400,
+                                    color:
+                                      statusFilter === opt
+                                        ? "var(--maroon)"
+                                        : "var(--text)",
+                                  }}
+                                >
+                                  {opt === "All" ? "All Status" : opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Type filter */}
+                        <div style={{ position: "relative" }}>
+                          <button
+                            className="adv-filter-btn"
+                            onClick={() => {
+                              setShowTypeDrop((v) => !v)
+                              setShowStatusDrop(false)
+                              setShowSectionDrop(false)
+                            }}
+                          >
+                            <IconClipboardText size={13} stroke={2} />
+                            {typeFilter === "All" ? "All Types" : typeFilter}
+                            <IconChevronDown size={13} stroke={2} />
+                          </button>
+                          {showTypeDrop && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "calc(100% + 6px)",
+                                right: 0,
+                                background: "var(--white)",
+                                border: "1px solid var(--border)",
+                                borderRadius: 10,
+                                boxShadow: "var(--shadow)",
+                                zIndex: 50,
+                                minWidth: 210,
+                                overflow: "hidden",
+                              }}
+                            >
+                              {(
+                                [
+                                  "All",
+                                  "Daily Time Record",
+                                  "Accomplishment Report",
+                                  "Attendance Sheet",
+                                  "Incident Report",
+                                ] as const
+                              ).map((opt) => (
+                                <button
+                                  key={opt}
+                                  onClick={() => {
+                                    setTypeFilter(opt)
+                                    setShowTypeDrop(false)
+                                    setCurrentPage(1)
+                                  }}
+                                  style={{
+                                    display: "block",
+                                    width: "100%",
+                                    padding: "9px 16px",
+                                    textAlign: "left",
+                                    background:
+                                      typeFilter === opt ? "#F9FAFB" : "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    fontSize: 13,
+                                    fontFamily: "var(--font)",
+                                    fontWeight: typeFilter === opt ? 700 : 400,
+                                    color:
+                                      typeFilter === opt
+                                        ? "var(--maroon)"
+                                        : "var(--text)",
+                                  }}
+                                >
+                                  {opt === "All" ? "All Types" : opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="adv-table-wrapper">
+                      <table className="adv-table">
+                        <thead>
+                          <tr>
+                            <th>Student</th>
+                            <th>Section</th>
+                            <th>Form Type</th>
+                            <th>Date Submitted</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredSubmissions.length === 0 ? (
                             <tr>
-                              <th>Student</th>
-                              <th>Section</th>
-                              <th>Form Type</th>
-                              <th>Date Submitted</th>
-                              <th>Status</th>
+                              <td colSpan={5} className="adv-empty">
+                                No forms match your search.
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {filteredSubmissions.length === 0 ? (
-                              <tr>
-                                <td colSpan={5} className="adv-empty">
-                                  No forms match your search.
-                                </td>
-                              </tr>
-                            ) : (
-                              paginated.map((f) => (
-                                <tr key={f.id} onClick={() => setSelected(f)}>
+                          ) : (
+                            paginated.map((f, i) => {
+                              const tc =
+                                typeConfig[f.type] || typeConfig.default
+                              const sc =
+                                statusConfig[f.status] || statusConfig.missing
+                              return (
+                                <tr key={i}>
                                   <td>
                                     <div className="fm-student-name">
-                                      {f.studentName}
+                                      {f.full_name}
                                     </div>
                                     <div className="fm-student-no">
-                                      {f.studentNo}
+                                      {f.student_number}
                                     </div>
                                   </td>
                                   <td
@@ -840,14 +735,14 @@ export default function FormsPage() {
                                       color: "var(--muted)",
                                     }}
                                   >
-                                    {f.section}
+                                    NSTP-H
                                   </td>
                                   <td>
                                     <span
                                       className="adv-badge"
                                       style={{
-                                        background: typeConfig[f.type].bg,
-                                        color: typeConfig[f.type].color,
+                                        background: tc.bg,
+                                        color: tc.color,
                                       }}
                                     >
                                       {f.type}
@@ -859,176 +754,88 @@ export default function FormsPage() {
                                       color: "var(--muted)",
                                     }}
                                   >
-                                    {f.submittedDate}
+                                    {f.submission
+                                      ? new Date(
+                                          f.submission.submitted_at
+                                        ).toLocaleDateString()
+                                      : "—"}
                                   </td>
                                   <td>
-                                    <span
-                                      className="adv-badge"
-                                      style={{
-                                        background: statusConfig[f.status].bg,
-                                        color: statusConfig[f.status].color,
-                                      }}
-                                    >
-                                      {f.status}
-                                    </span>
+                                    {f.submission ? (
+                                      <a
+                                        href={
+                                          f.submission.storage_path.startsWith(
+                                            "gdrive:"
+                                          )
+                                            ? f.submission.storage_path.replace(
+                                                "gdrive:",
+                                                ""
+                                              )
+                                            : f.submission.storage_path
+                                        }
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="fm-upload-btn"
+                                        style={{
+                                          padding: "4px 10px",
+                                          fontSize: "11px",
+                                          display: "inline-flex",
+                                        }}
+                                      >
+                                        View in Drive
+                                      </a>
+                                    ) : (
+                                      <span
+                                        className="adv-badge"
+                                        style={{
+                                          background: sc.bg,
+                                          color: sc.color,
+                                        }}
+                                      >
+                                        Not Yet Submitted
+                                      </span>
+                                    )}
                                   </td>
                                 </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
+                              )
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="adv-pagination">
+                      <div className="adv-pagination-info">
+                        Page {currentPage} of {totalPages}
                       </div>
-
-                      <div className="adv-pagination">
-                        <div className="adv-pagination-info">
-                          Showing{" "}
-                          {filteredSubmissions.length === 0
-                            ? 0
-                            : (currentPage - 1) * pageSize + 1}
-                          –
-                          {Math.min(
-                            currentPage * pageSize,
-                            filteredSubmissions.length
-                          )}{" "}
-                          of {filteredSubmissions.length}
-                        </div>
-                        <div className="adv-pagination-controls">
-                          <button
-                            className="adv-page-btn"
-                            disabled={currentPage === 1}
-                            onClick={() =>
-                              setCurrentPage((p) => Math.max(1, p - 1))
-                            }
-                          >
-                            &#8249;
-                          </button>
-                          {Array.from(
-                            { length: totalPages },
-                            (_, i) => i + 1
-                          ).map((p) => (
-                            <button
-                              key={p}
-                              className={`adv-page-btn${
-                                p === currentPage ? " adv-page-btn-active" : ""
-                              }`}
-                              onClick={() => setCurrentPage(p)}
-                            >
-                              {p}
-                            </button>
-                          ))}
-                          <button
-                            className="adv-page-btn"
-                            disabled={currentPage === totalPages}
-                            onClick={() =>
-                              setCurrentPage((p) => Math.min(totalPages, p + 1))
-                            }
-                          >
-                            &#8250;
-                          </button>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            fontSize: 12.5,
-                            color: "var(--muted)",
-                          }}
+                      <div className="adv-pagination-controls">
+                        <button
+                          className="adv-page-btn"
+                          disabled={currentPage === 1}
+                          onClick={() =>
+                            setCurrentPage((c) => Math.max(1, c - 1))
+                          }
                         >
-                          <span>Rows per page:</span>
-                          <select
-                            value={pageSize}
-                            onChange={(e) => {
-                              setPageSize(Number(e.target.value))
-                              setCurrentPage(1)
-                            }}
-                            style={{
-                              border: "1.5px solid var(--border)",
-                              borderRadius: 10,
-                              padding: "4px 8px",
-                              fontSize: 12.5,
-                              fontFamily: "var(--font)",
-                              color: "var(--text)",
-                              background: "var(--white)",
-                              cursor: "pointer",
-                              outline: "none",
-                              appearance: "auto",
-                            }}
-                          >
-                            {[5, 10, 20, 50].map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                          &#8249;
+                        </button>
+                        <button
+                          className="adv-page-btn"
+                          disabled={
+                            currentPage === totalPages || totalPages === 0
+                          }
+                          onClick={() =>
+                            setCurrentPage((c) => Math.min(totalPages, c + 1))
+                          }
+                        >
+                          &#8250;
+                        </button>
                       </div>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </main>
         </div>
-
-        {/* Submission detail modal */}
-        {selected && (
-          <div className="fm-modal-backdrop" onClick={() => setSelected(null)}>
-            <div className="fm-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="fm-modal-header">
-                <div className="fm-modal-title">{selected.type}</div>
-                <button
-                  className="fm-modal-close"
-                  onClick={() => setSelected(null)}
-                >
-                  <IconX size={18} stroke={1.75} />
-                </button>
-              </div>
-              <div className="fm-modal-body">
-                <div className="fm-modal-row">
-                  <div className="fm-modal-field">
-                    <div className="fm-modal-label">Student</div>
-                    <div className="fm-modal-value">{selected.studentName}</div>
-                  </div>
-                  <div className="fm-modal-field">
-                    <div className="fm-modal-label">Student No.</div>
-                    <div className="fm-modal-value">{selected.studentNo}</div>
-                  </div>
-                </div>
-                <div className="fm-modal-row">
-                  <div className="fm-modal-field">
-                    <div className="fm-modal-label">Section</div>
-                    <div className="fm-modal-value">{selected.section}</div>
-                  </div>
-                  <div className="fm-modal-field">
-                    <div className="fm-modal-label">Week</div>
-                    <div className="fm-modal-value">{selected.week ?? "—"}</div>
-                  </div>
-                </div>
-                <div className="fm-modal-row">
-                  <div className="fm-modal-field">
-                    <div className="fm-modal-label">Date Submitted</div>
-                    <div className="fm-modal-value">
-                      {selected.submittedDate}
-                    </div>
-                  </div>
-                  <div className="fm-modal-field">
-                    <div className="fm-modal-label">Status</div>
-                    <span
-                      className="adv-badge"
-                      style={{
-                        background: statusConfig[selected.status].bg,
-                        color: statusConfig[selected.status].color,
-                      }}
-                    >
-                      {selected.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Upload modal */}
         {showUpload && (
@@ -1050,6 +857,8 @@ export default function FormsPage() {
                 <div>
                   <div className="fm-modal-label">Form Type</div>
                   <select
+                    value={uploadTitle}
+                    onChange={(e) => setUploadTitle(e.target.value)}
                     style={{
                       width: "100%",
                       border: "1.5px solid var(--border)",
@@ -1075,17 +884,34 @@ export default function FormsPage() {
                     className="fm-upload-zone"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <IconUpload size={28} stroke={1.5} color="var(--muted)" />
-                    <div className="fm-upload-zone-text">
-                      Click to browse or drag & drop
-                    </div>
-                    <div className="fm-upload-zone-sub">
-                      PDF, DOCX, XLSX up to 10 MB
-                    </div>
+                    {uploadFile ? (
+                      <div
+                        style={{ color: "var(--green)", fontWeight: "bold" }}
+                      >
+                        {uploadFile.name}
+                      </div>
+                    ) : (
+                      <>
+                        <IconUpload
+                          size={28}
+                          stroke={1.5}
+                          color="var(--muted)"
+                        />
+                        <div className="fm-upload-zone-text">
+                          Click to browse or drag & drop
+                        </div>
+                        <div className="fm-upload-zone-sub">
+                          PDF, DOCX up to 200 KB
+                        </div>
+                      </>
+                    )}
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,.docx,.xlsx"
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) =>
+                        e.target.files && setUploadFile(e.target.files[0])
+                      }
                       style={{ display: "none" }}
                     />
                   </div>
@@ -1099,8 +925,12 @@ export default function FormsPage() {
                 >
                   Cancel
                 </button>
-                <button className="fm-modal-btn fm-modal-btn-approve">
-                  Upload
+                <button
+                  className="fm-modal-btn fm-modal-btn-approve"
+                  onClick={handleUploadSubmit}
+                  disabled={isUploading || !uploadFile}
+                >
+                  {isUploading ? "Uploading..." : "Upload"}
                 </button>
               </div>
             </div>
