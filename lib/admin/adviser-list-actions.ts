@@ -16,7 +16,6 @@ import {
   type AdviserListSectionOption,
   type AdviserPendingAppealDbRow,
 } from "@/lib/admin/adviser-list"
-import type { ImportAdvisersResult } from "@/lib/admin/adviser-import"
 import {
   validateAdviserEditPayload,
   validateAdviserCreatePayload,
@@ -148,47 +147,6 @@ async function resolveCurrentUser(
   return {
     name: isAdmin ? "Admin Test Account" : appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
-  }
-}
-
-/**
- * CSV import for admin adviser list.
- *
- * Backend checklist:
- * 1. Parse CSV → `AdviserCsvImportRow[]` (see `lib/admin/adviser-import.ts`).
- * 2. Create auth user + `app_user` (role = adviser) or match existing by email.
- * 3. Resolve `section_name` → `section.section_id` and set `adviser_user_id`.
- * 4. Return `{ ok: true, imported, skipped }`.
- */
-export async function importAdvisersFromCsv(
-  formData: FormData
-): Promise<ImportAdvisersResult> {
-  const role = await getAppUserRole()
-  if (role !== "admin") {
-    return { ok: false, error: "Unauthorized" }
-  }
-
-  const file = formData.get("file")
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: "Please choose a CSV file to import." }
-  }
-
-  if (!file.name.toLowerCase().endsWith(".csv")) {
-    return { ok: false, error: "Only .csv files are accepted." }
-  }
-
-  // TODO(backend): parse CSV using ADVISER_CSV_COLUMNS, then upsert rows.
-  const _preview = await file.text()
-  console.info("[importAdvisersFromCsv] pending implementation", {
-    fileName: file.name,
-    bytes: file.size,
-    previewLines: _preview.split("\n").slice(0, 3),
-  })
-
-  return {
-    ok: false,
-    error:
-      "Import is not available yet. Backend CSV import handler still needs to be implemented.",
   }
 }
 

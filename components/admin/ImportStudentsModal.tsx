@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
-import { importStudentsFromCsv } from "@/lib/admin/student-list-actions"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
@@ -68,23 +67,7 @@ export default function ImportStudentsModal({
   }
 
   function handleImport() {
-    if (!file) {
-      setError("Please choose a CSV file to import.")
-      return
-    }
-
-    const formData = new FormData()
-    formData.append("file", file)
-
-    startTransition(async () => {
-      const result = await importStudentsFromCsv(formData)
-      if (!result.ok) {
-        setError(result.error)
-        return
-      }
-      close()
-      window.location.reload()
-    })
+    setError("Import is being upgraded — available after the next update.")
   }
 
   if (!open) return null
