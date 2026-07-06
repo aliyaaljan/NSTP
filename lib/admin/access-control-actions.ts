@@ -28,6 +28,14 @@ import {
 } from "@/lib/admin/access-control-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import {
+  countActiveAdmins,
+  deactivateUser,
+  provisionUser,
+  resolveRoleIdByCode,
+  syncAuthBan,
+  syncUserEmail,
+} from "@/lib/admin/user-provision"
 
 /**
  * Fetches everything the admin access control page needs.
@@ -121,66 +129,6 @@ async function resolveCurrentUser(
     name: isAdmin ? "Admin Test Account" : appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
   }
-}
-
-// ---------------------------------------------------------------------------
-// Shared helpers for the access-control mutations below.
-// ---------------------------------------------------------------------------
-
-type ServiceClient = ReturnType<typeof createSupabaseServiceClient>
-
-/** ~100 years. Banning blocks login + token refresh (invariant: ban ⇔ !is_active). */
-const BAN_DURATION = "876000h"
-
-/**
- * Resolve the canonical `role.role_id` from a role code. Server actions receive
- * arbitrary input, so never trust a client-supplied `roleId` — look it up here.
- */
-async function resolveRoleIdByCode(
-  service: ServiceClient,
-  roleCode: AppRoleCode
-): Promise<string | null> {
-  const { data } = await service
-    .from("role")
-    .select("role_id")
-    .eq("code", roleCode)
-    .maybeSingle()
-  return data?.role_id ?? null
-}
-
-/** Count active administrators — used to block removing the last one. */
-async function countActiveAdmins(service: ServiceClient): Promise<number> {
-  const adminRoleId = await resolveRoleIdByCode(service, "admin")
-  if (!adminRoleId) return 0
-
-  const { count } = await service
-    .from("app_user")
-    .select("app_user_id", { count: "exact", head: true })
-    .eq("is_active", true)
-    .eq("role_id", adminRoleId)
-
-  return count ?? 0
-}
-
-/**
- * Keep the Supabase Auth ban state in lockstep with `app_user.is_active`.
- * A banned user cannot log in or refresh their token; an already-issued access
- * token still lives until it expires (≤1h) — there is no server-side way to
- * revoke it sooner. Idempotent.
- */
-async function syncAuthBan(
-  service: ServiceClient,
-  userId: string,
-  isActive: boolean
-): Promise<UpdateAccessUserResult> {
-  const { error } = await service.auth.admin.updateUserById(userId, {
-    ban_duration: isActive ? "none" : BAN_DURATION,
-  })
-  if (error) {
-    console.error("[syncAuthBan] updateUserById failed", error)
-    return { ok: false, error: "Failed to update the account's sign-in status." }
-  }
-  return { ok: true }
 }
 
 /**
@@ -323,14 +271,8 @@ export async function updateAccessUser(
   // Keep auth.users email in lockstep so OAuth linking (by email) stays valid for
   // users who have not logged in yet. Auth is the stricter gate — do it first.
   if (emailChanged) {
-    const { error: authEmailError } = await service.auth.admin.updateUserById(
-      payload.appUserId,
-      { email: nextEmail, email_confirm: true }
-    )
-    if (authEmailError) {
-      console.error("[updateAccessUser] auth email sync failed", authEmailError)
-      return { ok: false, error: "That email is already in use or invalid." }
-    }
+    const emailResult = await syncUserEmail(service, payload.appUserId, nextEmail)
+    if (!emailResult.ok) return emailResult
   }
 
   const { error: updateError } = await service
@@ -383,61 +325,15 @@ export async function createAccessUser(
   }
 
   const service = createSupabaseServiceClient()
-
-  const roleId = await resolveRoleIdByCode(service, payload.roleCode)
-  if (!roleId) {
-    return { ok: false, error: "Invalid role selected." }
-  }
-
-  const email = payload.email.trim().toLowerCase()
-
-  const { data: created, error: createError } = await service.auth.admin.createUser({
-    email,
-    email_confirm: true,
-    user_metadata: { full_name: payload.fullName.trim() },
+  const result = await provisionUser(service, {
+    email: payload.email,
+    fullName: payload.fullName,
+    roleCode: payload.roleCode,
+    studentNumber: payload.studentNumber,
+    saisId: payload.saisId,
+    isActive: payload.isActive,
   })
-
-  if (createError || !created?.user) {
-    console.error("[createAccessUser] auth createUser failed", createError)
-    if (
-      createError?.status === 422 ||
-      createError?.message?.toLowerCase().includes("already")
-    ) {
-      return { ok: false, error: "A user with this email already exists." }
-    }
-    return { ok: false, error: "Failed to create the user account." }
-  }
-
-  const authUserId = created.user.id
-
-  const { error: insertError } = await service.from("app_user").insert({
-    app_user_id: authUserId,
-    role_id: roleId,
-    email,
-    full_name: payload.fullName.trim(),
-    student_number: payload.studentNumber?.trim() || null,
-    sais_id: payload.saisId?.trim() || null,
-    is_active: payload.isActive,
-  })
-
-  if (insertError) {
-    console.error("[createAccessUser] app_user insert failed", insertError)
-    // Avoid an orphaned auth user with no app_user row.
-    await service.auth.admin.deleteUser(authUserId)
-    if ((insertError as { code?: string }).code === "23505") {
-      return { ok: false, error: "A user with this email or ID already exists." }
-    }
-    return { ok: false, error: "Failed to create the user." }
-  }
-
-  // Provisioned as inactive ⇒ ban immediately so they cannot log in yet.
-  if (!payload.isActive) {
-    const banResult = await syncAuthBan(service, authUserId, false)
-    if (!banResult.ok) {
-      return banResult
-    }
-  }
-
+  if (!result.ok) return result
   return { ok: true }
 }
 
@@ -462,58 +358,5 @@ export async function deactivateAccessUser(
   }
 
   const service = createSupabaseServiceClient()
-
-  const { data: target, error: targetError } = await service
-    .from("app_user")
-    .select("is_active, role:role_id(code)")
-    .eq("app_user_id", appUserId)
-    .maybeSingle()
-
-  if (targetError || !target) {
-    console.error("[deactivateAccessUser] target lookup failed", targetError)
-    return { ok: false, error: "User not found." }
-  }
-
-  // Already inactive — nothing to do.
-  if (!target.is_active) {
-    return { ok: true }
-  }
-
-  const targetRoleCode = (target.role as { code?: string } | null)?.code ?? null
-  if (targetRoleCode === "admin") {
-    const activeAdmins = await countActiveAdmins(service)
-    if (activeAdmins <= 1) {
-      return { ok: false, error: "Cannot deactivate the last active administrator." }
-    }
-  }
-
-  const { error: updateError } = await service
-    .from("app_user")
-    .update({ is_active: false })
-    .eq("app_user_id", appUserId)
-
-  if (updateError) {
-    console.error("[deactivateAccessUser] update failed", updateError)
-    return { ok: false, error: "Failed to deactivate the user." }
-  }
-
-  // Ban ⇒ the user cannot log back in (current token expires within ≤1h).
-  const banResult = await syncAuthBan(service, appUserId, false)
-  if (!banResult.ok) {
-    return banResult
-  }
-
-  // Reflect the logout in the Active Sessions view (best-effort).
-  const { error: sessionError } = await service
-    .from("login_session")
-    .update({ is_active: false, revoked_at: new Date().toISOString() })
-    .eq("app_user_id", appUserId)
-    .eq("is_active", true)
-
-  if (sessionError) {
-    console.error("[deactivateAccessUser] login_session revoke failed", sessionError)
-    // Non-fatal — the account is already deactivated + banned.
-  }
-
-  return { ok: true }
+  return deactivateUser(service, appUserId)
 }
