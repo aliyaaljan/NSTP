@@ -3,7 +3,11 @@
 import "server-only"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
-import { uploadFormFile, deleteFormFile, getSignedUrl } from "@/lib/forms/storage"
+import {
+  uploadFormFile,
+  deleteFormFile,
+  getSignedUrl,
+} from "@/lib/forms/storage"
 import { lookupId } from "@/lib/lookups"
 
 // ---------------------------------------------------------------------------
@@ -82,7 +86,9 @@ export async function submitForm(
     // §4a: verify the caller owns this enrollment
     const { data: enrollment } = await service
       .from("enrollment")
-      .select("enrollment_id, section_id, student_user_id, enrollment_status_id")
+      .select(
+        "enrollment_id, section_id, student_user_id, enrollment_status_id"
+      )
       .eq("enrollment_id", enrollmentId)
       .single()
 
@@ -90,7 +96,10 @@ export async function submitForm(
       return { ok: false, error: "You are not enrolled with this enrollment" }
     }
 
-    if (enrollment.enrollment_status_id !== (await lookupId("enrollment_status", "active"))) {
+    if (
+      enrollment.enrollment_status_id !==
+      (await lookupId("enrollment_status", "active"))
+    ) {
       return { ok: false, error: "This enrollment is not active" }
     }
 
@@ -116,10 +125,16 @@ export async function submitForm(
         .maybeSingle()
 
       if (exclusion) {
-        return { ok: false, error: "This requirement is not required for your section" }
+        return {
+          ok: false,
+          error: "This requirement is not required for your section",
+        }
       }
     } else if (requirement.section_id !== enrollment.section_id) {
-      return { ok: false, error: "This requirement does not belong to your section" }
+      return {
+        ok: false,
+        error: "This requirement does not belong to your section",
+      }
     }
 
     // §6: read existing submission (for overwrite-latest)
@@ -151,7 +166,10 @@ export async function submitForm(
           file_name: upload.sanitizedName,
           content_type: upload.contentType,
           file_size_byte: upload.fileSize,
-          form_submission_status_id: await lookupId("form_submission_status", "submitted"),
+          form_submission_status_id: await lookupId(
+            "form_submission_status",
+            "submitted"
+          ),
           reviewer_comment: null,
           reviewed_by_user_id: null,
           reviewed_at: null,
@@ -214,7 +232,9 @@ export async function getMyForms(
       .eq("section_id", enrollment.section_id)
 
     const excludedIds = new Set(
-      (exclusions ?? []).map((e: { form_requirement_id: string }) => e.form_requirement_id)
+      (exclusions ?? []).map(
+        (e: { form_requirement_id: string }) => e.form_requirement_id
+      )
     )
 
     const { data: sectionReqs } = await service
@@ -225,7 +245,8 @@ export async function getMyForms(
 
     const requirements = [
       ...(globals ?? []).filter(
-        (r: { form_requirement_id: string }) => !excludedIds.has(r.form_requirement_id)
+        (r: { form_requirement_id: string }) =>
+          !excludedIds.has(r.form_requirement_id)
       ),
       ...(sectionReqs ?? []),
     ]
@@ -235,7 +256,9 @@ export async function getMyForms(
     }
 
     // Get all submissions for this enrollment
-    const reqIds = requirements.map((r: { form_requirement_id: string }) => r.form_requirement_id)
+    const reqIds = requirements.map(
+      (r: { form_requirement_id: string }) => r.form_requirement_id
+    )
     const { data: submissions } = await service
       .from("form_submission")
       .select("*")
@@ -263,7 +286,8 @@ export async function getMyForms(
         (status === "missing"
           ? now > new Date(req.due_date + "T23:59:59+08:00")
           : sub != null &&
-          new Date(sub.submitted_at) > new Date(req.due_date + "T23:59:59+08:00"))
+            new Date(sub.submitted_at) >
+              new Date(req.due_date + "T23:59:59+08:00"))
 
       return {
         form_requirement_id: req.form_requirement_id,
@@ -297,7 +321,9 @@ export async function getMySubmissionUrl(
 
     const { data: sub } = await service
       .from("form_submission")
-      .select("storage_path, enrollment_id, enrollment:enrollment!inner(student_user_id)")
+      .select(
+        "storage_path, enrollment_id, enrollment:enrollment!inner(student_user_id)"
+      )
       .eq("form_submission_id", submissionId)
       .maybeSingle()
 
@@ -305,9 +331,12 @@ export async function getMySubmissionUrl(
 
     const enrollment = sub.enrollment as unknown as { student_user_id: string }
     if (enrollment.student_user_id !== user.id) {
-      const { data: canAccess } = await supabase.rpc("app_can_access_enrollment", {
-        p_enrollment_id: sub.enrollment_id,
-      })
+      const { data: canAccess } = await supabase.rpc(
+        "app_can_access_enrollment",
+        {
+          p_enrollment_id: sub.enrollment_id,
+        }
+      )
       if (!canAccess) {
         return { ok: false, error: "Access denied" }
       }
@@ -323,12 +352,14 @@ export async function getMySubmissionUrl(
 // Adviser: get submissions grouped by form for a section
 // ---------------------------------------------------------------------------
 
-export async function getSubmissionsByForm(
-  sectionId: string
-): Promise<
+export async function getSubmissionsByForm(sectionId: string): Promise<
   ActionResult<
     {
-      requirement: { form_requirement_id: string; title: string; due_date: string | null }
+      requirement: {
+        form_requirement_id: string
+        title: string
+        due_date: string | null
+      }
       entries: SubmissionByFormEntry[]
     }[]
   >
@@ -355,7 +386,9 @@ export async function getSubmissionsByForm(
       .eq("section_id", sectionId)
 
     const excludedIds = new Set(
-      (exclusions ?? []).map((e: { form_requirement_id: string }) => e.form_requirement_id)
+      (exclusions ?? []).map(
+        (e: { form_requirement_id: string }) => e.form_requirement_id
+      )
     )
 
     const { data: sectionReqs } = await service
@@ -366,10 +399,15 @@ export async function getSubmissionsByForm(
 
     const requirements = [
       ...(globals ?? []).filter(
-        (r: { form_requirement_id: string }) => !excludedIds.has(r.form_requirement_id)
+        (r: { form_requirement_id: string }) =>
+          !excludedIds.has(r.form_requirement_id)
       ),
       ...(sectionReqs ?? []),
-    ] as { form_requirement_id: string; title: string; due_date: string | null }[]
+    ] as {
+      form_requirement_id: string
+      title: string
+      due_date: string | null
+    }[]
 
     if (requirements.length === 0) {
       return { ok: true, data: [] }
@@ -423,8 +461,8 @@ export async function getSubmissionsByForm(
           (status === "missing"
             ? new Date() > new Date(req.due_date + "T23:59:59+08:00")
             : sub != null &&
-            new Date(sub.submitted_at) >
-            new Date(req.due_date + "T23:59:59+08:00"))
+              new Date(sub.submitted_at) >
+                new Date(req.due_date + "T23:59:59+08:00"))
 
         return {
           enrollment_id: enr.enrollment_id,
@@ -521,9 +559,12 @@ export async function getSubmissionDownloadUrl(
 
     if (!sub) return { ok: false, error: "Submission not found" }
 
-    const { data: canAccess } = await supabase.rpc("app_can_access_enrollment", {
-      p_enrollment_id: sub.enrollment_id,
-    })
+    const { data: canAccess } = await supabase.rpc(
+      "app_can_access_enrollment",
+      {
+        p_enrollment_id: sub.enrollment_id,
+      }
+    )
     if (!canAccess) return { ok: false, error: "Access denied" }
 
     return getSignedUrl(sub.storage_path)
@@ -575,7 +616,9 @@ export async function getCompletionOverview(): Promise<
 
     const statusCodes = await getStatusCodeMap(service)
 
-    const reqIds = globals.map((g: { form_requirement_id: string }) => g.form_requirement_id)
+    const reqIds = globals.map(
+      (g: { form_requirement_id: string }) => g.form_requirement_id
+    )
     const { data: allSubs } = await service
       .from("form_submission")
       .select("form_requirement_id, form_submission_status_id")
@@ -600,19 +643,21 @@ export async function getCompletionOverview(): Promise<
     }
 
     const total = totalEnrolled ?? 0
-    const result = globals.map((g: { form_requirement_id: string; title: string }) => {
-      const c = countsMap.get(g.form_requirement_id)!
-      const totalSubmissions = c.submitted + c.approved + c.rejected
-      return {
-        form_requirement_id: g.form_requirement_id,
-        title: g.title,
-        total_enrolled: total,
-        submitted: c.submitted,
-        approved: c.approved,
-        rejected: c.rejected,
-        missing: Math.max(0, total - totalSubmissions),
+    const result = globals.map(
+      (g: { form_requirement_id: string; title: string }) => {
+        const c = countsMap.get(g.form_requirement_id)!
+        const totalSubmissions = c.submitted + c.approved + c.rejected
+        return {
+          form_requirement_id: g.form_requirement_id,
+          title: g.title,
+          total_enrolled: total,
+          submitted: c.submitted,
+          approved: c.approved,
+          rejected: c.rejected,
+          missing: Math.max(0, total - totalSubmissions),
+        }
       }
-    })
+    )
 
     return { ok: true, data: result }
   } catch (err) {
@@ -639,4 +684,91 @@ async function getStatusCodeMap(
     )
   }
   return map
+}
+
+// lib/forms/submission-actions.ts
+// Add this below your existing submitForm function
+
+/**
+ * Saves a Google Drive submission record into the database.
+ * This is called by the client AFTER the file is successfully uploaded to Google Drive.
+ */
+export async function saveDriveSubmission(
+  enrollmentId: string,
+  requirementId: string,
+  driveFileId: string,
+  driveUrl: string,
+  fileName: string
+): Promise<ActionResult<FormSubmission>> {
+  try {
+    const { supabase, user } = await requireAuth()
+    const service = createSupabaseServiceClient()
+
+    const { data: enrollment } = await service
+      .from("enrollment")
+      .select(
+        "enrollment_id, section_id, student_user_id, enrollment_status_id"
+      )
+      .eq("enrollment_id", enrollmentId)
+      .single()
+
+    if (!enrollment || enrollment.student_user_id !== user.id) {
+      return { ok: false, error: "You are not enrolled with this enrollment" }
+    }
+
+    if (
+      enrollment.enrollment_status_id !==
+      (await lookupId("enrollment_status", "active"))
+    ) {
+      return { ok: false, error: "This enrollment is not active" }
+    }
+
+    const { data: requirement } = await service
+      .from("form_requirement")
+      .select("form_requirement_id, section_id, is_active")
+      .eq("form_requirement_id", requirementId)
+      .eq("is_active", true)
+      .maybeSingle()
+
+    if (!requirement) {
+      return { ok: false, error: "Requirement not found or inactive" }
+    }
+
+    const { data: submission, error: dbError } = await service
+      .from("form_submission")
+      .upsert(
+        {
+          form_requirement_id: requirementId,
+          enrollment_id: enrollmentId,
+
+          storage_path: `gdrive:${driveUrl}`,
+          file_name: fileName,
+          content_type: "application/vnd.google-apps.document",
+          file_size_byte: 0,
+          form_submission_status_id: await lookupId(
+            "form_submission_status",
+            "submitted"
+          ),
+          reviewer_comment: null,
+          reviewed_by_user_id: null,
+          reviewed_at: null,
+          submitted_at: new Date().toISOString(),
+        },
+        { onConflict: "form_requirement_id,enrollment_id" }
+      )
+      .select()
+      .single()
+
+    if (dbError) {
+      console.error("[saveDriveSubmission] upsert failed", dbError)
+      return {
+        ok: false,
+        error: "Failed to save submission record to database.",
+      }
+    }
+
+    return { ok: true, data: submission as FormSubmission }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
 }
