@@ -286,21 +286,18 @@ export default function RequestsPage() {
       value: counts.Approved,
       icon: "ti-circle-check",
       color: C.approved,
-      valueColor: C.approved.icon,
     },
     {
       label: "Pending Review",
       value: counts["Pending Review"],
       icon: "ti-hourglass",
       color: C.review,
-      valueColor: C.review.icon,
     },
     {
       label: "Declined",
       value: counts.Declined,
       icon: "ti-circle-x",
       color: C.declined,
-      valueColor: C.declined.icon,
     },
   ]
 
@@ -583,7 +580,6 @@ export default function RequestsPage() {
                         icon={stat.icon}
                         label={stat.label}
                         value={stat.value}
-                        valueColor={stat.valueColor}
                         />
                   </div>
                 )
@@ -614,8 +610,8 @@ export default function RequestsPage() {
                   return status === "declined" || status === "rejected"
                 }
               
-                if (activeFilter === "Under Review") {
-                  return status === "pending review" //gahahah nag normalize po aq akala ko yun problem, open pala sa under review
+                if (activeFilter === "Pending Review") {
+                  return status === "pending review"
                 }
               
                 if (activeFilter === "Approved") {
