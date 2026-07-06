@@ -732,6 +732,254 @@ begin
 end;
 $function$;
 
+-- ------------------------------------------------------------
+-- Facilitator "My Students" / dashboard drift RPCs (Rows 108 + 109).
+--   get_active_sem, get_students_stats, get_my_students,
+--   update_attendance_session.
+--   Originally created ad hoc in the SQL editor and left anon-executable
+--   with a client-trusted p_adviser_user_id (IDOR). Captured here with the
+--   same hardening as the adviser RPCs above: caller guard
+--   (auth.uid() = p_adviser_user_id OR app_is_admin()), pinned search_path,
+--   lookup IDs resolved by code (no hardcoded UUIDs), and EXECUTE revoked
+--   from anon/public + granted to authenticated (see loop below).
+--   get_my_students returns sais_id for the facilitator roster (Row 115).
+-- ------------------------------------------------------------
+
+-- get_active_sem — active-term end date + "days left" per adviser section
+create or replace function public.get_active_sem(p_adviser_user_id uuid)
+returns table(section_id uuid, section_name text, sem_end_date date, remaining_days text)
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to read this adviser''s active term';
+  end if;
+
+  return query
+  select
+    s.section_id,
+    s.name as section_name,
+    t.end_date as sem_end_date,
+    case
+      when floor(t.end_date - current_date) <= 0 then 'Semester ended'
+      else
+        floor(t.end_date - current_date)::text ||
+        case
+          when floor(t.end_date - current_date) = 1 then ' day left'
+          else ' days left'
+        end
+    end as remaining_days
+  from section s
+  join term t on t.term_id = s.term_id
+  where s.adviser_user_id = p_adviser_user_id
+    and t.is_active = true;
+end;
+$function$;
+
+-- get_students_stats — per-section completion + pending-request counts
+create or replace function public.get_students_stats(p_adviser_user_id uuid)
+returns table(section_id uuid, section_name text, total integer, completed integer, in_progress integer, pending_request integer)
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to read this adviser''s student stats';
+  end if;
+
+  return query
+  with student_minutes as (
+    select
+      e.enrollment_id,
+      e.section_id,
+      coalesce(sum(att.duration_minute), 0) as total_minutes
+    from enrollment e
+    left join attendance_session att on att.enrollment_id = e.enrollment_id
+    where (att.attendance_session_status_id is null
+           or att.attendance_session_status_id not in (
+             select attendance_session_status_id from attendance_session_status
+             where code in ('voided', 'open', 'under_appeal')
+           ))
+      and e.enrollment_status_id = (
+            select enrollment_status_id from enrollment_status where code = 'active'
+          )
+    group by e.enrollment_id, e.section_id
+  ),
+  -- 'pending' is the live open-appeal code; 'open' kept as a superset so a
+  -- fresh migration DB (which seeds 'open') counts the same appeals. See the
+  -- appeal_status seed drift note.
+  pending_requests as (
+    select
+      e.section_id,
+      count(*)::integer as pending
+    from appeal appe
+    join enrollment e on e.enrollment_id = appe.enrollment_id
+    where appe.appeal_status_id in (
+            select appeal_status_id from appeal_status
+            where code in ('pending', 'open', 'under_review')
+          )
+    group by e.section_id
+  ),
+  section_stats as (
+    select
+      s.section_id,
+      s.name as section_name,
+      count(sm.enrollment_id)::integer as total,
+      count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
+      count(sm.enrollment_id) filter (where sm.total_minutes::numeric < s.required_hour_total*60)::integer as in_progress,
+      coalesce(max(pa.pending), 0)::integer as pending_request
+    from section s
+    join student_minutes sm on sm.section_id = s.section_id
+    join term t on t.term_id = s.term_id
+    left join pending_requests pa on pa.section_id = s.section_id
+    where s.adviser_user_id = p_adviser_user_id
+      and t.is_active = true
+    group by s.section_id, s.name
+  ),
+  all_sections as (
+    select
+      null::uuid as section_id,
+      'All Sections'::text as section_name,
+      coalesce(sum(ss.total), 0)::integer as total,
+      coalesce(sum(ss.completed), 0)::integer as completed,
+      coalesce(sum(ss.in_progress), 0)::integer as in_progress,
+      coalesce(sum(ss.pending_request), 0)::integer as pending_request
+    from section_stats ss
+  )
+  select * from all_sections
+  union all
+  select * from section_stats;
+end;
+$function$;
+
+-- get_my_students — roster with logged hours, status, sessions, SAIS ID
+create or replace function public.get_my_students(p_adviser_user_id uuid)
+returns table(section_id uuid, section_name text, student_name text, student_number text, sais_id numeric, site_location text, program text, classification text, status text, hours_logged numeric, total_hours integer, sessions jsonb)
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to read this adviser''s students';
+  end if;
+
+  return query
+  with student_minutes as (
+    select
+      e.enrollment_id,
+      coalesce(sum(att.duration_minute), 0) as total_minutes
+    from enrollment e
+    left join attendance_session att
+      on att.enrollment_id = e.enrollment_id
+      and att.attendance_session_status_id not in (
+            select attendance_session_status_id from attendance_session_status
+            where code in ('voided', 'open', 'under_appeal')
+          )
+    where e.enrollment_status_id = (
+            select enrollment_status_id from enrollment_status where code = 'active'
+          )
+    group by e.enrollment_id
+  ),
+  student_sessions as (
+    select
+      att.enrollment_id,
+      coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'id', att.attendance_session_id,
+            'date', to_char(att.started_at at time zone 'Asia/Manila', 'Mon DD, YYYY'),
+            'timeIn', to_char(att.started_at at time zone 'Asia/Manila', 'HH12:MI AM'),
+            'timeOut', to_char(att.ended_at at time zone 'Asia/Manila', 'HH12:MI AM'),
+            'hours', round(att.duration_minute / 60.0, 2)
+          )
+          order by att.started_at
+        ),
+        '[]'::jsonb
+      ) as sessions
+    from attendance_session att
+    where att.attendance_session_status_id not in (
+            select attendance_session_status_id from attendance_session_status
+            where code in ('voided', 'open', 'under_appeal')
+          )
+    group by att.enrollment_id
+  )
+  select
+    s.section_id,
+    s.name as section_name,
+    u.full_name as student_name,
+    u.student_number as student_number,
+    u.sais_id::numeric as sais_id,
+    g.label as site_location,
+    p.name as program,
+    sc.name as classification,
+    case
+      when round(coalesce(sm.total_minutes, 0) / 60.0, 2) >= s.required_hour_total then 'Completed'
+      when round(coalesce(sm.total_minutes, 0) / 60.0, 2) > 0 then 'In Progress'
+      else 'Not Started'
+    end as status,
+    round(sm.total_minutes / 60.0, 2) as hours_logged,
+    s.required_hour_total as total_hours,
+    coalesce(ss.sessions, '[]'::jsonb) as sessions
+  from section s
+    join term t on t.term_id = s.term_id
+    join enrollment e on e.section_id = s.section_id
+    left join student_minutes sm on sm.enrollment_id = e.enrollment_id
+    left join student_sessions ss on ss.enrollment_id = e.enrollment_id
+    join app_user u on u.app_user_id = e.student_user_id
+    left join section_geofence g on g.section_geofence_id = e.assigned_geofence_id
+    left join program p on p.program_id = e.program_id
+    left join student_classification sc on sc.student_classification_id = e.student_classification_id
+  where s.adviser_user_id = p_adviser_user_id
+    and s.section_status_id = (
+          select section_status_id from section_status where code = 'active'
+        )
+    and t.is_active = true
+    and e.enrollment_status_id = (
+          select enrollment_status_id from enrollment_status where code = 'active'
+        )
+  order by u.full_name;
+end;
+$function$;
+
+-- update_attendance_session — adviser correction of a session's in/out times
+create or replace function public.update_attendance_session(
+  p_attendance_session_id uuid,
+  p_adviser_user_id uuid,
+  p_session_date date,
+  p_time_in time without time zone,
+  p_time_out time without time zone
+)
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_enrollment_id uuid;
+begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to edit this session';
+  end if;
+
+  select att.enrollment_id into v_enrollment_id
+  from attendance_session att
+  join enrollment e on e.enrollment_id = att.enrollment_id
+  join section s on s.section_id = e.section_id
+  where att.attendance_session_id = p_attendance_session_id
+    and s.adviser_user_id = p_adviser_user_id;
+
+  if v_enrollment_id is null then
+    raise exception 'Not authorized to edit this session';
+  end if;
+
+  update attendance_session
+  set
+    started_at = (p_session_date + p_time_in) at time zone 'Asia/Manila',
+    ended_at = (p_session_date + p_time_out) at time zone 'Asia/Manila'
+  where attendance_session_id = p_attendance_session_id;
+end;
+$function$;
+
 -- Lock down the RPC surface: authenticated only (the guard enforces row scope).
 do $$
 declare fn text;
@@ -741,7 +989,11 @@ begin
     'public.get_sections(uuid)',
     'public.get_adviser_recent_activity(uuid)',
     'public.get_active_students_average_hours(uuid)',
-    'public.get_active_students_average_hours(uuid, text, uuid)'
+    'public.get_active_students_average_hours(uuid, text, uuid)',
+    'public.get_active_sem(uuid)',
+    'public.get_students_stats(uuid)',
+    'public.get_my_students(uuid)',
+    'public.update_attendance_session(uuid, uuid, date, time, time)'
   ] loop
     execute format('revoke execute on function %s from public;', fn);
     execute format('revoke execute on function %s from anon;', fn);
