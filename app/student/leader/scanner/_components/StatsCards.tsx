@@ -55,7 +55,7 @@ export function StatsCards({
       label: "Late",
       value: lateCount,
       color: lateColor,
-      icon: "ti-clock",
+      icon: "ti-circle-check",
     },
     {
       label: "Not Scanned",
