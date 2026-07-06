@@ -656,82 +656,6 @@ begin
 end;
 $function$;
 
--- get_active_students_average_hours — admin analytics (both overloads).
--- No repo caller today; gated to admins and removed from the anon surface.
-create or replace function public.get_active_students_average_hours(active_status_id uuid)
-returns integer
-language plpgsql stable security definer
-set search_path = public, pg_temp
-as $function$
-declare
-  total_minutes int := 0;
-  total_students int := 0;
-begin
-  if not public.app_is_admin() then
-    raise exception 'admin access required';
-  end if;
-
-  select coalesce(sum(duration_minute), 0)
-  into total_minutes
-  from public.attendance_session att
-  join public.enrollment e on att.enrollment_id = e.enrollment_id
-  where e.enrollment_status_id = active_status_id;
-
-  select count(distinct student_user_id)
-  into total_students
-  from public.enrollment
-  where enrollment_status_id = active_status_id;
-
-  if total_students = 0 then
-    return 0;
-  else
-    return round(total_minutes / 60.0 / total_students);
-  end if;
-end;
-$function$;
-
-create or replace function public.get_active_students_average_hours(
-  active_status_id uuid,
-  filter_section_name text default null,
-  filter_adviser_id uuid default null
-)
-returns integer
-language plpgsql stable security definer
-set search_path = public, pg_temp
-as $function$
-declare
-  total_minutes int := 0;
-  total_students int := 0;
-begin
-  if not public.app_is_admin() then
-    raise exception 'admin access required';
-  end if;
-
-  select coalesce(sum(att.duration_minute), 0)
-  into total_minutes
-  from public.attendance_session att
-  join public.enrollment e on att.enrollment_id = e.enrollment_id
-  join public.section s on e.section_id = s.section_id
-  where e.enrollment_status_id = active_status_id
-    and (filter_section_name is null or s.name = filter_section_name)
-    and (filter_adviser_id is null or s.adviser_user_id = filter_adviser_id);
-
-  select count(distinct e.student_user_id)
-  into total_students
-  from public.enrollment e
-  join public.section s on e.section_id = s.section_id
-  where e.enrollment_status_id = active_status_id
-    and (filter_section_name is null or s.name = filter_section_name)
-    and (filter_adviser_id is null or s.adviser_user_id = filter_adviser_id);
-
-  if total_students = 0 then
-    return 0;
-  else
-    return round(total_minutes / 60.0 / total_students);
-  end if;
-end;
-$function$;
-
 -- ------------------------------------------------------------
 -- Facilitator "My Students" / dashboard drift RPCs (Rows 108 + 109).
 --   get_active_sem, get_students_stats, get_my_students,
@@ -988,8 +912,6 @@ begin
     'public.get_adviser_dashboard_data(uuid)',
     'public.get_sections(uuid)',
     'public.get_adviser_recent_activity(uuid)',
-    'public.get_active_students_average_hours(uuid)',
-    'public.get_active_students_average_hours(uuid, text, uuid)',
     'public.get_active_sem(uuid)',
     'public.get_students_stats(uuid)',
     'public.get_my_students(uuid)',
