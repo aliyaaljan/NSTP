@@ -799,3 +799,30 @@ export async function getFacilitatorSectionId(): Promise<
     return { ok: false, error: (err as Error).message }
   }
 }
+
+// helper function to get active student enrollment id
+
+export async function getStudentActiveEnrollmentId(): Promise<
+  { ok: true; data: string } | { ok: false; error: string }
+> {
+  try {
+    const { supabase, user } = await requireAuth()
+    const service = createSupabaseServiceClient()
+    const activeStatusId = await lookupId("enrollment_status", "active")
+
+    const { data, error } = await service
+      .from("enrollment")
+      .select("enrollment_id")
+      .eq("student_user_id", user.id)
+      .eq("enrollment_status_id", activeStatusId)
+      .maybeSingle()
+
+    if (error || !data) {
+      return { ok: false, error: "No active NSTP enrollment found." }
+    }
+
+    return { ok: true, data: data.enrollment_id }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
