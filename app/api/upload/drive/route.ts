@@ -1,4 +1,3 @@
-// app/api/upload/drive/route.ts
 import { NextResponse } from "next/server"
 import { uploadToGoogleDrive } from "@/lib/google-drive"
 
@@ -19,14 +18,13 @@ export async function POST(req: Request) {
       )
     }
 
-    // Call the drive upload service layer
     const driveResponse = await uploadToGoogleDrive(file, folderId)
 
     return NextResponse.json(
       {
         success: true,
         message: "File uploaded successfully",
-        data: driveResponse, // Contains id, webViewLink, webContentLink
+        data: driveResponse,
       },
       { status: 201 }
     )
