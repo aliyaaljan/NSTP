@@ -6,22 +6,30 @@ import { adminClickableListItemProps } from "@/components/admin/admin-list-row"
 import AuditLogExportButton from "@/components/admin/AuditLogExportButton"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
+import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import {
   AUDIT_ACTION_FILTER_OPTIONS,
   AUDIT_DATE_RANGE_OPTIONS,
   AUDIT_LOG_ALL_ACTIONS,
   AUDIT_LOG_PAGE_SIZE,
   auditLogActionIcon,
+  auditLogRangeStart,
   filterAuditLogRows,
   formatAuditLogTimestamp,
   paginateAuditLogRows,
   type AdminCurrentUser,
+  type AuditLogDateRange,
   type AuditLogMeta,
   type AuditLogQuery,
   type AuditLogRow,
 } from "@/lib/admin/audit-log"
+import {
+  matchesActiveFilters,
+  type ActiveFilters,
+  type FilterGroupDef,
+} from "@/lib/admin/filter-utils"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
@@ -67,47 +75,23 @@ function ProfilePill({ user }: { user: AdminCurrentUser }) {
   )
 }
 
-function FilterDropdown({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      style={{
-        ...TYPE.bodyBold,
-        fontFamily: FONT_BODY,
-        color: "#fff",
-        background: COLORS.green,
-        borderRadius: 20,
-        padding: "5px 13px",
-        fontSize: "12.5px",
-        fontWeight: 600,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        cursor: "pointer",
-        position: "relative",
-      }}
-    >
-      <span>{label}</span>
-      <i className="ti ti-chevron-down" style={{ fontSize: 16 }} />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        style={ADMIN_FILTER_SELECT_STYLE}
-      >
-        {children}
-      </select>
-    </div>
-  )
+function initialFiltersFromQuery(query: AuditLogQuery): ActiveFilters {
+  const filters: ActiveFilters = {}
+  if (query.action !== AUDIT_LOG_ALL_ACTIONS) {
+    filters.action = [query.action]
+  }
+  if (query.dateRange !== "7d") {
+    filters.dateRange = [query.dateRange]
+  }
+  return filters
+}
+
+function entryMatchesDateRanges(entry: AuditLogRow, ranges: string[]): boolean {
+  return ranges.some((range) => {
+    const start = auditLogRangeStart(range as AuditLogDateRange)
+    if (!start) return true
+    return new Date(entry.createdAt) >= new Date(start)
+  })
 }
 
 function ActionIcon({ action }: { action: AuditLogRow["action"] }) {
@@ -432,6 +416,9 @@ export default function AuditLogClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [searchInput, setSearchInput] = useState(query.search)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
+    initialFiltersFromQuery(query)
+  )
   const [detailEntry, setDetailEntry] = useState<AuditLogRow | null>(null)
   const [animKey, setAnimKey] = useState(0)
 
@@ -443,9 +430,20 @@ export default function AuditLogClient({
     const params = new URLSearchParams(searchParams.toString())
     Object.entries(updates).forEach(([key, value]) => {
       if (!value || value === AUDIT_LOG_ALL_ACTIONS) params.delete(key)
+      else if (key === "range" && value === "7d") params.delete(key)
       else params.set(key, value)
     })
     router.push(`/admin/audit-log?${params.toString()}`)
+  }
+
+  function syncFiltersToParams(filters: ActiveFilters) {
+    const action = filters.action?.length === 1 ? filters.action[0] : null
+    const range = filters.dateRange?.length === 1 ? filters.dateRange[0] : null
+    pushParams({
+      action,
+      range: range === "7d" || !range ? null : range,
+      page: "1",
+    })
   }
 
   useEffect(() => {
@@ -459,11 +457,52 @@ export default function AuditLogClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.action, query.dateRange])
+  }, [query.page, query.search, query.action, query.dateRange, activeFilters])
 
-  const filteredEntries = useMemo(
-    () => filterAuditLogRows(entries, { ...query, search: searchInput }),
+  const filterGroups: FilterGroupDef[] = useMemo(
+    () => [
+      {
+        label: "Action",
+        field: "action",
+        options: AUDIT_ACTION_FILTER_OPTIONS.filter(
+          (opt) => opt.value !== AUDIT_LOG_ALL_ACTIONS
+        ).map((opt) => ({ value: opt.value, label: opt.label })),
+      },
+      {
+        label: "Date Range",
+        field: "dateRange",
+        options: AUDIT_DATE_RANGE_OPTIONS.map((opt) => ({
+          value: opt.value,
+          label: opt.label,
+        })),
+      },
+    ],
+    []
+  )
+
+  const searchFiltered = useMemo(
+    () =>
+      filterAuditLogRows(entries, {
+        ...query,
+        search: searchInput,
+        action: AUDIT_LOG_ALL_ACTIONS,
+        dateRange: "all",
+      }),
     [entries, query, searchInput]
+  )
+
+  const effectiveDateRanges = activeFilters.dateRange?.length
+    ? activeFilters.dateRange
+    : ["7d"]
+
+  const visibleEntries = useMemo(
+    () =>
+      searchFiltered.filter(
+        (entry) =>
+          matchesActiveFilters({ action: entry.action }, activeFilters) &&
+          entryMatchesDateRanges(entry, effectiveDateRanges)
+      ),
+    [searchFiltered, activeFilters, effectiveDateRanges]
   )
 
   const {
@@ -471,16 +510,15 @@ export default function AuditLogClient({
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateAuditLogRows(filteredEntries, query.page),
-    [filteredEntries, query.page]
+    () => paginateAuditLogRows(visibleEntries, query.page),
+    [visibleEntries, query.page]
   )
 
-  const actionLabel =
-    AUDIT_ACTION_FILTER_OPTIONS.find((o) => o.value === query.action)?.label ??
-    "All Actions"
-  const dateRangeLabel =
-    AUDIT_DATE_RANGE_OPTIONS.find((o) => o.value === query.dateRange)?.label ??
-    "Last 7 Days"
+  const exportAction =
+    activeFilters.action?.length === 1
+      ? (activeFilters.action[0] as AuditLogQuery["action"])
+      : AUDIT_LOG_ALL_ACTIONS
+  const exportDateRange = (effectiveDateRanges[0] ?? "7d") as AuditLogDateRange
 
   const showingSampleOnly = entries.every((e) => e.isSample)
 
@@ -511,106 +549,39 @@ export default function AuditLogClient({
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
-          <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "4px 0 0" }}>
-            {filteredCount} event{filteredCount === 1 ? "" : "s"}
-            {showingSampleOnly ? " (sample preview)" : ""}
-          </p>
         </div>
         <ProfilePill user={currentUser} />
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ position: "relative" }}>
-          <i
-            className="ti ti-search"
-            style={{
-              position: "absolute",
-              left: 16,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 14,
-              color: COLORS.light,
-            }}
-          />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search audit log"
-            style={{
-              width: "100%",
-              fontFamily: FONT_BODY,
-              fontSize: "13.5px",
-              color: COLORS.text,
-              border: `1.5px solid ${COLORS.border}`,
-              borderRadius: 24,
-              padding: "8px 16px 8px 40px",
-              outline: "none",
-              background: COLORS.white,
-            }}
-          />
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 12,
-          alignItems: "center",
-        }}
-      >
-        <FilterDropdown
-          label={actionLabel}
-          value={query.action}
-          onChange={(value) =>
-            pushParams({
-              action: value === AUDIT_LOG_ALL_ACTIONS ? null : value,
-              page: "1",
-            })
+      <div className="admin-table-card">
+        <AdminTableToolbar
+          title="All Events"
+          count={`${filteredCount} event${filteredCount === 1 ? "" : "s"} found${
+            showingSampleOnly ? " (sample preview)" : ""
+          }`}
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          searchPlaceholder="Search audit log"
+          filterGroups={filterGroups}
+          activeFilters={activeFilters}
+          onFiltersChange={(next) => {
+            setActiveFilters(next)
+            syncFiltersToParams(next)
+          }}
+          onClearFilters={() => {
+            setActiveFilters({})
+            pushParams({ action: null, range: null, page: "1" })
+          }}
+          actions={
+            <AuditLogExportButton
+              entries={entries}
+              search={searchInput}
+              defaultAction={exportAction}
+              defaultDateRange={exportDateRange}
+            />
           }
-        >
-          {AUDIT_ACTION_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value} style={{ color: COLORS.text }}>
-              {opt.label}
-            </option>
-          ))}
-        </FilterDropdown>
-
-        <FilterDropdown
-          label={dateRangeLabel}
-          value={query.dateRange}
-          onChange={(value) =>
-            pushParams({ range: value === "7d" ? null : value, page: "1" })
-          }
-        >
-          {AUDIT_DATE_RANGE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value} style={{ color: COLORS.text }}>
-              {opt.label}
-            </option>
-          ))}
-        </FilterDropdown>
-
-        <div style={{ flex: 1, minWidth: 12 }} />
-
-        <AuditLogExportButton
-          entries={entries}
-          search={searchInput}
-          defaultAction={query.action}
-          defaultDateRange={query.dateRange}
         />
-      </div>
 
-      <div
-        style={{
-          background: COLORS.cardBg,
-          border: `1px solid ${COLORS.border}`,
-          borderRadius: COLORS.radius,
-          boxShadow: COLORS.cardShadow,
-          overflow: "hidden",
-        }}
-      >
         <div
           className="audit-log-scroll"
           style={{ maxHeight: "calc(100vh - 320px)", overflowY: "auto" }}
