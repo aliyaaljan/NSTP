@@ -68,7 +68,7 @@ function HoursCard({
   return (
     <div style={{ 
       background: C.hoursBg, 
-      borderRadius: 14, 
+      borderRadius: 15, 
       padding: "18px 22px", 
       border: `1.5px solid ${C.hoursBorder}`,
       transition: "all 0.3s ease",
@@ -135,7 +135,7 @@ function HoursCard({
           minWidth: "60px",
           height: "clamp(18px, 2vw, 22px)", 
           background: C.track, 
-          borderRadius: 7,  //hehe if 14 po kasi itll look round lang kaya 7 nalang, medj same naman na sa container i thikn
+          borderRadius: 15,  //hehe if 14 po kasi itll look round lang kaya 7 nalang, medj same naman na sa container i thikn
           overflow: "hidden" 
         }}>
           <div style={{ 

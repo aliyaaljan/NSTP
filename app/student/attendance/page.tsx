@@ -26,7 +26,7 @@ const montserrat = Montserrat({
 
 const C = {
   maroon: "#7B1113",
-  pageBg: "#F0EFE8",
+  pageBg: "#F0F0F0",
   cardShadow: "0 3px 10px rgba(0,0,0,0.15)",
   qrBg: "#C8D6D0",
 }
@@ -636,7 +636,7 @@ export default function QRGenerationPage() {
 
         <main className="qr-main">
           <div className="qr-header">
-            <h1 className="qr-title">QR GENERATION</h1>
+            <h1 className="qr-title">Attendance</h1>
 
             <ProfilePill
               name={profile.fullName}
@@ -722,7 +722,7 @@ export default function QRGenerationPage() {
                       margin: 0,
                     }}
                   >
-                    Attendance QR
+                    ATTENDANCE QR
                   </h2>
 
                   <p
@@ -774,7 +774,7 @@ export default function QRGenerationPage() {
                       className={`qr-button qr-generate-button ${locationDenied ? "qr-disabled" : ""
                         }`}
                     >
-                      GENERATE QR
+                      Generate QR
                     </button>
                   </div>
                 ) : error ? (
