@@ -33,16 +33,6 @@ export function PageHeader({
         >
           Scan History
         </h1>
-        <p
-          style={{
-            fontSize: isMobile ? "10px" : "14px",
-            color: C.textGray,
-            margin: "4px 0 0 0",
-            fontWeight: 400,
-          }}
-        >
-          Track student attendance
-        </p>
       </div>
 
       <div style={{ flexShrink: 0 }}>
