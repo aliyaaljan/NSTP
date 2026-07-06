@@ -35,6 +35,7 @@ export async function getAdviserPendingRequests(): Promise<
           reason,
           created_at,
           appeal_status!inner (name, code),
+          appeal_attachment (storage_path, file_name, content_type, file_size_byte),
           enrollment!inner (
               student_user_id,
               section_id,
@@ -72,7 +73,7 @@ export async function getAdviserPendingRequests(): Promise<
               year: "numeric",
             })
           : "—",
-        attachment: app.attachment || [],
+        attachments: app.appeal_attachment ?? [],
       }
     })
 

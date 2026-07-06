@@ -17,6 +17,25 @@ import { createClient } from "@/lib/client"
 import {KpiStatCard, KpiStatCardGrid, ChartStyles,} from "@/components/shared/ChartModule"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
+const MAX_NUM_ATTACHMENT = 3
+
+function checkDuplicateName (filename: string, existingNames: Set<string>): string {
+  const i = filename.lastIndexOf(".")
+  const extension = i !== -1 ? filename.slice(i) : ""
+  const base = i !== -1 ? filename.slice(0, i) : filename
+
+  let final = filename
+  let count = 1
+
+  while (existingNames.has(final)) {
+    final = `${base}${count}${extension}`
+    count++
+  }
+
+  existingNames.add(final)
+  return final
+}
+
 const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
@@ -63,7 +82,7 @@ interface RequestItem {
   note: string
   date: string
   lastEdited?: string | null
-  attachment?: string | null
+  attachments?: { storage_path: string; file_name: string }[]
 }
 
 function StatusBadge({ status }: { status: RequestItem["status"] }) {
@@ -132,8 +151,8 @@ export default function RequestsPage() {
   const [editBody, setEditBody] = useState("")
   const [formTitle, setFormTitle] = useState("")
   const [formBody, setFormBody] = useState("")
-  const [formFile, setFormFile] = useState<File | null>(null)
-  const [editFile, setEditFile] = useState<string | null>(null)
+  const [formFiles, setFormFiles] = useState<File[]>([])
+  const [editFiles, setEditFiles] = useState<{ storage_path: string; file_name: string }[]>([])
   const [activeFilter, setActiveFilter] = useState("All")
 
   const [isPending, startTransition] = useTransition() // for loading states
@@ -155,7 +174,7 @@ export default function RequestsPage() {
   // fetch profile and requests on load
   const loadRequests = async (enrollmentId: string) => {
     const res = await getStudentRequests(enrollmentId)
-    if (res.ok) setRequests(res.data)
+    if (res.ok) {console.log("requests:", res.data);setRequests(res.data)}
   }
 
   const supabase = createClient()
@@ -210,6 +229,19 @@ export default function RequestsPage() {
     }).length,
   }
 
+  async function handleViewAttachment(storagePath: string) {
+    const { data, error } = await supabase.storage
+      .from("request-attachments")
+      .createSignedUrl(storagePath, 60 * 20) // valid for 20 min
+
+    if (error || !data?.signedUrl) {
+      alert("Failed to open attachment")
+      return
+    }
+
+    window.open(data.signedUrl, "_blank")
+  }
+
   function handleSubmit() {
     if (
       !formTitle.trim() ||
@@ -225,19 +257,65 @@ export default function RequestsPage() {
     const typeName = selectedTypeObj ? selectedTypeObj.name : "Others"
 
     startTransition(async () => {
+      const {data: { user },} = await supabase.auth.getUser()
+      if (!user) {
+        alert("Not authenticated")
+        return
+      }
+      
+      const { data: existingFiles, error: listError } = await supabase.storage
+        .from("request-attachments")
+        .list(user.id)
+
+      if (listError) {
+        alert(`Failed to check existing attachments: ${listError.message}`)
+        return
+      }
+
+      const existingNames = new Set(existingFiles?.map((f) => f.name) ?? [])
+
+      const uploadedAttachments: {
+        storage_path: string
+        file_name: string
+        content_type: string
+        file_size_byte: number
+      }[] = []
+
+      for (const file of formFiles) {
+        const uniqueName = checkDuplicateName(file.name, existingNames)
+        const path = `${user.id}/${uniqueName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from("request-attachments")
+          .upload(path, file)
+
+        if (uploadError) {
+          alert(`Failed to upload ${file.name}: ${uploadError.message}`)
+          return
+        }
+
+        uploadedAttachments.push({
+          storage_path: path,
+          file_name: uniqueName,
+          content_type: file.type,
+          file_size_byte: file.size,
+        })
+      }
+
       const res = await submitStudentRequest(
         profile.enrollmentId,
         formTypeId,
         typeName,
         formTitle,
-        formBody
+        formBody,
+        uploadedAttachments
       )
 
       if (res.ok) {
         await loadRequests(profile.enrollmentId)
         setFormTitle("")
         setFormBody("")
-        setFormFile(null)
+        setFormFiles([])
         setShowModal(false)
         alert("Request submitted successfully!")
       } else {
@@ -642,7 +720,7 @@ export default function RequestsPage() {
                       setSelectedRequest(request)
                       setEditTitle(request.title)
                       setEditBody(request.body)
-                      setEditFile(request.attachment ?? null)
+                      setEditFiles(request.attachments ?? [])
 
                       // Find the UUID that matches string name
                       const matchingType = requestType.find(
@@ -947,26 +1025,45 @@ export default function RequestsPage() {
                   <input
                     type="file"
                     hidden
+                    multiple
                     onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setFormFile(e.target.files[0])
+                      if (e.target.files) {
+                        const files = Array.from(e.target.files)
+                        if (formFiles.length + files.length > 3) {
+                          alert("You can attach at most 3 files.")
+                          return
+                        }
+                        setFormFiles((prev) => [...prev, ...files])
                       }
                     }}
                   />
                 </label>
 
-                {formFile && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      padding: "8px 12px",
-                      borderRadius: 10,
-                      background: "#F6F5EF",
-                      fontSize: 12,
-                      color: C.textDark,
-                    }}
-                  >
-                    {formFile.name}
+                {formFiles.length > 0 && (
+                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                    {formFiles.map((f, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 12px",
+                          borderRadius: 10,
+                          background: "#F6F5EF",
+                          fontSize: 12,
+                          color: C.textDark,
+                        }}
+                      >
+                        <span>{f.name}</span>
+                        <button
+                          onClick={() => setFormFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: C.textMuted }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -979,7 +1076,7 @@ export default function RequestsPage() {
                     setShowModal(false)
                     setFormTitle("")
                     setFormBody("")
-                    setFormFile(null)
+                    setFormFiles([])
                     if (requestType.length > 0) {
                     setFormTypeId(requestType[0].appeal_type_id)
                     }
@@ -1214,30 +1311,27 @@ export default function RequestsPage() {
               {editBody.length}/500
             </div>
 
-            {editFile && (
-              <div
-                style={{
-                  marginTop: 15,
-                  marginBottom: 16,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  background: "#F6F5EF",
-                  fontSize: 12,
-                  color: C.textDark,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <i
-                  className="ti ti-paperclip"
-                  style={{
-                    fontSize: 16,
-                    color: C.green,
-                  }}
-                />
-
-                {editFile}
+            {editFiles.length > 0 && (
+              <div style={{ marginTop: 15, marginBottom: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                {editFiles.map((att, i) => (
+                  <div
+                    key={i}
+                    onClick={() => handleViewAttachment(att.storage_path)}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      background: "#F6F5EF",
+                      fontSize: 12,
+                      color: C.textDark,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <i className="ti ti-paperclip" style={{ fontSize: 16, color: C.green }} />
+                    {att.file_name}
+                  </div>
+                ))}
               </div>
             )}
 

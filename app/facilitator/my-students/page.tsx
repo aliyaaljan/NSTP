@@ -14,6 +14,8 @@ import {
   IconPencil,
   IconDownload
 } from "@tabler/icons-react"
+import { FaRegQuestionCircle } from "react-icons/fa";
+
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
@@ -76,7 +78,7 @@ interface PendingRequest {
   note: string
   status: string
   statusCode: string
-  attachment: Attachment[]
+  attachments: Attachment[]
 }
 
 const statusConfig: Record<
@@ -258,9 +260,9 @@ const myStudentsStyles = `
     margin-top: 4px;
   }
   .ms-req-modal-attachment {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 13px; color: var(--maroon); font-weight: 600;
-    background: #FEF2F2; border-radius: 10px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 14px;
+    font-size: 13px; color: var(--text); font-weight: 600;
+    background: #F9FAFB; border-radius: 10px; padding: 10px 14px;
     margin-top: 4px; cursor: pointer;
   }
 
@@ -272,7 +274,7 @@ const myStudentsStyles = `
   }
   .ms-modal {
     background: var(--white); border-radius: 20px;
-    width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;
+    width: 550px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;
   }
   .ms-modal-wide { width: 900px; }
   .ms-modal-flex { display: flex; }
@@ -661,13 +663,6 @@ function MyStudentsContent() {
   const currentData = statData.find((r) => r.section_name === selectedSection)
   if (!currentData) return null
 
-  function getPublicUrl(path: string) {
-    const { data } = supabase.storage
-      .from("request attachments")
-      .getPublicUrl(path)
-    return data.publicUrl
-  }
-
   function buildStatCards() {
     return [
       {
@@ -772,6 +767,20 @@ function MyStudentsContent() {
     setPendingSearch("")
     setPendingActiveFilters({})
     router.replace(`${navRoutes["My Students"]}`)
+  }
+
+  async function handleViewAttachment(storagePath: string) {
+    const { data, error } = await supabase.storage
+      .from("request-attachments")
+      .createSignedUrl(storagePath, 60 * 20) // 20 min
+
+    if (error || !data?.signedUrl) {
+      console.error("Signed URL error:", error)
+      alert("Failed to open attachment")
+      return
+    }
+
+    window.open(data.signedUrl, "_blank")
   }
 
   async function handleRoleChange() {
@@ -1015,7 +1024,7 @@ function MyStudentsContent() {
                 onClick={() => setActiveTab("list")}
               >
                 <IconUsers size={16} stroke={1.75} />
-                List of Students
+                Student List
               </button>
               <button
                 className={`page-tab${
@@ -1023,8 +1032,8 @@ function MyStudentsContent() {
                 }`}
                 onClick={() => setActiveTab("pending")}
               >
-                <IconAlertCircle size={16} stroke={1.75} />
-                Pending Requests
+                <FaRegQuestionCircle  size={16}/>
+                Request List
               </button>
             </div>
 
@@ -1330,7 +1339,7 @@ function MyStudentsContent() {
                 <div className="adv-table-card">
                   <div className="adv-table-toolbar">
                     <div>
-                      <div className="adv-table-title">Request History</div>
+                      <div className="adv-table-title">All Requests</div>
                       <div className="adv-table-count">
                         {filteredPending.length} request
                         {filteredPending.length !== 1 ? "s" : ""} found
@@ -1552,11 +1561,11 @@ function MyStudentsContent() {
                               </div>
 
                               <div className="ms-attachment-tag">
-                                {r.attachment?.length > 0 ? (
+                                {r.attachments?.length > 0 ? (
                                   <>
                                     <IconPaperclip size={13} stroke={1.75} />
-                                    {r.attachment.length} file
-                                    {r.attachment.length !== 1 ? "s" : ""}
+                                    {r.attachments.length} file
+                                    {r.attachments.length !== 1 ? "s" : ""}
                                   </>
                                 ) : (
                                   <span style={{ opacity: 0.35 }}>—</span>
@@ -1869,6 +1878,24 @@ function MyStudentsContent() {
                     {selectedRequest.note}
                   </div>
                 </div>
+                {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
+                  <div className="ms-req-modal-section">
+                    <div className="ms-modal-label">
+                      Attachment
+                      {selectedRequest.attachments.length > 1 ? "s" : ""}
+                    </div>
+                    {selectedRequest.attachments.map((a, i) => (
+                      <button
+                        key={a.storage_path || i}
+                        onClick={() => handleViewAttachment(a.storage_path)}
+                        className="ms-req-modal-attachment"
+                      >
+                        <IconPaperclip size={16} stroke={1.75} />
+                        {a.file_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* RESOLUTION ACTIONS */}
                 <div
@@ -1975,31 +2002,6 @@ function MyStudentsContent() {
                     Approve Request
                   </button>
                 </div>
-                {selectedRequest.attachment &&
-                  selectedRequest.attachment.length > 0 && (
-                    <div className="ms-req-modal-section">
-                      <div className="ms-modal-label">
-                        Attachment
-                        {selectedRequest.attachment.length > 1 ? "s" : ""}
-                      </div>
-                      {selectedRequest.attachment.map((a, i) => (
-                        <a
-                          key={a.storage_path || i}
-                          href={getPublicUrl(a.storage_path)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ms-req-modal-attachment"
-                          style={{
-                            display: "inline-flex",
-                            textDecoration: "none",
-                          }}
-                        >
-                          <IconPaperclip size={16} stroke={1.75} />
-                          {a.file_name}
-                        </a>
-                      ))}
-                    </div>
-                  )}
               </div>
             </div>
           </div>
