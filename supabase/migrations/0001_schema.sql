@@ -84,6 +84,18 @@ create table student_classification (
   name text not null
 );
 
+create table enlistment_status (
+  enlistment_status_id uuid primary key default gen_random_uuid(),
+  code text not null unique,          -- 'ENLISTED' | 'NOT_ENLISTED' | 'CROSS_ENROLLEE'
+  name text not null
+);
+
+create table appeal_type (
+  appeal_type_id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  name text not null
+);
+
 -- ============================================================
 -- Identity & organization
 -- ============================================================
@@ -142,11 +154,9 @@ create table enrollment (
   student_user_id      uuid not null references app_user(app_user_id),
   enrollment_status_id uuid not null references enrollment_status(enrollment_status_id),
   is_student_leader    boolean not null default false,
-  program              text,
-  classification       text,
-  enlistment_status    text,
   program_id                uuid references program(program_id),
   student_classification_id uuid references student_classification(student_classification_id),
+  enlistment_status_id      uuid references enlistment_status(enlistment_status_id),
   assigned_geofence_id      uuid references section_geofence(section_geofence_id),
   joined_at            timestamptz not null default now(),
   created_at           timestamptz not null default now(),
@@ -247,12 +257,17 @@ create table appeal (
   requester_user_id        uuid not null references app_user(app_user_id),
   assigned_adviser_user_id uuid references app_user(app_user_id),
   appeal_status_id         uuid not null references appeal_status(appeal_status_id),
+  appeal_type_id           uuid references appeal_type(appeal_type_id),
   requested_time_in        timestamptz,
   requested_time_out       timestamptz,
   reason                   text not null,
   resolution_note          text,
   resolved_by_user_id      uuid references app_user(app_user_id),
   resolved_at              timestamptz,
+  storage_path             text,     -- optional supporting-document attachment
+  file_name                text,
+  content_type             text,
+  file_size_byte           bigint,
   created_at               timestamptz not null default now(),
   updated_at               timestamptz not null default now()
 );
@@ -314,6 +329,29 @@ create table role_change (
 );
 
 -- ============================================================
+-- Admin settings — academic-calendar holidays + app-wide config.
+-- Back the Admin Settings page (holiday CRUD + default NSTP hours).
+-- ============================================================
+create table holiday (
+  holiday_id   uuid primary key default gen_random_uuid(),
+  term_id      uuid not null references term(term_id) on delete cascade,
+  name         text not null,
+  holiday_date date not null,
+  description  text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  unique (term_id, holiday_date)      -- one holiday entry per date per term
+);
+
+-- Key-value store for app-wide settings (e.g. 'default_nstp_hours').
+-- Values are jsonb so a setting can hold a scalar or a structured value.
+create table system_settings (
+  setting_key   text primary key,
+  setting_value jsonb not null,
+  updated_at    timestamptz not null default now()
+);
+
+-- ============================================================
 -- Indexes on FKs / hot paths
 -- ============================================================
 create index app_user_role_idx                on app_user(role_id);
@@ -329,6 +367,7 @@ create index appeal_enrollment_idx            on appeal(enrollment_id);
 create index appeal_session_idx               on appeal(attendance_session_id);
 create index appeal_message_appeal_idx        on appeal_message(appeal_id);
 create index form_section_idx                 on form(section_id);
+create index holiday_term_idx                  on holiday(term_id);
 create index login_session_user_idx           on login_session(app_user_id);
 
 -- Covering indexes for unindexed FK columns (perf advisor lint 0001).
@@ -370,6 +409,10 @@ create trigger set_attendance_session_updated_at before update on attendance_ses
 create trigger set_appeal_updated_at            before update on appeal
   for each row execute procedure moddatetime(updated_at);
 create trigger set_form_updated_at              before update on form
+  for each row execute procedure moddatetime(updated_at);
+create trigger set_holiday_updated_at           before update on holiday
+  for each row execute procedure moddatetime(updated_at);
+create trigger set_system_settings_updated_at   before update on system_settings
   for each row execute procedure moddatetime(updated_at);
 
 -- ============================================================
@@ -490,6 +533,25 @@ insert into program (code, name, college_id) values
   ('BASS',  'BA Social Science',          (select college_id from college where code = 'CSS')),
   ('BSME',  'BS Management Economics',    (select college_id from college where code = 'CSS'))
 on conflict (code) do nothing;
+
+insert into enlistment_status (code, name) values
+  ('ENLISTED',       'Officially Enlisted'),
+  ('NOT_ENLISTED',   'Not Officially Enlisted'),
+  ('CROSS_ENROLLEE', 'Cross-enrollee')
+on conflict (code) do nothing;
+
+insert into appeal_type (code, name) values
+  ('excused absence',     'Excused Absence'),
+  ('form submission',     'Form Submission'),
+  ('hour adjustment',     'Hour Adjustment'),
+  ('leader role transfer','Leader Role Transfer'),
+  ('others',              'Others')
+on conflict (code) do nothing;
+
+-- Default NSTP required hours (Admin Settings → academic config).
+insert into system_settings (setting_key, setting_value) values
+  ('default_nstp_hours', '60'::jsonb)
+on conflict (setting_key) do nothing;
 
 -- ============================================================
 -- Audit log — append-only "who changed what" trail.

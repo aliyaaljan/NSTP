@@ -95,6 +95,11 @@ alter table attendance_event_source   enable row level security;
 alter table attendance_session_status enable row level security;
 alter table appeal_status             enable row level security;
 alter table section_status            enable row level security;
+alter table college                   enable row level security;
+alter table program                   enable row level security;
+alter table student_classification    enable row level security;
+alter table appeal_type               enable row level security;
+alter table enlistment_status         enable row level security;
 
 create policy lookup_read on role                      for select to authenticated using (true);
 create policy lookup_read on enrollment_status         for select to authenticated using (true);
@@ -103,6 +108,11 @@ create policy lookup_read on attendance_event_source   for select to authenticat
 create policy lookup_read on attendance_session_status for select to authenticated using (true);
 create policy lookup_read on appeal_status             for select to authenticated using (true);
 create policy lookup_read on section_status            for select to authenticated using (true);
+create policy lookup_read on college                   for select to authenticated using (true);
+create policy lookup_read on program                   for select to authenticated using (true);
+create policy lookup_read on student_classification    for select to authenticated using (true);
+create policy lookup_read on appeal_type               for select to authenticated using (true);
+create policy lookup_read on enlistment_status         for select to authenticated using (true);
 
 -- ============================================================
 -- Identity & organization
@@ -113,6 +123,14 @@ create policy app_user_read on app_user for select to authenticated
 
 alter table term enable row level security;
 create policy term_read on term for select to authenticated using (true);
+
+-- Admin settings — readable by any authenticated user; writes go through the
+-- service role (admin-guarded server actions), consistent with the model above.
+alter table holiday enable row level security;
+create policy holiday_read on holiday for select to authenticated using (true);
+
+alter table system_settings enable row level security;
+create policy system_settings_read on system_settings for select to authenticated using (true);
 
 alter table section enable row level security;
 create policy section_read on section for select to authenticated

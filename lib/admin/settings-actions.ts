@@ -3,7 +3,6 @@
 import { getAppUserRole } from "@/lib/auth-actions"
 import {
   SEMESTER_LABELS,
-  buildSampleHolidays,
   formatSchoolYearOption,
   mapTermToAcademicConfig,
   type AdminCurrentUser,
@@ -15,34 +14,44 @@ import {
 import {
   validateAcademicConfigPayload,
   validateHolidayCreatePayload,
-  validateHolidayDelete,
   type AcademicConfigPayload,
   type HolidayCreatePayload,
   type SettingsMutationResult,
 } from "@/lib/admin/settings-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+
+const DEFAULT_NSTP_HOURS = 60
+const DEFAULT_NSTP_HOURS_KEY = "default_nstp_hours"
+
+/** Coerce a `system_settings.setting_value` jsonb into a positive hour count. */
+function coerceNstpHours(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : DEFAULT_NSTP_HOURS
+}
 
 /**
- * Fetches everything the admin settings page needs.
- *
- * Backend checklist:
- * 1. Keep returning `SettingsPageData` — no UI changes required.
- * 2. Wire `holiday` table when migration is added (see settings.ts contract).
- * 3. Persist `requiredNstpHours` in `system_settings` when available.
- * 4. Remove sample fallbacks once production data exists.
+ * Fetches everything the admin settings page needs, all from real tables:
+ * academic config + school-year options from `term`, holidays from `holiday`
+ * (active term), and the default NSTP hours from `system_settings`.
  *
  * GPS sites are managed on the Site List page (`lib/admin/site-list-actions.ts`).
  */
 export async function getSettingsData(): Promise<SettingsPageData> {
   const supabase = await createSupabaseServerClient()
 
-  const [termsRes, { data: authData }] = await Promise.all([
+  const [termsRes, { data: authData }, settingsRes] = await Promise.all([
     supabase
       .from("term")
       .select("term_id, name, school_year, semester, start_date, end_date, is_active")
       .order("school_year", { ascending: false })
       .order("semester", { ascending: true }),
     supabase.auth.getUser(),
+    supabase
+      .from("system_settings")
+      .select("setting_value")
+      .eq("setting_key", DEFAULT_NSTP_HOURS_KEY)
+      .maybeSingle(),
   ])
 
   if (termsRes.error) {
@@ -54,19 +63,22 @@ export async function getSettingsData(): Promise<SettingsPageData> {
 
   const schoolYearOptions = terms.map(formatSchoolYearOption)
 
+  const requiredNstpHours = coerceNstpHours(settingsRes.data?.setting_value)
+
   const academic = activeTerm
-    ? mapTermToAcademicConfig(activeTerm, 60)
+    ? mapTermToAcademicConfig(activeTerm, requiredNstpHours)
     : {
         termId: "",
         schoolYear: "2025-2026",
         semester: "first" as const,
         schoolYearStartDate: "2025-08-11",
         schoolYearEndDate: "2025-12-19",
-        requiredNstpHours: 60,
+        requiredNstpHours,
       }
 
-  // TODO(backend): SELECT from `holiday` WHERE term_id = activeTerm.term_id ORDER BY holiday_date
-  const holidays: HolidayRow[] = buildSampleHolidays(academic.termId || "sample-term")
+  const holidays: HolidayRow[] = activeTerm
+    ? await fetchHolidays(supabase, activeTerm.term_id)
+    : []
 
   const semesterLabel = SEMESTER_LABELS[academic.semester] ?? academic.semester
 
@@ -100,9 +112,11 @@ export async function updateAcademicConfig(
   const validationError = validateAcademicConfigPayload(payload)
   if (validationError) return { ok: false, error: validationError }
 
-  const supabase = await createSupabaseServerClient()
+  // Writes bypass RLS via the service role (the `term` / `system_settings`
+  // tables expose no write policy — only the admin-guarded server action here).
+  const service = createSupabaseServiceClient()
 
-  const { error: deactivateError } = await supabase
+  const { error: deactivateError } = await service
     .from("term")
     .update({ is_active: false })
     .neq("term_id", payload.termId)
@@ -112,7 +126,7 @@ export async function updateAcademicConfig(
     return { ok: false, error: "Failed to update active term." }
   }
 
-  const { error } = await supabase
+  const { error } = await service
     .from("term")
     .update({
       school_year: payload.schoolYear.trim(),
@@ -129,7 +143,17 @@ export async function updateAcademicConfig(
     return { ok: false, error: "Failed to save academic configuration." }
   }
 
-  // TODO(backend): upsert system_settings key 'default_nstp_hours' = payload.requiredNstpHours
+  const { error: settingsError } = await service
+    .from("system_settings")
+    .upsert(
+      { setting_key: DEFAULT_NSTP_HOURS_KEY, setting_value: payload.requiredNstpHours },
+      { onConflict: "setting_key" }
+    )
+
+  if (settingsError) {
+    console.error("[updateAcademicConfig] system_settings upsert failed", settingsError)
+    return { ok: false, error: "Failed to save required NSTP hours." }
+  }
 
   return { ok: true }
 }
@@ -143,34 +167,63 @@ export async function createHoliday(
   const validationError = validateHolidayCreatePayload(payload)
   if (validationError) return { ok: false, error: validationError }
 
-  // TODO(backend): INSERT INTO holiday (term_id, name, holiday_date, description)
-  console.info("[createHoliday] pending holiday table — payload:", payload)
+  const service = createSupabaseServiceClient()
+  const { error } = await service.from("holiday").insert({
+    term_id: payload.termId,
+    name: payload.name.trim(),
+    holiday_date: payload.date,
+    description: payload.description?.trim() || null,
+  })
 
-  return {
-    ok: false,
-    error:
-      "Holiday table not connected yet. Add the `holiday` migration, then implement INSERT in settings-actions.ts.",
+  if (error) {
+    console.error("[createHoliday] insert failed", error)
+    // unique (term_id, holiday_date) — one holiday entry per date per term
+    if (error.code === "23505") {
+      return { ok: false, error: "A holiday already exists on that date." }
+    }
+    return { ok: false, error: "Failed to create holiday." }
   }
+
+  return { ok: true }
 }
 
 export async function deleteHoliday(holidayId: string): Promise<SettingsMutationResult> {
   const role = await getAppUserRole()
   if (role !== "admin") return { ok: false, error: "Unauthorized." }
 
-  if (holidayId.startsWith("sample-")) {
-    return {
-      ok: false,
-      error: "Sample holidays cannot be deleted until the holiday table is connected.",
-    }
+  const service = createSupabaseServiceClient()
+  const { error } = await service.from("holiday").delete().eq("holiday_id", holidayId)
+
+  if (error) {
+    console.error("[deleteHoliday] delete failed", error)
+    return { ok: false, error: "Failed to delete holiday." }
   }
 
-  // TODO(backend): DELETE FROM holiday WHERE holiday_id = holidayId
-  console.info("[deleteHoliday] pending holiday table — id:", holidayId)
+  return { ok: true }
+}
 
-  return {
-    ok: false,
-    error: "Holiday table not connected yet. Implement DELETE in settings-actions.ts.",
+async function fetchHolidays(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  termId: string
+): Promise<HolidayRow[]> {
+  const { data, error } = await supabase
+    .from("holiday")
+    .select("holiday_id, term_id, name, holiday_date, description")
+    .eq("term_id", termId)
+    .order("holiday_date", { ascending: true })
+
+  if (error) {
+    console.error("[getSettingsData] holiday query failed", error)
+    return []
   }
+
+  return (data ?? []).map((row) => ({
+    holidayId: row.holiday_id,
+    termId: row.term_id,
+    name: row.name,
+    date: row.holiday_date,
+    description: row.description,
+  }))
 }
 
 async function resolveCurrentUser(
