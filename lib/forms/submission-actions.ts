@@ -83,7 +83,6 @@ export async function submitForm(
     const { supabase, user } = await requireAuth()
     const service = createSupabaseServiceClient()
 
-    // §4a: verify the caller owns this enrollment
     const { data: enrollment } = await service
       .from("enrollment")
       .select(
@@ -103,7 +102,6 @@ export async function submitForm(
       return { ok: false, error: "This enrollment is not active" }
     }
 
-    // §4b: verify the requirement applies to this section (resolution rule)
     const { data: requirement } = await service
       .from("form_requirement")
       .select("form_requirement_id, section_id, is_active")
@@ -116,7 +114,6 @@ export async function submitForm(
     }
 
     if (requirement.section_id === null) {
-      // Global default — check not excluded for this section
       const { data: exclusion } = await service
         .from("form_requirement_exclusion")
         .select("form_requirement_exclusion_id")
@@ -181,13 +178,11 @@ export async function submitForm(
       .single()
 
     if (dbError) {
-      // Rollback: delete the just-uploaded file
       await deleteFormFile(upload.storagePath)
       console.error("[submitForm] upsert failed", dbError)
       return { ok: false, error: "Failed to save submission" }
     }
 
-    // Best-effort: delete old file after successful DB write
     if (oldStoragePath && oldStoragePath !== upload.storagePath) {
       await deleteFormFile(oldStoragePath)
     }
@@ -777,26 +772,29 @@ export async function getFacilitatorSectionId(): Promise<
     const { supabase, user } = await requireAuth()
     const service = createSupabaseServiceClient()
 
-    const { data: section, error } = await service
+    //  Get the active status UUID using your existing lookup helper
+    const activeStatusId = await lookupId("section_status", "active")
+
+    //  Fetch all active sections for this adviser
+    const { data: sections, error } = await service
       .from("section")
       .select("section_id")
       .eq("adviser_user_id", user.id)
-      .eq("is_active", true)
-      .maybeSingle()
+      .eq("section_status_id", activeStatusId)
 
     if (error) {
       console.error("[getFacilitatorSectionId] DB Error:", error)
       return { ok: false, error: "Database error fetching assigned section." }
     }
 
-    if (!section) {
+    if (!sections || sections.length === 0) {
       return {
         ok: false,
         error: "No active section found assigned to your account.",
       }
     }
 
-    return { ok: true, data: section.section_id }
+    return { ok: true, data: sections[0].section_id }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
