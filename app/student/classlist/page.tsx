@@ -226,7 +226,7 @@ const pages = []
 
         .class-title {
           margin:0;
-          font-size:45px;
+          font-size:34px;
           font-weight:800;
           color:${C.maroon};
           letter-spacing:-1px;

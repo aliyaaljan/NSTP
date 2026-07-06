@@ -5,6 +5,12 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOutWithAudit } from "@/lib/auth-actions"
+import { Goblin_One } from "next/font/google"
+
+const goblin = Goblin_One({
+  subsets: ["latin"],
+  weight: "400",
+})
 
 const C = {
   green: "#14492E",
@@ -301,11 +307,12 @@ export default function StudentSidebar() {
           </div>
 
           <div className="nstp-expand" style={{ marginLeft: 6 }}>
-            <div
+            <div className={goblin.className}
+
               style={{
                 color: "#fff",
                 fontSize: 30,
-                fontWeight: 800,
+                fontWeight: 100,
                 letterSpacing: 1,
                 lineHeight: 1,
               }}
@@ -313,9 +320,10 @@ export default function StudentSidebar() {
               NSTP
             </div>
 
-            <div
+            <div className={goblin.className}
               style={{
-                fontSize: 9,
+                fontSize:6,
+                fontWeight: 10,
                 color: "rgba(255,255,255,0.65)",
                 lineHeight: 1.4,
               }}
@@ -343,7 +351,31 @@ export default function StudentSidebar() {
           padding: "6px 14px",
         }}
       >
-          <div className="nstp-menu">
+          <div className="nstp-menu" style={{ position: "relative" }}>
+
+          <div
+          style={{
+            margin: "4px 12px 2px",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.45)",
+              letterSpacing: 1.5,
+              textTransform: "uppercase",
+
+              opacity: expanded ? 1 : 0, 
+              transition: "opacity 0.15s ease",
+              whiteSpace: "nowrap",
+            }}
+          >
+            MAIN
+          </span>
+        </div>
 
             {NAV_ITEMS.map((item) => {
               const active =
@@ -367,7 +399,7 @@ export default function StudentSidebar() {
                     display: "flex",
                     alignItems: "center",
                     height: 46,
-                    borderRadius: 14,
+                    borderRadius: 50,
                     textDecoration: "none",
                     overflow: "hidden",
                     pointerEvents: isMobile || expanded ? "auto" : "none",
@@ -394,7 +426,7 @@ export default function StudentSidebar() {
                   <span
                     className="nstp-expand"
                     style={{
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: active ? 700 : 500,
                       color: active ? C.activeText : C.idleText,
                     }}
