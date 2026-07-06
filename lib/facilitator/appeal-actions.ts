@@ -63,8 +63,8 @@ export async function getAdviserPendingRequests(): Promise<
         appeal_type_name: type || "Others",
         title: title || "Request",
         note: body || "",
-        status: app.appeal_status?.name || "Open",
-        statusCode: app.appeal_status?.code || "open",
+        status: app.appeal_status?.name || "Pending Review",
+        statusCode: app.appeal_status?.code || "pending",
         date: app.created_at
           ? new Date(app.created_at).toLocaleDateString("en-US", {
               month: "short",
@@ -127,7 +127,7 @@ export async function resolveStudentRequest(
     revalidatePath("/facilitator/my-students")
     return {
       ok: true,
-      data: { appealId, status: decision === "approved" ? "Approved" : "Reje" },
+      data: { appealId, status: decision === "approved" ? "Approved" : "Rejected" },
     }
   } catch (err: any) {
     return { ok: false, error: err.message }
@@ -143,7 +143,7 @@ export async function transitionToUnderReview(
   try {
     const supabase = await createSupabaseServerClient()
 
-    const openStatusId = await lookupId("appeal_status", "open")
+    const openStatusId = await lookupId("appeal_status", "pending")
     const reviewStatusId = await lookupId("appeal_status", "under_review")
 
     const { data: appeal, error: fetchError } = await supabase

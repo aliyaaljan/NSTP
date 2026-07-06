@@ -49,7 +49,7 @@ create table attendance_session_status (
 
 create table appeal_status (
   appeal_status_id uuid primary key default gen_random_uuid(),
-  code text not null unique,          -- 'open'|'under_review'|'approved'|'rejected'|'withdrawn'
+  code text not null unique,          -- 'pending'|'under_review'|'approved'|'rejected'|'withdrawn'
   name text not null
 );
 
@@ -379,7 +379,7 @@ insert into attendance_session_status (code, name) values
 on conflict (code) do nothing;
 
 insert into appeal_status (code, name) values
-  ('open',         'Open'),
+  ('pending',      'Pending'),
   ('under_review', 'Under Review'),
   ('approved',     'Approved'),
   ('rejected',     'Rejected'),

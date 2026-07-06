@@ -55,7 +55,7 @@ const C = {
 interface RequestItem {
   id: string
   title: string
-  status: "Approved" | "Under Review" | "Declined" | "Rejected"
+  status:"Pending Review" | "Under Review" |  "Approved" | "Declined" | "Rejected"
   type: string
   body: string
   note: string
@@ -69,6 +69,11 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
     Approved: {
       ...C.approved,
       icon: "ti-circle-check",
+    },
+
+    "Pending Review": { 
+      ...C.review, 
+      icon: "ti-hourglass" 
     },
 
     "Under Review": {
@@ -125,12 +130,13 @@ function StatCard({
 }: {
   label: string
   count: number
-  status: "Approved" | "Under Review" | "Declined"
+  status:  "Pending Review" | "Approved" | "Under Review" | "Declined"
   active: boolean
   onClick: () => void
 }) {
   const map = {
     Approved: C.approved,
+    "Pending Review": C.review,
     "Under Review": C.review,
     Declined: C.declined,
   }
@@ -138,6 +144,7 @@ function StatCard({
   const s = map[status]
   const icons = {
     Approved: "ti-circle-check",
+    "Pending Review": "ti-hourglass",
     "Under Review": "ti-clock",
     Declined: "ti-circle-x",
   }
@@ -286,6 +293,7 @@ export default function RequestsPage() {
 
   const counts = {
     Approved: requests.filter((r) => r.status === "Approved").length,
+    "Pending Review": requests.filter((r) => r.status === "Pending Review").length,
     "Under Review": requests.filter((r) => r.status === "Under Review").length,
     Declined: requests.filter(
       (r) => r.status === "Declined" || r.status === "Rejected"
@@ -357,7 +365,7 @@ export default function RequestsPage() {
         await loadRequests(profile.enrollmentId)
         setSelectedRequest(null)
       } else {
-        alert("Failed to update request or it is no longer 'Under Review'.")
+        alert("Failed to update request or it is no longer 'Pending Review'.")
       }
     })
   }
@@ -592,14 +600,12 @@ export default function RequestsPage() {
 
           <div className="stats">
             <StatCard
-              label="Approved"
-              count={counts.Approved}
-              status="Approved"
-              active={activeFilter === "Approved"}
+              label="Pending Review"
+              count={counts["Pending Review"]}
+              status="Pending Review"
+              active={activeFilter === "Pending Review"}
               onClick={() =>
-                setActiveFilter(
-                  activeFilter === "Approved" ? "All" : "Approved"
-                )
+                setActiveFilter(activeFilter === "Pending Review" ? "All" : "Pending Review")
               }
             />
 
@@ -611,6 +617,18 @@ export default function RequestsPage() {
               onClick={() =>
                 setActiveFilter(
                   activeFilter === "Under Review" ? "All" : "Under Review"
+                )
+              }
+            />
+
+            <StatCard
+              label="Approved"
+              count={counts.Approved}
+              status="Approved"
+              active={activeFilter === "Approved"}
+              onClick={() =>
+                setActiveFilter(
+                  activeFilter === "Approved" ? "All" : "Approved"
                 )
               }
             />
@@ -1100,7 +1118,7 @@ export default function RequestsPage() {
 
             <textarea
               value={editBody}
-              disabled={selectedRequest.status !== "Under Review"}
+              disabled={selectedRequest.status !== "Pending Review"}
               onChange={(e) => setEditBody(e.target.value)}
               rows={5}
               maxLength={500}
@@ -1198,7 +1216,7 @@ export default function RequestsPage() {
                 Cancel
               </button>
 
-              {selectedRequest.status === "Under Review" && (
+              {selectedRequest.status === "Pending Review" && (
                 <button
                   onClick={handleEditSave}
                   disabled={isPending || !hasChanges()}

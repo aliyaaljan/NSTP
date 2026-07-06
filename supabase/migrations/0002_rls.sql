@@ -159,7 +159,7 @@ create policy appeal_insert_self on appeal for insert to authenticated
     and resolved_by_user_id is null
     and resolved_at is null
     and resolution_note is null
-    and appeal_status_id = (select appeal_status_id from public.appeal_status where code = 'open')
+    and appeal_status_id = (select appeal_status_id from public.appeal_status where code = 'pending')
     and (
       attendance_session_id is null
       or exists (

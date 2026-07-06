@@ -12,6 +12,7 @@ import {
   IconX,
   IconPaperclip,
   IconPencil,
+  IconDownload
 } from "@tabler/icons-react"
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
@@ -24,6 +25,7 @@ import {
   resolveStudentRequest,
   transitionToUnderReview,
 } from "@/lib/facilitator/appeal-actions"
+import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 
 // ── Data ──────────────────────────────────────────────────────────────
 type Status = "Completed" | "In Progress" | "Not Started"
@@ -42,6 +44,7 @@ interface Student {
   section_name: string
   student_name: string
   student_number: string
+  sais_id: number
   site_location: string
   program: string
   classification: string
@@ -95,6 +98,12 @@ function formatDate(inputDate: string): string {
   return outputDate
 }
 
+function formatDateReadable(inputDate: string): string {
+  const parsedDate = parse(inputDate, "yyyy-MM-dd", new Date())
+  const outputDate = format(parsedDate, "MMM dd, yyyy")
+  return outputDate
+}
+
 function to24HourFormat(time12: string): string {
   const match = time12.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
   if (!match) return ""
@@ -117,6 +126,51 @@ function to12HourFormat(time24: string): string {
   else if (hour > 12) hour -= 12
 
   return `${hour}:${minuteStr} ${period}`
+}
+
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  const gap = 2
+  const shown = new Set<number>()
+
+  shown.add(1)
+  shown.add(total)
+  let start = current - gap
+  let end = current + gap
+
+  if (start < 1) {
+    end += 1 - start
+    start = 1
+  }
+  
+  if (end > total) {
+    start -= end - total
+    end = total
+  }
+
+  for (let i = Math.max(1, start); i <= Math.min(total, end); i++) {
+    shown.add(i)
+  }
+
+  const sorted = Array.from(shown).sort((a, b) => a - b)
+  const result: (number | "...")[] = []
+
+  
+  for (let i = 0; i < sorted.length; i++) {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1)
+    }
+    if (i > 0) {
+      const gap = sorted[i] - sorted[i - 1]
+      if (gap === 2) {
+        result.push(sorted[i - 1] + 1) 
+      } else if (gap > 2) {
+        result.push("...")
+      }
+    }
+    result.push(sorted[i])
+  }
+
+  return result
 }
 
 type Tab = "list" | "pending"
@@ -224,7 +278,7 @@ const myStudentsStyles = `
   .ms-session-table th:nth-child(5) { width: 17%; }
   .ms-session-table { width: 100%; border-collapse: collapse; }
   .ms-session-table thead { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid var(--border);}
-  .ms-session-table th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border);}
+  .ms-session-table th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid var(--border);}
   .ms-session-table td { font-size: 12px; color: var(--text); padding: 8px; border-bottom: 1px solid #F3F4F6; }
   .ms-session-table tbody tr:last-child td { border-bottom: none; }
   .ms-session-action-btn {
@@ -285,6 +339,7 @@ const myStudentsStyles = `
   .ms-edit-input:focus { border-color: var(--maroon); }
 
   .ms-edit-cancel-btn {
+    flex: 1;
     padding: 8px 16px;
     border: 1.5px solid var(--border);
     border-radius: 8px;
@@ -298,6 +353,7 @@ const myStudentsStyles = `
   .ms-edit-cancel-btn:hover { background: #F9FAFB; }
 
   .ms-edit-save-btn {
+    flex: 1;
     padding: 8px 16px;
     border: none;
     border-radius: 8px;
@@ -331,11 +387,12 @@ function MyStudentsContent() {
   const router = useRouter()
   const supabase = createClient()
   const searchParams = useSearchParams()
+
+  const [userId, setUserId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>("list")
   const [headerSearch, setHeaderSearch] = useState("")
   const [tableSearch, setTableSearch] = useState("")
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
   const [pendingSearch, setPendingSearch] = useState("")
@@ -346,7 +403,7 @@ function MyStudentsContent() {
   const [showTypeFilter, setShowTypeFilter] = useState(false)
   const [requestStatusFilter, setRequestStatusFilter] = useState<string>("All Status")
   const [showRequestStatusFilter, setShowRequestStatusFilter] = useState(false)
-
+  
   // ── Pending unified filter ─────────────────────────────────────────
   type PendingFilterField = "appeal_type_name" | "status" | "section_name"
   type PendingActiveFilters = Partial<Record<PendingFilterField, string[]>>
@@ -382,7 +439,7 @@ function MyStudentsContent() {
 
   const pendingFilterGroups: { label: string; field: PendingFilterField; values: () => string[] }[] = [
     { label: "Type",    field: "appeal_type_name", values: () => requestType.map(t => t.name) },
-    { label: "Status",  field: "status",            values: () => ["Open", "Under Review", "Approved", "Rejected"] },
+    { label: "Status",  field: "status",            values: () => ["Pending Review", "Under Review", "Approved", "Rejected"] },
     { label: "Section", field: "section_name",      values: () => [...new Set(pendingRequests.map(r => r.section_name).filter(Boolean))].sort() },
   ]
 
@@ -405,11 +462,11 @@ function MyStudentsContent() {
   }, [showFilterPanel])
 
   const filterGroups: { label: string; field: FilterField; values: () => string[] }[] = [
-    { label: "Status",         field: "status",         values: () => ["Completed", "In Progress", "Not Started"] },
     { label: "Classification", field: "classification", values: () => ["Freshman", "Sophomore", "Junior", "Senior"] },
-    { label: "Section",        field: "section",        values: () => [...new Set(students.map(s => s.section_name).filter(Boolean))].sort() },
-    { label: "Site Location",  field: "site_location",  values: () => [...new Set(students.map(s => s.site_location).filter(Boolean))].sort() },
     { label: "Program",        field: "program",        values: () => [...new Set(students.map(s => s.program).filter(Boolean))].sort() },
+    // { label: "Section",        field: "section",        values: () => [...new Set(students.map(s => s.section_name).filter(Boolean))].sort() },
+    { label: "Site Location",  field: "site_location",  values: () => [...new Set(students.map(s => s.site_location).filter(Boolean))].sort() },
+    { label: "Status",         field: "status",         values: () => ["Completed", "In Progress", "Not Started"] },
   ]
 
   function toggleFilter(field: FilterField, value: string) {
@@ -443,11 +500,24 @@ function MyStudentsContent() {
       setActiveTab(tab)
     }
 
-    const status = searchParams.get("status")
-    if (status && (["Completed", "In Progress", "Not Started"] as string[]).includes(status)) {
-      setActiveFilters({ status: [status] })
-      setCurrentPage(1)
-    }
+    const statuses = searchParams.getAll("status")
+      if (statuses.length === 0) return
+
+      const listStatuses = statuses.filter(s =>
+        (["Completed", "In Progress", "Not Started"] as string[]).includes(s)
+      )
+      const pendingStatuses = statuses.filter(s =>
+        (["Pending Review", "Under Review", "Approved", "Rejected"] as string[]).includes(s)
+      )
+
+      if (listStatuses.length > 0) {
+        setActiveFilters({ status: listStatuses })
+        setCurrentPage(1)
+      }
+      if (pendingStatuses.length > 0) {
+        setPendingActiveFilters({ status: pendingStatuses })
+        setPendingPage(1)
+      }
   }, [searchParams])
 
   const [firstName, setFirstName] = useState("")
@@ -456,6 +526,7 @@ function MyStudentsContent() {
   const [sections, setSections] = useState<{ id: string; name: string }[]>([])
   const [selectedSection, setSelectedSection] = useState("All Sections")
   const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false)
+
   const [statData, setStatData] = useState<
     {
       section_id: string
@@ -467,6 +538,7 @@ function MyStudentsContent() {
     }[]
   >([])
   const [students, setStudents] = useState<Student[]>([])
+  const [selectedStudentKey, setSelectedStudentKey] = useState<string | null>(null)
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
   const [editingSession, setEditingSession] = useState<StudentSession | null>(
@@ -475,8 +547,13 @@ function MyStudentsContent() {
   const [editDate, setEditDate] = useState("")
   const [editTimeIn, setEditTimeIn] = useState("")
   const [editTimeOut, setEditTimeOut] = useState("")
+  const [editTermRange, setEditTermRange] = useState<{ start_date: string; end_date: string } | null>(null)  
+  const [editTimeError, setEditTimeError] = useState<string>("")
   const [isPending, startTransition] = useTransition()
   const [resolutionNote, setResolutionNote] = useState("")
+
+  const isSaveDisabled = !editDate || !editTimeIn || !editTimeOut || !!editTimeError ||
+  (editingSession != null && editDate === formatDate(editingSession.date) && editTimeIn === to24HourFormat(editingSession.timeIn) && editTimeOut === to24HourFormat(editingSession.timeOut))
 
   // fetch student requests from database
   const refreshRequests = async () => {
@@ -490,15 +567,50 @@ function MyStudentsContent() {
   }, [])
 
   useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setEditTimeError(validateEditTimeEdit(editDate, editTimeIn, editTimeOut, editTermRange))
+    }, 600)
+    return () => clearTimeout(timeoutId)
+  }, [editDate, editTimeIn, editTimeOut, editTermRange])
+
+  const fetchStatsAndSections = useCallback(async (userId: string) => {
+    const { data: statData, error: statError } = await supabase.rpc("get_students_stats", { p_adviser_user_id: userId })
+    if (statError) console.error("get_students_stats error:", statError.message, statError.details)
+    if (statData) setStatData(statData)
+
+    const { data: sectionData, error: sectionError } = await supabase.rpc("get_sections", { p_adviser_user_id: userId })
+    if (sectionError) console.error("get_sections error:", sectionError.message, sectionError.details)
+    if (sectionData && statData) {
+      const mappedSection = statData.map((r: { section_id: string | null; section_name: string }) => ({
+        id: r.section_id ?? "all",
+        name: r.section_name,
+      }))
+      const sortedSection = [...mappedSection].sort((a, b) => {
+        if (a.name === "All Sections") return -1
+        if (b.name === "All Sections") return 1
+        return a.name.localeCompare(b.name)
+      })
+      setSections(sortedSection)
+    }
+  }, [supabase])
+
+  const fetchStudents = useCallback(async (userId: string) => {
+    const { data, error } = await supabase.rpc("get_my_students", { p_adviser_user_id: userId })
+    if (error) console.error("get_my_students error:", error.message, error.details)
+    if (data) setStudents(data)
+  }, [supabase])
+
+
+  useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      // Get first name & last name
       const full: string = user?.user_metadata?.full_name ?? ""
       const parts = full.trim().split(" ")
-      const fName = parts[0] ?? ""
-      const lName = parts.at(-1) ?? ""
-      setFirstName(fName)
-      setLastName(lName)
-      setInitials((fName[0] ?? "") + (lName[0] ?? ""))
+      setFirstName(parts[0] ?? "")
+      setLastName(parts.at(-1) ?? "")
+      setInitials(((parts[0] ?? "")[0] ?? "") + ((parts.at(-1) ?? "")[0] ?? ""))
+      setUserId(user?.id ?? null)
+
+      if (!user?.id) return
 
       const { data: requestTypeData } = await supabase
         .from("appeal_type")
@@ -506,68 +618,37 @@ function MyStudentsContent() {
         .order("name")
       if (requestTypeData) setRequestTypes(requestTypeData)
 
-      const [
-        { data: statData, error: statError },
-        { data: sectionData, error: sectionError },
-        { data: semData, error: semError },
-        { data: studentsData, error: studentsError },
-      ] = await Promise.all([
-        supabase.rpc("get_students_stats", { p_adviser_user_id: user?.id }),
-        supabase.rpc("get_sections", { p_adviser_user_id: user?.id }),
-        supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id }),
-        supabase.rpc("get_my_students", { p_adviser_user_id: user?.id }),
+      await Promise.all([
+        fetchStatsAndSections(user.id),
+        fetchStudents(user.id),
       ])
 
-      if (statError)
-        console.error(
-          "get_students_stats error:",
-          statError.message,
-          statError.details
-        )
-      if (statData) setStatData(statData)
-
-      if (sectionError)
-        console.error(
-          "get_sections error:",
-          sectionError.message,
-          sectionError.details
-        )
-      if (sectionData && statData) {
-        const mappedSection = statData.map(
-          (r: { section_id: string | null; section_name: string }) => ({
-            id: r.section_id ?? "all",
-            name: r.section_name,
-          })
-        )
-        const sortedSection = [...mappedSection].sort((a, b) => {
-          if (a.name === "All Sections") return -1
-          if (b.name === "All Sections") return 1
-          return a.name.localeCompare(b.name)
-        })
-        setSections(sortedSection)
-      }
-
-      if (semError)
-        console.error(
-          "get_active_sem error:",
-          semError.message,
-          semError.details
-        )
-
-      if (studentsError)
-        console.error(
-          "get_my_students error:",
-          studentsError.message,
-          studentsError.details
-        )
-      if (studentsData) setStudents(studentsData)
+      
     })
-  }, [])
+  }, [supabase, fetchStatsAndSections, fetchStudents])
+
+  const selectedStudent = selectedStudentKey
+  ? students.find(s => `${s.section_id}-${s.student_number}` === selectedStudentKey) ?? null
+  : null
+  useAdviserBroadcast(supabase, {
+    adviserUserId: userId,
+    onChange: (payload) => {
+      if (!userId) return
+      if (payload.table === "appeal") {
+        refreshRequests()
+      }
+      if (payload.table === "attendance_session" || payload.table === "enrollment") {
+        Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
+      }
+      if (payload.table === "section") {
+        Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
+        router.refresh()
+      }
+    },
+  })
 
   const currentData = statData.find((r) => r.section_name === selectedSection)
   if (!currentData) return null
-
-  // const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
 
   function getPublicUrl(path: string) {
     const { data } = supabase.storage
@@ -614,6 +695,8 @@ function MyStudentsContent() {
         onClick: () => {
           setActiveTab("pending")
           clearPendingFilters()
+          setPendingActiveFilters({ status: ["Pending Review", "Under Review"] })
+          setPendingPage(1)
         },
       },
     ]
@@ -624,6 +707,7 @@ function MyStudentsContent() {
     const matchSearch = q === "" ||
       (s.student_name ?? "").toLowerCase().includes(q) ||
       (s.student_number ?? "").includes(q)
+    const matchSection = selectedSection === "All Sections" || s.section_name === selectedSection
     const matchFilters = (Object.entries(activeFilters) as [FilterField, string[]][]).every(([field, values]) => {
       if (!values || values.length === 0) return true
       if (field === "status")         return values.includes(s.status)
@@ -633,17 +717,18 @@ function MyStudentsContent() {
       if (field === "program")        return values.includes(s.program)
       return true
     })
-    return matchSearch && matchFilters
+    return matchSearch && matchSection && matchFilters 
   })
 
   const filteredPending = pendingRequests.filter((r) => {
     const matchSearch = pendingSearch.trim() === "" ||
       r.student_name.toLowerCase().includes(pendingSearch.toLowerCase())
+    const matchSection = selectedSection === "All Sections" || r.section_name === selectedSection
     const matchFilters = (Object.entries(pendingActiveFilters) as [PendingFilterField, string[]][]).every(([field, values]) => {
       if (!values || values.length === 0) return true
       return values.includes(r[field] as string)
     })
-    return matchSearch && matchFilters
+    return matchSearch && matchSection && matchFilters
   })
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -675,11 +760,13 @@ function MyStudentsContent() {
   }
 
   async function handleSaveSession() {
-    if (!editingSession || !selectedStudent) return
+    const validationError = validateEditTimeEdit(editDate, editTimeIn, editTimeOut, editTermRange)
+    setEditTimeError(validationError)
+    if (validationError || !editingSession || !selectedStudent || !userId) return
 
     const updatedSession: StudentSession = {
       ...editingSession,
-      date: editDate,
+      date: formatDateReadable(editDate),
       timeIn: to12HourFormat(editTimeIn),
       timeOut: to12HourFormat(editTimeOut),
     }
@@ -711,7 +798,6 @@ function MyStudentsContent() {
       return
     }
 
-    setSelectedStudent(updatedStudent)
     setStudents((prev) =>
       prev.map((s) =>
         s.section_id === updatedStudent.section_id &&
@@ -722,7 +808,28 @@ function MyStudentsContent() {
     )
 
     setEditingSession(null)
-    router.refresh()
+    await fetchStudents(userId)
+  }
+
+  function validateEditTimeEdit(
+    date: string,
+    timeIn: string,
+    timeOut: string,
+    termRange: { start_date: string; end_date: string } | null
+  ): string {
+    if (!date || !timeIn || !timeOut) return ""
+
+    if (termRange) {
+      if (date < termRange.start_date || date > termRange.end_date) {
+        return `Date must be within the term (${formatDateReadable(termRange.start_date)} to ${formatDateReadable(termRange.end_date)}).`
+      }
+    }
+
+    if (timeOut <= timeIn) {
+      return "Time out must be later than time in."
+    }
+
+    return ""
   }
 
   async function handleSignOut() {
@@ -886,7 +993,7 @@ function MyStudentsContent() {
             {/* Body */}
             <div className="ms-body">
               {activeTab === "list" ? (
-                <div className="adv-table-card">
+                <div className="adv-table-card mr-3">
                   <div className="adv-table-toolbar">
                     <div>
                       <div className="adv-table-title">All Students</div>
@@ -971,6 +1078,8 @@ function MyStudentsContent() {
                         )}
                       </div>
 
+                      
+
                       {hasListFilters && (
                         <button className="adv-filter-btn" onClick={clearListFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
@@ -981,7 +1090,7 @@ function MyStudentsContent() {
 
                   <div className="adv-table-wrapper">
                     <table className="adv-table">
-                      <thead>
+                      <thead className="pt-0">
                         <tr>
                           <th>Student</th>
                           <th>Site Location</th>
@@ -1013,7 +1122,7 @@ function MyStudentsContent() {
                             return (
                               <tr
                                 key={`${s.section_id}-${s.student_number}`}
-                                onClick={() => setSelectedStudent(s)}
+                                onClick={() => setSelectedStudentKey(`${s.section_id}-${s.student_number}`)}
                               >
                                 <td>
                                   {/* <div className="ms-student-name">{s.student_name}</div>
@@ -1027,7 +1136,7 @@ function MyStudentsContent() {
                                         {s.student_name}
                                       </div>
                                       <div className="ms-request-meta">
-                                        {s.student_number} · {s.section_name}
+                                        {s.student_number} · {s.sais_id} · {s.section_name}
                                       </div>
                                     </div>
                                   </div>
@@ -1094,19 +1203,43 @@ function MyStudentsContent() {
                       >
                         &#8249;
                       </button>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                        (p) => (
-                          <button
-                            key={p}
-                            className={`adv-page-btn${
-                              p === currentPage ? " adv-page-btn-active" : ""
-                            }`}
-                            onClick={() => setCurrentPage(p)}
-                          >
-                            {p}
-                          </button>
-                        )
-                      )}
+                      {getPageNumbers(currentPage, totalPages).map((p, idx) =>
+                          p === "..." ? (
+                            <span
+                              key={`ellipsis-${idx}`}
+                              style={{
+                                width: 28,
+                                height: 28,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 12,
+                                color: "var(--muted)",
+                              }}
+                            >
+                              &#8230;
+                            </span>
+                          ) : (
+                            <button
+                              key={p}
+                              onClick={() => { setCurrentPage(p); setAnimKey((k) => k + 1) }}
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 6,
+                                border: "1px solid var(--border)",
+                                background: p === currentPage ? "var(--maroon)" : "var(--white)",
+                                color: p === currentPage ? "#fff" : "var(--text)",
+                                fontWeight: p === currentPage ? 700 : 500,
+                                cursor: "pointer",
+                                fontSize: 12,
+                                fontFamily: "var(--font)",
+                              }}
+                            >
+                              {p}
+                            </button>
+                          )
+                        )}
                       <button
                         className="adv-page-btn adv-page-btn-nav"
                         disabled={currentPage === totalPages}
@@ -1251,7 +1384,7 @@ function MyStudentsContent() {
 
                   {filteredPending.length === 0 ? (
                     <div className="adv-empty">
-                      No requests found for this filter.
+                      No requests found.
                     </div>
                   ) : (
                     <>
@@ -1279,8 +1412,10 @@ function MyStudentsContent() {
                               return { bg: "#D1FAE5", color: "#065F46" }
                             if (status === "Rejected")
                               return { bg: "#FEE2E2", color: "#991B1B" }
-                            if (status === "Under Review")
+                            if (status === "Pending Review")
                               return { bg: "#FEF3C7", color: "#92400E" }
+                            if (status === "Under Review")
+                              return { bg: "#DBEAFE", color: "#1E40AF" }
                             return { bg: "#F3F4F6", color: "#374151" } // Open
                           }
                           const badge = getStatusBadge(r.status)
@@ -1293,8 +1428,8 @@ function MyStudentsContent() {
                                 setSelectedRequest(r)
 
                                 if (
-                                  r.status === "Open" ||
-                                  r.statusCode === "open"
+                                  r.status === "Pending Review" ||
+                                  r.statusCode === "pending"
                                 ) {
                                   setPendingRequests((prev) =>
                                     prev.map((req) =>
@@ -1426,7 +1561,7 @@ function MyStudentsContent() {
         {selectedStudent && (
           <div
             className="ms-modal-backdrop"
-            onClick={() => setSelectedStudent(null)}
+            onClick={() => setSelectedStudentKey(null)}
           >
             <div
               className="ms-modal ms-modal-wide"
@@ -1442,7 +1577,7 @@ function MyStudentsContent() {
                     {selectedStudent.section_name} · {selectedStudent.site_location}
                   </div>
                 </div>
-                <button className="ms-modal-close" onClick={() => setSelectedStudent(null)}>
+                <button className="ms-modal-close" onClick={() => setSelectedStudentKey(null)}>
                   <IconX size={20} stroke={2} />
                 </button>
               </div>
@@ -1456,9 +1591,9 @@ function MyStudentsContent() {
                       </div>
                     </div>
                     <div className="ms-modal-field">
-                      <div className="ms-modal-label">Site Location</div>
+                      <div className="ms-modal-label">Sais ID</div>
                       <div className="ms-modal-value">
-                        {selectedStudent.site_location}
+                        {selectedStudent.sais_id}
                       </div>
                     </div>
                   </div>
@@ -1478,6 +1613,12 @@ function MyStudentsContent() {
                   </div>
                   <div className="ms-modal-row">
                     <div className="ms-modal-field">
+                      <div className="ms-modal-label">Site Location</div>
+                      <div className="ms-modal-value">
+                        {selectedStudent.site_location}
+                      </div>
+                    </div>
+                    <div className="ms-modal-field">
                       <div className="ms-modal-label">Status</div>
                       <span
                         className="ms-status-badge"
@@ -1489,13 +1630,13 @@ function MyStudentsContent() {
                         {statusConfig[selectedStudent.status].label}
                       </span>
                     </div>
-                    <div className="ms-modal-field">
+                    {/* <div className="ms-modal-field">
                       <div className="ms-modal-label">Hours Logged</div>
                       <div className="ms-modal-value">
                         {selectedStudent.hours_logged} /{" "}
                         {selectedStudent.total_hours} hrs
                       </div>
-                    </div>
+                    </div> */}
                   </div>
                   <div className="ms-modal-field ms-modal-progress">
                     <div className="ms-modal-label">Progress</div>
@@ -1556,12 +1697,22 @@ function MyStudentsContent() {
                               <td>
                                 <button
                                   className="ms-session-action-btn"
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.stopPropagation()
                                     setEditingSession(sess)
                                     setEditDate(formatDate(sess.date))
                                     setEditTimeIn(to24HourFormat(sess.timeIn))
                                     setEditTimeOut(to24HourFormat(sess.timeOut))
+                                    setEditTermRange(null)
+
+                                    const { data, error } = await supabase.rpc("get_section_term_range", {
+                                      p_section_id: selectedStudent.section_id,
+                                    })
+                                    if (error) {
+                                      console.error("get_section_term_range error:", error.message)
+                                    } else if (data && data.length > 0) {
+                                      setEditTermRange(data[0])
+                                    }
                                   }}
                                 >
                                   <IconPencil size={14} stroke={1.75} />
@@ -1785,14 +1936,14 @@ function MyStudentsContent() {
         {editingSession && (
           <div
             className="ms-modal-backdrop"
-            onClick={() => setEditingSession(null)}
+            onClick={() => {setEditingSession(null); setEditTermRange(null)}}
           >
             <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
               <div className="ms-modal-header">
                 <div className="ms-modal-title">Edit Session</div>
                 <button
                   className="ms-modal-close"
-                  onClick={() => setEditingSession(null)}
+                  onClick={() => {setEditingSession(null); setEditTermRange(null)}}
                 >
                   <IconX size={18} stroke={1.75} />
                 </button>
@@ -1827,6 +1978,11 @@ function MyStudentsContent() {
                     />
                   </div>
                 </div>
+                {editTimeError && (
+                  <div style={{ fontSize: 12.5, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "8px 12px" }}>
+                    {editTimeError}
+                  </div>
+                )}
                 <div
                   style={{
                     display: "flex",
@@ -1837,38 +1993,17 @@ function MyStudentsContent() {
                 >
                   <button
                     className="ms-edit-cancel-btn"
-                    onClick={() => setEditingSession(null)}
+                    onClick={() => {setEditingSession(null); setEditTermRange(null)}}
                   >
                     Cancel
                   </button>
                   <button
                     className="ms-edit-save-btn"
                     onClick={handleSaveSession}
-                    disabled={
-                      !editDate || !editTimeIn || !editTimeOut ||
-                      (
-                        editDate === editingSession.date &&
-                        editTimeIn === to24HourFormat(editingSession.timeIn) &&
-                        editTimeOut === to24HourFormat(editingSession.timeOut)
-                      )
-                    }
+                    disabled={isSaveDisabled}
                     style={{
-                      opacity: (
-                        !editDate || !editTimeIn || !editTimeOut ||
-                        (
-                          editDate === editingSession.date &&
-                          editTimeIn === to24HourFormat(editingSession.timeIn) &&
-                          editTimeOut === to24HourFormat(editingSession.timeOut)
-                        )
-                      ) ? 0.4 : 1,
-                      cursor: (
-                        !editDate || !editTimeIn || !editTimeOut ||
-                        (
-                          editDate === editingSession.date &&
-                          editTimeIn === to24HourFormat(editingSession.timeIn) &&
-                          editTimeOut === to24HourFormat(editingSession.timeOut)
-                        )
-                      ) ? "not-allowed" : "pointer",
+                      opacity: isSaveDisabled ? 0.4 : 1,
+                      cursor: isSaveDisabled ? "not-allowed" : "pointer",
                     }}
                   >
                     Save

@@ -51,7 +51,7 @@ export async function getStudentRequests(
         status: uiStatus,
         note: app.resolution_note
           ? `Adviser's Note: ${app.resolution_note}`
-          : "Adviser's Note: Pending review",
+          : `Adviser's Note: ${app.appeal_status.name}`,
         date: new Date(app.created_at).toLocaleDateString("en-US", {
           month: "long",
           day: "numeric",
@@ -85,7 +85,7 @@ export async function submitStudentRequest(
     } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "Not authenticated" }
 
-    const openStatusId = await lookupId("appeal_status", "open")
+    const openStatusId = await lookupId("appeal_status", "pending")
 
     // standardize display label (e.g. "Excused Absence")
     const displayLabel = typeName
@@ -151,7 +151,7 @@ export async function updateStudentRequest(
     }
 
     // check if the record is still editable ('open')
-    const openStatusId = await lookupId("appeal_status", "open")
+    const openStatusId = await lookupId("appeal_status", "pending")
     if (existingAppeal.appeal_status_id !== openStatusId) {
       return {
         ok: false,

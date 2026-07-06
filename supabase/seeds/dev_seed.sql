@@ -789,7 +789,7 @@ VALUES
    '5eed4153-0000-0000-0000-000000000000',
    '5eed2153-0000-0000-0000-000000000000',
    (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph'),
-   (SELECT appeal_status_id FROM appeal_status WHERE code = 'open'),
+   (SELECT appeal_status_id FROM appeal_status WHERE code = 'pending'),
    'I was present but my QR scan failed to load on my phone.',
    '2025-09-08 08:10:00+08'),
 
@@ -819,7 +819,7 @@ SELECT
   '5eed4233-0000-0000-0000-000000000000',
   id,
   '5eed1003-0000-0000-0000-000000000000',
-  (SELECT appeal_status_id FROM appeal_status WHERE code = 'open'),
+  (SELECT appeal_status_id FROM appeal_status WHERE code = 'pending'),
   'The QR code was not displaying properly and I could not scan in time.',
   now() - INTERVAL '3 days'
 FROM auth.users WHERE email = 'student.test@up.edu.ph'

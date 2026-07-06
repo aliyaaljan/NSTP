@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   IconSearch,
@@ -29,6 +29,7 @@ import {
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { createClient } from "@/lib/client"
 import { ChartStyles } from "@/components/shared/ChartModule"
+import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 
 type DashboardRow = {
   section_id: string | null
@@ -89,7 +90,9 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const supabase = createClient()
 
+  const [userId, setUserId] = useState<string | null>(null)
   const [activeNav, setActiveNav] = useState("Dashboard")
   const [searchVal, setSearchVal] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -108,53 +111,61 @@ export default function DashboardPage() {
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
 
+  const fetchDashboardBundle = useCallback(async (uid: string) => {
+    const [
+      { data: dashboardData, error: dashboardError },
+      { data: sectionData, error: sectionError },
+      { data: auditData, error: auditError },
+      { data: semData, error: semError },
+    ] = await Promise.all([
+      supabase.rpc("get_adviser_dashboard_data", { p_adviser_user_id: uid }),
+      supabase.rpc("get_sections", { p_adviser_user_id: uid }),
+      supabase.rpc("get_adviser_recent_activity", { p_adviser_user_id: uid }),
+      supabase.rpc("get_active_sem", { p_adviser_user_id: uid }),
+    ])
+
+    if (dashboardError) console.error(dashboardError)
+    if (dashboardData) setDashboardData(dashboardData)
+
+    if (sectionError) console.error(sectionError)
+    if (sectionData && dashboardData) {
+      const mappedSection = dashboardData.map((r: DashboardRow) => ({
+        id: r.section_id ?? "all",
+        name: r.section_name,
+      }))
+      const sortedSection = [...mappedSection].sort((a, b) => {
+        if (a.name === "All Sections") return -1
+        if (b.name === "All Sections") return 1
+        return a.name.localeCompare(b.name)
+      })
+      setSections(sortedSection)
+    }
+
+    if (auditError) console.log(auditError)
+    if (auditData) setRecentActivity(auditData)
+
+    if (semError) console.error(semError)
+    if (semData) setActiveSemData(semData)
+  }, [supabase])
+
   useEffect(() => {
-    const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      // Get first name & last name
       const full: string = user?.user_metadata?.full_name ?? ""
       const parts = full.trim().split(" ")
-      const fName = parts[0] ?? ""
-      const lName = parts.at(-1) ?? ""
-      setFirstName(fName)
-      setLastName(lName)
-      setInitials((fName[0] ?? "") + (lName[0] ?? ""))
-
-      const [
-        {data: dashboardData, error: dashboardError},
-        {data: sectionData, error: sectionError},
-        {data: auditData, error: auditError},
-        {data: semData, error: semError},
-      ] = await Promise.all([
-        supabase.rpc("get_adviser_dashboard_data", { p_adviser_user_id: user?.id}),
-        supabase.rpc("get_sections",{p_adviser_user_id: user?.id}),
-        supabase.rpc("get_adviser_recent_activity",{p_adviser_user_id: user?.id}),
-        supabase.rpc("get_active_sem", { p_adviser_user_id: user?.id })
-      ])
-      if (dashboardError) console.error(dashboardError)
-      if (dashboardData) setDashboardData(dashboardData)
-
-      if (sectionError) console.error(sectionError)
-      if (sectionData && dashboardData) {
-        const mappedSection = dashboardData.map((r: DashboardRow) => ({
-          id: r.section_id ?? "all",
-          name: r.section_name,
-        }))
-        const sortedSection = [...mappedSection].sort((a, b) => {
-          if (a.name === "All Sections") return -1 // all sections on top
-          if (b.name === "All Sections") return 1
-          return a.name.localeCompare(b.name)
-        })
-        setSections(sortedSection)
-      }
-
-      if (auditError) console.log(auditError)
-      if (auditData) setRecentActivity(auditData)
-
-      if (semError) console.error(semError)
-      if (semData) setActiveSemData(semData)
+      setFirstName(parts[0] ?? "")
+      setLastName(parts.at(-1) ?? "")
+      setInitials(((parts[0] ?? "")[0] ?? "") + ((parts.at(-1) ?? "")[0] ?? ""))
+      setUserId(user?.id ?? null)
+      if (user?.id) await fetchDashboardBundle(user.id)
     })
-  }, [])
+  }, [supabase, fetchDashboardBundle])
+
+  useAdviserBroadcast(supabase, {
+    adviserUserId: userId,
+    onChange: () => {
+      if (userId) fetchDashboardBundle(userId)
+    },
+  })
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -177,7 +188,7 @@ export default function DashboardPage() {
 
   const statCards = [
     { label: "Total Students", value: currentData.total, Icon: IconUsers, onClick:  () => router.push(`${navRoutes["My Students"]}?tab=list`)},
-    { label: "Pending Requests", value: currentData.pending, Icon: IconAlertCircle, onClick: () => router.push(`${navRoutes["My Students"]}?tab=pending`)},
+    { label: "Pending Requests", value: currentData.pending, Icon: IconAlertCircle, onClick: () => router.push(`${navRoutes["My Students"]}?tab=pending&status=Pending%20Review&status=Under%20Review`)},
     { label: "Completed", value: currentData.completed, Icon: IconCircleCheck, onClick: () => router.push(`${navRoutes["My Students"]}?tab=list&status=Completed`)},
   ]
 

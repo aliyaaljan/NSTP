@@ -428,7 +428,7 @@ export function buildSampleAuditLogRows(): AuditLogRow[] {
 
 const SYSTEM_UUID_LABEL_MAP: Record<string, string> = {
   // appeal statuses
-  "269e7fb6-39b9-48e4-b8d3-5d9995600c43": "open",
+  "269e7fb6-39b9-48e4-b8d3-5d9995600c43": "pending",
   "9248c827-870b-4532-ab51-0129bc4361a0": "under_review",
   "a31f8cb1-8219-4cb5-bb12-9901ad9c1240": "approved",
   "d123e4f5-6789-abcd-ef01-23456789abcd": "rejected",
