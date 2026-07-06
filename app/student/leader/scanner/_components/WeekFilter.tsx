@@ -78,8 +78,6 @@ export function WeekFilter({
     setSelectedMonth(monthStr)
     setPickerMonth(monthIndex)
     setIsDropdownOpen(false)
-
-    // if the user is currently viewing "all", automatically put them to first week of the selected month
     onSelectWeek("week-1")
   }
 
@@ -97,10 +95,12 @@ export function WeekFilter({
     setPickerYear(today.getFullYear())
     setPickerMonth(today.getMonth())
     setIsDropdownOpen(false)
+    onSelectWeek("week-1")
+  }
 
-    // auto select exact week so the user sees today's data instantly
-    const weekOfMonth = Math.ceil(today.getDate() / 7)
-    onSelectWeek(`week-${weekOfMonth}`)
+  const handleAllClick = () => {
+    onSelectWeek("all")
+    setSelectedMonth("") // reset
   }
 
   const MONTHS_SHORT = [
@@ -169,8 +169,9 @@ export function WeekFilter({
           flexWrap: "wrap",
         }}
       >
+        {/* All button */}
         <button
-          onClick={() => onSelectWeek("all")}
+          onClick={handleAllClick}
           style={{
             fontSize: isMobile ? "10px" : "14px",
             fontWeight: 700,
@@ -204,6 +205,7 @@ export function WeekFilter({
           All
         </button>
 
+        {/* Month selector dropdown */}
         <div ref={dropdownRef} style={{ position: "relative", flexShrink: 0 }}>
           <div
             ref={buttonRef}
@@ -254,6 +256,7 @@ export function WeekFilter({
             />
           </div>
 
+          {/* Dropdown menu */}
           {isDropdownOpen && buttonPosition && (
             <div
               style={{
@@ -274,6 +277,7 @@ export function WeekFilter({
                 overflowY: "auto",
               }}
             >
+              {/* Year navigation */}
               <div
                 style={{
                   display: "flex",
@@ -351,6 +355,7 @@ export function WeekFilter({
                 </button>
               </div>
 
+              {/* Today button */}
               <button
                 onClick={goToToday}
                 style={{
@@ -382,6 +387,7 @@ export function WeekFilter({
                 Today
               </button>
 
+              {/* Month grid */}
               <div
                 style={{
                   display: "grid",
@@ -451,57 +457,60 @@ export function WeekFilter({
         </div>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "3px",
-          flexWrap: "wrap",
-          width: "100%",
-        }}
-      >
-        {[1, 2, 3, 4, 5].map((weekNum) => {
-          const isSelected = selectedWeek === `week-${weekNum}`
-          return (
-            <button
-              key={weekNum}
-              onClick={() => handleWeekSelect(weekNum)}
-              style={{
-                fontSize: isMobile ? "9px" : "14px",
-                fontWeight: 600,
-                padding: isMobile ? "3px 8px" : "10px 24px",
-                borderRadius: "999px",
-                border: `2px solid ${isSelected ? C.green : C.border}`,
-                background: isSelected ? C.greenBg : C.cardBg,
-                color: isSelected ? C.green : C.textGray,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                transition: "all 0.15s",
-                fontFamily: "'Montserrat', sans-serif",
-                flex: isMobile ? "1" : "0 1 auto",
-                minWidth: isMobile ? "0" : "auto",
-                textAlign: "center",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onMouseEnter={(e) => {
-                if (!isSelected) {
-                  e.currentTarget.style.background = C.greenBg
-                  e.currentTarget.style.borderColor = C.green
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isSelected) {
-                  e.currentTarget.style.background = C.cardBg
-                  e.currentTarget.style.borderColor = C.border
-                }
-              }}
-            >
-              Week {weekNum}
-            </button>
-          )
-        })}
-      </div>
+      {/* Week options */}
+      {selectedMonth && selectedWeek !== "all" && (
+        <div
+          style={{
+            display: "flex",
+            gap: "3px",
+            flexWrap: "wrap",
+            width: "100%",
+          }}
+        >
+          {[1, 2, 3, 4, 5].map((weekNum) => {
+            const isSelected = selectedWeek === `week-${weekNum}`
+            return (
+              <button
+                key={weekNum}
+                onClick={() => handleWeekSelect(weekNum)}
+                style={{
+                  fontSize: isMobile ? "9px" : "14px",
+                  fontWeight: 600,
+                  padding: isMobile ? "3px 8px" : "10px 24px",
+                  borderRadius: "999px",
+                  border: `2px solid ${isSelected ? C.green : C.border}`,
+                  background: isSelected ? C.greenBg : C.cardBg,
+                  color: isSelected ? C.green : C.textGray,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s",
+                  fontFamily: "'Montserrat', sans-serif",
+                  flex: isMobile ? "1" : "0 1 auto",
+                  minWidth: isMobile ? "0" : "auto",
+                  textAlign: "center",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = C.greenBg
+                    e.currentTarget.style.borderColor = C.green
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = C.cardBg
+                    e.currentTarget.style.borderColor = C.border
+                  }
+                }}
+              >
+                Week {weekNum}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
