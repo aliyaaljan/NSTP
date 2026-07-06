@@ -104,16 +104,14 @@ export async function getFormListData(query: FormListQuery): Promise<FormListPag
     name: section.name,
   }))
 
-  const forms = [
-    ...buildSampleFormRows(sectionOptions),
-    ...buildFormListRows(
-      (requirementsRes.data ?? []) as unknown as FormRequirementListDbRow[],
-      sections,
-      (exclusionsRes.data ?? []) as FormRequirementExclusionDbRow[],
-      enrollmentCounts,
-      submissionCounts
-    ),
-  ]
+  const dbForms = buildFormListRows(
+    (requirementsRes.data ?? []) as unknown as FormRequirementListDbRow[],
+    sections,
+    (exclusionsRes.data ?? []) as FormRequirementExclusionDbRow[],
+    enrollmentCounts,
+    submissionCounts
+  )
+  const forms = dbForms.length > 0 ? dbForms : buildSampleFormRows(sectionOptions)
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 

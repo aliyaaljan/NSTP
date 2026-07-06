@@ -3,7 +3,6 @@
 import {
   AUDIT_LOG_SELECT,
   auditLogRangeStart,
-  buildSampleAuditLogRows,
   mapAuditLogDbRow,
   filterAuditLogRows,
   paginateAuditLogRows,
@@ -24,7 +23,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client"
  * 3. Move `filterAuditLogRows()` logic into SQL when the list grows large.
  * 4. Add server-side search (`ilike` on summary, actor_name) when needed.
  * 5. Replace hardcoded `meta` with a `term` table lookup.
- * 6. Remove `buildSampleAuditLogRows()` merge once production data exists.
  */
 export async function getAuditLogData(
   query: AuditLogQuery
@@ -99,10 +97,7 @@ export async function getAuditLogData(
   const filteredEntries = filterAuditLogRows(dbEntries, query)
   const paginatedResult = paginateAuditLogRows(filteredEntries, query.page)
 
-  const entries =
-    paginatedResult.rows.length > 0
-      ? paginatedResult.rows
-      : buildSampleAuditLogRows()
+  const entries = paginatedResult.rows
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
