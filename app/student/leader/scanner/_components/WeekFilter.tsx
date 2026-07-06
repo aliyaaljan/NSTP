@@ -11,6 +11,7 @@ export function WeekFilter({
   months,
   selectedMonth,
   setSelectedMonth,
+  onGeneralAllClick,
 }: {
   isMobile: boolean
   selectedWeek: string
@@ -18,6 +19,7 @@ export function WeekFilter({
   months: string[]
   selectedMonth: string
   setSelectedMonth: (month: string) => void
+  onGeneralAllClick: () => void // General All
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear())
@@ -95,12 +97,12 @@ export function WeekFilter({
     setPickerYear(today.getFullYear())
     setPickerMonth(today.getMonth())
     setIsDropdownOpen(false)
-    onSelectWeek("week-1")
+    onSelectWeek("week-1") 
   }
 
-  const handleAllClick = () => {
+  // Week "All"
+  const handleWeekAllClick = () => {
     onSelectWeek("all")
-    setSelectedMonth("") // reset
   }
 
   const MONTHS_SHORT = [
@@ -169,17 +171,17 @@ export function WeekFilter({
           flexWrap: "wrap",
         }}
       >
-        {/* All button */}
+        {/* General "All" button */}
         <button
-          onClick={handleAllClick}
+          onClick={onGeneralAllClick}
           style={{
             fontSize: isMobile ? "10px" : "14px",
             fontWeight: 700,
             padding: isMobile ? "4px 10px" : "10px 24px",
             borderRadius: "999px",
-            border: `2px solid ${selectedWeek === "all" ? C.green : C.border}`,
-            background: selectedWeek === "all" ? C.greenBg : C.cardBg,
-            color: selectedWeek === "all" ? C.green : C.textGray,
+            border: `2px solid ${!selectedMonth && selectedWeek === "all" ? C.green : C.border}`,
+            background: !selectedMonth && selectedWeek === "all" ? C.greenBg : C.cardBg,
+            color: !selectedMonth && selectedWeek === "all" ? C.green : C.textGray,
             cursor: "pointer",
             whiteSpace: "nowrap",
             transition: "all 0.15s",
@@ -190,13 +192,13 @@ export function WeekFilter({
             justifyContent: "center",
           }}
           onMouseEnter={(e) => {
-            if (selectedWeek !== "all") {
+            if (selectedMonth || selectedWeek !== "all") {
               e.currentTarget.style.background = C.greenBg
               e.currentTarget.style.borderColor = C.green
             }
           }}
           onMouseLeave={(e) => {
-            if (selectedWeek !== "all") {
+            if (selectedMonth || selectedWeek !== "all") {
               e.currentTarget.style.background = C.cardBg
               e.currentTarget.style.borderColor = C.border
             }
@@ -215,9 +217,9 @@ export function WeekFilter({
               fontWeight: 700,
               padding: isMobile ? "4px 10px" : "10px 24px",
               borderRadius: "999px",
-              border: `2px solid ${C.border}`,
-              background: C.cardBg,
-              color: C.textDark,
+              border: `2px solid ${selectedMonth ? C.green : C.border}`,
+              background: selectedMonth ? C.greenBg : C.cardBg,
+              color: selectedMonth ? C.green : C.textDark,
               cursor: "pointer",
               whiteSpace: "nowrap",
               transition: "all 0.15s",
@@ -233,8 +235,8 @@ export function WeekFilter({
               e.currentTarget.style.borderColor = C.green
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = C.cardBg
-              e.currentTarget.style.borderColor = C.border
+              e.currentTarget.style.background = selectedMonth ? C.greenBg : C.cardBg
+              e.currentTarget.style.borderColor = selectedMonth ? C.green : C.border
             }}
           >
             <span
@@ -458,7 +460,7 @@ export function WeekFilter({
       </div>
 
       {/* Week options */}
-      {selectedMonth && selectedWeek !== "all" && (
+      {selectedMonth && (
         <div
           style={{
             display: "flex",
@@ -467,6 +469,44 @@ export function WeekFilter({
             width: "100%",
           }}
         >
+          {/* Week "All" button */}
+          <button
+            onClick={handleWeekAllClick}
+            style={{
+              fontSize: isMobile ? "9px" : "14px",
+              fontWeight: 600,
+              padding: isMobile ? "3px 8px" : "10px 24px",
+              borderRadius: "999px",
+              border: `2px solid ${selectedWeek === "all" ? C.green : C.border}`,
+              background: selectedWeek === "all" ? C.greenBg : C.cardBg,
+              color: selectedWeek === "all" ? C.green : C.textGray,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              transition: "all 0.15s",
+              fontFamily: "'Montserrat', sans-serif",
+              flex: isMobile ? "1" : "0 1 auto",
+              minWidth: isMobile ? "0" : "auto",
+              textAlign: "center",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onMouseEnter={(e) => {
+              if (selectedWeek !== "all") {
+                e.currentTarget.style.background = C.greenBg
+                e.currentTarget.style.borderColor = C.green
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (selectedWeek !== "all") {
+                e.currentTarget.style.background = C.cardBg
+                e.currentTarget.style.borderColor = C.border
+              }
+            }}
+          >
+            All
+          </button>
+
           {[1, 2, 3, 4, 5].map((weekNum) => {
             const isSelected = selectedWeek === `week-${weekNum}`
             return (

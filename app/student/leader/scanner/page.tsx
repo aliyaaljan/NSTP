@@ -28,7 +28,7 @@ export default function LeaderScannerPage() {
   const [scannerOpen, setScannerOpen] = useState(false)
   const [selectedWeek, setSelectedWeek] = useState<string>("all")
   const [selectedMonth, setSelectedMonth] = useState<string>("")
-
+  const [shouldAutoSelect, setShouldAutoSelect] = useState(true)
   const [scans, setScans] = useState<ScanRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [classRoster, setClassRoster] = useState<string[]>([])
@@ -85,6 +85,49 @@ export default function LeaderScannerPage() {
     loadDatabaseScans()
   }, [])
 
+  useEffect(() => {
+    if (shouldAutoSelect && !selectedMonth && scans.length > 0) {
+      const months = Array.from(
+        new Set(
+          scans
+            .map((scan) => new Date(scan.date))
+            .filter((date) => !Number.isNaN(date.getTime()))
+            .map((date) =>
+              date.toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })
+            )
+        )
+      ).sort((a, b) => {
+        const dateA = new Date(a)
+        const dateB = new Date(b)
+        return dateB.getTime() - dateA.getTime()
+      })
+
+      if (months.length > 0) {
+        setSelectedMonth(months[0]) 
+        setShouldAutoSelect(false) 
+      }
+    }
+  }, [scans, selectedMonth, shouldAutoSelect])
+
+  // Handle General All 
+  const handleGeneralAllClick = () => {
+    setSelectedMonth("")
+    setSelectedWeek("all")
+    setShouldAutoSelect(false) 
+  }
+
+  // Handle month selection
+  const handleSetSelectedMonth = (month: string) => {
+    setSelectedMonth(month)
+    // Turn off auto-select
+    if (month) {
+      setShouldAutoSelect(false)
+    }
+  }
+
   const leftPadding = isMobile
     ? `${COLLAPSED_W + RAIL_MARGIN * 2 + 8}px`
     : `${COLLAPSED_W + RAIL_MARGIN * 2}px`
@@ -102,7 +145,6 @@ export default function LeaderScannerPage() {
     selectedWeek !== "all" ? groupByDate(filteredScans) : null
 
   // check who has not been scanned
-
   const scannedNames = new Set(filteredScans.map((s) => s.name))
   const notScannedNames = classRoster.filter((name) => !scannedNames.has(name))
 
@@ -172,6 +214,8 @@ export default function LeaderScannerPage() {
           onTimeCount={onTimeCount}
           lateCount={lateCount}
           notScannedCount={notScannedCount}
+          selectedMonth={selectedMonth}
+          selectedWeek={selectedWeek}
         />
 
         <QRCard
@@ -185,7 +229,8 @@ export default function LeaderScannerPage() {
           onSelectWeek={setSelectedWeek}
           months={months}
           selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
+          setSelectedMonth={handleSetSelectedMonth}
+          onGeneralAllClick={handleGeneralAllClick}
         />
 
         <ScanLogPanel
