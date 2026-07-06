@@ -23,6 +23,8 @@ import {
   type CreateStudentResult,
 } from "@/lib/admin/student-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import { provisionUser, syncUserEmail } from "@/lib/admin/user-provision"
 
 /**
  * Fetches everything the admin student list page needs.
@@ -137,17 +139,38 @@ export async function createStudent(
     return { ok: false, error: validationError }
   }
 
-  // TODO(backend): implement student creation.
-  console.info("[createStudent] pending implementation", {
-    sectionId: payload.sectionId,
+  const service = createSupabaseServiceClient()
+
+  const provisioned = await provisionUser(service, {
     email: payload.email,
+    fullName: payload.fullName,
+    roleCode: "student",
+    studentNumber: payload.studentNumber,
+  })
+  if (!provisioned.ok) return provisioned
+
+  const activeStatusId = await lookupId("enrollment_status", "active")
+  const { error: enrollError } = await service.from("enrollment").insert({
+    section_id: payload.sectionId,
+    student_user_id: provisioned.userId,
+    enrollment_status_id: activeStatusId,
   })
 
-  return {
-    ok: false,
-    error:
-      "Add is not available yet. Backend handler still needs to be implemented.",
+  if (enrollError) {
+    console.error("[createStudent] enrollment insert failed", enrollError)
+    // Roll back the freshly created account so a failed add can be retried cleanly.
+    await service.from("app_user").delete().eq("app_user_id", provisioned.userId)
+    await service.auth.admin.deleteUser(provisioned.userId)
+    if (enrollError.message.includes("active enrollment")) {
+      return {
+        ok: false,
+        error: "This student already has an active enrollment in another section.",
+      }
+    }
+    return { ok: false, error: "Failed to enroll the student." }
   }
+
+  return { ok: true }
 }
 
 /**
@@ -173,26 +196,75 @@ export async function updateStudent(
     return { ok: false, error: validationError }
   }
 
-  // TODO(backend): implement student update.
-  console.info("[updateStudent] pending implementation", {
-    enrollmentId: payload.enrollmentId,
-    studentUserId: payload.studentUserId,
-    sectionId: payload.sectionId,
-  })
+  const service = createSupabaseServiceClient()
 
-  return {
-    ok: false,
-    error:
-      "Edit is not available yet. Backend handler still needs to be implemented.",
+  const { data: current, error: currentError } = await service
+    .from("app_user")
+    .select("email")
+    .eq("app_user_id", payload.studentUserId)
+    .maybeSingle()
+
+  if (currentError || !current) {
+    console.error("[updateStudent] target lookup failed", currentError)
+    return { ok: false, error: "Student not found." }
   }
+
+  const nextEmail = payload.email.trim().toLowerCase()
+  if (nextEmail !== (current.email ?? "").toLowerCase()) {
+    const emailResult = await syncUserEmail(service, payload.studentUserId, nextEmail)
+    if (!emailResult.ok) return emailResult
+  }
+
+  const { error: userError } = await service
+    .from("app_user")
+    .update({
+      full_name: payload.fullName.trim(),
+      email: nextEmail,
+      student_number: payload.studentNumber?.trim() || null,
+    })
+    .eq("app_user_id", payload.studentUserId)
+
+  if (userError) {
+    console.error("[updateStudent] app_user update failed", userError)
+    if ((userError as { code?: string }).code === "23505") {
+      return { ok: false, error: "That email is already in use." }
+    }
+    return { ok: false, error: "Failed to update the student." }
+  }
+
+  const { data: enrollment, error: enrollmentError } = await service
+    .from("enrollment")
+    .select("section_id")
+    .eq("enrollment_id", payload.enrollmentId)
+    .maybeSingle()
+
+  if (enrollmentError || !enrollment) {
+    console.error("[updateStudent] enrollment lookup failed", enrollmentError)
+    return { ok: false, error: "Enrollment not found." }
+  }
+
+  if (enrollment.section_id !== payload.sectionId) {
+    const { error: moveError } = await service
+      .from("enrollment")
+      .update({ section_id: payload.sectionId })
+      .eq("enrollment_id", payload.enrollmentId)
+
+    if (moveError) {
+      console.error("[updateStudent] section move failed", moveError)
+      if ((moveError as { code?: string }).code === "23505") {
+        return { ok: false, error: "This student already has an enrollment in that section." }
+      }
+      return { ok: false, error: "Failed to move the student to the new section." }
+    }
+  }
+
+  return { ok: true }
 }
 
 /**
- * Remove a student enrollment (or deactivate the student account).
- *
- * Backend checklist:
- * 1. Set `enrollment.enrollment_status_id` to withdrawn/inactive, or delete the row.
- * 2. Optionally soft-delete `app_user` if the student should lose portal access.
+ * Archive-only removal: sets the enrollment's status to `dropped`. The
+ * `app_user` account and all attendance/audit history are kept — nothing is
+ * hard-deleted.
  */
 export async function deleteStudent(
   enrollmentId: string
@@ -206,12 +278,18 @@ export async function deleteStudent(
     return { ok: false, error: "Enrollment ID is required." }
   }
 
-  // TODO(backend): implement student removal / deactivation.
-  console.info("[deleteStudent] pending implementation", { enrollmentId })
+  const service = createSupabaseServiceClient()
+  const droppedStatusId = await lookupId("enrollment_status", "dropped")
 
-  return {
-    ok: false,
-    error:
-      "Delete is not available yet. Backend handler still needs to be implemented.",
+  const { error } = await service
+    .from("enrollment")
+    .update({ enrollment_status_id: droppedStatusId })
+    .eq("enrollment_id", enrollmentId)
+
+  if (error) {
+    console.error("[deleteStudent] enrollment update failed", error)
+    return { ok: false, error: "Failed to remove the student from the section." }
   }
+
+  return { ok: true }
 }
