@@ -579,7 +579,7 @@ begin
     join section s on s.section_id = e.section_id
     join term t on t.term_id = s.term_id
     where appe.appeal_status_id in (
-            select appeal_status_id from appeal_status where code in ('open', 'under_review')
+            select appeal_status_id from appeal_status where code in ('pending', 'under_review')
           )
       and t.is_active = true
       and appe.assigned_adviser_user_id = p_adviser_user_id

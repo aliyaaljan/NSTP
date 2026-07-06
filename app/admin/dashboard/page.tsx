@@ -343,7 +343,7 @@ export default async function AdminDashboardPage({
     lookupId("role", "student"),
     lookupId("role", "adviser"),
     lookupId("enrollment_status", "active"),
-    lookupId("appeal_status", "open"),
+    lookupId("appeal_status", "pending"),
     lookupId("appeal_status", "under_review"),
     lookupId("attendance_event_type", "time_in"),
   ])

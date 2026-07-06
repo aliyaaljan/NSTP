@@ -44,7 +44,7 @@ export async function getAdviserListData(
     await Promise.all([
       lookupId("role", "adviser"),
       lookupId("enrollment_status", "active"),
-      lookupId("appeal_status", "open"),
+      lookupId("appeal_status", "pending"),
       lookupId("appeal_status", "under_review"),
     ])
 
