@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
   textDark: "#2C2C2A",
@@ -145,10 +145,34 @@ export default function ConfirmDeleteModal({
           style={{
             padding: "0 22px 22px",
             display: "flex",
-            justifyContent: "flex-end",
-            gap: 10,
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
           }}
         >
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            aria-label={isPending ? "Deleting…" : confirmLabel}
+            title={isPending ? "Deleting…" : confirmLabel}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              border: "none",
+              padding: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "#fff",
+              background: isPending ? "#A86B6D" : COLORS.maroon,
+              cursor: isPending ? "not-allowed" : "pointer",
+            }}
+          >
+            <i className="ti ti-trash" style={{ fontSize: 18 }} />
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -165,27 +189,6 @@ export default function ConfirmDeleteModal({
             }}
           >
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isPending}
-            style={{
-              ...TYPE.bodyBold,
-              fontFamily: FONT_HEADING,
-              color: "#fff",
-              background: isPending ? "#A86B6D" : COLORS.maroon,
-              border: "none",
-              borderRadius: 999,
-              padding: "10px 24px",
-              cursor: isPending ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <i className="ti ti-trash" style={{ fontSize: 16 }} />
-            {isPending ? "Deleting…" : confirmLabel}
           </button>
         </div>
       </div>

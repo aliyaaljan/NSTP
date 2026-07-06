@@ -15,6 +15,21 @@ export function adminClickableRowProps(onClick: () => void) {
   }
 }
 
+export function adminClickableListItemProps(onClick: () => void) {
+  return {
+    className: "anim-list-item admin-list-item-clickable",
+    onClick,
+    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault()
+        onClick()
+      }
+    },
+    tabIndex: 0,
+    role: "button" as const,
+  }
+}
+
 export function adminClickableCardProps(onClick: () => void) {
   return {
     className: "anim-list-item admin-card-clickable",

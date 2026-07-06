@@ -81,6 +81,7 @@ function StudentProgressBar({
           fontSize: 12,
           color: COLORS.textDark,
           marginBottom: 4,
+          fontWeight: 700,
         }}
       >
         {clamped}%
@@ -469,7 +470,7 @@ export default function StudentListClient({
                     onSort={() => toggleSort("adviser")}
                   />
                 </th>
-                <th style={{ width: "10%" }}>Hours</th>
+                <th style={{ width: "10%", textAlign: "center" }}>Hours</th>
                 <th style={{ width: "14%", textAlign: "center" }}>
                   <AdminSortHeader label="Progress" align="center" />
                 </th>
@@ -516,9 +517,10 @@ export default function StudentListClient({
                           {student.adviserName}
                         </div>
                       </td>
-                      <td>
+                      <td style={{ textAlign: "center" }}>
                         <div style={{ color: COLORS.textDark }}>
-                          {student.hoursCompleted}/{student.hoursRequired}
+                          <span style={{ fontWeight: 700 }}>{student.hoursCompleted}</span>
+                          /<span style={{ fontWeight: 700 }}>{student.hoursRequired}</span>
                         </div>
                       </td>
                       <td style={{ textAlign: "center" }}>

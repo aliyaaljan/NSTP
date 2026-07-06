@@ -6,7 +6,6 @@ import { QrScanner } from "@/components/shared/QrScanner"
 import { fetchLeaderScanHistory } from "@/lib/student/leader/scanner-fetch"
 import {
   type ScanRecord,
-  filterByWeek,
   groupByMonth,
   groupByDate,
 } from "@/lib/student/leader/scan-history"

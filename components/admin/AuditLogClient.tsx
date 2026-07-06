@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { adminClickableListItemProps } from "@/components/admin/admin-list-row"
 import AuditLogExportButton from "@/components/admin/AuditLogExportButton"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import ListPagination from "@/components/shared/ListPagination"
@@ -359,15 +360,15 @@ function DetailModal({
 function LogEntryRow({
   entry,
   isLast,
-  onViewDetails,
+  onClick,
 }: {
   entry: AuditLogRow
   isLast: boolean
-  onViewDetails: () => void
+  onClick: () => void
 }) {
   return (
     <div
-      className="anim-list-item"
+      {...adminClickableListItemProps(onClick)}
       style={{
         display: "flex",
         alignItems: "flex-start",
@@ -406,38 +407,10 @@ function LogEntryRow({
         <div style={{ ...TYPE.body, color: COLORS.textGray, marginTop: 4 }}>
           {entry.subtitle}
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: 8,
-            gap: 12,
-          }}
-        >
+        <div style={{ marginTop: 8 }}>
           <span style={{ ...TYPE.caption, color: COLORS.light }}>
             {formatAuditLogTimestamp(entry.createdAt)}
           </span>
-          <button
-            type="button"
-            onClick={onViewDetails}
-            style={{
-              ...TYPE.caption,
-              fontFamily: FONT_BODY,
-              fontWeight: 600,
-              color: COLORS.green,
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            View details
-            <i className="ti ti-chevron-right" style={{ fontSize: 14 }} />
-          </button>
         </div>
       </div>
     </div>
@@ -660,7 +633,7 @@ export default function AuditLogClient({
                   key={entry.auditLogId}
                   entry={entry}
                   isLast={index === pageEntries.length - 1}
-                  onViewDetails={() => setDetailEntry(entry)}
+                  onClick={() => setDetailEntry(entry)}
                 />
               ))}
             </div>

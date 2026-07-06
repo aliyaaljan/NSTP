@@ -67,65 +67,42 @@ export function todayManilaKey(): string {
 }
 
 export function formatDate(dateStr: string) {
-  const date = new Date(dateStr)
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
+  if (dateStr === "—") return "—"
 
-  if (date.toDateString() === today.toDateString()) return "Today"
-  if (date.toDateString() === yesterday.toDateString()) return "Yesterday"
+  const todayKey = todayManilaKey()
+  if (dateStr === todayKey) return "Today"
 
-  return date.toLocaleDateString("en-US", {
+  const todayManila = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" })
+  )
+  todayManila.setDate(todayManila.getDate() - 1)
+  const yesterdayKey = manilaDateFmt.format(todayManila)
+
+  if (dateStr === yesterdayKey) return "Yesterday"
+
+  const [y, m, d] = dateStr.split("-").map(Number)
+  const dateObj = new Date(y, m - 1, d)
+
+  return dateObj.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
   })
 }
 
-export function getWeekNumber(dateStr: string): number {
-  const date = new Date(dateStr)
-  const today = new Date()
-  const firstDayOfYear = new Date(today.getFullYear(), 0, 1)
-  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
-  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
-}
-
-export function getCurrentWeekNumber(): number {
-  const today = new Date()
-  const firstDayOfYear = new Date(today.getFullYear(), 0, 1)
-  const pastDaysOfYear = (today.getTime() - firstDayOfYear.getTime()) / 86400000
-  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
-}
-
-export function filterByWeek(
-  scans: ScanRecord[],
-  weekOption: string
-): ScanRecord[] {
-  if (weekOption === "all") return scans
-
-  const currentWeek = getCurrentWeekNumber()
-  let targetWeek: number
-
-  if (weekOption === "this-week") {
-    targetWeek = currentWeek
-  } else if (weekOption === "last-week") {
-    targetWeek = currentWeek - 1
-  } else {
-    const weekNum = parseInt(weekOption.split("-")[1])
-    targetWeek = currentWeek - weekNum
-  }
-
-  return scans.filter((scan) => getWeekNumber(scan.date) === targetWeek)
-}
-
 export function groupByMonth(
   scans: ScanRecord[]
 ): Record<string, ScanRecord[]> {
   return scans.reduce((acc, scan) => {
-    const monthKey = new Date(scan.date).toLocaleDateString("en-US", {
+    if (scan.date === "—") return acc
+    const [y, m, d] = scan.date.split("-").map(Number)
+    const dateObj = new Date(y, m - 1, d)
+
+    const monthKey = dateObj.toLocaleDateString("en-US", {
       month: "long",
       year: "numeric",
     })
+
     if (!acc[monthKey]) acc[monthKey] = []
     acc[monthKey].push(scan)
     return acc
@@ -147,7 +124,7 @@ export function filterScansByMonthAndWeek(
 ): ScanRecord[] {
   if (!scans || scans.length === 0) return []
 
-  // ff "all" is selected, return everything so the dashboard can group by month
+  // if "all" is selected, return everything so the dashboard can group by month
   if (weekOption === "all") return scans
 
   // parse Month Year
@@ -156,7 +133,6 @@ export function filterScansByMonthAndWeek(
 
   const targetMonth = targetDate.getMonth()
   const targetYear = targetDate.getFullYear()
-  const targetWeek = parseInt(weekOption.replace("week-", ""), 10)
 
   return scans.filter((scan) => {
     const [yearStr, monthStr, dayStr] = scan.date.split("-")
@@ -167,11 +143,11 @@ export function filterScansByMonthAndWeek(
     // check if scan matches the month and year in dropdown
     if (scanYear !== targetYear || scanMonth !== targetMonth) return false
 
-    // 2. If "All" weeks is selected, return all days in THIS specific month
+    // If "All" weeks is selected, return all days in T
     if (weekOption === "all") return true
 
     // Calculate Week of the Month (Days 1-7 = Week 1, 8-14 = Week 2, etc.)
-    // 3. Otherwise, filter by the specific week
+    // Otherwise, filter by the specific week
     const targetWeek = parseInt(weekOption.replace("week-", ""), 10)
     const weekOfMonth = Math.ceil(scanDay / 7)
 
