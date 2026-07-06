@@ -136,12 +136,6 @@ export default function LeaderScannerPage() {
     })
   }, [scans])
 
-  useEffect(() => {
-    if (months.length > 0 && !selectedMonth) {
-      setSelectedMonth(months[0])
-    }
-  }, [months, selectedMonth])
-
   return (
     <div
       className={montserrat.variable}
