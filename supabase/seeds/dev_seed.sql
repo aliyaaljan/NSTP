@@ -304,7 +304,9 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO enrollment (enrollment_id, section_id, student_user_id, enrollment_status_id)
 SELECT '5eed4234-0000-0000-0000-000000000000', '5eed3054-0000-0000-0000-000000000000', id,
-       (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'active')
+       -- 'dropped' (not 'active'): one-active-enrollment-per-student guard allows
+       -- student.test only its CWTS-2526A active enrollment (5eed4236, block 7f).
+       (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'dropped')
 FROM auth.users WHERE email = 'student.test@up.edu.ph'
 ON CONFLICT DO NOTHING;
 

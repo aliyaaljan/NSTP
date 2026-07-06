@@ -348,6 +348,10 @@ create index if not exists role_change_old_role_idx         on role_change(old_r
 create index if not exists role_change_new_role_idx         on role_change(new_role_id);
 create index if not exists section_status_idx               on section(section_status_id);
 
+-- At most one active term at a time
+create unique index if not exists uq_term_single_active
+  on term ((is_active)) where is_active;
+
 -- ============================================================
 -- updated_at auto-maintenance (moddatetime)
 -- ============================================================
@@ -367,6 +371,45 @@ create trigger set_appeal_updated_at            before update on appeal
   for each row execute procedure moddatetime(updated_at);
 create trigger set_form_updated_at              before update on form
   for each row execute procedure moddatetime(updated_at);
+
+-- ============================================================
+-- One active enrollment per student.
+-- At most one enrollment per student may have enrollment_status = 'active'.
+-- Resolves 'active' by code. Fires for service-role writes too.
+-- ============================================================
+create or replace function public.enforce_one_active_enrollment()
+returns trigger language plpgsql set search_path = public, pg_temp as $$
+declare
+  v_active_id uuid;
+begin
+  select enrollment_status_id into v_active_id
+  from enrollment_status where code = 'active';
+
+  -- only guard rows that are (becoming) active
+  if new.enrollment_status_id is distinct from v_active_id then
+    return new;
+  end if;
+
+  if exists (
+    select 1 from enrollment e
+    where e.student_user_id      = new.student_user_id
+      and e.enrollment_status_id = v_active_id
+      and e.enrollment_id       <> new.enrollment_id
+  ) then
+    raise exception
+      'student % already has an active enrollment; set the prior enrollment to completed/dropped first',
+      new.student_user_id
+      using errcode = 'unique_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_one_active_enrollment on enrollment;
+create trigger enforce_one_active_enrollment
+  before insert or update on enrollment
+  for each row execute function public.enforce_one_active_enrollment();
 
 -- ============================================================
 -- Seed data (lookup tables) — idempotent
