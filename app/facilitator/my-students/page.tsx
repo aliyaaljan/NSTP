@@ -421,7 +421,7 @@ function MyStudentsContent() {
   const [exportStudent, setExportStudent] = useState(false)
   const [exportSection, setExportSection] = useState("All Sections")
   const [exportColumns, setExportColumns] = useState<string[]>([
-    "student_name", "student_number", "sais_id", "section",
+    "student_name", "student_number", "sais_id", "section_name",
     "site_location", "program", "classification", "status",
     "hours_logged", "total_hours", "completion_percentage", "is_student_leader"
   ])
@@ -1181,11 +1181,11 @@ function MyStudentsContent() {
                           </div>
                         )}
                       </div>
-                      {hasListFilters && (
+                      {/* {hasListFilters && (
                         <button className="adv-filter-btn" onClick={clearListFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
                         </button>
-                      )}
+                      )} */}
                       {/* Export button */}
                       <button
                         className="sections-btn"
@@ -1488,11 +1488,11 @@ function MyStudentsContent() {
                         )}
                       </div>
 
-                      {hasPendingFilters && (
+                      {/* {hasPendingFilters && (
                         <button className="adv-filter-btn" onClick={clearPendingFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
                         </button>
-                      )}
+                      )} */}
                     </div>
                   </div>
 
