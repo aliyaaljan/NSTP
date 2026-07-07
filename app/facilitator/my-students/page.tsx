@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   IconSearch,
   IconChevronDown,
+  IconFilter,
   IconUsers,
   IconCircleCheck,
   IconClock,
@@ -379,6 +380,8 @@ const myStudentsStyles = `
     cursor: pointer;
   }
   .ms-edit-save-btn:hover { opacity: 0.9; }
+  .adv-filter-btn:hover { background: #F4F3F0 !important; filter: brightness(0.97); }
+  .adv-filter-btn:active { transform: scale(0.96); }
 `
 
 function AnimatedBar({ pct, color }: { pct: number; color: string }) {
@@ -1116,20 +1119,24 @@ function MyStudentsContent() {
                           className="adv-filter-btn"
                           onClick={() => setShowFilterPanel(v => !v)}
                           style={{
+                            width: 60,
+                            height: 38,
                             border: `1.5px solid ${totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
-                            color: totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
                             borderRadius: 999,
-                            padding: "8px 18px",
-                            fontSize: 13.5,
+                            background: "white",
+                            color: totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
+                            fontSize: 22,
+                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
+                            justifyContent: "center",
+                            transition: "0.2s ease",
+                            position: "relative",
                           }}
                         >
-                          <IconChevronDown size={16} stroke={2} />
-                          Filter
+                          <IconFilter size={18} stroke={1.75} />
                           {totalActiveFilters > 0 && (
-                            <span style={{ background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>
+                            <span style={{ position: "absolute", top: -6, right: -6, background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                               {totalActiveFilters}
                             </span>
                           )}
@@ -1419,20 +1426,24 @@ function MyStudentsContent() {
                           className="adv-filter-btn"
                           onClick={() => setShowPendingFilterPanel(v => !v)}
                           style={{
+                            width: 60,
+                            height: 38,
                             border: `1.5px solid ${totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
-                            color: totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
                             borderRadius: 999,
-                            padding: "8px 18px",
-                            fontSize: 13.5,
+                            background: "white",
+                            color: totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
+                            fontSize: 22,
+                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
+                            justifyContent: "center",
+                            transition: "0.2s ease",
+                            position: "relative",
                           }}
                         >
-                          <IconChevronDown size={16} stroke={2} />
-                          Filter
+                          <IconFilter size={18} stroke={1.75} />
                           {totalPendingActiveFilters > 0 && (
-                            <span style={{ background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>
+                            <span style={{ position: "absolute", top: -6, right: -6, background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                               {totalPendingActiveFilters}
                             </span>
                           )}
