@@ -35,10 +35,14 @@ returns table(
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s dashboard';
   end if;
+
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
 
   return query
   with student_minutes as (
@@ -61,7 +65,7 @@ begin
   section_stats as (
     select
       s.section_id,
-      s.name as section_name,
+      public.class_label(s.course_code, v_adviser_name) as section_name,
       s.required_hour_total,
       count(sm.enrollment_id)::integer as total,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
@@ -78,7 +82,7 @@ begin
       and e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
           )
-    group by s.section_id, s.name, s.required_hour_total
+    group by s.section_id, s.course_code, s.required_hour_total
   ),
   pending_appeals as (
     select

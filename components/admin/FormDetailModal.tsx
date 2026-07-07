@@ -88,7 +88,7 @@ export default function FormDetailModal({
               {form.formName}
             </h2>
             <p style={{ ...TYPE.caption, color: "rgba(255,255,255,0.85)", margin: "6px 0 0" }}>
-              {form.sectionName} Section · {form.adviserName}
+              {form.sectionName} · {form.adviserName}
             </p>
           </div>
           <button

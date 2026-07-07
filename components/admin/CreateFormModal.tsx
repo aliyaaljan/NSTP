@@ -122,7 +122,7 @@ function SectionSelect({
         <option value={FORM_GLOBAL_SECTION}>All sections (global default)</option>
         {sections.map((section) => (
           <option key={section.sectionId} value={section.sectionId}>
-            Section {section.name}
+            {section.label}
           </option>
         ))}
       </select>

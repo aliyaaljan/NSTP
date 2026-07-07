@@ -11,6 +11,7 @@ import {
   progressStatusFromPct,
   type StudentProgressStatus,
 } from "@/lib/admin/student-progress"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export interface StudentListRow {
   /** `enrollment.enrollment_id` */
@@ -24,7 +25,8 @@ export interface StudentListRow {
   fullName: string
   email: string
   studentNumber: string | null
-  sectionName: string
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
+  classLabel: string
   adviserName: string
   hoursCompleted: number
   hoursRequired: number
@@ -35,7 +37,8 @@ export interface StudentListRow {
 export interface StudentListSectionOption {
   /** `section.section_id` */
   sectionId: string
-  name: string
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
+  label: string
 }
 
 export type StudentListSortKey = "name" | "section" | "adviser"
@@ -98,7 +101,7 @@ export const ENROLLMENT_LIST_SELECT = `
   app_user(full_name, email, student_number),
   section:section_id(
     section_id,
-    name,
+    course_code,
     required_hour_total,
     adviser_user_id,
     app_user:adviser_user_id(full_name)
@@ -118,7 +121,7 @@ export interface EnrollmentListDbRow {
   } | null
   section: {
     section_id: string
-    name: string
+    course_code: string
     required_hour_total: number | null
     adviser_user_id: string
     app_user: { full_name: string } | null
@@ -141,6 +144,7 @@ export function mapEnrollmentToStudentListRow(
     ) ?? 0
   const hoursCompleted = Math.round(studentMinutes / 60)
   const pct = completionPct(hoursCompleted, hoursRequired)
+  const adviserName = section.app_user?.full_name ?? "Unassigned"
 
   return {
     enrollmentId: row.enrollment_id,
@@ -150,8 +154,11 @@ export function mapEnrollmentToStudentListRow(
     fullName: student.full_name ?? "Unknown",
     email: student.email ?? "",
     studentNumber: student.student_number ?? null,
-    sectionName: section.name,
-    adviserName: section.app_user?.full_name ?? "Unassigned",
+    classLabel: formatClassLabel({
+      courseCode: section.course_code,
+      facilitatorName: section.app_user?.full_name,
+    }),
+    adviserName,
     hoursCompleted,
     hoursRequired,
     completionPct: pct,
@@ -240,7 +247,7 @@ export function filterStudentListRows(
       student.fullName.toLowerCase().includes(q) ||
       student.email.toLowerCase().includes(q) ||
       (student.studentNumber ?? "").toLowerCase().includes(q) ||
-      student.sectionName.toLowerCase().includes(q) ||
+      student.classLabel.toLowerCase().includes(q) ||
       student.adviserName.toLowerCase().includes(q)
     )
   })
@@ -251,7 +258,7 @@ export function filterStudentListRows(
       return a.fullName.localeCompare(b.fullName) * factor
     }
     if (query.sort === "section") {
-      return a.sectionName.localeCompare(b.sectionName) * factor
+      return a.classLabel.localeCompare(b.classLabel) * factor
     }
     return a.adviserName.localeCompare(b.adviserName) * factor
   })

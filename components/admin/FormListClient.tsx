@@ -156,11 +156,11 @@ export default function FormListClient({
   const filterGroups: FilterGroupDef[] = useMemo(
     () => [
       {
-        label: "Section",
+        label: "Class",
         field: "sectionId",
         options: sections.map((s) => ({
           value: s.sectionId,
-          label: `Section ${s.name}`,
+          label: s.label,
         })),
       },
     ],
@@ -428,7 +428,7 @@ export default function FormListClient({
                       </td>
                       <td>
                         <div style={{ color: COLORS.textDark }}>
-                          {form.sectionName} Section
+                          {form.sectionName}
                         </div>
                         <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                           {form.adviserName}

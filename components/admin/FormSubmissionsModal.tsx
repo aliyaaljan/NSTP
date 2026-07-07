@@ -136,7 +136,7 @@ export default function FormSubmissionsModal({
               Submissions
             </h2>
             <p style={{ ...TYPE.caption, color: "rgba(255,255,255,0.85)", margin: "6px 0 0" }}>
-              {form.formName} · {form.sectionName} Section
+              {form.formName} · {form.sectionName}
             </p>
           </div>
           <button

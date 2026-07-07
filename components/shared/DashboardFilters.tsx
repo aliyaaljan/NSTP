@@ -4,9 +4,15 @@ import { useRouter } from "next/navigation"
 import { FONT_BODY } from "@/lib/admin-typography"
 import { ADMIN_COLORS, ADMIN_FILTER_SELECT_STYLE } from "@/lib/admin-theme"
 
+export interface DashboardFilterSectionOption {
+  sectionId: string
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
+  label: string
+}
+
 interface FilterProps {
   currentFilter: string
-  sections: string[]
+  sections: DashboardFilterSectionOption[]
   advisers: string[]
 }
 
@@ -51,7 +57,9 @@ export default function DashboardFilters({
 
   let selectedLabel = "All Filters"
   if (currentFilter.startsWith("section:")) {
-    selectedLabel = `Section: ${currentFilter.replace("section:", "")}`
+    const sectionId = currentFilter.replace("section:", "")
+    const match = sections.find((s) => s.sectionId === sectionId)
+    selectedLabel = match ? `Class: ${match.label}` : "Class"
   } else if (currentFilter.startsWith("adviser:")) {
     selectedLabel = currentFilter.replace("adviser:", "")
   }
@@ -71,14 +79,14 @@ export default function DashboardFilters({
             All Sections & Advisers
           </option>
 
-          <optgroup label="Sections" style={{ color: ADMIN_COLORS.muted }}>
-            {sections.map((name) => (
+          <optgroup label="Classes" style={{ color: ADMIN_COLORS.muted }}>
+            {sections.map((s) => (
               <option
-                key={name}
-                value={`section:${name}`}
+                key={s.sectionId}
+                value={`section:${s.sectionId}`}
                 style={{ color: ADMIN_COLORS.text }}
               >
-                Section {name}
+                {s.label}
               </option>
             ))}
           </optgroup>

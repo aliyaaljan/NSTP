@@ -7,6 +7,7 @@
  */
 
 import { completionPct } from "@/lib/admin/student-progress"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export interface AdviserListRow {
   /** `app_user.app_user_id` */
@@ -17,9 +18,9 @@ export interface AdviserListRow {
   initials: string
   /** Public URL for adviser photo when backend storage is wired. */
   photoUrl: string | null
-  /** `section.section_id` values for sections this adviser facilitates. */
+  /** `section.section_id` — at most one per (adviser, term). */
   sectionIds: string[]
-  /** `section.name` values for sections this adviser facilitates. */
+  /** Derived class label(s) — at most one per (adviser, term); sections have no name. */
   sectionNames: string[]
   /** Active enrollments across all facilitated sections. */
   studentCount: number
@@ -33,7 +34,8 @@ export interface AdviserListRow {
 export interface AdviserListSectionOption {
   /** `section.section_id` */
   sectionId: string
-  name: string
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
+  label: string
 }
 
 export const ADVISER_LIST_ALL_SECTIONS = "all"
@@ -92,7 +94,7 @@ export const ADVISER_LIST_SELECT = `
   is_active,
   section:section_adviser_user_id_fkey(
     section_id,
-    name,
+    course_code,
     required_hour_total,
     enrollment(
       enrollment_id,
@@ -111,7 +113,7 @@ export interface AdviserListDbRow {
   section:
     | Array<{
         section_id: string
-        name: string
+        course_code: string
         required_hour_total: number | null
         enrollment: Array<{
           enrollment_id: string
@@ -145,11 +147,14 @@ export function mapAdviserDbRowToListRow(
   pendingCount: number
 ): AdviserListRow {
   const sections = row.section ?? []
-  const sortedSections = [...sections].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  )
+  const classLabel = formatClassLabel({
+    // At most one class per (adviser, term); course_code is uniform across it.
+    courseCode: sections[0]?.course_code,
+    facilitatorName: row.full_name,
+  })
+  const sortedSections = [...sections]
   const sectionIds = sortedSections.map((s) => s.section_id)
-  const sectionNames = sortedSections.map((s) => s.name)
+  const sectionNames = sortedSections.map(() => classLabel)
 
   let studentCount = 0
   let completionSum = 0
@@ -283,7 +288,7 @@ export function filterAdviserListRowsBySection(
 
   if (query.sectionId === ADVISER_LIST_ALL_SECTIONS) return searchFiltered
 
-  const sectionName = sections.find((s) => s.sectionId === query.sectionId)?.name
+  const sectionName = sections.find((s) => s.sectionId === query.sectionId)?.label
   if (!sectionName) return searchFiltered
 
   return searchFiltered.filter((adviser) =>

@@ -34,6 +34,8 @@ import {
   syncAuthBan,
   syncUserEmail,
 } from "@/lib/admin/user-provision"
+import { ensureFacilitatorClass } from "@/lib/admin/class-provision"
+import { formatClassLabel } from "@/lib/shared/class-label"
 import { mapRows, parseImportFile } from "@/lib/admin/import/parse"
 import {
   getAdviserImportLookups,
@@ -102,7 +104,9 @@ export async function getAdviserListData(
   const [advisersRes, sectionsRes, appealsRes, { data: authData }] =
     await Promise.all([
       adviserQuery,
-      supabase.from("section").select("section_id, name").order("name"),
+      supabase
+        .from("section")
+        .select("section_id, course_code, app_user:adviser_user_id(full_name)"),
       supabase
         .from("appeal")
         .select(pendingAppealsSelect)
@@ -127,11 +131,22 @@ export async function getAdviserListData(
       )
     ) ?? []
 
-  const sections: AdviserListSectionOption[] =
-    sectionsRes.data?.map((section) => ({
+  const sections: AdviserListSectionOption[] = (
+    sectionsRes.data as unknown as {
+      section_id: string
+      course_code: string
+      app_user: { full_name: string } | null
+    }[]
+    ?? []
+  )
+    .map((section) => ({
       sectionId: section.section_id,
-      name: section.name,
-    })) ?? []
+      label: formatClassLabel({
+        courseCode: section.course_code,
+        facilitatorName: section.app_user?.full_name,
+      }),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
@@ -208,6 +223,18 @@ export async function createAdviser(
     isActive: payload.isActive,
   })
   if (!result.ok) return result
+
+  // One class per facilitator per term: auto-create theirs for the active term.
+  if (payload.isActive !== false) {
+    const classResult = await ensureFacilitatorClass(service, result.userId)
+    if (!classResult.ok) {
+      console.error("[createAdviser] class provisioning failed", classResult.error)
+      return {
+        ok: false,
+        error: `Facilitator account created, but their class could not be created: ${classResult.error}`,
+      }
+    }
+  }
   return { ok: true }
 }
 
@@ -455,6 +482,13 @@ export async function commitAdviserImportChunk(input: {
           message: `Created ${row.email}'s account, but failed to save facilitator metadata (college/component/partnership type).`,
         })
       }
+      const provisionedClass = await ensureFacilitatorClass(service, provisioned.userId)
+      if (!provisionedClass.ok) {
+        result.issues.push({
+          rowNumber: row.rowNumber,
+          message: `Created ${row.email}'s account, but their class could not be created: ${provisionedClass.error}`,
+        })
+      }
       result.imported += 1
       continue
     }
@@ -473,6 +507,13 @@ export async function commitAdviserImportChunk(input: {
           message: `Failed to update ${row.email}.`,
         })
       } else {
+        const adminClass = await ensureFacilitatorClass(service, existing.appUserId)
+        if (!adminClass.ok) {
+          result.issues.push({
+            rowNumber: row.rowNumber,
+            message: `Updated ${row.email}, but their class could not be created: ${adminClass.error}`,
+          })
+        }
         result.updated += 1
       }
       continue
@@ -519,6 +560,14 @@ export async function commitAdviserImportChunk(input: {
           message: `Promoted ${row.email} from student to facilitator.`,
         })
       }
+    }
+
+    const updatedClass = await ensureFacilitatorClass(service, existing.appUserId)
+    if (!updatedClass.ok) {
+      result.issues.push({
+        rowNumber: row.rowNumber,
+        message: `Updated ${row.email}, but their class could not be created: ${updatedClass.error}`,
+      })
     }
     result.updated += 1
   }

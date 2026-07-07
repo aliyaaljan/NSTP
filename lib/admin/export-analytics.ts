@@ -22,7 +22,8 @@ export const EXPORT_ALL_SECTIONS_VALUE = "all"
 export interface ExportSectionOption {
   /** UUID from `section.section_id`. Use EXPORT_ALL_SECTIONS_VALUE for all. */
   sectionId: string
-  name: string
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
+  label: string
 }
 
 export interface ExportAnalyticsRequest {

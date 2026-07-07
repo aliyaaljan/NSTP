@@ -17,11 +17,9 @@ import {
 } from "@/lib/admin/import/types"
 import {
   commitStudentImportChunk,
-  ensureImportSection,
-  getImportPickerData,
   parseStudentImport,
 } from "@/lib/admin/student-list-actions"
-import type { ImportPickerData, StudentImportRow } from "@/lib/admin/student-import"
+import type { StudentImportRow } from "@/lib/admin/student-import"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 // Same palette every other admin modal (Add/Edit Student/Adviser, ConfirmDelete)
@@ -78,139 +76,6 @@ async function runChunkedCommit<T>(
   return { ok: true, result: total }
 }
 
-// --- Form primitives mirrored from AddStudentModal / AddAdviserModal so this
-// modal's section step looks like it belongs next to them, not bolted on. ---
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label
-      style={{ ...TYPE.bodyBold, color: COLORS.textDark, display: "block", marginBottom: 8 }}
-    >
-      {children}
-    </label>
-  )
-}
-
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-}) {
-  return (
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        ...TYPE.body,
-        fontStyle: "normal",
-        color: COLORS.textDark,
-        background: COLORS.fieldBg,
-        border: "none",
-        borderRadius: 6,
-        padding: "12px 14px",
-        outline: "none",
-      }}
-    />
-  )
-}
-
-function PickerSelect({
-  value,
-  onChange,
-  placeholder,
-  options,
-}: {
-  value: string
-  onChange: (value: string) => void
-  placeholder: string
-  options: { value: string; label: string }[]
-}) {
-  return (
-    <div style={{ position: "relative" }}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          boxSizing: "border-box",
-          ...TYPE.body,
-          fontStyle: "normal",
-          color: value ? COLORS.textDark : COLORS.textGray,
-          background: COLORS.fieldBg,
-          border: "none",
-          borderRadius: 6,
-          padding: "12px 40px 12px 14px",
-          appearance: "none",
-          cursor: "pointer",
-          outline: "none",
-        }}
-      >
-        <option value="" disabled>
-          {placeholder}
-        </option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <i
-        className="ti ti-chevron-down"
-        style={{
-          position: "absolute",
-          right: 14,
-          top: "50%",
-          transform: "translateY(-50%)",
-          pointerEvents: "none",
-          fontSize: 16,
-          color: COLORS.textGray,
-        }}
-      />
-    </div>
-  )
-}
-
-function RadioRow({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean
-  onChange: () => void
-  label: string
-}) {
-  return (
-    <label
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        cursor: "pointer",
-        ...TYPE.body,
-        fontStyle: "normal",
-        color: COLORS.textDark,
-        marginBottom: 8,
-      }}
-    >
-      <input
-        type="radio"
-        checked={checked}
-        onChange={onChange}
-        style={{ width: 16, height: 16, accentColor: COLORS.headerGreen, cursor: "pointer" }}
-      />
-      {label}
-    </label>
-  )
-}
-
 export default function ImportFileModal({
   variant,
   open,
@@ -232,12 +97,6 @@ export default function ImportFileModal({
   const [error, setError] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>("pick")
   const [preview, setPreview] = useState<PreviewState | null>(null)
-  const [picker, setPicker] = useState<ImportPickerData | null>(null)
-  const [sectionMode, setSectionMode] = useState<"existing" | "new">("existing")
-  const [sectionId, setSectionId] = useState("")
-  const [newSectionName, setNewSectionName] = useState("")
-  const [newCourseCode, setNewCourseCode] = useState("")
-  const [newAdviserId, setNewAdviserId] = useState("")
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [summary, setSummary] = useState<ImportCommitResult | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -248,12 +107,6 @@ export default function ImportFileModal({
     setDragOver(false)
     setPhase("pick")
     setPreview(null)
-    setPicker(null)
-    setSectionMode("existing")
-    setSectionId("")
-    setNewSectionName("")
-    setNewCourseCode("")
-    setNewAdviserId("")
     setProgress({ done: 0, total: 0 })
     setSummary(null)
     if (inputRef.current) inputRef.current.value = ""
@@ -305,14 +158,8 @@ export default function ImportFileModal({
     startTransition(async () => {
       setError(null)
       if (isStudents) {
-        const [parsed, pickerRes] = await Promise.all([
-          parseStudentImport(formData),
-          getImportPickerData(),
-        ])
+        const parsed = await parseStudentImport(formData)
         if (!parsed.ok) return setError(parsed.error)
-        if (!pickerRes.ok) return setError(pickerRes.error)
-        setPicker(pickerRes.data)
-        setNewCourseCode(parsed.uniformCourseCode ?? "")
         setPreview({
           totalRows: parsed.totalRows,
           issues: parsed.issues,
@@ -339,22 +186,6 @@ export default function ImportFileModal({
     startTransition(async () => {
       setError(null)
 
-      let targetSectionId = ""
-      if (isStudents) {
-        const choice =
-          sectionMode === "existing"
-            ? ({ kind: "existing", sectionId } as const)
-            : ({
-                kind: "new",
-                name: newSectionName,
-                courseCode: newCourseCode,
-                adviserUserId: newAdviserId,
-              } as const)
-        const ensured = await ensureImportSection(choice)
-        if (!ensured.ok) return setError(ensured.error)
-        targetSectionId = ensured.sectionId
-      }
-
       const rowCount = isStudents ? preview.studentRows.length : preview.adviserRows.length
       setPhase("committing")
       setProgress({ done: 0, total: rowCount })
@@ -362,15 +193,15 @@ export default function ImportFileModal({
 
       const committed = isStudents
         ? await runChunkedCommit(
-            preview.studentRows,
-            (batch) => commitStudentImportChunk({ sectionId: targetSectionId, rows: batch }),
-            onProgress
-          )
+          preview.studentRows,
+          (batch) => commitStudentImportChunk({ rows: batch }),
+          onProgress
+        )
         : await runChunkedCommit(
-            preview.adviserRows,
-            (batch) => commitAdviserImportChunk({ rows: batch }),
-            onProgress
-          )
+          preview.adviserRows,
+          (batch) => commitAdviserImportChunk({ rows: batch }),
+          onProgress
+        )
 
       if (!committed.ok) {
         setError(`${committed.error} Already-imported rows were saved — fix the file and re-run.`)
@@ -395,11 +226,6 @@ export default function ImportFileModal({
   const validCount = preview
     ? (isStudents ? preview.studentRows : preview.adviserRows).length
     : 0
-  const sectionReady =
-    !isStudents ||
-    (sectionMode === "existing"
-      ? sectionId !== ""
-      : newSectionName.trim() !== "" && newCourseCode.trim() !== "" && newAdviserId !== "")
 
   const cancelBtnStyle = {
     ...TYPE.bodyBold,
@@ -582,60 +408,6 @@ export default function ImportFileModal({
             </div>
           )}
 
-          {phase === "preview" && isStudents && picker && (
-            <div>
-              <FieldLabel>Import into section</FieldLabel>
-
-              <RadioRow
-                checked={sectionMode === "existing"}
-                onChange={() => setSectionMode("existing")}
-                label="Existing section"
-              />
-              {sectionMode === "existing" && (
-                <div style={{ marginBottom: 12 }}>
-                  <PickerSelect
-                    value={sectionId}
-                    onChange={setSectionId}
-                    placeholder="Choose a section…"
-                    options={picker.sections.map((section) => ({
-                      value: section.sectionId,
-                      label: `${section.name} (${section.courseCode})`,
-                    }))}
-                  />
-                </div>
-              )}
-
-              <RadioRow
-                checked={sectionMode === "new"}
-                onChange={() => setSectionMode("new")}
-                label="Create new section"
-              />
-              {sectionMode === "new" && (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <TextInput
-                    value={newSectionName}
-                    onChange={setNewSectionName}
-                    placeholder="Section name"
-                  />
-                  <TextInput
-                    value={newCourseCode}
-                    onChange={setNewCourseCode}
-                    placeholder="Course code (e.g. NSTP 2 CWTS)"
-                  />
-                  <PickerSelect
-                    value={newAdviserId}
-                    onChange={setNewAdviserId}
-                    placeholder="Choose a facilitator…"
-                    options={picker.advisers.map((adviser) => ({
-                      value: adviser.adviserUserId,
-                      label: adviser.fullName,
-                    }))}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
           {phase === "committing" && (
             <div>
               <div style={{ ...TYPE.body, color: COLORS.textDark, marginBottom: 6 }}>
@@ -708,16 +480,16 @@ export default function ImportFileModal({
               <button
                 type="button"
                 onClick={handleImport}
-                disabled={isPending || validCount === 0 || !sectionReady}
+                disabled={isPending || validCount === 0}
                 style={{
                   ...TYPE.bodyBold,
                   fontFamily: FONT_HEADING,
                   color: "#fff",
-                  background: !isPending && validCount > 0 && sectionReady ? COLORS.headerGreen : "#A8B5AD",
+                  background: !isPending && validCount > 0 ? COLORS.headerGreen : "#A8B5AD",
                   border: "none",
                   borderRadius: 999,
                   padding: "10px 24px",
-                  cursor: !isPending && validCount > 0 && sectionReady ? "pointer" : "not-allowed",
+                  cursor: !isPending && validCount > 0 ? "pointer" : "not-allowed",
                   display: "flex",
                   alignItems: "center",
                   gap: 8,

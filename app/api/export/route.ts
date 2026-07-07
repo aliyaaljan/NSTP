@@ -11,6 +11,7 @@ import {
   formatAuditLogTimestamp,
   mapAuditLogDbRow,
 } from "@/lib/admin/audit-log"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export async function GET(request: Request) {
   try {
@@ -103,7 +104,7 @@ export async function GET(request: Request) {
             `
             full_name,
             email,
-            section!section_adviser_user_id_fkey(section_id, name)
+            section!section_adviser_user_id_fkey(section_id, course_code)
           `
           )
           .eq("role_id", adviserRoleId)
@@ -112,7 +113,7 @@ export async function GET(request: Request) {
         const { data: advData, error: advError } = await advQuery
         if (advError) throw new Error("Failed to fetch advisers")
 
-        headers = ["Adviser Name", "Email", "Assigned Sections"]
+        headers = ["Adviser Name", "Email", "Class"]
 
         advData.forEach((adv: any) => {
           const sections = adv.section || []
@@ -128,7 +129,11 @@ export async function GET(request: Request) {
             adv.full_name,
             adv.email,
             sections.length > 0
-              ? sections.map((s: any) => s.name).join(", ")
+              ? sections
+                  .map((s: any) =>
+                    formatClassLabel({ courseCode: s.course_code, facilitatorName: adv.full_name })
+                  )
+                  .join(", ")
               : "Unassigned",
           ])
         })
@@ -142,7 +147,7 @@ export async function GET(request: Request) {
             `
             enrollment_id,
             app_user(full_name, email, student_number),
-            section!inner(name, required_hour_total, app_user(full_name)),
+            section!inner(course_code, required_hour_total, app_user(full_name)),
             attendance_session(duration_minute)
           `
           )
@@ -185,7 +190,10 @@ export async function GET(request: Request) {
             en.app_user?.full_name || "Unkown",
             en.app_user?.email || "N/A",
             en.app_user?.student_number || "N/A",
-            `Section ${en.section?.name || ""}`,
+            formatClassLabel({
+              courseCode: en.section?.course_code,
+              facilitatorName: en.section?.app_user?.full_name,
+            }),
             en.section?.app_user?.full_name || "Unassigned",
             hoursRendered,
             `${pct}%`,
