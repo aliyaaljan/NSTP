@@ -163,6 +163,8 @@ export async function createStudent(
 
   const service = createSupabaseServiceClient()
 
+  const activeStatusId = await lookupId("enrollment_status", "active")
+
   const provisioned = await provisionUser(service, {
     email: payload.email,
     fullName: payload.fullName,
@@ -171,7 +173,6 @@ export async function createStudent(
   })
   if (!provisioned.ok) return provisioned
 
-  const activeStatusId = await lookupId("enrollment_status", "active")
   const { error: enrollError } = await service.from("enrollment").insert({
     section_id: payload.sectionId,
     student_user_id: provisioned.userId,
@@ -683,21 +684,52 @@ export async function commitStudentImportChunk(input: {
         message: `${row.email} already has an active enrollment in another section — skipped.`,
       })
     } else {
-      const { error } = await service.from("enrollment").insert({
-        section_id: input.sectionId,
-        student_user_id: studentUserId,
-        enrollment_status_id: activeStatusId,
-        ...metadata,
-      })
-      if (error) {
-        console.error("[commitStudentImportChunk] enrollment insert failed", error)
-        result.skipped += 1
-        result.issues.push({
-          rowNumber: row.rowNumber,
-          message: `Failed to enroll ${row.email}.`,
-        })
+      const { data: existingEnrollment } = await service
+        .from("enrollment")
+        .select("enrollment_id")
+        .eq("student_user_id", studentUserId)
+        .eq("section_id", input.sectionId)
+        .maybeSingle()
+
+      if (existingEnrollment) {
+        // Archived (dropped/completed) enrollment in this section — reactivate it.
+        // Safe w.r.t. the one-active-enrollment trigger: this branch is only
+        // reached when the student has no active enrollment anywhere.
+        const { error } = await service
+          .from("enrollment")
+          .update({ enrollment_status_id: activeStatusId, ...metadata })
+          .eq("enrollment_id", existingEnrollment.enrollment_id)
+        if (error) {
+          console.error("[commitStudentImportChunk] enrollment reactivation failed", error)
+          result.skipped += 1
+          result.issues.push({
+            rowNumber: row.rowNumber,
+            message: `Failed to enroll ${row.email}.`,
+          })
+        } else {
+          result.imported += 1
+          result.issues.push({
+            rowNumber: row.rowNumber,
+            message: `Re-activated ${row.email}'s previous enrollment in this section.`,
+          })
+        }
       } else {
-        result.imported += 1
+        const { error } = await service.from("enrollment").insert({
+          section_id: input.sectionId,
+          student_user_id: studentUserId,
+          enrollment_status_id: activeStatusId,
+          ...metadata,
+        })
+        if (error) {
+          console.error("[commitStudentImportChunk] enrollment insert failed", error)
+          result.skipped += 1
+          result.issues.push({
+            rowNumber: row.rowNumber,
+            message: `Failed to enroll ${row.email}.`,
+          })
+        } else {
+          result.imported += 1
+        }
       }
     }
   }
