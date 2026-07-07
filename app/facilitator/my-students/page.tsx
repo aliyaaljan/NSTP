@@ -20,6 +20,7 @@ import { FaRegQuestionCircle } from "react-icons/fa";
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
+import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { parse, format } from "date-fns"
@@ -1671,550 +1672,213 @@ function MyStudentsContent() {
           </main>
         </div>
 
-        {/* Student detail modal */}
-        {selectedStudent && (
-          <div
-            className="ms-modal-backdrop"
-            onClick={() => setSelectedStudentKey(null)}
-          >
-            <div
-              className="ms-modal ms-modal-wide"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="ms-modal-header">
-                <div className="ms-modal-avatar">
-                  {selectedStudent.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
-                </div>
-                <div className="ms-modal-header-info">
-                  <div className="ms-modal-title">{selectedStudent.student_name}</div>
-                  <div className="ms-modal-subtitle">
-                    {selectedStudent.section_name} · {selectedStudent.site_location}
+        <NstpModal
+          open={!!selectedStudent}
+          onClose={() => setSelectedStudentKey(null)}
+          title={selectedStudent?.student_name ?? ""}
+          subtitle={selectedStudent ? `${selectedStudent.section_name} · ${selectedStudent.site_location}` : ""}
+          initials={selectedStudent?.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
+          size="wide"
+          twoCol
+          leftContent={selectedStudent && (
+            <>
+              <ModalRow>
+                <ModalField label="Student No." value={selectedStudent.student_number} />
+                <ModalField label="Sais ID" value={String(selectedStudent.sais_id)} />
+              </ModalRow>
+              <ModalRow>
+                <ModalField label="Program" value={selectedStudent.program} />
+                <ModalField label="Classification" value={selectedStudent.classification} />
+              </ModalRow>
+              <ModalRow>
+                <ModalField label="Site Location" value={selectedStudent.site_location} />
+                <ModalField label="Status">
+                  <span className="ms-status-badge" style={{ background: statusConfig[selectedStudent.status].bg, color: statusConfig[selectedStudent.status].color }}>
+                    {statusConfig[selectedStudent.status].label}
+                  </span>
+                </ModalField>
+              </ModalRow>
+              <ModalRow>
+                <ModalField label="Role">
+                  <div className="ms-role-badge" style={{ background: roleBadgeStyle(selectedStudent.is_student_leader).bg, color: roleBadgeStyle(selectedStudent.is_student_leader).color }}>
+                    {selectedStudent.is_student_leader ? "Student Leader" : "Student"}
                   </div>
+                </ModalField>
+                <ModalField label={selectedStudent.is_student_leader ? "Revert to Student" : "Assign as Leader"}>
+                  <button id="leader-toggle" type="button" role="switch" aria-checked={selectedStudent.is_student_leader} onClick={handleRoleChange}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${selectedStudent.is_student_leader ? "bg-[#a797e4]" : "bg-[#9fcae7]"}`}>
+                    <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${selectedStudent.is_student_leader ? "translate-x-5" : "translate-x-0"}`} />
+                  </button>
+                </ModalField>
+              </ModalRow>
+              <ModalField label="Progress">
+                <div className="ms-hours-label" style={{ marginTop: 6 }}>
+                  <span>{selectedStudent.hours_logged} / {selectedStudent.total_hours} hrs</span>
+                  <span>{Math.round((selectedStudent.hours_logged / selectedStudent.total_hours) * 100)}%</span>
                 </div>
-                <button className="ms-modal-close" onClick={() => setSelectedStudentKey(null)}>
-                  <IconX size={20} stroke={2} />
-                </button>
+                <div className="ms-hours-track">
+                  <div className="ms-hours-fill" style={{ width: `${Math.round((selectedStudent.hours_logged / selectedStudent.total_hours) * 100)}%`, background: progressColor(selectedStudent.status) }} />
+                </div>
+              </ModalField>
+            </>
+          )}
+          rightTitle="Session History"
+          rightContent={selectedStudent && (
+            selectedStudent.sessions.length === 0 ? (
+              <div className="ms-session-empty">No sessions logged yet.</div>
+            ) : (
+              <div className="ms-session-table-wrapper">
+                <table className="ms-session-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Time In</th>
+                      <th>Time Out</th>
+                      <th>Hours</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedStudent.sessions.map((sess, i) => (
+                      <tr key={i}>
+                        <td>{sess.date}</td>
+                        <td>{sess.timeIn}</td>
+                        <td>{sess.timeOut}</td>
+                        <td>{sess.hours}</td>
+                        <td>
+                          <button className="ms-session-action-btn" onClick={async (e) => {
+                            e.stopPropagation()
+                            setEditingSession(sess)
+                            setEditDate(formatDate(sess.date))
+                            setEditTimeIn(to24HourFormat(sess.timeIn))
+                            setEditTimeOut(to24HourFormat(sess.timeOut))
+                            setEditTermRange(null)
+                            const { data, error } = await supabase.rpc("get_section_term_range", { p_section_id: selectedStudent.section_id })
+                            if (!error && data && data.length > 0) setEditTermRange(data[0])
+                          }}>
+                            <IconPencil size={14} stroke={1.75} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="ms-modal-flex">
-                <div className="ms-modal-left">
-                  <div className="ms-modal-row">
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Student No.</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.student_number}
-                      </div>
-                    </div>
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Sais ID</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.sais_id}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ms-modal-row">
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Program</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.program}
-                      </div>
-                    </div>
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Classification</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.classification}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ms-modal-row">
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Site Location</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.site_location}
-                      </div>
-                    </div>
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Status</div>
-                      <span
-                        className="ms-status-badge"
-                        style={{
-                          background: statusConfig[selectedStudent.status].bg,
-                          color: statusConfig[selectedStudent.status].color,
-                        }}
-                      >
-                        {statusConfig[selectedStudent.status].label}
-                      </span>
-                    </div>
-                    {/* <div className="ms-modal-field">
-                      <div className="ms-modal-label">Hours Logged</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.hours_logged} /{" "}
-                        {selectedStudent.total_hours} hrs
-                      </div>
-                    </div> */}
-                  </div>
+            )
+          )}
+        />
 
-                  <div className="ms-modal-row">
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Role</div>
-                      <div className="ms-role-badge" style={{background: roleBadgeStyle(selectedStudent.is_student_leader).bg, color: roleBadgeStyle(selectedStudent.is_student_leader).color}}>
-                        {selectedStudent.is_student_leader ? "Student Leader" : "Student"}
-                      </div>
-                    </div>
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">{selectedStudent.is_student_leader ? "Revert to Student" : "Assign as Leader"}</div>
-                     <button
-                      id="leader-toggle"
-                      type="button"
-                      role="switch"
-                      aria-checked={selectedStudent.is_student_leader}
-                      onClick={handleRoleChange}
-                      className={`
-                        relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
-                        transition-colors duration-200 ease-in-out focus:outline-none 
-                        ${selectedStudent.is_student_leader ? "bg-[#a797e4]" : "bg-[#9fcae7]"} 
-                      `}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={`
-                          pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 
-                          transition duration-200 ease-in-out
-                          ${selectedStudent.is_student_leader ? 'translate-x-5' : 'translate-x-0'}
-                        `}
-                      />
-                      
+        <NstpModal
+          open={!!selectedRequest}
+          onClose={() => setSelectedRequest(null)}
+          title={selectedRequest?.student_name ?? ""}
+          subtitle={selectedRequest ? `${selectedRequest.student_number} · ${selectedRequest.section_name}` : ""}
+          initials={selectedRequest?.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
+          size="md"
+        >
+          {selectedRequest && (
+            <>
+              <ModalRow>
+                <ModalField label="Request Type">
+                  <span className="ms-request-type" style={{ background: requestTypeStyle(selectedRequest.appeal_type_name).bg, color: requestTypeStyle(selectedRequest.appeal_type_name).color, padding: "4px 12px" }}>
+                    {selectedRequest.appeal_type_name}
+                  </span>
+                </ModalField>
+                <ModalField label="Date Submitted" value={selectedRequest.date} />
+              </ModalRow>
+              <div>
+                <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14, marginBottom: 6 }}>{selectedRequest.title}</div>
+                <div className="nstp-modal-label">Details</div>
+                <div className="ms-req-modal-note">{selectedRequest.note}</div>
+              </div>
+              {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
+                <ModalField label={`Attachment${selectedRequest.attachments.length > 1 ? "s" : ""}`}>
+                  {selectedRequest.attachments.map((a, i) => (
+                    <button key={a.storage_path || i} onClick={() => handleViewAttachment(a.storage_path)} className="ms-req-modal-attachment">
+                      <IconPaperclip size={16} stroke={1.75} /> {a.file_name}
                     </button>
-                    </div>
-                    
-                  </div>
-                  <div className="ms-modal-field ms-modal-progress">
-                    <div className="ms-modal-label">Progress</div>
-                    <div className="ms-hours-label" style={{ marginTop: 6 }}>
-                      <span>
-                        {selectedStudent.hours_logged} /{" "}
-                        {selectedStudent.total_hours} hrs
-                      </span>
-                      <span>
-                        {Math.round(
-                          (selectedStudent.hours_logged /
-                            selectedStudent.total_hours) *
-                            100
-                        )}
-                        %
-                      </span>
-                    </div>
-                    <div className="ms-hours-track">
-                      <div
-                        className="ms-hours-fill"
-                        style={{
-                          width: `${Math.round(
-                            (selectedStudent.hours_logged /
-                              selectedStudent.total_hours) *
-                              100
-                          )}%`,
-                          background: progressColor(selectedStudent.status),
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="ms-modal-right">
-                  {/* <div className="ms-modal-right-title">Sessions</div> */}
-                  {selectedStudent.sessions.length === 0 ? (
-                    <div className="ms-session-empty">
-                      No sessions logged yet.
-                    </div>
-                  ) : (
-                    <div className="ms-session-table-wrapper">
-                      <table className="ms-session-table">
-                        <thead>
-                          <tr>
-                            <th>Date</th>
-                            <th>Time In</th>
-                            <th>Time Out</th>
-                            <th>Hours</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedStudent.sessions.map((sess, i) => (
-                            <tr key={i}>
-                              <td>{sess.date}</td>
-                              <td>{sess.timeIn}</td>
-                              <td>{sess.timeOut}</td>
-                              <td>{sess.hours}</td>
-                              <td>
-                                <button
-                                  className="ms-session-action-btn"
-                                  onClick={async (e) => {
-                                    e.stopPropagation()
-                                    setEditingSession(sess)
-                                    setEditDate(formatDate(sess.date))
-                                    setEditTimeIn(to24HourFormat(sess.timeIn))
-                                    setEditTimeOut(to24HourFormat(sess.timeOut))
-                                    setEditTermRange(null)
-
-                                    const { data, error } = await supabase.rpc("get_section_term_range", {
-                                      p_section_id: selectedStudent.section_id,
-                                    })
-                                    if (error) {
-                                      console.error("get_section_term_range error:", error.message)
-                                    } else if (data && data.length > 0) {
-                                      setEditTermRange(data[0])
-                                    }
-                                  }}
-                                >
-                                  <IconPencil size={14} stroke={1.75} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+                  ))}
+                </ModalField>
+              )}
+              <div>
+                <label className="nstp-modal-label">Review Comment / Notes</label>
+                <textarea value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)}
+                  placeholder="Provide context or a reason for the student regarding this evaluation..."
+                  rows={3} style={{ width: "100%", boxSizing: "border-box", marginTop: 6, padding: 10, border: "1px solid var(--border)", borderRadius: 8, outline: "none", resize: "none", fontSize: 13 }} />
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Request detail modal */}
-        {selectedRequest && (
-          <div
-            className="ms-modal-backdrop"
-            onClick={() => setSelectedRequest(null)}
-          >
-            <div
-              className="ms-modal ms-req-modal"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="ms-modal-header">
-                <div className="ms-modal-avatar">
-                  {selectedRequest.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
-                </div>
-                <div className="ms-modal-header-info">
-                  <div className="ms-modal-title">{selectedRequest.student_name}</div>
-                  <div className="ms-modal-subtitle">
-                    {selectedRequest.student_number} · {selectedRequest.section_name}
-                  </div>
-                </div>
-                <button className="ms-modal-close" onClick={() => setSelectedRequest(null)}>
-                  <IconX size={20} stroke={2} />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button disabled={isPending} onClick={() => startTransition(async () => { const res = await resolveStudentRequest(selectedRequest.appeal_id, "rejected", resolutionNote); if (res.ok) { await refreshRequests(); setSelectedRequest(null); setResolutionNote("") } else alert(res.error) })}
+                  className="nstp-modal-btn nstp-modal-btn-danger" style={{ opacity: isPending ? 0.6 : 1 }}>
+                  Reject Request
+                </button>
+                <button disabled={isPending} onClick={() => startTransition(async () => { const res = await resolveStudentRequest(selectedRequest.appeal_id, "approved", resolutionNote); if (res.ok) { await refreshRequests(); setSelectedRequest(null); setResolutionNote("") } else alert(res.error) })}
+                  className="nstp-modal-btn nstp-modal-btn-primary" style={{ opacity: isPending ? 0.6 : 1 }}>
+                  Approve Request
                 </button>
               </div>
-              <div className="ms-modal-body">
-                <div className="ms-modal-row">
-                  <div className="ms-modal-field ms-req-modal-section">
-                    <div className="ms-modal-label">Request Type</div>
-                    <span
-                      className="ms-request-type"
-                      style={{
-                        background: requestTypeStyle(
-                          selectedRequest.appeal_type_name
-                        ).bg,
-                        color: requestTypeStyle(
-                          selectedRequest.appeal_type_name
-                        ).color,
-                        padding: "4px 12px",
-                      }}
-                    >
-                      {selectedRequest.appeal_type_name}
-                    </span>
-                  </div>
-                  <div className="ms-modal-field ms-req-modal-section">
-                    <div className="ms-modal-label">Date Submitted</div>
-                    <div className="ms-modal-value">{selectedRequest.date}</div>
-                  </div>
-                </div>
-                <div className="ms-req-modal-section">
-                  <div
-                    className="ms-modal-label"
-                    style={{
-                      fontWeight: 700,
-                      color: "var(--text)",
-                      fontSize: "14px",
-                      textTransform: "none",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    {selectedRequest.title}
-                  </div>
-                  <div className="ms-modal-label">Details</div>
-                  <div className="ms-req-modal-note">
-                    {selectedRequest.note}
-                  </div>
-                </div>
-                {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
-                  <div className="ms-req-modal-section">
-                    <div className="ms-modal-label">
-                      Attachment
-                      {selectedRequest.attachments.length > 1 ? "s" : ""}
-                    </div>
-                    {selectedRequest.attachments.map((a, i) => (
-                      <button
-                        key={a.storage_path || i}
-                        onClick={() => handleViewAttachment(a.storage_path)}
-                        className="ms-req-modal-attachment"
-                      >
-                        <IconPaperclip size={16} stroke={1.75} />
-                        {a.file_name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+            </>
+          )}
+        </NstpModal>
 
-                {/* RESOLUTION ACTIONS */}
-                <div
-                  className="ms-req-modal-section"
-                  style={{ marginTop: "14px" }}
-                >
-                  <label
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "var(--muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.6px",
-                    }}
-                  >
-                    Review Comment / Notes
-                  </label>
-                  <textarea
-                    value={resolutionNote}
-                    onChange={(e) => setResolutionNote(e.target.value)}
-                    placeholder="Provide context or a reason for the student regarding this evaluation..."
-                    rows={3}
-                    style={{
-                      width: "100%",
-                      boxSizing: "border-box",
-                      marginTop: "6px",
-                      padding: "10px",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                      outline: "none",
-                      resize: "none",
-                      fontSize: "13px",
-                    }}
-                  />
-                </div>
-
-                <div
-                  style={{ display: "flex", gap: "10px", marginTop: "18px" }}
-                >
-                  <button
-                    disabled={isPending}
-                    onClick={() => {
-                      startTransition(async () => {
-                        const res = await resolveStudentRequest(
-                          selectedRequest.appeal_id,
-                          "rejected",
-                          resolutionNote
-                        )
-                        if (res.ok) {
-                          await refreshRequests()
-                          setSelectedRequest(null)
-                          setResolutionNote("")
-                        } else {
-                          alert(res.error)
-                        }
-                      })
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: "10px",
-                      border: "none",
-                      borderRadius: "8px",
-                      fontWeight: 700,
-                      cursor: isPending ? "not-allowed" : "pointer",
-                      background: "var(--maroon)",
-                      color: "var(--white)",
-                      fontSize: "13px",
-                      opacity: isPending ? 0.6 : 1,
-                    }}
-                  >
-                    Reject Request
-                  </button>
-                  <button
-                    disabled={isPending}
-                    onClick={() => {
-                      startTransition(async () => {
-                        const res = await resolveStudentRequest(
-                          selectedRequest.appeal_id,
-                          "approved",
-                          resolutionNote
-                        )
-                        if (res.ok) {
-                          await refreshRequests()
-                          setSelectedRequest(null)
-                          setResolutionNote("")
-                        } else {
-                          alert(res.error)
-                        }
-                      })
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: "10px",
-                      border: "none",
-                      borderRadius: "8px",
-                      fontWeight: 700,
-                      cursor: isPending ? "not-allowed" : "pointer",
-                      background: "var(--green)",
-                      color: "var(--white)",
-                      fontSize: "13px",
-                      opacity: isPending ? 0.6 : 1,
-                    }}
-                  >
-                    Approve Request
-                  </button>
-                </div>
-              </div>
+        <NstpModal
+          open={exportStudent}
+          onClose={() => setExportStudent(false)}
+          title="Export Students"
+          size="sm"
+        >
+          <ModalField label="Section">
+            <select className="ms-edit-input" value={exportSection} onChange={(e) => setExportSection(e.target.value)}>
+              {sections.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+            </select>
+          </ModalField>
+          <ModalField label="Choose Columns">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
+              {EXPORT_COLUMNS.map((c) => (
+                <label key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                  <input type="checkbox" checked={exportColumns.includes(c.key)} onChange={() => toggleExportColumn(c.key)}
+                    style={{ accentColor: "var(--maroon)", width: 14, height: 14, cursor: "pointer" }} />
+                  {c.label}
+                </label>
+              ))}
             </div>
+          </ModalField>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button className="ms-edit-cancel-btn" onClick={() => setExportStudent(false)}>Cancel</button>
+            <button className="ms-edit-save-btn" onClick={handleExportCSV} disabled={exportColumns.length === 0}
+              style={{ opacity: exportColumns.length === 0 ? 0.4 : 1, cursor: exportColumns.length === 0 ? "not-allowed" : "pointer" }}>
+              Export CSV
+            </button>
           </div>
-        )}
-        {/* export as csv modal */}
-        {exportStudent && (
-          <div className="ms-modal-backdrop" onClick={() => setExportStudent(false)}>
-            <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="ms-modal-header">
-                <div className="ms-modal-title">Export Students</div>
-                <button className="ms-modal-close" onClick={() => setExportStudent(false)}>
-                  <IconX size={18} stroke={1.75} />
-                </button>
-              </div>
-              <div className="ms-modal-body">
-                <div className="ms-modal-field">
-                  <div className="ms-modal-label">Section</div>
-                  <select
-                    className="ms-edit-input"
-                    value={exportSection}
-                    onChange={(e) => setExportSection(e.target.value)}
-                  >
-                    {sections.map((s) => (
-                      <option key={s.id} value={s.name}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
+        </NstpModal>
 
-                <div className="ms-modal-field">
-                  <div className="ms-modal-label" style={{ marginBottom: 8 }}>Choose Columns</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    {EXPORT_COLUMNS.map((c) => (
-                      <label
-                        key={c.key}
-                        style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={exportColumns.includes(c.key)}
-                          onChange={() => toggleExportColumn(c.key)}
-                          style={{ accentColor: "var(--maroon)", width: 14, height: 14, cursor: "pointer" }}
-                        />
-                        {c.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
-                  <button className="ms-edit-cancel-btn" onClick={() => setExportStudent(false)}>
-                    Cancel
-                  </button>
-                  <button
-                    className="ms-edit-save-btn"
-                    onClick={handleExportCSV}
-                    disabled={exportColumns.length === 0}
-                    style={{ opacity: exportColumns.length === 0 ? 0.4 : 1, cursor: exportColumns.length === 0 ? "not-allowed" : "pointer" }}
-                  >
-                    Export CSV
-                  </button>
-                </div>
-              </div>
-            </div>
+        <NstpModal
+          open={!!editingSession}
+          onClose={() => { setEditingSession(null); setEditTermRange(null) }}
+          title="Edit Session"
+          size="sm"
+        >
+          <ModalField label="Date">
+            <input type="date" className="ms-edit-input" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+          </ModalField>
+          <ModalRow>
+            <ModalField label="Time In">
+              <input type="time" className="ms-edit-input" value={editTimeIn} onChange={(e) => setEditTimeIn(e.target.value)} />
+            </ModalField>
+            <ModalField label="Time Out">
+              <input type="time" className="ms-edit-input" value={editTimeOut} onChange={(e) => setEditTimeOut(e.target.value)} />
+            </ModalField>
+          </ModalRow>
+          {editTimeError && (
+            <div style={{ fontSize: 12.5, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "8px 12px" }}>{editTimeError}</div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button className="ms-edit-cancel-btn" onClick={() => { setEditingSession(null); setEditTermRange(null) }}>Cancel</button>
+            <button className="ms-edit-save-btn" onClick={handleSaveSession} disabled={isSaveDisabled}
+              style={{ opacity: isSaveDisabled ? 0.4 : 1, cursor: isSaveDisabled ? "not-allowed" : "pointer" }}>
+              Save
+            </button>
           </div>
-        )}
-        {/* edit Time modal */}
-        {editingSession && (
-          <div
-            className="ms-modal-backdrop"
-            onClick={() => {setEditingSession(null); setEditTermRange(null)}}
-          >
-            <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="ms-modal-header">
-                <div className="ms-modal-title">Edit Session</div>
-                <button
-                  className="ms-modal-close"
-                  onClick={() => {setEditingSession(null); setEditTermRange(null)}}
-                >
-                  <IconX size={18} stroke={1.75} />
-                </button>
-              </div>
-              <div className="ms-modal-body">
-                <div className="ms-modal-field">
-                  <div className="ms-modal-label">Date</div>
-                  <input
-                    type="date"
-                    className="ms-edit-input"
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                  />
-                </div>
-                <div className="ms-modal-row">
-                  <div className="ms-modal-field">
-                    <div className="ms-modal-label">Time In</div>
-                    <input
-                      type="time"
-                      className="ms-edit-input"
-                      value={editTimeIn}
-                      onChange={(e) => setEditTimeIn(e.target.value)}
-                    />
-                  </div>
-                  <div className="ms-modal-field">
-                    <div className="ms-modal-label">Time Out</div>
-                    <input
-                      type="time"
-                      className="ms-edit-input"
-                      value={editTimeOut}
-                      onChange={(e) => setEditTimeOut(e.target.value)}
-                    />
-                  </div>
-                </div>
-                {editTimeError && (
-                  <div style={{ fontSize: 12.5, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "8px 12px" }}>
-                    {editTimeError}
-                  </div>
-                )}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: 10,
-                    marginTop: 6,
-                  }}
-                >
-                  <button
-                    className="ms-edit-cancel-btn"
-                    onClick={() => {setEditingSession(null); setEditTermRange(null)}}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="ms-edit-save-btn"
-                    onClick={handleSaveSession}
-                    disabled={isSaveDisabled}
-                    style={{
-                      opacity: isSaveDisabled ? 0.4 : 1,
-                      cursor: isSaveDisabled ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        </NstpModal>
       </div>
     </>
   )
