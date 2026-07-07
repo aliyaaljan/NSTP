@@ -50,7 +50,12 @@ export interface SectionListStatusOption {
   name: string
 }
 
-export type SectionListSortKey = "name" | "course" | "adviser" | "students" | "status"
+export type SectionListSortKey =
+  | "name"
+  | "course"
+  | "adviser"
+  | "students"
+  | "status"
 
 export type SectionListStatusFilter = SectionStatusCode | "all"
 
@@ -253,7 +258,9 @@ export function mapSectionDbRowToListRow(
   }
 }
 
-export function buildSectionListSummary(rows: SectionListRow[]): SectionListSummary {
+export function buildSectionListSummary(
+  rows: SectionListRow[]
+): SectionListSummary {
   const summary: SectionListSummary = {
     total: rows.length,
     active: 0,
@@ -272,6 +279,8 @@ export function buildSectionListSummary(rows: SectionListRow[]): SectionListSumm
  * Client/server-safe row filtering & sorting.
  * Backend can delete this and push equivalent logic into the SQL query.
  */
+
+// FILTER
 export function filterSectionListRows(
   rows: SectionListRow[],
   query: SectionListQuery
@@ -279,7 +288,10 @@ export function filterSectionListRows(
   const q = query.search.trim().toLowerCase()
 
   let filtered = rows.filter((section) => {
-    if (query.status !== SECTION_LIST_ALL_STATUSES && section.statusCode !== query.status) {
+    if (
+      query.status !== SECTION_LIST_ALL_STATUSES &&
+      section.statusCode !== query.status
+    ) {
       return false
     }
     if (
@@ -295,7 +307,7 @@ export function filterSectionListRows(
       section.adviserName.toLowerCase().includes(q)
     )
   })
-
+  //SORT
   const factor = query.dir === "asc" ? 1 : -1
   filtered = [...filtered].sort((a, b) => {
     switch (query.sort) {

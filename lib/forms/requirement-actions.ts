@@ -46,7 +46,9 @@ async function requireAuth() {
   return { supabase, user }
 }
 
-async function requireAdmin(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
+async function requireAdmin(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+) {
   const { data } = await supabase.rpc("app_is_admin")
   if (!data) throw new Error("Admin access required")
 }
@@ -167,9 +169,11 @@ export async function updateGlobalRequirement(
 
     const updatePayload: Record<string, unknown> = {}
     if (updates.title !== undefined) updatePayload.title = updates.title
-    if (updates.description !== undefined) updatePayload.description = updates.description
+    if (updates.description !== undefined)
+      updatePayload.description = updates.description
     if (updates.dueDate !== undefined) updatePayload.due_date = updates.dueDate
-    if (updates.is_active !== undefined) updatePayload.is_active = updates.is_active
+    if (updates.is_active !== undefined)
+      updatePayload.is_active = updates.is_active
 
     const { data, error } = await service
       .from("form_requirement")
@@ -304,9 +308,11 @@ export async function updateSectionRequirement(
 
     const updatePayload: Record<string, unknown> = {}
     if (updates.title !== undefined) updatePayload.title = updates.title
-    if (updates.description !== undefined) updatePayload.description = updates.description
+    if (updates.description !== undefined)
+      updatePayload.description = updates.description
     if (updates.dueDate !== undefined) updatePayload.due_date = updates.dueDate
-    if (updates.is_active !== undefined) updatePayload.is_active = updates.is_active
+    if (updates.is_active !== undefined)
+      updatePayload.is_active = updates.is_active
 
     const { data, error } = await service
       .from("form_requirement")
@@ -442,7 +448,9 @@ export async function getRequirementsForSection(
       .eq("section_id", sectionId)
 
     const excludedIds = new Set(
-      (exclusions ?? []).map((e: { form_requirement_id: string }) => e.form_requirement_id)
+      (exclusions ?? []).map(
+        (e: { form_requirement_id: string }) => e.form_requirement_id
+      )
     )
 
     const activeGlobals = (globals ?? []).filter(
@@ -523,7 +531,9 @@ export async function getExclusionsForSection(
 
     return {
       ok: true,
-      data: (data ?? []).map((e: { form_requirement_id: string }) => e.form_requirement_id),
+      data: (data ?? []).map(
+        (e: { form_requirement_id: string }) => e.form_requirement_id
+      ),
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
@@ -562,4 +572,82 @@ export async function getTemplateDownloadUrl(
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Adviser: Delete section-specific requirement
+// ---------------------------------------------------------------------------
+
+export async function deleteSectionRequirement(
+  requirementId: string,
+  sectionId: string
+): Promise<ActionResult> {
+  try {
+    const { supabase, user } = await requireAuth()
+    await requireAdvisesSection(supabase, sectionId)
+
+    const service = createSupabaseServiceClient()
+
+    const { data: existing } = await service
+      .from("form_requirement")
+      .select("template_storage_path, section_id")
+      .eq("form_requirement_id", requirementId)
+      .eq("section_id", sectionId)
+      .single()
+
+    if (!existing) {
+      return { ok: false, error: "Requirement not found or access denied." }
+    }
+
+    const { error } = await service
+      .from("form_requirement")
+      .delete()
+      .eq("form_requirement_id", requirementId)
+
+    if (error) {
+      console.error("[deleteSectionRequirement]", error)
+      return { ok: false, error: "Failed to delete form requirement" }
+    }
+
+    if (existing.template_storage_path) {
+      await deleteFormFile(existing.template_storage_path)
+    }
+
+    return { ok: true, data: undefined }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Form Data Wrapper for Next.js Uploads
+// ---------------------------------------------------------------------------
+
+export async function uploadRequirementFromData(
+  formData: FormData,
+  sectionId: string
+): Promise<ActionResult<FormRequirement>> {
+  const title = formData.get("title") as string
+  const description = formData.get("description") as string | null
+  const dueDate = formData.get("dueDate") as string | null
+  const file = formData.get("file") as File | null
+
+  if (!title) return { ok: false, error: "Title is required" }
+
+  let templateFile = undefined
+  if (file && file.size > 0) {
+    const arrayBuffer = await file.arrayBuffer()
+    templateFile = {
+      buffer: Buffer.from(arrayBuffer),
+      fileName: file.name,
+    }
+  }
+
+  return await createSectionRequirement(
+    sectionId,
+    title,
+    description,
+    dueDate || null,
+    templateFile
+  )
 }

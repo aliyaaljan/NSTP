@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   IconSearch,
   IconChevronDown,
+  IconFilter,
   IconUsers,
   IconCircleCheck,
   IconClock,
@@ -14,6 +15,8 @@ import {
   IconPencil,
   IconDownload
 } from "@tabler/icons-react"
+import { FaRegQuestionCircle } from "react-icons/fa";
+
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
@@ -53,6 +56,7 @@ interface Student {
   status: Status
   hours_logged: number
   total_hours: number
+  completion_percentage: number
   sessions: StudentSession[]
 }
 
@@ -76,7 +80,7 @@ interface PendingRequest {
   note: string
   status: string
   statusCode: string
-  attachment: Attachment[]
+  attachments: Attachment[]
 }
 
 const statusConfig: Record<
@@ -258,9 +262,9 @@ const myStudentsStyles = `
     margin-top: 4px;
   }
   .ms-req-modal-attachment {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 13px; color: var(--maroon); font-weight: 600;
-    background: #FEF2F2; border-radius: 10px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 14px;
+    font-size: 13px; color: var(--text); font-weight: 600;
+    background: #F9FAFB; border-radius: 10px; padding: 10px 14px;
     margin-top: 4px; cursor: pointer;
   }
 
@@ -272,7 +276,7 @@ const myStudentsStyles = `
   }
   .ms-modal {
     background: var(--white); border-radius: 20px;
-    width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;
+    width: 550px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;
   }
   .ms-modal-wide { width: 900px; }
   .ms-modal-flex { display: flex; }
@@ -291,6 +295,7 @@ const myStudentsStyles = `
   .ms-session-table th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid var(--border);}
   .ms-session-table td { font-size: 12px; color: var(--text); padding: 8px; border-bottom: 1px solid #F3F4F6; }
   .ms-session-table tbody tr:last-child td { border-bottom: none; }
+  .ms-session-table  tr:hover { background: #FAFAFA; }
   .ms-session-action-btn {
     display: inline-flex;
     align-items: center;
@@ -346,7 +351,7 @@ const myStudentsStyles = `
     outline: none;
     transition: border-color 0.13s;
   }
-  .ms-edit-input:focus { border-color: var(--maroon); }
+  .ms-edit-input:focus { border-color: var(--green); }
 
   .ms-edit-cancel-btn {
     flex: 1;
@@ -375,6 +380,8 @@ const myStudentsStyles = `
     cursor: pointer;
   }
   .ms-edit-save-btn:hover { opacity: 0.9; }
+  .adv-filter-btn:hover { background: #F4F3F0 !important; filter: brightness(0.97); }
+  .adv-filter-btn:active { transform: scale(0.96); }
 `
 
 function AnimatedBar({ pct, color }: { pct: number; color: string }) {
@@ -409,11 +416,15 @@ function MyStudentsContent() {
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null)
   const [requestType, setRequestTypes] = useState<{ appeal_type_id: string; name: string }[]>([])
-  const [requestTypeFilter, setRequestTypeFilter] = useState<string>("All Types")
-  const [showTypeFilter, setShowTypeFilter] = useState(false)
-  const [requestStatusFilter, setRequestStatusFilter] = useState<string>("All Status")
-  const [showRequestStatusFilter, setShowRequestStatusFilter] = useState(false)
   
+  const [exportStudent, setExportStudent] = useState(false)
+  const [exportSection, setExportSection] = useState("All Sections")
+  const [exportColumns, setExportColumns] = useState<string[]>([
+    "student_name", "student_number", "sais_id", "section_name",
+    "site_location", "program", "classification", "status",
+    "hours_logged", "total_hours", "completion_percentage", "is_student_leader"
+  ])
+
   // ── Pending unified filter ─────────────────────────────────────────
   type PendingFilterField = "appeal_type_name" | "status" | "section_name"
   type PendingActiveFilters = Partial<Record<PendingFilterField, string[]>>
@@ -502,8 +513,6 @@ function MyStudentsContent() {
   }
 
   const totalActiveFilters = Object.values(activeFilters).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)
-
-  const statusOptions: StatusFilter[] = ["All Status", "Completed", "In Progress", "Not Started"]
 
   useEffect(() => {
     const tab = searchParams.get("tab")
@@ -661,13 +670,6 @@ function MyStudentsContent() {
   const currentData = statData.find((r) => r.section_name === selectedSection)
   if (!currentData) return null
 
-  function getPublicUrl(path: string) {
-    const { data } = supabase.storage
-      .from("request attachments")
-      .getPublicUrl(path)
-    return data.publicUrl
-  }
-
   function buildStatCards() {
     return [
       {
@@ -758,9 +760,7 @@ function MyStudentsContent() {
   const statCards = buildStatCards()
 
   const hasListFilters = headerSearch.trim() !== "" || tableSearch.trim() !== "" || totalActiveFilters > 0
-
   const totalPendingActiveFilters = Object.values(pendingActiveFilters).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)
-
   const hasPendingFilters = pendingSearch.trim() !== "" || totalPendingActiveFilters > 0
 
   function clearListFilters() {
@@ -772,6 +772,20 @@ function MyStudentsContent() {
     setPendingSearch("")
     setPendingActiveFilters({})
     router.replace(`${navRoutes["My Students"]}`)
+  }
+
+  async function handleViewAttachment(storagePath: string) {
+    const { data, error } = await supabase.storage
+      .from("request-attachments")
+      .createSignedUrl(storagePath, 60 * 20) // 20 min
+
+    if (error || !data?.signedUrl) {
+      console.error("Signed URL error:", error)
+      alert("Failed to open attachment")
+      return
+    }
+
+    window.open(data.signedUrl, "_blank")
   }
 
   async function handleRoleChange() {
@@ -886,6 +900,56 @@ function MyStudentsContent() {
     return map[type] ?? { bg: "#F3F4F6", color: "#374151" }
   }
 
+  const EXPORT_COLUMNS: {key: keyof Student; label: string}[] = [
+    {key: "student_name", label: "Student Name"},
+    {key: "student_number", label: "Student Number"},
+    {key: "sais_id", label: "SAIS ID"},
+    {key: "section_name", label: "Section"},
+    {key: "site_location", label: "Site Location"},
+    {key: "program", label: "Program" },
+    {key: "classification", label: "Classification"},
+    {key: "status", label: "Status" },
+    {key: "hours_logged", label: "Hours Logged"},
+    {key: "total_hours", label: "Total Hours"},
+    {key: "completion_percentage", label: "Completion Percentage"},
+    {key: "is_student_leader", label: "Role"}
+  ]
+
+  function toggleExportColumn(key: string) {
+    setExportColumns((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    )
+  }
+
+  function handleExportCSV() {
+    const rows = students.filter(
+      (s) => exportSection === "All Sections" || s.section_name === exportSection
+    )
+    const cols = EXPORT_COLUMNS.filter((c) => exportColumns.includes(c.key))
+
+    const formatCell = (s: Student, key: keyof Student) => {
+      if (key === "is_student_leader") return s.is_student_leader ? "Student Leader" : "Student"
+      return s[key] ?? ""
+    }
+
+    const escape = (val: unknown) => `"${String(val).replace(/"/g, '""')}"`
+
+    const header = cols.map((c) => escape(c.label)).join(",")
+    const body = rows
+      .map((s) => cols.map((c) => escape(formatCell(s, c.key))).join(","))
+      .join("\n")
+
+    const csv = `${header}\n${body}`
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `NSTP_Students_${exportSection.replace(/\s+/g, "_")}.csv` //_${format(new Date(), "yyyy-MM-dd")}
+    link.click()
+    URL.revokeObjectURL(url)
+    setExportStudent(false)
+  }
+
   return (
     <>
       <style>{myStudentsStyles}</style>
@@ -898,7 +962,6 @@ function MyStudentsContent() {
           onToggle={() => {
             setSidebarOpen((o) => !o)
             setShowFilterPanel(false)
-            setShowTypeFilter(false)
           }}
           onNavClick={(label) => {
             setSidebarOpen(false)
@@ -913,7 +976,6 @@ function MyStudentsContent() {
             onClick={() => {
               setSidebarOpen(false)
               setShowFilterPanel(false)
-              setShowTypeFilter(false)
             }}
             aria-hidden="true"
           />
@@ -1015,7 +1077,7 @@ function MyStudentsContent() {
                 onClick={() => setActiveTab("list")}
               >
                 <IconUsers size={16} stroke={1.75} />
-                List of Students
+                Student List
               </button>
               <button
                 className={`page-tab${
@@ -1023,15 +1085,15 @@ function MyStudentsContent() {
                 }`}
                 onClick={() => setActiveTab("pending")}
               >
-                <IconAlertCircle size={16} stroke={1.75} />
-                Pending Requests
+                <FaRegQuestionCircle  size={16}/>
+                Request List
               </button>
             </div>
 
             {/* Body */}
             <div className="ms-body">
               {activeTab === "list" ? (
-                <div className="adv-table-card mr-3">
+                <div className="adv-table-card">
                   <div className="adv-table-toolbar">
                     <div>
                       <div className="adv-table-title">All Students</div>
@@ -1057,20 +1119,24 @@ function MyStudentsContent() {
                           className="adv-filter-btn"
                           onClick={() => setShowFilterPanel(v => !v)}
                           style={{
+                            width: 60,
+                            height: 38,
                             border: `1.5px solid ${totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
-                            color: totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
                             borderRadius: 999,
-                            padding: "8px 18px",
-                            fontSize: 13.5,
+                            background: "white",
+                            color: totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
+                            fontSize: 22,
+                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
+                            justifyContent: "center",
+                            transition: "0.2s ease",
+                            position: "relative",
                           }}
                         >
-                          <IconChevronDown size={16} stroke={2} />
-                          Filter
+                          <IconFilter size={18} stroke={1.75} />
                           {totalActiveFilters > 0 && (
-                            <span style={{ background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>
+                            <span style={{ position: "absolute", top: -6, right: -6, background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                               {totalActiveFilters}
                             </span>
                           )}
@@ -1115,14 +1181,23 @@ function MyStudentsContent() {
                           </div>
                         )}
                       </div>
-
-                      
-
                       {hasListFilters && (
                         <button className="adv-filter-btn" onClick={clearListFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
                         </button>
                       )}
+                      {/* Export button */}
+                      <button
+                        className="sections-btn"
+                        onClick={() => { setExportSection(selectedSection); setExportStudent(true) }}
+                        style={{
+                          padding: "8px 18px",
+                          fontSize: 13.5,
+                        }}
+                      >
+                        <IconDownload size={16} stroke={2} />
+                        Export CSV
+                      </button>
                     </div>
                   </div>
 
@@ -1147,9 +1222,6 @@ function MyStudentsContent() {
                           </tr>
                         ) : (
                           paginated.map((s) => {
-                            const pct = Math.round(
-                              (s.hours_logged / s.total_hours) * 100
-                            )
                             const cfg = statusConfig[s.status]
                             const initials = s.student_name
                               ?.split(" ")
@@ -1208,9 +1280,9 @@ function MyStudentsContent() {
                                 <td className="ms-hours-cell">
                                   <div className="ms-hours-label">
                                     <span>{s.hours_logged}/{s.total_hours} hrs</span>
-                                    <span>{pct}%</span>
+                                    <span>{s.completion_percentage}%</span>
                                   </div>
-                                  <AnimatedBar pct={pct} color={progressColor(s.status)} />
+                                  <AnimatedBar pct={s.completion_percentage} color={progressColor(s.status)} />
                                 </td>
                               </tr>
                             )
@@ -1330,7 +1402,7 @@ function MyStudentsContent() {
                 <div className="adv-table-card">
                   <div className="adv-table-toolbar">
                     <div>
-                      <div className="adv-table-title">Request History</div>
+                      <div className="adv-table-title">All Requests</div>
                       <div className="adv-table-count">
                         {filteredPending.length} request
                         {filteredPending.length !== 1 ? "s" : ""} found
@@ -1354,20 +1426,24 @@ function MyStudentsContent() {
                           className="adv-filter-btn"
                           onClick={() => setShowPendingFilterPanel(v => !v)}
                           style={{
+                            width: 60,
+                            height: 38,
                             border: `1.5px solid ${totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
-                            color: totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
                             borderRadius: 999,
-                            padding: "8px 18px",
-                            fontSize: 13.5,
+                            background: "white",
+                            color: totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
+                            fontSize: 22,
+                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
+                            justifyContent: "center",
+                            transition: "0.2s ease",
+                            position: "relative",
                           }}
                         >
-                          <IconChevronDown size={16} stroke={2} />
-                          Filter
+                          <IconFilter size={18} stroke={1.75} />
                           {totalPendingActiveFilters > 0 && (
-                            <span style={{ background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>
+                            <span style={{ position: "absolute", top: -6, right: -6, background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                               {totalPendingActiveFilters}
                             </span>
                           )}
@@ -1552,11 +1628,11 @@ function MyStudentsContent() {
                               </div>
 
                               <div className="ms-attachment-tag">
-                                {r.attachment?.length > 0 ? (
+                                {r.attachments?.length > 0 ? (
                                   <>
                                     <IconPaperclip size={13} stroke={1.75} />
-                                    {r.attachment.length} file
-                                    {r.attachment.length !== 1 ? "s" : ""}
+                                    {r.attachments.length} file
+                                    {r.attachments.length !== 1 ? "s" : ""}
                                   </>
                                 ) : (
                                   <span style={{ opacity: 0.35 }}>—</span>
@@ -1869,6 +1945,24 @@ function MyStudentsContent() {
                     {selectedRequest.note}
                   </div>
                 </div>
+                {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
+                  <div className="ms-req-modal-section">
+                    <div className="ms-modal-label">
+                      Attachment
+                      {selectedRequest.attachments.length > 1 ? "s" : ""}
+                    </div>
+                    {selectedRequest.attachments.map((a, i) => (
+                      <button
+                        key={a.storage_path || i}
+                        onClick={() => handleViewAttachment(a.storage_path)}
+                        className="ms-req-modal-attachment"
+                      >
+                        <IconPaperclip size={16} stroke={1.75} />
+                        {a.file_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* RESOLUTION ACTIONS */}
                 <div
@@ -1975,36 +2069,71 @@ function MyStudentsContent() {
                     Approve Request
                   </button>
                 </div>
-                {selectedRequest.attachment &&
-                  selectedRequest.attachment.length > 0 && (
-                    <div className="ms-req-modal-section">
-                      <div className="ms-modal-label">
-                        Attachment
-                        {selectedRequest.attachment.length > 1 ? "s" : ""}
-                      </div>
-                      {selectedRequest.attachment.map((a, i) => (
-                        <a
-                          key={a.storage_path || i}
-                          href={getPublicUrl(a.storage_path)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ms-req-modal-attachment"
-                          style={{
-                            display: "inline-flex",
-                            textDecoration: "none",
-                          }}
-                        >
-                          <IconPaperclip size={16} stroke={1.75} />
-                          {a.file_name}
-                        </a>
-                      ))}
-                    </div>
-                  )}
               </div>
             </div>
           </div>
         )}
+        {/* export as csv modal */}
+        {exportStudent && (
+          <div className="ms-modal-backdrop" onClick={() => setExportStudent(false)}>
+            <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="ms-modal-header">
+                <div className="ms-modal-title">Export Students</div>
+                <button className="ms-modal-close" onClick={() => setExportStudent(false)}>
+                  <IconX size={18} stroke={1.75} />
+                </button>
+              </div>
+              <div className="ms-modal-body">
+                <div className="ms-modal-field">
+                  <div className="ms-modal-label">Section</div>
+                  <select
+                    className="ms-edit-input"
+                    value={exportSection}
+                    onChange={(e) => setExportSection(e.target.value)}
+                  >
+                    {sections.map((s) => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
 
+                <div className="ms-modal-field">
+                  <div className="ms-modal-label" style={{ marginBottom: 8 }}>Choose Columns</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {EXPORT_COLUMNS.map((c) => (
+                      <label
+                        key={c.key}
+                        style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={exportColumns.includes(c.key)}
+                          onChange={() => toggleExportColumn(c.key)}
+                          style={{ accentColor: "var(--maroon)", width: 14, height: 14, cursor: "pointer" }}
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
+                  <button className="ms-edit-cancel-btn" onClick={() => setExportStudent(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="ms-edit-save-btn"
+                    onClick={handleExportCSV}
+                    disabled={exportColumns.length === 0}
+                    style={{ opacity: exportColumns.length === 0 ? 0.4 : 1, cursor: exportColumns.length === 0 ? "not-allowed" : "pointer" }}
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {/* edit Time modal */}
         {editingSession && (
           <div

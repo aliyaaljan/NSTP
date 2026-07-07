@@ -27,17 +27,11 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 const SEMESTER_LABELS: Record<string, string> = {
   first: "1st Semester",
   second: "2nd Semester",
-  summer: "Summer",
+  midyear: "Midyear",
 }
 
 /**
  * Fetches everything the admin section list page needs.
- *
- * Backend checklist:
- * 1. Keep returning `SectionListPageData` — no UI changes required.
- * 2. Scope `section` queries to `term.is_active = true` (already done).
- * 3. Move `filterSectionListRows()` into SQL when the list grows large.
- * 4. Replace hardcoded `meta` semester labels if term naming changes.
  */
 export async function getSectionListData(
   query: SectionListQuery
@@ -45,18 +39,19 @@ export async function getSectionListData(
   const supabase = await createSupabaseServerClient()
   const activeStatusId = await lookupId("enrollment_status", "active")
 
-  const [termsRes, statusesRes, adviserRoleId, { data: authData }] = await Promise.all([
-    supabase
-      .from("term")
-      .select("term_id, school_year, semester, is_active")
-      .order("school_year", { ascending: false }),
-    supabase
-      .from("section_status")
-      .select("section_status_id, code, name")
-      .order("name"),
-    lookupId("role", "adviser"),
-    supabase.auth.getUser(),
-  ])
+  const [termsRes, statusesRes, adviserRoleId, { data: authData }] =
+    await Promise.all([
+      supabase
+        .from("term")
+        .select("term_id, school_year, semester, is_active")
+        .order("school_year", { ascending: false }),
+      supabase
+        .from("section_status")
+        .select("section_status_id, code, name")
+        .order("name"),
+      lookupId("role", "adviser"),
+      supabase.auth.getUser(),
+    ])
 
   const terms = termsRes.data ?? []
   const activeTerm = terms.find((t) => t.is_active) ?? terms[0]
@@ -81,7 +76,10 @@ export async function getSectionListData(
   ])
 
   if (sectionsRes.error) {
-    console.error("[getSectionListData] section query failed", sectionsRes.error)
+    console.error(
+      "[getSectionListData] section query failed",
+      sectionsRes.error
+    )
   }
 
   const enrollmentCounts = new Map<string, number>()
@@ -168,7 +166,6 @@ async function resolveStatusId(code: string): Promise<string | null> {
 
 /**
  * Creates a section for the active term.
- * Maps to `section` insert via service client.
  */
 export async function createSection(
   payload: SectionCreatePayload,
@@ -185,7 +182,10 @@ export async function createSection(
   }
 
   if (!activeTermId) {
-    return { ok: false, error: "No active term found. Configure a term in Settings first." }
+    return {
+      ok: false,
+      error: "No active term found. Configure a term in Settings first.",
+    }
   }
 
   const sectionStatusId = await resolveStatusId(payload.statusCode)
@@ -260,7 +260,9 @@ export async function updateSection(
  * - Sections with active enrollments are archived (soft delete).
  * - Empty sections are hard-deleted from the database.
  */
-export async function deleteSection(sectionId: string): Promise<SectionMutationResult> {
+export async function deleteSection(
+  sectionId: string
+): Promise<SectionMutationResult> {
   const role = await getAppUserRole()
   if (role !== "admin") {
     return { ok: false, error: "Unauthorized" }
@@ -273,6 +275,7 @@ export async function deleteSection(sectionId: string): Promise<SectionMutationR
   const supabase = await createSupabaseServerClient()
   const activeStatusId = await lookupId("enrollment_status", "active")
 
+  // check if section has active enrollments
   const { count, error: countError } = await supabase
     .from("enrollment")
     .select("enrollment_id", { count: "exact", head: true })
@@ -285,7 +288,7 @@ export async function deleteSection(sectionId: string): Promise<SectionMutationR
   }
 
   const service = createSupabaseServiceClient()
-
+  // SOFT DELETE: If students are enrolled, it just becomes archived
   if ((count ?? 0) > 0) {
     const archivedStatusId = await resolveStatusId("archived")
     if (!archivedStatusId) {
@@ -307,8 +310,11 @@ export async function deleteSection(sectionId: string): Promise<SectionMutationR
 
     return { ok: true }
   }
-
-  const { error } = await service.from("section").delete().eq("section_id", sectionId)
+  // HARD DELETE: If empty, remove the section entirely
+  const { error } = await service
+    .from("section")
+    .delete()
+    .eq("section_id", sectionId)
 
   if (error) {
     console.error("[deleteSection] hard delete failed", error)

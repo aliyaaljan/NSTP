@@ -155,7 +155,7 @@ export default function GroupSummaryPage() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch]           = useState("");
-  const [expanded, setExpanded]       = useState<string | null>("s1");
+  const [expanded, setExpanded]       = useState<string | null>(null);
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>("all");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");

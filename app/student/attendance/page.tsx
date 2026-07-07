@@ -331,7 +331,7 @@ export default function QRGenerationPage() {
         }
 
         .qr-title {
-          font-size: 42px;
+          font-size: 34px;
           font-weight: 800;
           color: ${C.maroon};
           margin: 0;
