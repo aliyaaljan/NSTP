@@ -15,6 +15,7 @@ import { getMyForms } from "@/lib/forms/submission-actions"
 import type { StudentFormView } from "@/lib/forms/submission-actions"
 import { createClient } from "@/lib/client"
 import { getInitials, formsToDocuments, formsToCalendarEvents } from "@/lib/student/dashboard-view"
+import QuickAccess from "@/components/student/QuickAccess";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -48,29 +49,75 @@ const RAIL_MARGIN  = 16
 
 // HOURS FUNCTION --------------- 
 
-function HoursCard({ rendered, target }: { rendered: number; target: number }) {
+function HoursCard({
+  rendered,
+  target,
+  isMobile,
+}: {
+  rendered: number
+  target: number
+  isMobile: boolean
+}) {
   const percent = Math.min(100, Math.round((rendered / target) * 100)) 
+  const deadline = "2026-07-14"
+  const daysRemaining = Math.max(
+    0,
+    Math.ceil(
+      (new Date(deadline).getTime() - Date.now()) /
+        (1000 * 60 * 60 * 24)
+    )
+  )
+
   return (
     <div style={{ 
       background: C.hoursBg, 
-      borderRadius: 14, 
-      padding: "clamp(14px, 2vw, 18px) clamp(16px, 2.5vw, 22px)", 
+      borderRadius: 15, 
+      padding: "18px 22px", 
       border: `1.5px solid ${C.hoursBorder}`,
       transition: "all 0.3s ease",
     }}>
-      <div style={{ 
-        fontSize: "clamp(12px, 1.2vw, 15px)", 
-        fontWeight: 700, 
-        color: C.textDark, 
-        marginBottom: 8, 
-        textTransform: "uppercase", 
-        letterSpacing: "0.03em",
-        display: "flex",
-        flexWrap: "wrap",
-        gap: "4px",
-      }}>
-        Hours Accomplished:&nbsp;
-        <span style={{ fontWeight: 800 }}>{rendered} / {target} hours</span>
+      <div
+        style={{
+          fontSize: "clamp(15px, 1.2vw, 15px)",
+          fontWeight: 700,
+          color: C.textDark,
+          marginBottom: 8,
+          textTransform: "uppercase",
+          letterSpacing: "0.03em",
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: isMobile ? "flex-start" : "flex-end",
+          gap: 6,
+          width: "100%",
+        }}
+      >
+        <span>Hours Accomplished:</span>
+
+        <span
+          style={{
+            fontWeight: 900,
+            fontSize: "clamp(20px, 2vw, 26px)",
+            color: C.maroon,
+            lineHeight: 1,
+          }}
+        >
+          {rendered}
+        </span>
+
+        <span>/ {target} hours</span>
+
+        <span
+          style={{
+            marginLeft: isMobile ? 0 : "auto",
+            fontSize: "clamp(12px, 1vw, 14px)",
+            fontWeight: 700,
+            color: C.textMuted,
+            whiteSpace: "nowrap",
+            alignSelf: isMobile ? "flex-start" : "auto",
+          }}
+        >
+          {daysRemaining} days remaining
+        </span>
       </div>
       <div style={{ 
         display: "flex", 
@@ -79,7 +126,7 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
         flexWrap: "wrap",
       }}>
         <span style={{ 
-          fontSize: "clamp(12px, 1.1vw, 14px)", 
+          fontSize: "clamp(20px, 1.1vw, 14px)", 
           fontWeight: 700, 
           color: C.textDark, 
           minWidth: 36 
@@ -89,9 +136,9 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
         <div style={{ 
           flex: 1, 
           minWidth: "60px",
-          height: "clamp(16px, 2vw, 22px)", 
+          height: "clamp(18px, 2vw, 22px)", 
           background: C.track, 
-          borderRadius: 4, 
+          borderRadius: 15,  //hehe if 14 po kasi itll look round lang kaya 7 nalang, medj same naman na sa container i thikn
           overflow: "hidden" 
         }}>
           <div style={{ 
@@ -112,6 +159,7 @@ function HoursCard({ rendered, target }: { rendered: number; target: number }) {
 export default function StudentDashboardPage() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
   const [isVerySmall, setIsVerySmall] = useState(false)
   const [isScannedExpanded, setIsScannedExpanded] = useState(false)
   const [dashboard, setDashboard] = useState<StudentDashboardData | null>(null)
@@ -125,11 +173,13 @@ export default function StudentDashboardPage() {
     const handleResize = () => {
       const width = window.innerWidth
       setIsMobile(width < 768)
+      setIsTablet(width >= 768 && width < 1024)
       setIsVerySmall(width < 380)
     }
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+
   }, [])
 
   useEffect(() => {
@@ -170,11 +220,12 @@ export default function StudentDashboardPage() {
   const hoursRendered = dashboard?.hoursRendered ?? 0
   const hoursTarget = dashboard?.requiredHours ?? 60
 
-  // Calculate left padding
+  // Calculate left padding (edited to cater yung nasa baba na navbar on mobile)
   const getLeftPadding = () => {
-    if (isMobile) {
-      return `${COLLAPSED_W + RAIL_MARGIN * 2 + 8}px`
+    if (isMobile || isTablet) {
+      return "20px"
     }
+  
     return `${COLLAPSED_W + RAIL_MARGIN * 2}px`
   }
 
@@ -190,8 +241,6 @@ export default function StudentDashboardPage() {
         background: C.pageBg,
         minHeight: "100vh",
         display: "flex",
-        overflow: "hidden",
-        width: "100%",
       }}
     >
       <Sidebar />
@@ -200,12 +249,12 @@ export default function StudentDashboardPage() {
         style={{
           flex: 1,
           paddingLeft: getLeftPadding(),
-          paddingRight: isVerySmall ? "10px" : isMobile ? "16px" : "32px",
+          paddingRight: isVerySmall ? "10px" : isMobile ? "16px" : isTablet ? "24px" : "32px",
           paddingTop: isVerySmall ? "12px" : isMobile ? "16px" : "28px",
-          paddingBottom: isVerySmall ? "12px" : isMobile ? "16px" : "28px",
+          paddingBottom: isVerySmall ? "12px" : isMobile ? "110px" : isTablet ? "100px" : "28px",
           display: "flex",
           flexDirection: "column",
-          gap: isVerySmall ? "12px" : isMobile ? "16px" : "20px",
+          gap: isVerySmall ? "12px" : isMobile ? "14px" : "20px",
           minWidth: 0,
           width: "100%",
           maxWidth: "100%",
@@ -240,47 +289,103 @@ export default function StudentDashboardPage() {
           />
         </div>
 
-        <HoursCard rendered={hoursRendered} target={hoursTarget} />
+        <HoursCard rendered={hoursRendered} target={hoursTarget} isMobile={isMobile} />
 
         {/* Calendar and Documents */}
-        <div style={{ 
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "3fr 2fr",
-          gap: isMobile ? "16px" : "20px",
-          flex: 1,
-          alignItems: "stretch",
-          width: "100%",
-          maxWidth: "100%",
-          overflow: "hidden",
-        }}>
+        {isTablet ? (
           <div style={{ 
-            minWidth: 0,
-            display: "flex",       
+            display: "flex",
             flexDirection: "column",
-            minHeight: isVerySmall ? "350px" : isMobile ? "400px" : "500px",
-            maxHeight: isVerySmall ? "400px" : isMobile ? "450px" : "550px",
-            width: "100%",
-            overflow: "hidden",
+            gap: "20px",
+            flex: 1,
           }}>
-            <CalendarOverview
-              documentEvents={formsToCalendarEvents(formViews)}
-              renderedDaysByMonth={dashboard?.renderedDaysByMonth ?? {}}
-              renderedTimeByMonth={dashboard?.renderedTimeByMonth ?? {}}
-            />
+            {/* QuickAccess */}
+            <div style={{ 
+              width: "100%",
+              minHeight: "auto",
+              maxHeight: "none",
+            }}>
+              <QuickAccess isMobile={isMobile} />
+            </div>
+            
+            {/* Calendar and Documents */}
+            <div style={{ 
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "20px",
+              flex: 1,
+              minHeight: "450px",
+              maxHeight: "500px",
+            }}>
+              <div style={{ 
+                minWidth: 0,
+                display: "flex",       
+                flexDirection: "column",
+                height: "100%",
+              }}>
+                <CalendarOverview
+                  documentEvents={formsToCalendarEvents(formViews)}
+                  renderedDaysByMonth={dashboard?.renderedDaysByMonth ?? {}}
+                  renderedTimeByMonth={dashboard?.renderedTimeByMonth ?? {}}
+                />
+              </div>
+              <div style={{ 
+                minWidth: 0,
+                display: "flex",       
+                flexDirection: "column",
+                height: "100%",
+              }}>
+                <Documents documents={formsToDocuments(formViews)} />
+              </div>
+            </div>
           </div>
+        ) : (
+          // Desktop and Mobile layout
           <div style={{ 
-            minWidth: 0,
-            display: "flex",       
-            flexDirection: "column",
-            gap: isVerySmall ? "10px" : isMobile ? "12px" : "16px", 
-            minHeight: isVerySmall ? "300px" : isMobile ? "350px" : "500px",
-            maxHeight: isVerySmall ? "350px" : isMobile ? "400px" : "550px",
-            width: "100%",
-            overflow: "hidden",
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "3.5fr 3.5fr 1.5fr",
+            gap: isMobile ? "8px" : "20px",
+            flex: 1,
+            alignItems: "stretch",
           }}>
-            <Documents documents={formsToDocuments(formViews)} />
+            <div style={{ 
+              minWidth: 0,
+              display: "flex",       
+              flexDirection: "column",
+              minHeight: isMobile ? "450px" : "500px",
+              maxHeight: isMobile ? "500px" : "550px",
+              order: isMobile ? 1 : 0,
+            }}>
+              <CalendarOverview
+                documentEvents={formsToCalendarEvents(formViews)}
+                renderedDaysByMonth={dashboard?.renderedDaysByMonth ?? {}}
+                renderedTimeByMonth={dashboard?.renderedTimeByMonth ?? {}}
+              />
+            </div>
+            <div style={{ 
+              minWidth: 0,
+              display: "flex",       
+              flexDirection: "column",
+              minHeight: isMobile ? "400px" : "500px",
+              maxHeight: isMobile ? "500px" : "550px",
+              order: isMobile ? 2 : 0,
+            }}>
+              <Documents documents={formsToDocuments(formViews)} />
+            </div>
+
+            <div style={{ 
+              minWidth: 0,
+              display: "flex",       
+              flexDirection: "column",
+              minHeight: isMobile ? "350px" : "500px",
+              maxHeight: isMobile ? "500px" : "550px",
+              height: "100%",
+              order: isMobile ? 0 : 0,
+            }}>
+              <QuickAccess isMobile={isMobile} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Scanned Students - Collapsible Section */}
         <div style={{ 

@@ -6,6 +6,8 @@ import Sidebar from "@/components/shared/StudentLeaderSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
+import { AdminFilterPanel } from "@/components/shared/AdminFilterPanel"
+import {IconChevronUp, IconChevronDown,} from "@tabler/icons-react"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -15,7 +17,7 @@ const montserrat = Montserrat({
 
 const C = {
   maroon: "#7B1113",
-  pageBg: "#F0EFE8",
+  pageBg: "#F0F0F0",
   border: "#D9D9D9",
   Green: "#014421",
   goldBg: "#FFF4D9",
@@ -82,9 +84,8 @@ const [courseFilter, setCourseFilter] = useState<string[]>([])
 const [yearFilter, setYearFilter] = useState<string[]>([])
 const [siteFilter, setSiteFilter] = useState<string[]>([])
 
-const [openCourse, setOpenCourse] = useState(false)
-const [openYear, setOpenYear] = useState(false)
-const [openSite, setOpenSite] = useState(false)
+const [sortField, setSortField] = useState<"name" | "course" | "year" | "site">("name")
+const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
 
 const [currentPage, setCurrentPage] = useState(1)
 const [itemsPerPage, setItemsPerPage] = useState(5)
@@ -152,10 +153,44 @@ const filteredStudents = students.filter((student) => {
     )
   })
 
-const sortedStudents = [...filteredStudents].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  )
-
+  const sortedStudents = [...filteredStudents].sort((a, b) => {
+    let valA = a[sortField]
+    let valB = b[sortField]
+  
+    valA = valA.toString().toLowerCase()
+    valB = valB.toString().toLowerCase()
+  
+    if (valA < valB) return sortOrder === "asc" ? -1 : 1
+    if (valA > valB) return sortOrder === "asc" ? 1 : -1
+    return 0
+  })
+  
+  const getSortIcons = (field: typeof sortField) => {
+    const isActive = sortField === field
+    const isAsc = isActive && sortOrder === "asc"
+    const isDesc = isActive && sortOrder === "desc"
+  
+    return (
+      <span style={{ display: "inline-flex", flexDirection: "column", marginLeft: 6 }}>
+        <IconChevronUp
+          size={12}
+          stroke={2}
+          style={{
+            color: isAsc ? "#7B1113" : "#CFCFCF",
+            marginBottom: -2,
+          }}
+        />
+        <IconChevronDown
+          size={12}
+          stroke={2}
+          style={{
+            color: isDesc ? "#7B1113" : "#CFCFCF",
+            marginTop: -2,
+          }}
+        />
+      </span>
+    )
+  }
 const totalPages = Math.ceil(filteredStudents.length / itemsPerPage)
 
 const paginatedStudents = sortedStudents.slice(
@@ -183,9 +218,9 @@ const pages = []
     return pages
   }
 
-const filterRef = useRef<HTMLDivElement>(null)
+  const filterRef = useRef<HTMLDivElement>(null)
 
-useEffect(() => {
+  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
         filterRef.current &&
@@ -196,10 +231,7 @@ useEffect(() => {
     }
   
     document.addEventListener("mousedown", handleClickOutside)
-  
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
 
@@ -232,7 +264,7 @@ useEffect(() => {
 
         .class-title {
           margin:0;
-          font-size:45px;
+          font-size:34px;
           font-weight:800;
           color:${C.maroon};
           letter-spacing:-1px;
@@ -249,9 +281,9 @@ useEffect(() => {
 
         .class-card {
           background:white;
-          border-radius:28px;
-          border:2px solid ${C.border};
+          border-radius:15px;
           overflow:hidden;
+          box-shadow: 0 15px 15px rgba(0, 0, 0, 0.08);
         }
 
 
@@ -266,9 +298,9 @@ useEffect(() => {
 
 
         .class-name {
-          font-size:25px;
+          font-size:20px;
           font-weight:800;
-          color:${C.textDark};
+          color:${C.Green};
         }
 
 
@@ -294,8 +326,8 @@ useEffect(() => {
 
         .search-box {
           width:320px;
-          height:40px;
-          border:2px solid ${C.maroon};
+          height:35px;
+          border:1.5px solid ${C.Green};
           border-radius:999px;
           display:flex;
           align-items:center;
@@ -314,29 +346,30 @@ useEffect(() => {
 
 
         .filter {
-          width:60px;
-          height:40px;
-          border:none;
-          border-radius:14px;
-          background:${C.Green};
-          color:white;
-          font-size:22px;
-          cursor:pointer;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-        }
+            width:60px;
+            height:35px;
+            border: 1.5px solid ${C.Green};
+            border-radius:14px;
+            background:white;
+            color:${C.Green};
+            font-size:22px;
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            transition: 0.2s ease;
+            }
 
 
         .table-head{
             display:grid;
             grid-template-columns:2.2fr 1.3fr .8fr 1.4fr;
-            padding:18px 24px;
+            padding:8px 24px;
             background:#F6F8F7;
             border-top:1px solid #E7E7E7;
             border-bottom:1px solid #E7E7E7;
             color:${C.maroon};
-            font-size:15px;
+            font-size:11px;
             font-weight:700;
             letter-spacing:1px;
             }
@@ -344,7 +377,7 @@ useEffect(() => {
         .row{
             display:grid;
             grid-template-columns:2.2fr 1.3fr .8fr 1.4fr;
-            padding:22px 24px;
+            padding:18px 24px;
             align-items:center;
             border-bottom:1px solid #F0F0F0;
             transition:.2s;
@@ -361,7 +394,7 @@ useEffect(() => {
         }
 
         .student-name{
-            font-size:15px;
+            font-size:13px;
             font-weight:700;
             color:${C.textDark};
             white-space: normal;
@@ -369,7 +402,7 @@ useEffect(() => {
         }
 
         .student-email{
-            font-size:10px;
+            font-size:11px;
             color:#7B8190;
         }
 
@@ -393,6 +426,7 @@ useEffect(() => {
             display:flex;
             justify-content:center;
             align-items:center;
+            font-size:13px;
         }
 
         .site span{
@@ -400,7 +434,7 @@ useEffect(() => {
             color:#646B79;
             padding:8px 18px;
             border-radius:999px;
-            font-size:14px;
+            font-size:13px;
             font-weight:600;
             }
 
@@ -641,26 +675,27 @@ useEffect(() => {
 
         @media(max-width:900px){
 
-          .class-main {
+        .class-main {
             margin-left:100px;
-          }
+        }
 
         }
 
+
         @media(max-width:600px){
 
-          .class-main {
-            margin-left:80px;
-            padding:20px 12px;
-          }
+        .class-main {
+            margin-left:0;
+            padding:20px 12px 110px;
+        }
 
-          .class-title {
+        .class-title {
             font-size:28px;
-          }
+        }
 
-          .search-box {
+        .search-box {
             width:200px;
-          }
+        }
 
         }
 
@@ -678,7 +713,7 @@ useEffect(() => {
           <div className="class-header">
 
             <h1 className="class-title">
-              CLASS
+              Class
             </h1>
 
 
@@ -700,148 +735,6 @@ useEffect(() => {
             }}
             >
 
-            {showFilters && (
-                <div 
-                ref={filterRef}
-                className="filter-menu"
-                >
-                
-                
-                <div className="filter-section">
-                
-                <div 
-                className="filter-header"
-                onClick={()=>setOpenCourse(!openCourse)}
-                >
-                COURSE
-                <span className="filter-arrow">
-                {openCourse ? "⌃" : "⌄"}
-                </span>
-                </div>
-                
-                
-                {openCourse && (
-                <div className="filter-options">
-                
-                {courses.map((course)=>(
-                <label key={course} className="check-item">
-                
-                <input
-                type="checkbox"
-                checked={courseFilter.includes(course)}
-                onChange={() =>
-                toggleFilter(course,setCourseFilter)
-                }
-                />
-                
-                {course}
-                
-                </label>
-                ))}
-                
-                </div>
-                )}
-                
-                </div>
-                
-                
-                <div className="filter-divider"/>
-                
-                
-                <div className="filter-section">
-                
-                <div 
-                className="filter-header"
-                onClick={()=>setOpenYear(!openYear)}
-                >
-                YEAR LEVEL
-                <span className="filter-arrow">
-                {openYear ? "⌃" : "⌄"}
-                </span>
-                </div>
-                
-                
-                {openYear && (
-                <div className="filter-options">
-                
-                {years.map((year)=>(
-                <label key={year} className="check-item">
-                
-                <input
-                type="checkbox"
-                checked={yearFilter.includes(year)}
-                onChange={() =>
-                toggleFilter(year,setYearFilter)
-                }
-                />
-                
-                {year}
-                
-                </label>
-                ))}
-                
-                </div>
-                )}
-                
-                </div>
-                
-                
-                <div className="filter-divider"/>
-                
-                
-                <div className="filter-section">
-                
-                <div 
-                className="filter-header"
-                onClick={()=>setOpenSite(!openSite)}
-                >
-                SITE LOCATION
-                <span className="filter-arrow">
-                {openSite ? "⌃" : "⌄"}
-                </span>
-                </div>
-                
-                
-                {openSite && (
-                <div className="filter-options">
-                
-                {sites.map((site)=>(
-                <label key={site} className="check-item">
-                
-                <input
-                type="checkbox"
-                checked={siteFilter.includes(site)}
-                onChange={() =>
-                toggleFilter(site,setSiteFilter)
-                }
-                />
-                
-                {site}
-                
-                </label>
-                ))}
-                
-                </div>
-                )}
-                
-                </div>
-                
-                
-                <button
-                className="clear-filter"
-                onClick={()=>{
-                setCourseFilter([])
-                setYearFilter([])
-                setSiteFilter([])
-                }}
-                >
-                Clear Filters
-                </button>
-                
-                
-                </div>
-            )}
-
             <div className="class-card">
 
                 <div className="class-top">
@@ -862,39 +755,138 @@ useEffect(() => {
 
                 </div>
 
+                <div ref={filterRef} style={{ position: "relative" }}>
+  
+                {/* search n filter */}
                 <div className="search-area">
-
                     <div className="search-box">
-
                     <i className="ti ti-search" />
-
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search Name or Site Location"
+                        placeholder="Search..."
                     />
-
                     </div>
 
                     <button
                     className="filter"
                     onClick={() => setShowFilters((prev) => !prev)}
                     >
-                    <i className="ti ti-filter" />
+                    <i className="ti ti-filter" style={{ fontWeight: 80 }} />
                     </button>
-
                 </div>
+
+                {/* filter */}
+                {showFilters && (
+                    <div
+                    style={{
+                        position: "absolute",
+                        top: "100%",
+                        right: 0,
+                        marginTop: "10px",
+                        zIndex: 9999,
+                    }}
+                    >
+                    <AdminFilterPanel
+                        groups={[
+                        {
+                            field: "course",
+                            label: "Course",
+                            options: courses.map((c) => ({ value: c, label: c })),
+                        },
+                        {
+                            field: "year",
+                            label: "Year Level",
+                            options: years.map((y) => ({ value: y, label: y })),
+                        },
+                        {
+                            field: "site",
+                            label: "Site Location",
+                            options: sites.map((s) => ({ value: s, label: s })),
+                        },
+                        ]}
+                        activeFilters={{
+                        course: courseFilter,
+                        year: yearFilter,
+                        site: siteFilter,
+                        }}
+                        onChange={(next) => {
+                        setCourseFilter(next.course ?? [])
+                        setYearFilter(next.year ?? [])
+                        setSiteFilter(next.site ?? [])
+                        }}
+                        onClear={() => {
+                        setCourseFilter([])
+                        setYearFilter([])
+                        setSiteFilter([])
+                        }}
+                    />
+                    </div>
+                )}
+                </div>
+
 
                 </div>
 
                 <div className="table-head">
-                <div>STUDENT</div>
-                <div>COURSE</div>
-                <div>YEAR LEVEL</div>
-                <div style={{ textAlign: "center" }}>
+                <div
+                    style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+                    onClick={() => {
+                        setSortField("name")
+                        setSortOrder(prev =>
+                        sortField === "name" && prev === "asc" ? "desc" : "asc"
+                        )
+                    }}
+                    >
+                    STUDENT
+                    {getSortIcons("name")}
+                    </div>
+
+                <div
+                    style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+                    onClick={() => {
+                        setSortField("course")
+                        setSortOrder(prev =>
+                        sortField === "course" && prev === "asc" ? "desc" : "asc"
+                        )
+                    }}
+                    >
+                    COURSE
+                    {getSortIcons("course")}
+                    </div>
+
+                <div
+                    style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+                    onClick={() => {
+                        setSortField("year")
+                        setSortOrder(prev =>
+                        sortField === "year" && prev === "asc" ? "desc" : "asc"
+                        )
+                    }}
+                    >
+                    YEAR LEVEL
+                    {getSortIcons("year")}
+                    </div>
+
+                <div
+                    style={{
+                        textAlign: "center",
+                        cursor: "pointer",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                    onClick={() => {
+                        setSortField("site")
+                        setSortOrder(prev =>
+                        sortField === "site" && prev === "asc" ? "desc" : "asc"
+                        )
+                    }}
+                    >
                     SITE LOCATION
-                </div>
-                </div>
+                    {getSortIcons("site")}
+                    </div>
+                    </div>
 
                 <div>
                 {paginatedStudents.map((student, index) => (

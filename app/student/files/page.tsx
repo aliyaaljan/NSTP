@@ -124,7 +124,7 @@ const studentFilesStyles = `
   .sf-file-preview-type { font-size: 10px; font-weight: 700; color: #FFFFFF; background: #1B4332; padding: 2px 10px; border-radius: 12px; }
   .sf-file-preview-size { font-size: 11px; color: #6B7280; }
   .sf-file-preview-remove { background: none; border: none; color: #9CA3AF; cursor: pointer; padding: 6px; }
-  .sf-file-preview-remove:hover { color: #7B1D1D; background: #FEE2E2; }
+  .sf-file-preview-remove:hover { color: #7B1D1D}
   .sf-empty-state { text-align: center; padding: 60px 20px; color: #9CA3AF; display: flex; flex-direction: column; align-items: center; }
   .sf-link-input-container { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #E8EDE5; border-radius: 10px; border: 1px solid #8AAE8A; margin-bottom: 12px; }
   .sf-link-input { border: none; outline: none; background: transparent; font-size: 13px; width: 100%; }
