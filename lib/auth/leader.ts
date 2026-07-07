@@ -1,10 +1,12 @@
 import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { lookupId } from "@/lib/lookups"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export type ActiveLeaderEnrollment = {
   enrollmentId: string
   sectionId: string
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   sectionName: string
   courseCode: string
 }
@@ -19,8 +21,8 @@ export async function getActiveLeaderEnrollment(
       enrollment_id,
       section:section_id!inner (
         section_id,
-        name,
-        course_code
+        course_code,
+        adviser:adviser_user_id ( full_name )
       )
     `)
     .eq("student_user_id", userId)
@@ -48,15 +50,24 @@ export async function getActiveLeaderEnrollment(
   // Supabase FK joins can be typed as arrays by the SDK even for many-to-one
   const sectionRaw = row.section
   const section = (Array.isArray(sectionRaw) ? sectionRaw[0] : sectionRaw) as
-    | { section_id: string; name: string; course_code: string }
+    | {
+        section_id: string
+        course_code: string
+        adviser: { full_name: string } | { full_name: string }[] | null
+      }
     | null
     | undefined
   if (!section) return null
 
+  const adviser = Array.isArray(section.adviser) ? section.adviser[0] : section.adviser
+
   return {
     enrollmentId: row.enrollment_id,
     sectionId: section.section_id,
-    sectionName: section.name,
+    sectionName: formatClassLabel({
+      courseCode: section.course_code,
+      facilitatorName: adviser?.full_name,
+    }),
     courseCode: section.course_code,
   }
 }

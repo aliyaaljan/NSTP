@@ -29,6 +29,7 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { uploadFormFile, deleteFormFile, getSignedUrl } from "@/lib/forms/storage"
+import { formatClassLabel } from "@/lib/shared/class-label"
 import {
   isAcceptedFormImportFile,
   titleFromImportFileName,
@@ -62,8 +63,7 @@ export async function getFormListData(query: FormListQuery): Promise<FormListPag
       .order("title", { ascending: true }),
     supabase
       .from("section")
-      .select("section_id, name, adviser_user_id, app_user:adviser_user_id(full_name)")
-      .order("name"),
+      .select("section_id, course_code, adviser_user_id, app_user:adviser_user_id(full_name)"),
     supabase.from("form_requirement_exclusion").select("section_id, form_requirement_id"),
     supabase
       .from("enrollment")
@@ -98,10 +98,15 @@ export async function getFormListData(query: FormListQuery): Promise<FormListPag
     submissionCounts.set(key, (submissionCounts.get(key) ?? 0) + 1)
   }
 
-  const sectionOptions: FormListSectionOption[] = sections.map((section) => ({
-    sectionId: section.section_id,
-    name: section.name,
-  }))
+  const sectionOptions: FormListSectionOption[] = sections
+    .map((section) => ({
+      sectionId: section.section_id,
+      label: formatClassLabel({
+        courseCode: section.course_code,
+        facilitatorName: section.app_user?.full_name,
+      }),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
 
   const forms = buildFormListRows(
       (requirementsRes.data ?? []) as unknown as FormRequirementListDbRow[],

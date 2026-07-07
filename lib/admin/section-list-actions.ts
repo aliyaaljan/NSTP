@@ -62,7 +62,6 @@ export async function getSectionListData(
           .from("section")
           .select(SECTION_LIST_SELECT)
           .eq("term_id", activeTerm.term_id)
-          .order("name")
       : Promise.resolve({ data: [], error: null }),
     supabase
       .from("enrollment")
@@ -194,17 +193,20 @@ export async function createSection(
   }
 
   const service = createSupabaseServiceClient()
+
   const { error } = await service.from("section").insert({
     term_id: activeTermId,
     adviser_user_id: payload.adviserUserId,
     course_code: payload.courseCode.trim(),
-    name: payload.name.trim(),
     section_status_id: sectionStatusId,
     required_hour_total: payload.requiredHourTotal,
     daily_cutoff_time: `${payload.dailyCutoffTime}:00`,
   })
 
   if (error) {
+    if (error.code === "23505") {
+      return { ok: false, error: "This facilitator already has a class this term." }
+    }
     console.error("[createSection]", error)
     return { ok: false, error: "Failed to create section." }
   }
@@ -239,7 +241,6 @@ export async function updateSection(
     .update({
       adviser_user_id: payload.adviserUserId,
       course_code: payload.courseCode.trim(),
-      name: payload.name.trim(),
       section_status_id: sectionStatusId,
       required_hour_total: payload.requiredHourTotal,
       daily_cutoff_time: `${payload.dailyCutoffTime}:00`,
@@ -248,6 +249,9 @@ export async function updateSection(
     .eq("section_id", payload.sectionId)
 
   if (error) {
+    if (error.code === "23505") {
+      return { ok: false, error: "This facilitator already has a class this term." }
+    }
     console.error("[updateSection]", error)
     return { ok: false, error: "Failed to update section." }
   }

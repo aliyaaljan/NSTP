@@ -44,6 +44,34 @@ revoke execute on function public.app_leads_section(uuid) from public;
 revoke execute on function public.app_leads_section(uuid) from anon;
 grant  execute on function public.app_leads_section(uuid) to authenticated;
 
+create or replace function public.class_label_surname(p_full_name text)
+returns text language sql immutable as $$
+  select case
+    when position(',' in p_full_name) > 0 then trim(split_part(p_full_name, ',', 1))
+    else (regexp_split_to_array(trim(p_full_name), '\s+'))[
+           array_length(regexp_split_to_array(trim(p_full_name), '\s+'), 1)
+         ]
+  end;
+$$;
+
+create or replace function public.class_label(p_course_code text, p_facilitator_name text)
+returns text language sql immutable as $$
+  select case
+    when coalesce(trim(p_course_code), '') <> '' and coalesce(trim(p_facilitator_name), '') <> ''
+      then trim(p_course_code) || ' — ' || public.class_label_surname(p_facilitator_name)
+    when coalesce(trim(p_course_code), '') <> '' then trim(p_course_code)
+    when coalesce(trim(p_facilitator_name), '') <> '' then public.class_label_surname(p_facilitator_name)
+    else 'Unassigned class'
+  end;
+$$;
+
+revoke execute on function public.class_label(text, text) from public;
+revoke execute on function public.class_label(text, text) from anon;
+grant  execute on function public.class_label(text, text) to authenticated;
+revoke execute on function public.class_label_surname(text) from public;
+revoke execute on function public.class_label_surname(text) from anon;
+grant  execute on function public.class_label_surname(text) to authenticated;
+
 -- ============================================================
 -- 3. get_leader_section_dashboard() → table
 --    Roster + progress stats for the caller's led section.
@@ -88,7 +116,7 @@ begin
   return query
   select
     s.section_id,
-    s.name                                                        as section_name,
+    public.class_label(s.course_code, au.full_name)               as section_name,
     s.course_code,
     s.required_hour_total                                         as required_hours,
     count(e.enrollment_id)                                        as total_students,
@@ -117,6 +145,7 @@ begin
       order by u.full_name
     )                                                             as students
   from        public.section s
+  join        public.app_user au on au.app_user_id = s.adviser_user_id
   join        public.enrollment e
     on        e.section_id           = s.section_id
     and       e.enrollment_status_id = v_active_status_id
@@ -135,7 +164,7 @@ begin
     limit 1
   ) open_sess on true
   where s.section_id = v_section_id
-  group by s.section_id, s.name, s.course_code, s.required_hour_total;
+  group by s.section_id, au.full_name, s.course_code, s.required_hour_total;
 end;
 $$;
 
@@ -525,10 +554,14 @@ returns table(
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s dashboard';
   end if;
+
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
 
   return query
   with student_minutes as (
@@ -551,7 +584,7 @@ begin
   section_stats as (
     select
       s.section_id,
-      s.name as section_name,
+      public.class_label(s.course_code, v_adviser_name) as section_name,
       s.required_hour_total,
       count(sm.enrollment_id)::integer as total,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
@@ -568,7 +601,7 @@ begin
       and e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
           )
-    group by s.section_id, s.name, s.required_hour_total
+    group by s.section_id, s.course_code, s.required_hour_total
   ),
   pending_appeals as (
     select
@@ -623,13 +656,17 @@ returns table(id uuid, name text)
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s sections';
   end if;
 
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
+
   return query
-  select s.section_id, s.name
+  select s.section_id, public.class_label(s.course_code, v_adviser_name)
   from section s
   join term t on t.term_id = s.term_id
   where s.adviser_user_id = p_adviser_user_id and t.is_active = true;
@@ -675,15 +712,19 @@ returns table(section_id uuid, section_name text, sem_end_date date, remaining_d
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s active term';
   end if;
 
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
+
   return query
   select
     s.section_id,
-    s.name as section_name,
+    public.class_label(s.course_code, v_adviser_name) as section_name,
     t.end_date as sem_end_date,
     case
       when floor(t.end_date - current_date) <= 0 then 'Semester ended'
@@ -707,10 +748,14 @@ returns table(section_id uuid, section_name text, total integer, completed integ
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s student stats';
   end if;
+
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
 
   return query
   with student_minutes as (
@@ -748,7 +793,7 @@ begin
   section_stats as (
     select
       s.section_id,
-      s.name as section_name,
+      public.class_label(s.course_code, v_adviser_name) as section_name,
       count(sm.enrollment_id)::integer as total,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric < s.required_hour_total*60)::integer as in_progress,
@@ -759,7 +804,7 @@ begin
     left join pending_requests pa on pa.section_id = s.section_id
     where s.adviser_user_id = p_adviser_user_id
       and t.is_active = true
-    group by s.section_id, s.name
+    group by s.section_id, s.course_code
   ),
   all_sections as (
     select
@@ -783,10 +828,14 @@ returns table(section_id uuid, section_name text, student_name text, student_num
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s students';
   end if;
+
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
 
   return query
   with student_minutes as (
@@ -830,7 +879,7 @@ begin
   )
   select
     s.section_id,
-    s.name as section_name,
+    public.class_label(s.course_code, v_adviser_name) as section_name,
     u.full_name as student_name,
     u.student_number as student_number,
     u.sais_id::numeric as sais_id,

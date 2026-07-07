@@ -137,12 +137,12 @@ create table section (
   term_id             uuid not null references term(term_id),
   adviser_user_id     uuid not null references app_user(app_user_id),
   course_code         text not null,
-  name                text not null,
   section_status_id   uuid not null references section_status(section_status_id),
   required_hour_total integer default 60,
   daily_cutoff_time   time default '23:59',  -- auto-void cutoff (Asia/Manila local)
   created_at          timestamptz not null default now(),
-  updated_at          timestamptz not null default now()
+  updated_at          timestamptz not null default now(),
+  constraint uq_section_adviser_term unique (adviser_user_id, term_id)
 );
 
 create table section_geofence (

@@ -38,15 +38,18 @@ import {
   type RowIssue,
 } from "@/lib/admin/import/types"
 import {
-  deriveUniformCourseCode,
   STUDENT_IMPORT_COLUMNS,
   validateStudentImportValues,
-  type EnsureImportSectionResult,
-  type ImportPickerData,
   type ParseStudentImportResult,
   type StudentImportRow,
-  type StudentImportSectionChoice,
 } from "@/lib/admin/student-import"
+import {
+  matchFacilitator,
+  type FacilitatorMatch,
+} from "@/lib/admin/import/facilitator-match"
+import { normalizeKey } from "@/lib/admin/import/normalize"
+import { ensureFacilitatorClass } from "@/lib/admin/class-provision"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 /**
  * Fetches everything the admin student list page needs.
@@ -76,7 +79,9 @@ export async function getStudentListData(
 
   const [enrollmentsRes, sectionsRes, { data: authData }] = await Promise.all([
     enrollmentQuery,
-    supabase.from("section").select("section_id, name").order("name"),
+    supabase
+      .from("section")
+      .select("section_id, course_code, app_user:adviser_user_id(full_name)"),
     supabase.auth.getUser(),
   ])
 
@@ -89,11 +94,19 @@ export async function getStudentListData(
       ?.map(mapEnrollmentToStudentListRow)
       .filter((row): row is NonNullable<typeof row> => row !== null) ?? []
 
-  const sections: StudentListSectionOption[] =
-    sectionsRes.data?.map((section) => ({
+  const sections: StudentListSectionOption[] = ((sectionsRes.data ?? []) as unknown as {
+    section_id: string
+    course_code: string
+    app_user: { full_name: string } | null
+  }[])
+    .map((section) => ({
       sectionId: section.section_id,
-      name: section.name,
-    })) ?? []
+      label: formatClassLabel({
+        courseCode: section.course_code,
+        facilitatorName: section.app_user?.full_name,
+      }),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
@@ -346,8 +359,80 @@ function warnUnknownStudentLookups(
 }
 
 /**
+ * Active-term facilitator targets for the student import: every facilitator
+ * account plus (when it already exists) their single class for the term.
+ */
+interface FacilitatorTarget {
+  userId: string
+  fullName: string
+  sectionId: string | null
+  courseCode: string | null
+}
+
+async function getFacilitatorTargets(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  termId: string
+): Promise<FacilitatorTarget[]> {
+  const adviserRoleId = await lookupId("role", "adviser")
+  const [advisersRes, sectionsRes] = await Promise.all([
+    service
+      .from("app_user")
+      .select("app_user_id, full_name")
+      .eq("role_id", adviserRoleId)
+      .eq("is_active", true),
+    service
+      .from("section")
+      .select("section_id, course_code, adviser_user_id, adviser:adviser_user_id(full_name)")
+      .eq("term_id", termId),
+  ])
+
+  const targets = new Map<string, FacilitatorTarget>()
+  for (const adviser of advisersRes.data ?? []) {
+    targets.set(adviser.app_user_id, {
+      userId: adviser.app_user_id,
+      fullName: adviser.full_name ?? "",
+      sectionId: null,
+      courseCode: null,
+    })
+  }
+  // Class owners too — covers admins facilitating a class this term.
+  for (const section of sectionsRes.data ?? []) {
+    const existing = targets.get(section.adviser_user_id)
+    const fullName =
+      existing?.fullName ||
+      ((section.adviser as { full_name?: string } | null)?.full_name ?? "")
+    targets.set(section.adviser_user_id, {
+      userId: section.adviser_user_id,
+      fullName,
+      sectionId: section.section_id,
+      courseCode: section.course_code,
+    })
+  }
+  return [...targets.values()]
+}
+
+function facilitatorMatchIssue(
+  facilitator: string,
+  match: Extract<FacilitatorMatch, { ok: false }>,
+  rowNumber: number
+): RowIssue {
+  if (match.reason === "not_found") {
+    return {
+      rowNumber,
+      message: `Facilitator "${facilitator}" not found — import the facilitators file first or fix the name.`,
+    }
+  }
+  const names = match.matches.map((m) => m.fullName).join(", ")
+  return {
+    rowNumber,
+    message: `Facilitator "${facilitator}" matches several accounts (${names}) — make the name in the file more specific.`,
+  }
+}
+
+/**
  * Phase 1 of the student import: parse + validate, no writes.
- * Accepts the NSTP office metadata file (.csv or .xlsx) as-is.
+ * Accepts the NSTP office metadata file (.csv or .xlsx) as-is; each row's
+ * Facilitator must uniquely match a facilitator account.
  */
 export async function parseStudentImport(
   formData: FormData
@@ -385,7 +470,13 @@ export async function parseStudentImport(
   }
 
   const service = createSupabaseServiceClient()
-  const lookups = await getStudentImportLookups(service)
+  const termId = await getActiveTermId(service)
+  if (!termId) return { ok: false, error: "No active term configured." }
+
+  const [lookups, targets] = await Promise.all([
+    getStudentImportLookups(service),
+    getFacilitatorTargets(service, termId),
+  ])
 
   const issues: RowIssue[] = []
   const validRows: StudentImportRow[] = []
@@ -393,6 +484,11 @@ export async function parseStudentImport(
     const validated = validateStudentImportValues(values, rowNumber)
     issues.push(...validated.issues)
     if (!validated.row) continue
+    const match = matchFacilitator(validated.row.facilitator, targets)
+    if (!match.ok) {
+      issues.push(facilitatorMatchIssue(validated.row.facilitator, match, rowNumber))
+      continue
+    }
     warnUnknownStudentLookups(validated.row, lookups, issues)
     validRows.push(validated.row)
   }
@@ -402,7 +498,6 @@ export async function parseStudentImport(
     totalRows: rows.length,
     validRows,
     issues,
-    uniformCourseCode: deriveUniformCourseCode(validRows),
   }
 }
 
@@ -417,143 +512,19 @@ async function getActiveTermId(
   return data?.term_id ?? null
 }
 
-/** Section + facilitator options for the import modal's section step. */
-export async function getImportPickerData(): Promise<
-  { ok: true; data: ImportPickerData } | { ok: false; error: string }
-> {
-  const role = await getAppUserRole()
-  if (role !== "admin") return { ok: false, error: "Unauthorized" }
-
-  const service = createSupabaseServiceClient()
-  const termId = await getActiveTermId(service)
-  if (!termId) return { ok: false, error: "No active term configured." }
-
-  const [adviserRoleId, activeSectionStatusId] = await Promise.all([
-    lookupId("role", "adviser"),
-    lookupId("section_status", "active"),
-  ])
-  const [sectionsRes, advisersRes] = await Promise.all([
-    service
-      .from("section")
-      .select("section_id, name, course_code")
-      .eq("term_id", termId)
-      .eq("section_status_id", activeSectionStatusId)
-      .order("name"),
-    service
-      .from("app_user")
-      .select("app_user_id, full_name")
-      .eq("role_id", adviserRoleId)
-      .eq("is_active", true)
-      .order("full_name"),
-  ])
-
-  if (sectionsRes.error || advisersRes.error) {
-    console.error("[getImportPickerData] failed", sectionsRes.error, advisersRes.error)
-    return { ok: false, error: "Failed to load sections and facilitators." }
-  }
-
-  return {
-    ok: true,
-    data: {
-      sections: (sectionsRes.data ?? []).map((section) => ({
-        sectionId: section.section_id,
-        name: section.name,
-        courseCode: section.course_code,
-      })),
-      advisers: (advisersRes.data ?? []).map((adviser) => ({
-        adviserUserId: adviser.app_user_id,
-        fullName: adviser.full_name,
-      })),
-    },
-  }
-}
-
 /**
- * Resolve the target section for a student import: validate an existing
- * active-term section, or create a new one. Called once before the chunk loop.
- */
-export async function ensureImportSection(
-  choice: StudentImportSectionChoice
-): Promise<EnsureImportSectionResult> {
-  const role = await getAppUserRole()
-  if (role !== "admin") return { ok: false, error: "Unauthorized" }
-
-  const service = createSupabaseServiceClient()
-  const termId = await getActiveTermId(service)
-  if (!termId) return { ok: false, error: "No active term configured." }
-
-  if (choice.kind === "existing") {
-    if (!choice.sectionId) return { ok: false, error: "Please choose a section." }
-    const { data: section } = await service
-      .from("section")
-      .select("section_id")
-      .eq("section_id", choice.sectionId)
-      .eq("term_id", termId)
-      .maybeSingle()
-    if (!section) return { ok: false, error: "Section not found in the active term." }
-    return { ok: true, sectionId: section.section_id }
-  }
-
-  const name = choice.name.trim()
-  const courseCode = choice.courseCode.trim()
-  if (!name) return { ok: false, error: "Section name is required." }
-  if (!courseCode) return { ok: false, error: "Course code is required." }
-  if (!choice.adviserUserId) {
-    return { ok: false, error: "Please choose a facilitator for the new section." }
-  }
-
-  const adviserRoleId = await lookupId("role", "adviser")
-  const { data: adviser } = await service
-    .from("app_user")
-    .select("app_user_id")
-    .eq("app_user_id", choice.adviserUserId)
-    .eq("role_id", adviserRoleId)
-    .maybeSingle()
-  if (!adviser) return { ok: false, error: "Selected facilitator not found." }
-
-  const { data: existing } = await service
-    .from("section")
-    .select("section_id")
-    .eq("term_id", termId)
-    .ilike("name", name)
-    .maybeSingle()
-  if (existing) {
-    return { ok: false, error: `A section named "${name}" already exists in the active term.` }
-  }
-
-  const activeStatusId = await lookupId("section_status", "active")
-  const { data: created, error: createError } = await service
-    .from("section")
-    .insert({
-      term_id: termId,
-      adviser_user_id: choice.adviserUserId,
-      course_code: courseCode,
-      name,
-      section_status_id: activeStatusId,
-    })
-    .select("section_id")
-    .single()
-
-  if (createError || !created) {
-    console.error("[ensureImportSection] section insert failed", createError)
-    return { ok: false, error: "Failed to create the section." }
-  }
-  return { ok: true, sectionId: created.section_id }
-}
-
-/**
- * Phase 2 of the student import: upsert one chunk of rows into the section.
+ * Phase 2 of the student import: upsert one chunk of rows. Each row's section
+ * is resolved from its matched facilitator's single active-term class
+ * (get-or-created when the facilitator has none yet).
  * Idempotent — re-running the same file updates rather than duplicates.
  * Never changes is_active on existing users.
  */
 export async function commitStudentImportChunk(input: {
-  sectionId: string
   rows: StudentImportRow[]
 }): Promise<{ ok: true; result: ImportCommitResult } | { ok: false; error: string }> {
   const role = await getAppUserRole()
   if (role !== "admin") return { ok: false, error: "Unauthorized" }
 
-  if (!input.sectionId) return { ok: false, error: "Section is required." }
   if (!Array.isArray(input.rows)) return { ok: false, error: "Invalid rows payload." }
   if (input.rows.length === 0) return { ok: true, result: emptyCommitResult() }
   if (input.rows.length > IMPORT_CHUNK_SIZE) {
@@ -564,16 +535,21 @@ export async function commitStudentImportChunk(input: {
   const termId = await getActiveTermId(service)
   if (!termId) return { ok: false, error: "No active term configured." }
 
-  const { data: section } = await service
-    .from("section")
-    .select("section_id")
-    .eq("section_id", input.sectionId)
-    .eq("term_id", termId)
-    .maybeSingle()
-  if (!section) return { ok: false, error: "Section not found in the active term." }
-
-  const lookups = await getStudentImportLookups(service)
-  const activeStatusId = await lookupId("enrollment_status", "active")
+  const [lookups, targets, activeStatusId] = await Promise.all([
+    getStudentImportLookups(service),
+    getFacilitatorTargets(service, termId),
+    lookupId("enrollment_status", "active"),
+  ])
+  // Facilitator userId → their class, filled lazily for classes created mid-chunk.
+  const classCache = new Map<string, { sectionId: string; courseCode: string | null }>()
+  for (const target of targets) {
+    if (target.sectionId) {
+      classCache.set(target.userId, {
+        sectionId: target.sectionId,
+        courseCode: target.courseCode,
+      })
+    }
+  }
   const result = emptyCommitResult()
 
   for (const raw of input.rows) {
@@ -588,6 +564,7 @@ export async function commitStudentImportChunk(input: {
         enlistment_status: raw.enlistmentStatus ?? "",
         program: raw.program ?? "",
         classification: raw.classification ?? "",
+        facilitator: raw.facilitator ?? "",
       },
       raw.rowNumber ?? 0
     )
@@ -597,6 +574,39 @@ export async function commitStudentImportChunk(input: {
       continue
     }
     const row = validated.row
+
+    // Resolve the row's section from its facilitator.
+    const match = matchFacilitator(row.facilitator, targets)
+    if (!match.ok) {
+      result.skipped += 1
+      result.issues.push(facilitatorMatchIssue(row.facilitator, match, row.rowNumber))
+      continue
+    }
+    let facilitatorClass = classCache.get(match.userId)
+    if (!facilitatorClass) {
+      const ensured = await ensureFacilitatorClass(service, match.userId)
+      if (!ensured.ok) {
+        result.skipped += 1
+        result.issues.push({
+          rowNumber: row.rowNumber,
+          message: `Could not resolve the facilitator's class: ${ensured.error}`,
+        })
+        continue
+      }
+      facilitatorClass = { sectionId: ensured.sectionId, courseCode: null }
+      classCache.set(match.userId, facilitatorClass)
+    }
+    const sectionId = facilitatorClass.sectionId
+    if (
+      row.courseCode &&
+      facilitatorClass.courseCode &&
+      normalizeKey(row.courseCode) !== normalizeKey(facilitatorClass.courseCode)
+    ) {
+      result.issues.push({
+        rowNumber: row.rowNumber,
+        message: `Course Code "${row.courseCode}" differs from the class's "${facilitatorClass.courseCode}" — enrolled anyway.`,
+      })
+    }
 
     const existing = await findAppUserByEmail(service, row.email)
     let studentUserId: string
@@ -662,7 +672,7 @@ export async function commitStudentImportChunk(input: {
       .eq("enrollment_status_id", activeStatusId)
       .maybeSingle()
 
-    if (activeEnrollment && activeEnrollment.section_id === input.sectionId) {
+    if (activeEnrollment && activeEnrollment.section_id === sectionId) {
       const { error } = await service
         .from("enrollment")
         .update(metadata)
@@ -688,7 +698,7 @@ export async function commitStudentImportChunk(input: {
         .from("enrollment")
         .select("enrollment_id")
         .eq("student_user_id", studentUserId)
-        .eq("section_id", input.sectionId)
+        .eq("section_id", sectionId)
         .maybeSingle()
 
       if (existingEnrollment) {
@@ -715,7 +725,7 @@ export async function commitStudentImportChunk(input: {
         }
       } else {
         const { error } = await service.from("enrollment").insert({
-          section_id: input.sectionId,
+          section_id: sectionId,
           student_user_id: studentUserId,
           enrollment_status_id: activeStatusId,
           ...metadata,

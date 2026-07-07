@@ -241,9 +241,9 @@ export default function StudentListClient({
         ),
       },
       {
-        label: "Section",
+        label: "Class",
         field: "sectionId",
-        options: sections.map((s) => ({ value: s.sectionId, label: s.name })),
+        options: sections.map((s) => ({ value: s.sectionId, label: s.label })),
         optionsPerColumn: 7,
       },
     ],
@@ -454,7 +454,7 @@ export default function StudentListClient({
                 <th style={{ width: "12%" }}>Student ID</th>
                 <th style={{ width: "15%" }}>
                   <AdminSortHeader
-                    label="Section"
+                    label="Class"
                     sortable
                     sortActive={query.sort === "section"}
                     sortDirection={query.dir}
@@ -509,7 +509,7 @@ export default function StudentListClient({
                       </td>
                       <td>
                         <div style={{ color: COLORS.textDark }}>
-                          {student.sectionName}
+                          {student.classLabel}
                         </div>
                       </td>
                       <td>
@@ -581,7 +581,7 @@ export default function StudentListClient({
           subtitle={detailStudent.email}
           fields={[
             { label: "Student ID", value: detailStudent.studentNumber ?? "—" },
-            { label: "Section", value: detailStudent.sectionName },
+            { label: "Class", value: detailStudent.classLabel },
             { label: "Adviser", value: detailStudent.adviserName },
             {
               label: "Hours",

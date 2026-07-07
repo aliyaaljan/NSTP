@@ -24,6 +24,7 @@ import {
   mapAuditLogDbRow,
   formatAuditLogTimestamp,
 } from "@/lib/admin/audit-log"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export const revalidate = 0
 
@@ -360,38 +361,39 @@ export default async function AdminDashboardPage({
   // --- dynamic select strings for inner join ---
   const studentCountSelect =
     selectedSection || selectedAdviser
-      ? "app_user_id, enrollment!inner(section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name)))"
+      ? "app_user_id, enrollment!inner(section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name)))"
       : "app_user_id, enrollment(enrollment_status_id)"
 
   const adviserCountSelect = selectedSection
-    ? "app_user_id, section!inner(name)"
+    ? "app_user_id, section!inner(section_id)"
     : "app_user_id"
 
   const activeCountSelect =
     selectedSection || selectedAdviser
-      ? "student_user_id, section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name))"
+      ? "student_user_id, section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name))"
       : "student_user_id"
 
   const timeInLogsSelect =
     selectedSection || selectedAdviser
-      ? "enrollment_id, enrollment!inner(enrollment_status_id, section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name)))"
+      ? "enrollment_id, enrollment!inner(enrollment_status_id, section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name)))"
       : "enrollment_id, enrollment!inner(section_id, enrollment_status_id)"
 
   const filesSelect =
     selectedSection || selectedAdviser
-      ? "form_id, section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name))"
+      ? "form_id, section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name))"
       : "form_id"
 
   const appealsSelect =
     selectedSection || selectedAdviser
-      ? "appeal_id, enrollment!inner(section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name)))"
+      ? "appeal_id, enrollment!inner(section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name)))"
       : "appeal_id, enrollment!inner(section_id)"
 
   const workloadSelect = selectedSection
     ? `
           full_name,
           section!section_adviser_user_id_fkey!inner(
-            name,
+            section_id,
+            course_code,
             enrollment(
               enrollment_id,
               enrollment_status_id
@@ -401,7 +403,8 @@ export default async function AdminDashboardPage({
     : `
           full_name,
           section!section_adviser_user_id_fkey(
-            name,
+            section_id,
+            course_code,
             enrollment(
               enrollment_id,
               enrollment_status_id
@@ -411,8 +414,8 @@ export default async function AdminDashboardPage({
 
   const enrollmentSelect =
     selectedSection || selectedAdviser
-      ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, name, required_hour_total, app_user!inner(full_name)), attendance_session(duration_minute)`
-      : `student_user_id, app_user(full_name, student_number), section(section_id, name, required_hour_total, app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
+      ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, course_code, required_hour_total, app_user!inner(full_name)), attendance_session(duration_minute)`
+      : `student_user_id, app_user(full_name, student_number), section(section_id, course_code, required_hour_total, app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
 
   // ---  Base Queries ---
   let studentsQuery = supabase
@@ -470,27 +473,33 @@ export default async function AdminDashboardPage({
   // ---  Conditional Filters ---
 
   if (selectedSection) {
-    studentsQuery = studentsQuery.eq("enrollment.section.name", selectedSection)
-    advisersQuery = advisersQuery.eq("section.name", selectedSection)
+    studentsQuery = studentsQuery.eq(
+      "enrollment.section.section_id",
+      selectedSection
+    )
+    advisersQuery = advisersQuery.eq("section.section_id", selectedSection)
     weeklyActiveCountQuery = weeklyActiveCountQuery.eq(
-      "section.name",
+      "section.section_id",
       selectedSection
     )
     weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
-      "enrollment.section.name",
+      "enrollment.section.section_id",
       selectedSection
     )
     todayTimeInLogsQuery = todayTimeInLogsQuery.eq(
-      "enrollment.section.name",
+      "enrollment.section.section_id",
       selectedSection
     )
-    filesQuery = filesQuery.eq("section.name", selectedSection)
-    appealsQuery = appealsQuery.eq("enrollment.section.name", selectedSection)
+    filesQuery = filesQuery.eq("section.section_id", selectedSection)
+    appealsQuery = appealsQuery.eq(
+      "enrollment.section.section_id",
+      selectedSection
+    )
     adviserWorkloadQuery = adviserWorkloadQuery.eq(
-      "section.name",
+      "section.section_id",
       selectedSection
     )
-    enrollmentQuery = enrollmentQuery.eq("section.name", selectedSection)
+    enrollmentQuery = enrollmentQuery.eq("section.section_id", selectedSection)
   }
 
   if (selectedAdviser && filteredAdviserId) {
@@ -562,7 +571,9 @@ export default async function AdminDashboardPage({
     // adviser workload query call
     adviserWorkloadQuery,
     //Filter Dropdown for section list lookup
-    supabase.from("section").select("section_id, name").order("name"),
+    supabase
+      .from("section")
+      .select("section_id, course_code, app_user:adviser_user_id(full_name)"),
     // Filter dropdown for advisers list lookup
     supabase
       .from("app_user")
@@ -589,13 +600,28 @@ export default async function AdminDashboardPage({
       .select("attendance_session_status_id, name"),
   ])
 
-  const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
-
-  const exportSections =
-    sectionsFilterRes.data?.map((s) => ({
+  const sectionFilterOptions: { sectionId: string; label: string }[] = (
+    (sectionsFilterRes.data ?? []) as unknown as {
+      section_id: string
+      course_code: string
+      app_user: { full_name: string } | null
+    }[]
+  )
+    .map((s) => ({
       sectionId: s.section_id,
-      name: s.name,
-    })) || []
+      label: formatClassLabel({
+        courseCode: s.course_code,
+        facilitatorName: s.app_user?.full_name,
+      }),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  const availableSections = sectionFilterOptions
+  const selectedSectionLabel =
+    sectionFilterOptions.find((s) => s.sectionId === selectedSection)?.label ??
+    selectedSection
+
+  const exportSections = sectionFilterOptions
 
   const availableAdvisers =
     advisersFilterRes.data?.map((a) => a.full_name) || []
@@ -653,6 +679,10 @@ export default async function AdminDashboardPage({
     if (!sectionData) return
 
     const sectionId = sectionData.section_id
+    const sectionLabel = formatClassLabel({
+      courseCode: sectionData.course_code,
+      facilitatorName: sectionData.app_user?.full_name,
+    })
     const targetHours = sectionData.required_hour_total || 60
     const studentMinutes =
       en.attendance_session?.reduce(
@@ -671,11 +701,11 @@ export default async function AdminDashboardPage({
     else {
       atRiskCount++
 
-      let refinedSubtitle = `Section ${sectionData.name} under ${
+      let refinedSubtitle = `${sectionLabel} under ${
         sectionData.app_user?.full_name || "No Adviser"
       }`
       if (selectedAdviser) {
-        refinedSubtitle = `Section ${sectionData.name}`
+        refinedSubtitle = sectionLabel
       } else if (selectedSection) {
         refinedSubtitle = `Assigned to: ${
           sectionData.app_user?.full_name || "Unassigned"
@@ -692,7 +722,7 @@ export default async function AdminDashboardPage({
     // metrics for completion rows
     if (!sectionAggregationMap[sectionId]) {
       sectionAggregationMap[sectionId] = {
-        name: sectionData.name,
+        name: sectionLabel,
         totalHoursCompleted: 0,
         totalHoursRequired: 0,
         studentCount: 0,
@@ -769,8 +799,11 @@ export default async function AdminDashboardPage({
         },
         0
       )
-      const primarySectionLabel = sectionRosters[0]?.name
-        ? `Section ${sectionRosters[0].name}`
+      const primarySectionLabel = sectionRosters[0]?.course_code
+        ? formatClassLabel({
+            courseCode: sectionRosters[0].course_code,
+            facilitatorName: adv.full_name,
+          })
         : "Floating"
       return {
         name: adv.full_name,
@@ -982,7 +1015,7 @@ export default async function AdminDashboardPage({
         >
           <div style={{ ...TYPE.h2, color: COLORS.textDark, marginBottom: 20 }}>
             {selectedSection
-              ? `Student progress within Section ${selectedSection}`
+              ? `Student progress within ${selectedSectionLabel}`
               : selectedAdviser
               ? `Student progress under ${selectedAdviser}`
               : "Hours completion by section"}

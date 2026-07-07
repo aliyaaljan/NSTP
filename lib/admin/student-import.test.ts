@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  deriveUniformCourseCode,
-  validateStudentImportValues,
-  type StudentImportRow,
-} from "@/lib/admin/student-import"
+import { validateStudentImportValues } from "@/lib/admin/student-import"
 
 const sampleValues = {
   course_code: "NSTP 2 CWTS",
@@ -31,10 +27,11 @@ describe("validateStudentImportValues", () => {
       enlistmentStatus: "Enlisted",
       program: "BSBiology",
       classification: "Sophomore",
+      facilitator: "Paglingayen, Kimberly P.",
     })
   })
 
-  it("rejects non-UP emails, bad student numbers, and missing names", () => {
+  it("rejects non-UP emails, bad student numbers, missing names, and missing facilitator", () => {
     expect(
       validateStudentImportValues({ ...sampleValues, email: "x@gmail.com" }, 3).issues
     ).toHaveLength(1)
@@ -44,26 +41,9 @@ describe("validateStudentImportValues", () => {
     expect(
       validateStudentImportValues({ ...sampleValues, full_name: "  " }, 5).issues
     ).toHaveLength(1)
+    expect(
+      validateStudentImportValues({ ...sampleValues, facilitator: "  " }, 6).issues
+    ).toHaveLength(1)
     expect(validateStudentImportValues({ ...sampleValues, email: "x@gmail.com" }, 3).row).toBeNull()
-  })
-})
-
-describe("deriveUniformCourseCode", () => {
-  const row = (courseCode: string): StudentImportRow => ({
-    rowNumber: 2,
-    courseCode,
-    studentNumber: "201201234",
-    saisId: "",
-    fullName: "X",
-    email: "x@up.edu.ph",
-    enlistmentStatus: "",
-    program: "",
-    classification: "",
-  })
-
-  it("returns the code when uniform, null when mixed or absent", () => {
-    expect(deriveUniformCourseCode([row("NSTP 2 CWTS"), row("NSTP 2 CWTS")])).toBe("NSTP 2 CWTS")
-    expect(deriveUniformCourseCode([row("NSTP 2 CWTS"), row("NSTP 2 LTS")])).toBeNull()
-    expect(deriveUniformCourseCode([row(""), row("")])).toBeNull()
   })
 })

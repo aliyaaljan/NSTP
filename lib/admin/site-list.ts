@@ -14,10 +14,12 @@
  *   center_latitude      → SiteListRow.centerLatitude
  *   center_longitude     → SiteListRow.centerLongitude
  *   section_id           → SiteListRow.sectionId
- *   section.name         → SiteListRow.sectionName
+ *   section.course_code + adviser.full_name → SiteListRow.sectionName (derived; sections have no name)
  *   adviser.full_name    → SiteListRow.supervisorName
  *   is_active            → SiteListRow.isActive
  */
+
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export interface SiteListRow {
   /** `section_geofence.section_geofence_id` */
@@ -32,7 +34,7 @@ export interface SiteListRow {
   centerLongitude: number
   /** `section.section_id` */
   sectionId: string
-  /** `section.name` */
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   sectionName: string
   /** `section.adviser_user_id` */
   adviserUserId: string
@@ -130,7 +132,7 @@ export const SITE_LIST_SELECT = `
   is_active,
   section:section_id(
     section_id,
-    name,
+    course_code,
     adviser_user_id,
     adviser:adviser_user_id(full_name)
   )
@@ -145,7 +147,7 @@ export interface SiteListDbRow {
   is_active: boolean
   section: {
     section_id: string
-    name: string
+    course_code: string
     adviser_user_id: string | null
     adviser: { full_name: string } | null
   } | null
@@ -195,14 +197,19 @@ export function mapSiteListDbRow(row: SiteListDbRow): SiteListRow | null {
   const section = row.section
   if (!section) return null
 
+  const classLabel = formatClassLabel({
+    courseCode: section.course_code,
+    facilitatorName: section.adviser?.full_name,
+  })
+
   return {
     geofenceId: row.section_geofence_id,
-    siteName: row.label?.trim() || section.name,
+    siteName: row.label?.trim() || classLabel,
     radiusMeters: row.radius_meter,
     centerLatitude: Number(row.center_latitude),
     centerLongitude: Number(row.center_longitude),
     sectionId: section.section_id,
-    sectionName: section.name,
+    sectionName: classLabel,
     adviserUserId: section.adviser_user_id ?? "",
     supervisorName: section.adviser?.full_name ?? "Unassigned",
     isActive: row.is_active,

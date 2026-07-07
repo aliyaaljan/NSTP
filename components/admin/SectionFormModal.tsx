@@ -62,39 +62,6 @@ function FormField({
   )
 }
 
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-}: {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  type?: "text"
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        ...TYPE.body,
-        fontStyle: "normal",
-        color: COLORS.textDark,
-        background: COLORS.fieldBg,
-        border: "none",
-        borderRadius: 6,
-        padding: "12px 14px",
-        outline: "none",
-      }}
-    />
-  )
-}
-
 function NativeSelect({
   value,
   onChange,
@@ -183,7 +150,6 @@ export default function SectionFormModal({
       if (!shouldLoadFormSession(open, sessionKey, loadedSessionRef)) return
 
       const snapshot = snapshotForm<SectionCreatePayload>({
-        name: initialEdit.name,
         courseCode: isSectionCourseCode(initialEdit.courseCode) ? initialEdit.courseCode : "",
         adviserUserId: initialEdit.adviserUserId,
         statusCode: initialEdit.statusCode,
@@ -272,7 +238,6 @@ export default function SectionFormModal({
       : true
 
   const canSubmit =
-    Boolean(form.name.trim()) &&
     Boolean(form.courseCode.trim()) &&
     Boolean(form.adviserUserId) &&
     isDirty
@@ -324,7 +289,7 @@ export default function SectionFormModal({
               margin: 0,
             }}
           >
-            {mode === "edit" ? "Edit Section" : "Add Section"}
+            {mode === "edit" ? "Edit Class" : "Add Class"}
           </h2>
           <button
             type="button"
@@ -345,14 +310,6 @@ export default function SectionFormModal({
         </div>
 
         <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 18 }}>
-          <FormField label="Section Name" hint='Short label, e.g. "A" or "B".'>
-            <TextInput
-              value={form.name}
-              onChange={(name) => patchForm({ name })}
-              placeholder="e.g. A"
-            />
-          </FormField>
-
           <FormField label="Course">
             <NativeSelect
               value={form.courseCode}
@@ -439,7 +396,7 @@ export default function SectionFormModal({
               opacity: !canSubmit || isPending ? 1 : 1,
             }}
           >
-            {isPending ? "Saving…" : mode === "edit" ? "Save Changes" : "Create Section"}
+            {isPending ? "Saving…" : mode === "edit" ? "Save Changes" : "Create Class"}
           </button>
         </div>
       </div>

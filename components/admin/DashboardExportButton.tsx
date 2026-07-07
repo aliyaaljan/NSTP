@@ -292,7 +292,7 @@ export default function DashboardExportButton({
                 <option value={EXPORT_ALL_SECTIONS_VALUE}>All Sections</option>
                 {sections.map((section) => (
                   <option key={section.sectionId} value={section.sectionId}>
-                    Section {section.name}
+                    {section.label}
                   </option>
                 ))}
               </ExportSelect>

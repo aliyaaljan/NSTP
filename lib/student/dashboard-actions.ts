@@ -94,7 +94,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
         data: {
           ...emptyDashboard(fullName, studentNumber),
           enrollmentId: primary.enrollmentId,
-          sectionName: primary.section.name,
+          sectionName: primary.section.label,
           requiredHours: primary.section.required_hour_total ?? 60,
         },
       }
@@ -148,7 +148,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
         enrollmentId: primary.enrollmentId,
         fullName,
         studentNumber,
-        sectionName: primary.section.name,
+        sectionName: primary.section.label,
         requiredHours: primary.section.required_hour_total ?? 60,
         hoursRendered: Math.floor(totalMinutes / 60),
         renderedDaysByMonth,

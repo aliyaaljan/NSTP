@@ -1,12 +1,13 @@
 import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { lookupId } from "@/lib/lookups"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export type ActiveStudentEnrollment = {
   enrollmentId: string
   section: {
     section_id: string
-    name: string
+    label: string
     course_code: string
     required_hour_total: number
     section_status_id: string
@@ -17,7 +18,7 @@ export type ActiveStudentEnrollment = {
 // A student can have several active enrollments (past terms, multiple sections),
 // so a bare .limit(1) would bind the QR / time-out to an arbitrary section.
 // We filter to active-status sections, then prefer the active term and break ties
-// by course_code → name → enrollment_id so the choice is stable across calls.
+// by course_code → enrollment_id so the choice is stable across calls.
 // Pass the service client (this trusts server-side data and bypasses RLS).
 export async function resolveActiveStudentEnrollment(
   service: SupabaseClient,
@@ -38,10 +39,10 @@ export async function resolveActiveStudentEnrollment(
       enrollment_id,
       section:section_id (
         section_id,
-        name,
         course_code,
         required_hour_total,
         section_status_id,
+        adviser:adviser_user_id ( full_name ),
         term:term_id ( is_active )
       )
     `
@@ -69,8 +70,6 @@ export async function resolveActiveStudentEnrollment(
         b.section.course_code ?? ""
       )
       if (byCourse !== 0) return byCourse
-      const byName = (a.section.name ?? "").localeCompare(b.section.name ?? "")
-      if (byName !== 0) return byName
       return a.enrollmentId.localeCompare(b.enrollmentId)
     })
 
@@ -87,11 +86,17 @@ export async function resolveActiveStudentEnrollment(
   }
 
   const primary = candidates[0]
+  const adviser = Array.isArray(primary.section.adviser)
+    ? primary.section.adviser[0]
+    : primary.section.adviser
   return {
     enrollmentId: primary.enrollmentId,
     section: {
       section_id: primary.section.section_id,
-      name: primary.section.name,
+      label: formatClassLabel({
+        courseCode: primary.section.course_code,
+        facilitatorName: adviser?.full_name,
+      }),
       course_code: primary.section.course_code,
       required_hour_total: primary.section.required_hour_total,
       section_status_id: primary.section.section_status_id,

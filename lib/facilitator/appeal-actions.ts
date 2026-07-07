@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { lookupId } from "../lookups"
 import { revalidatePath } from "next/cache"
 import { parseReason, packReason } from "../student/appeal-utils"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -25,6 +26,13 @@ export async function getAdviserPendingRequests(): Promise<
 
     if (!user) return { ok: false, error: "Not authenticated" }
 
+    // All rows belong to the caller's own class — resolve their name once.
+    const { data: caller } = await supabase
+      .from("app_user")
+      .select("full_name")
+      .eq("app_user_id", user.id)
+      .maybeSingle()
+
     // Fetch all requests matching sections handled by the logged-in adviser (No status filter)
     const { data: appeals, error } = await supabase
       .from("appeal")
@@ -40,7 +48,7 @@ export async function getAdviserPendingRequests(): Promise<
               student_user_id,
               section_id,
               app_user!inner (full_name, student_number),
-              section!inner (name, adviser_user_id)
+              section!inner (course_code, adviser_user_id)
           )
         `
       )
@@ -60,7 +68,10 @@ export async function getAdviserPendingRequests(): Promise<
         section_id: app.enrollment?.section_id || "",
         student_name: student?.full_name || "Unknown Student",
         student_number: student?.student_number || "—",
-        section_name: app.enrollment?.section?.name || "—",
+        section_name: formatClassLabel({
+          courseCode: app.enrollment?.section?.course_code,
+          facilitatorName: caller?.full_name,
+        }),
         appeal_type_name: type || "Others",
         title: title || "Request",
         note: body || "",

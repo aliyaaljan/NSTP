@@ -357,9 +357,9 @@ export default function AdviserListClient({
         })),
       },
       {
-        label: "Section",
+        label: "Class",
         field: "sectionId",
-        options: sections.map((s) => ({ value: s.sectionId, label: s.name })),
+        options: sections.map((s) => ({ value: s.sectionId, label: s.label })),
         optionsPerColumn: 7,
       },
     ],
