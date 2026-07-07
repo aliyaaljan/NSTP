@@ -148,7 +148,7 @@ const STYLES = `
   .nstp-modal-left::-webkit-scrollbar { width: 5px; }
   .nstp-modal-left::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 99px; }
   .nstp-modal-right {
-    width: 340px;
+    width: 450px;
     flex-shrink: 0;
     border-left: 1px solid var(--border, #E5E7EB);
     padding: 22px;

@@ -421,7 +421,6 @@ function MyStudentsContent() {
   const [exportStudent, setExportStudent] = useState(false)
   const [exportSection, setExportSection] = useState("All Sections")
   const [exportColumns, setExportColumns] = useState<string[]>([
-    "student_name", "student_number", "sais_id", "section_name",
     "site_location", "program", "classification", "status",
     "hours_logged", "total_hours", "completion_percentage", "is_student_leader"
   ])
@@ -462,7 +461,7 @@ function MyStudentsContent() {
   const pendingFilterGroups: { label: string; field: PendingFilterField; values: () => string[] }[] = [
     { label: "Type",    field: "appeal_type_name", values: () => requestType.map(t => t.name) },
     { label: "Status",  field: "status",            values: () => ["Pending Review", "Under Review", "Approved", "Rejected"] },
-    { label: "Section", field: "section_name",      values: () => [...new Set(pendingRequests.map(r => r.section_name).filter(Boolean))].sort() },
+    // { label: "Section", field: "section_name",      values: () => [...new Set(pendingRequests.map(r => r.section_name).filter(Boolean))].sort() },
   ]
 
   // ── Unified filter system ──────────────────────────────────────────
@@ -901,18 +900,18 @@ function MyStudentsContent() {
   }
 
   const EXPORT_COLUMNS: {key: keyof Student; label: string}[] = [
+    {key: "section_name", label: "Course Code"},
     {key: "student_name", label: "Student Name"},
     {key: "student_number", label: "Student Number"},
     {key: "sais_id", label: "SAIS ID"},
-    {key: "section_name", label: "Section"},
     {key: "site_location", label: "Site Location"},
     {key: "program", label: "Program" },
     {key: "classification", label: "Classification"},
+    {key: "is_student_leader", label: "Role"},
     {key: "status", label: "Status" },
     {key: "hours_logged", label: "Hours Logged"},
     {key: "total_hours", label: "Total Hours"},
-    {key: "completion_percentage", label: "Completion Percentage"},
-    {key: "is_student_leader", label: "Role"}
+    {key: "completion_percentage", label: "Completion Percentage"}
   ]
 
   function toggleExportColumn(key: string) {
@@ -1675,7 +1674,7 @@ function MyStudentsContent() {
           open={!!selectedStudent}
           onClose={() => setSelectedStudentKey(null)}
           title={selectedStudent?.student_name ?? ""}
-          subtitle={selectedStudent ? `${selectedStudent.section_name} · ${selectedStudent.site_location}` : ""}
+          subtitle={selectedStudent ? `${selectedStudent.section_name} · ${selectedStudent.site_location ? selectedStudent.site_location : "Not Assigned to a Location Yet"}` : ""}
           initials={selectedStudent?.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
           size="wide"
           twoCol
@@ -1825,11 +1824,11 @@ function MyStudentsContent() {
           title="Export Students"
           size="sm"
         >
-          <ModalField label="Section">
+          {/* <ModalField label="Section">
             <select className="ms-edit-input" value={exportSection} onChange={(e) => setExportSection(e.target.value)}>
               {sections.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
             </select>
-          </ModalField>
+          </ModalField> */}
           <ModalField label="Choose Columns">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
               {EXPORT_COLUMNS.map((c) => (
