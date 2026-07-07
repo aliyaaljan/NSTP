@@ -40,7 +40,7 @@ const adminNav: NavGroup[] = [
       { label: "Student List", href: "/admin/students", icon: "ti-users" },
       { label: "Facilitator List", href: "/admin/advisers", icon: "ti-user-cog" },
       {
-        label: "Section List",
+        label: "Classes",
         href: "/admin/sections",
         icon: "ti-layout-grid",
       },

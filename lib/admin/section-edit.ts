@@ -1,9 +1,13 @@
 /**
- * Section create/edit contract for the admin section list page.
+ * Class create/edit contract for the admin classes page.
+ *
+ * One class per facilitator per term, a
+ * class is identified by its facilitator, not a name. Creating one just
+ * picks a facilitator (who must not already have a class this term); the DB
+ * enforces the 1:1 rule via `uq_section_adviser_term`.
  *
  * Database mapping:
  * sectionId           → `section.section_id` (edit only)
- * name                → `section.name`
  * courseCode          → `section.course_code`
  * adviserUserId       → `section.adviser_user_id`
  * statusCode          → `section_status.code` → `section.section_status_id`
@@ -27,8 +31,6 @@ export const SECTION_COURSE_OPTIONS = [
 export type SectionCourseCode = (typeof SECTION_COURSE_OPTIONS)[number]
 
 export interface SectionCreatePayload {
-  /** `section.name` — e.g. "A", "B" */
-  name: string
   /** `section.course_code` — one of {@link SECTION_COURSE_OPTIONS} */
   courseCode: string
   /** `section.adviser_user_id` */
@@ -50,7 +52,6 @@ export type SectionMutationResult = { ok: true } | { ok: false; error: string }
 
 export function emptySectionCreatePayload(): SectionCreatePayload {
   return {
-    name: "",
     courseCode: "",
     adviserUserId: "",
     statusCode: "active",
@@ -64,7 +65,6 @@ export function sectionRowToEditPayload(
 ): SectionEditPayload {
   return {
     sectionId: row.sectionId,
-    name: row.name,
     courseCode: row.courseCode,
     adviserUserId: row.adviserUserId,
     statusCode: row.statusCode,
@@ -76,9 +76,6 @@ export function sectionRowToEditPayload(
 export function validateSectionCreatePayload(
   payload: SectionCreatePayload
 ): string | null {
-  if (!payload.name.trim()) {
-    return "Section name is required."
-  }
   if (!payload.courseCode.trim()) {
     return "Course is required."
   }

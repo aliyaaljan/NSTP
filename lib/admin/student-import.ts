@@ -2,10 +2,15 @@
  * Student import contract — matches the NSTP office's real metadata export
  * (e.g. "1252_NSTP 2_Metadata.xlsx"). Client-safe module.
  *
- * Two-phase flow (implemented in lib/admin/student-list-actions.ts):
- *   1. parseStudentImport(formData) -> validated preview (no writes)
- *   2. ensureImportSection(choice) once, then commitStudentImportChunk(...)
- *      with IMPORT_CHUNK_SIZE-row slices of validRows.
+ * The roster has NO section column: each row names its facilitator, and a
+ * facilitator handles exactly one class per term. Two-phase flow (implemented
+ * in lib/admin/student-list-actions.ts):
+ *   1. parseStudentImport(formData) -> validated preview (no writes); each
+ *      row's Facilitator is matched to a facilitator account, and misses
+ *      surface as row issues.
+ *   2. commitStudentImportChunk({ rows }) with IMPORT_CHUNK_SIZE-row slices of
+ *      validRows — the target section is auto-resolved per row from the
+ *      matched facilitator's class in the active term.
  */
 
 import type { ImportColumnSpec, RowIssue } from "@/lib/admin/import/types"
@@ -20,8 +25,9 @@ export const STUDENT_IMPORT_COLUMNS: readonly ImportColumnSpec[] = [
   { key: "enlistment_status", aliases: ["Enlistment Status"], required: false },
   { key: "program", aliases: ["Program"], required: false },
   { key: "classification", aliases: ["Classification"], required: false },
-  // Parsed for completeness; enrollment is decided by the modal's section choice.
-  { key: "facilitator", aliases: ["Facilitator"], required: false },
+  // Decides the enrollment: matched by name to a facilitator account, whose
+  // single active-term class is the row's section.
+  { key: "facilitator", aliases: ["Facilitator"], required: true },
 ]
 
 /** One validated row. Raw display values; lookups are resolved server-side at commit. */
@@ -37,32 +43,18 @@ export interface StudentImportRow {
   enlistmentStatus: string
   program: string
   classification: string
+  /** Facilitator name as written in the roster */
+  facilitator: string
 }
 
 export type ParseStudentImportResult =
   | {
-      ok: true
-      totalRows: number
-      validRows: StudentImportRow[]
-      issues: RowIssue[]
-      /** Course Code shared by every row, for prefilling the new-section form. */
-      uniformCourseCode: string | null
-    }
+    ok: true
+    totalRows: number
+    validRows: StudentImportRow[]
+    issues: RowIssue[]
+  }
   | { ok: false; error: string }
-
-export type StudentImportSectionChoice =
-  | { kind: "existing"; sectionId: string }
-  | { kind: "new"; name: string; courseCode: string; adviserUserId: string }
-
-export type EnsureImportSectionResult =
-  | { ok: true; sectionId: string }
-  | { ok: false; error: string }
-
-/** Options for the import modal's section step. */
-export interface ImportPickerData {
-  sections: { sectionId: string; name: string; courseCode: string }[]
-  advisers: { adviserUserId: string; fullName: string }[]
-}
 
 export function validateStudentImportValues(
   values: Record<string, string>,
@@ -72,6 +64,7 @@ export function validateStudentImportValues(
   const fullName = (values.full_name ?? "").trim()
   const email = (values.email ?? "").trim().toLowerCase()
   const studentNumber = (values.student_number ?? "").trim()
+  const facilitator = (values.facilitator ?? "").trim()
 
   if (!fullName) {
     issues.push({ rowNumber, message: "Student Name is required." })
@@ -88,6 +81,9 @@ export function validateStudentImportValues(
       message: `Student Number "${values.student_number ?? ""}" must be exactly 9 digits.`,
     })
   }
+  if (!facilitator) {
+    issues.push({ rowNumber, message: "Facilitator is required." })
+  }
   if (issues.length > 0) return { row: null, issues }
 
   return {
@@ -101,12 +97,8 @@ export function validateStudentImportValues(
       enlistmentStatus: (values.enlistment_status ?? "").trim(),
       program: (values.program ?? "").trim(),
       classification: (values.classification ?? "").trim(),
+      facilitator,
     },
     issues: [],
   }
-}
-
-export function deriveUniformCourseCode(rows: StudentImportRow[]): string | null {
-  const codes = new Set(rows.map((row) => row.courseCode).filter(Boolean))
-  return codes.size === 1 ? [...codes][0] : null
 }

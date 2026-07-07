@@ -276,8 +276,8 @@ export default function SectionListClient({
   }
 
   const deleteMessage = deleteTarget?.studentCount
-    ? "This section has enrolled students and will be archived instead of permanently deleted. You can restore it later by changing its status."
-    : "This section has no enrolled students and will be permanently removed. This action cannot be undone."
+    ? "This class has enrolled students and will be archived instead of permanently deleted. You can restore it later by changing its status."
+    : "This class has no enrolled students and will be permanently removed. This action cannot be undone."
 
   const pctOfTotal = (count: number) =>
     summary.total > 0 ? `${Math.round((count / summary.total) * 100)}%` : "0%"
@@ -285,7 +285,7 @@ export default function SectionListClient({
   const statCards: KpiStatCardProps[] = [
     {
       icon: "ti-layout-grid",
-      label: "Total Sections",
+      label: "Total Classes",
       value: summary.total,
       note: "this term",
       onClick: () => setStatusFilter(null),
@@ -293,40 +293,40 @@ export default function SectionListClient({
     },
     {
       icon: "ti-circle-check",
-      label: "Active Sections",
+      label: "Active Classes",
       value: summary.active,
       badge: {
         text: pctOfTotal(summary.active),
         bg: COLORS.greenBgLight,
         color: COLORS.green,
       },
-      note: "of all sections",
+      note: "of all classes",
       onClick: () => setStatusFilter("active"),
       isActive: activeFilters.statusCode?.includes("active") ?? false,
     },
     {
       icon: "ti-flag",
-      label: "Completed Sections",
+      label: "Completed Classes",
       value: summary.completed,
       badge: {
         text: pctOfTotal(summary.completed),
         bg: COLORS.maroonBgLight,
         color: COLORS.maroon,
       },
-      note: "of all sections",
+      note: "of all classes",
       onClick: () => setStatusFilter("completed"),
       isActive: activeFilters.statusCode?.includes("completed") ?? false,
     },
     {
       icon: "ti-archive",
-      label: "Archived Sections",
+      label: "Archived Classes",
       value: summary.archived,
       badge: {
         text: pctOfTotal(summary.archived),
         bg: COLORS.iconBg,
         color: COLORS.textGray,
       },
-      note: "of all sections",
+      note: "of all classes",
       onClick: () => setStatusFilter("archived"),
       isActive: activeFilters.statusCode?.includes("archived") ?? false,
     },
@@ -346,7 +346,7 @@ export default function SectionListClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Section List</h1>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Classes</h1>
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
@@ -364,11 +364,11 @@ export default function SectionListClient({
 
       <div className="admin-table-card">
         <AdminTableToolbar
-          title="All Sections"
-          count={`${filteredCount} section${filteredCount !== 1 ? "s" : ""} found`}
+          title="All Classes"
+          count={`${filteredCount} class${filteredCount !== 1 ? "es" : ""} found`}
           searchValue={searchInput}
           onSearchChange={setSearchInput}
-          searchPlaceholder="Search sections, course codes, or advisers"
+          searchPlaceholder="Search classes, course codes, or advisers"
           filterGroups={filterGroups}
           activeFilters={activeFilters}
           onFiltersChange={(next) => {
@@ -379,7 +379,7 @@ export default function SectionListClient({
             setActiveFilters({})
             pushParams({ status: null, adviserId: null, page: "1" })
           }}
-          actions={<AdminAddButton label="Add section" onClick={openCreate} />}
+          actions={<AdminAddButton label="Add class" onClick={openCreate} />}
         />
 
         <div className="admin-table-wrapper">
@@ -388,7 +388,7 @@ export default function SectionListClient({
               <tr>
                 <th style={{ width: "22%" }}>
                   <AdminSortHeader
-                    label="Section"
+                    label="Class"
                     sortable
                     sortActive={query.sort === "name"}
                     sortDirection={query.dir}
@@ -438,7 +438,7 @@ export default function SectionListClient({
               {pageSections.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="admin-table-empty">
-                    No sections match your filters.
+                    No classes match your filters.
                   </td>
                 </tr>
               ) : (
@@ -451,7 +451,7 @@ export default function SectionListClient({
                     >
                       <td>
                         <div style={{ fontWeight: 700, color: COLORS.textDark }}>
-                          Section {section.name}
+                          {section.name}
                         </div>
                       </td>
                       <td>
@@ -515,8 +515,8 @@ export default function SectionListClient({
       {detailSection && (
         <AdminRecordDetailModal
           open
-          title={`Section ${detailSection.name}`}
-          subtitle={detailSection.courseCode}
+          title={detailSection.name}
+          subtitle={detailSection.adviserName}
           fields={[
             { label: "Adviser", value: detailSection.adviserName },
             { label: "Students", value: `${detailSection.studentCount} enrolled` },
@@ -559,14 +559,10 @@ export default function SectionListClient({
 
       <ConfirmDeleteModal
         open={Boolean(deleteTarget)}
-        title="Delete Section"
+        title="Delete Class"
         message={deleteMessage}
-        subjectName={
-          deleteTarget
-            ? `Section ${deleteTarget.name} — ${deleteTarget.courseCode}`
-            : undefined
-        }
-        confirmLabel={deleteTarget?.studentCount ? "Archive Section" : "Delete Section"}
+        subjectName={deleteTarget?.name}
+        confirmLabel={deleteTarget?.studentCount ? "Archive Class" : "Delete Class"}
         isPending={isDeleting}
         error={deleteError}
         onClose={closeDeleteConfirm}
