@@ -480,16 +480,16 @@ export const dashboardStyles = `
   font-weight: 600;
   border-radius: 999px;
 }  .bottom-row { display: flex; gap: 14px; align-items: flex-start; flex: 1; }
-  .progress-card { display:flex; flex-direction:column; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; align-items: stretch;}
+  .progress-card { height: 100%; display:flex; flex-direction:column; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; align-items: stretch;}
   .progress-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .view-all-btn { background: none; border: none; color: var(--maroon); font-weight: 700; cursor: pointer; font-size: 13px; font-family: var(--font); text-decoration: underline; text-underline-offset: 2px; padding: 0; }
-  .student-list { display: flex; flex-direction: column; }
+  .student-list { display: flex; flex-direction: column; flex: 1;}
   .student-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F9FAFB; }
   .student-row:last-child { border-bottom: none; }
   .student-info { flex: 1; min-width: 0; }
   .student-name { font-size: 13px; font-weight: 500; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600; }
-  .no-results { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 0; }
+  .no-results { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 0; margin-bottom: auto; margin-top: auto; }
   .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
   .activity-card-scroll {overflow-y: auto; max-height: 235px; padding-right: 8px;}
   .activity-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 0 12px; gap: 8px; }
