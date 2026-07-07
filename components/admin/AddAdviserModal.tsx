@@ -192,7 +192,7 @@ export default function AddAdviserModal({
           }}
         >
           <h2 id="add-adviser-title" style={{ ...TYPE.h2, color: "#fff", margin: 0 }}>
-            Add Adviser
+            Add Facilitator
           </h2>
           <button
             type="button"
@@ -225,7 +225,7 @@ export default function AddAdviserModal({
             <TextInput
               value={form.fullName}
               onChange={(fullName) => patchForm({ fullName })}
-              placeholder="Adviser full name"
+              placeholder="Facilitator full name"
             />
           </FormField>
 
@@ -312,7 +312,7 @@ export default function AddAdviserModal({
             }}
           >
             <i className="ti ti-plus" style={{ fontSize: 16 }} />
-            {isPending ? "Adding…" : "Add Adviser"}
+            {isPending ? "Adding…" : "Add Facilitator"}
           </button>
         </div>
       </div>
