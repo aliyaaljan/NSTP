@@ -1,22 +1,21 @@
 /**
  * Section create/edit contract for the admin section list page.
  *
- * Backend devs: implement `createSection()`, `updateSection()`, and
- * `deleteSection()` in `lib/admin/section-list-actions.ts`.
- * The UI submits these payloads only.
- *
  * Database mapping:
- *   sectionId           → `section.section_id` (edit only)
- *   name                → `section.name`
- *   courseCode          → `section.course_code`
- *   adviserUserId       → `section.adviser_user_id`
- *   statusCode          → `section_status.code` → `section.section_status_id`
- *   requiredHourTotal   → `section.required_hour_total`
- *   dailyCutoffTime     → `section.daily_cutoff_time` (HH:MM)
- *   termId              → `section.term_id` (create only — active term)
+ * sectionId           → `section.section_id` (edit only)
+ * name                → `section.name`
+ * courseCode          → `section.course_code`
+ * adviserUserId       → `section.adviser_user_id`
+ * statusCode          → `section_status.code` → `section.section_status_id`
+ * requiredHourTotal   → `section.required_hour_total`
+ * daily_cutoff_time   → `section.daily_cutoff_time` (HH:MM)
+ * termId              → `section.term_id` (create only — active term)
  */
 
-import type { SectionListRow, SectionStatusCode } from "@/lib/admin/section-list"
+import type {
+  SectionListRow,
+  SectionStatusCode,
+} from "@/lib/admin/section-list"
 
 /** Allowed NSTP course options for section create/edit. */
 export const SECTION_COURSE_OPTIONS = [
@@ -60,7 +59,9 @@ export function emptySectionCreatePayload(): SectionCreatePayload {
   }
 }
 
-export function sectionRowToEditPayload(row: SectionListRow): SectionEditPayload {
+export function sectionRowToEditPayload(
+  row: SectionListRow
+): SectionEditPayload {
   return {
     sectionId: row.sectionId,
     name: row.name,
@@ -72,14 +73,18 @@ export function sectionRowToEditPayload(row: SectionListRow): SectionEditPayload
   }
 }
 
-export function validateSectionCreatePayload(payload: SectionCreatePayload): string | null {
+export function validateSectionCreatePayload(
+  payload: SectionCreatePayload
+): string | null {
   if (!payload.name.trim()) {
     return "Section name is required."
   }
   if (!payload.courseCode.trim()) {
     return "Course is required."
   }
-  if (!SECTION_COURSE_OPTIONS.includes(payload.courseCode as SectionCourseCode)) {
+  if (
+    !SECTION_COURSE_OPTIONS.includes(payload.courseCode as SectionCourseCode)
+  ) {
     return "Please select a valid course."
   }
   if (!payload.adviserUserId.trim()) {
@@ -94,7 +99,9 @@ export function validateSectionCreatePayload(payload: SectionCreatePayload): str
   return null
 }
 
-export function validateSectionEditPayload(payload: SectionEditPayload): string | null {
+export function validateSectionEditPayload(
+  payload: SectionEditPayload
+): string | null {
   if (!payload.sectionId.trim()) {
     return "Section ID is required."
   }
