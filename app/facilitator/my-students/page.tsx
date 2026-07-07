@@ -649,7 +649,7 @@ function MyStudentsContent() {
   }, [supabase, fetchStatsAndSections, fetchStudents])
 
   const selectedStudent = selectedStudentKey
-  ? students.find(s => `${s.section_id}-${s.student_number}` === selectedStudentKey) ?? null
+  ? students.find(s => s.enrollment_id === selectedStudentKey) ?? null
   : null
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
@@ -853,8 +853,7 @@ function MyStudentsContent() {
 
     setStudents((prev) =>
       prev.map((s) =>
-        s.section_id === updatedStudent.section_id &&
-        s.student_number === updatedStudent.student_number
+        s.enrollment_id === updatedStudent.enrollment_id
           ? updatedStudent
           : s
       )
@@ -1216,7 +1215,7 @@ function MyStudentsContent() {
                       </thead>
                       <tbody>
                         {filtered.length === 0 ? (
-                          <tr>
+                          <tr key="empty-row">
                             <td colSpan={6} className="adv-empty">
                               No students match your search.
                             </td>
@@ -1232,8 +1231,8 @@ function MyStudentsContent() {
                               .toUpperCase()
                             return (
                               <tr
-                                key={`${s.section_id}-${s.student_number}`}
-                                onClick={() => setSelectedStudentKey(`${s.section_id}-${s.student_number}`)}
+                                key={s.enrollment_id}
+                                onClick={() => setSelectedStudentKey(s.enrollment_id)}
                               >
                                 <td>
                                   {/* <div className="ms-student-name">{s.student_name}</div>
