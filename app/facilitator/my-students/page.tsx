@@ -421,6 +421,7 @@ function MyStudentsContent() {
   const [exportStudent, setExportStudent] = useState(false)
   const [exportSection, setExportSection] = useState("All Sections")
   const [exportColumns, setExportColumns] = useState<string[]>([
+    "student_name", "student_number", "sais_id", "section",
     "site_location", "program", "classification", "status",
     "hours_logged", "total_hours", "completion_percentage", "is_student_leader"
   ])
