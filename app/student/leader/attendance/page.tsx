@@ -186,14 +186,6 @@ export default function LeaderAttendancePage() {
             >
               Attendance
             </h1>
-            <p style={{
-              fontSize: isMobile ? "13px" : "15px",
-              color: C.textGray,
-              margin: "4px 0 0 0",
-              fontWeight: 500,
-            }}>
-              Manage your attendance session
-            </p>
           </div>
 
           <div style={{ flexShrink: 0 }}>

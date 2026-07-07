@@ -1,18 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Montserrat } from "next/font/google"
 import Sidebar from "@/components/shared/StudentLeaderSidebar"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import type { StudentDashboardData } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
 import { 
-  IconCalendar, 
   IconUser, 
-  IconClock,
-  IconClockPause, 
-  IconQrcode,
-  IconBuilding,
+  IconBook,
+  IconChevronUp,
+  IconChevronDown,
 } from "@tabler/icons-react"
 
 const montserrat = Montserrat({
@@ -30,7 +28,7 @@ const C = {
   goldText: "#4A2C00",
   pageBg: "#F0F0F0",
   cardBg: "#FFFFFF",
-  cardShadow: "0 1px 4px rgba(0,0,0,0.06)",
+  cardShadow: "0 2px 6px rgba(0,0,0,0.07)",
   border: "#ECECEA",
   hoursBg: "#E8EDE5",
   hoursBorder: "#C5D4BC",
@@ -45,17 +43,35 @@ const C = {
 const COLLAPSED_W = 88
 const RAIL_MARGIN = 16
 
+type SortField = "date" | null;
+type SortDirection = "asc" | "desc" | null;
+
 // Manual data for rendered services
 const renderedServices = [
-  { date: "June 20, 2026", qrGen: "08:01 AM", qrScan: "08:13 AM", site: "Baguio City Public Library", timeOut: "06:15 PM", hours: 10 },
-  { date: "June 13, 2026", qrGen: "08:07 AM", qrScan: "08:34 AM", site: "Baguio City Public Library", timeOut: "06:45 PM", hours: 10 },
-  { date: "June 11, 2026", qrGen: "1:47 PM", qrScan: "1:52 PM", site: "Baguio City Public Library", timeOut: "4:05 PM", hours: 2 },
-  { date: "June 10, 2026", qrGen: "1:30 PM", qrScan: "1:31 PM", site: "Baguio City Public Library", timeOut: "3:45 PM", hours: 2 },
+  { date: "July 20, 2026", qrGen: "08:01 AM", qrScan: "08:13 AM", site: "Baguio City Public Library", timeOut: "06:15 PM", hours: 10 },
+  { date: "July 19, 2026", qrGen: "09:30 AM", qrScan: "09:45 AM", site: "Burnham Park", timeOut: "05:30 PM", hours: 8 },
+  { date: "July 18, 2026", qrGen: "10:15 AM", qrScan: "10:28 AM", site: "Baguio City Hall", timeOut: "04:00 PM", hours: 6 },
+  { date: "July 17, 2026", qrGen: "07:45 AM", qrScan: "08:00 AM", site: "Baguio City Public Library", timeOut: "06:30 PM", hours: 11 },
+  { date: "July 16, 2026", qrGen: "08:30 AM", qrScan: "08:42 AM", site: "Burnham Park", timeOut: "05:00 PM", hours: 8 },
+  { date: "July 15, 2026", qrGen: "09:00 AM", qrScan: "09:15 AM", site: "Baguio City Hall", timeOut: "04:30 PM", hours: 7 },
+  { date: "July 14, 2026", qrGen: "08:20 AM", qrScan: "08:35 AM", site: "Baguio City Public Library", timeOut: "06:00 PM", hours: 10 },
+  { date: "July 13, 2026", qrGen: "01:30 PM", qrScan: "01:45 PM", site: "Burnham Park", timeOut: "05:30 PM", hours: 4 },
+  { date: "July 12, 2026", qrGen: "10:00 AM", qrScan: "10:12 AM", site: "Baguio City Hall", timeOut: "03:45 PM", hours: 6 },
+  { date: "July 11, 2026", qrGen: "07:50 AM", qrScan: "08:05 AM", site: "Baguio City Public Library", timeOut: "06:20 PM", hours: 10 },
+  { date: "July 10, 2026", qrGen: "08:40 AM", qrScan: "08:55 AM", site: "Burnham Park", timeOut: "05:15 PM", hours: 8 },
+  { date: "July 9, 2026", qrGen: "08:01 AM", qrScan: "08:13 AM", site: "Baguio City Public Library", timeOut: "06:15 PM", hours: 10 },
+  { date: "July 8, 2026", qrGen: "08:07 AM", qrScan: "08:34 AM", site: "Baguio City Public Library", timeOut: "06:45 PM", hours: 10 },
+  { date: "July 7, 2026", qrGen: "01:47 PM", qrScan: "01:52 PM", site: "Baguio City Public Library", timeOut: "04:05 PM", hours: 2 },
+  { date: "July 6, 2026", qrGen: "01:30 PM", qrScan: "01:31 PM", site: "Baguio City Public Library", timeOut: "03:45 PM", hours: 2 },
 ]
 
 export default function ProfilePage() {
   const [isMobile, setIsMobile] = useState(false)
   const [dashboard, setDashboard] = useState<StudentDashboardData | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const [sortField, setSortField] = useState<SortField>("date")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
   useEffect(() => {
     const handleResize = () => {
@@ -118,14 +134,105 @@ export default function ProfilePage() {
     })
   }
 
+  // Sort function
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc")
+      } else if (sortDirection === "desc") {
+        setSortField(null)
+        setSortDirection(null)
+      }
+    } else {
+      setSortField(field)
+      setSortDirection("asc")
+    }
+    setCurrentPage(1)
+  }
+
+  const getSortIcons = (field: SortField) => {
+    const isActive = sortField === field
+    const isAsc = isActive && sortDirection === "asc"
+    const isDesc = isActive && sortDirection === "desc"
+
+    return (
+      <span style={{
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "center",
+        marginLeft: 4,
+        verticalAlign: "middle",
+        lineHeight: 1,
+      }}>
+        <IconChevronUp 
+          size={12} 
+          stroke={2} 
+          style={{ 
+            display: "block",
+            transition: "all 0.2s ease",
+            opacity: isAsc ? 1 : 0.5,
+            color: isAsc ? "#7B1D1D" : "#4A4A4A",
+            marginBottom: -2
+          }}
+        />
+        <IconChevronDown 
+          size={12} 
+          stroke={2} 
+          style={{ 
+            display: "block",
+            transition: "all 0.2s ease",
+            opacity: isDesc ? 1 : 0.5,
+            color: isDesc ? "#7B1D1D" : "#4A4A4A",
+            marginTop: -2
+          }}
+        />
+      </span>
+    )
+  }
+
+  // Sort then paginate
+  const sortedData = useMemo(() => {
+    // Default: descending (most recent fist)
+    if (!sortField || !sortDirection) {
+      return [...renderedServices].sort((a, b) => {
+        return new Date(b.date).getTime() - new Date(a.date).getTime()
+      })
+    }
+
+    return [...renderedServices].sort((a, b) => {
+      let comparison = 0
+      if (sortField === "date") {
+        comparison = new Date(a.date).getTime() - new Date(b.date).getTime()
+      }
+      return sortDirection === "asc" ? comparison : -comparison
+    })
+  }, [sortField, sortDirection])
+
+  // Pagination
+  const totalEntries = sortedData.length
+  const totalPages = Math.max(1, Math.ceil(totalEntries / pageSize))
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = Math.min(startIndex + pageSize, totalEntries)
+  const currentEntries = sortedData.slice(startIndex, endIndex)
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)))
+  }
+
+  const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setPageSize(Number(e.target.value))
+    setCurrentPage(1)
+  }
+
   return (
     <div
       className={montserrat.variable}
       style={{
-        fontFamily: "'Montserrat', sans-serif",
+        fontFamily: "'Montserrat', 'Fallback Montserrat'",
         background: C.pageBg,
         minHeight: "100vh",
         display: "flex",
+        fontSize: "13px",
       }}
     >
       <Sidebar />
@@ -157,22 +264,15 @@ export default function ProfilePage() {
         }}>
           <div>
             <h1 style={{
-              fontSize: isMobile ? "clamp(22px, 5vw, 30px)" : "clamp(24px, 2.5vw, 30px)",
+              fontSize: "34px",
               fontWeight: 800,
               color: C.maroon,
               margin: 0,
               letterSpacing: "-0.01em",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
             }}>
-              PROFILE
+              Profile
             </h1>
-            <p style={{
-              fontSize: isMobile ? "12px" : "13px",
-              color: C.textGray,
-              margin: "4px 0 0 0",
-              fontWeight: 500,
-            }}>
-              View and manage your personal information
-            </p>
           </div>
         </div>
 
@@ -199,8 +299,9 @@ export default function ProfilePage() {
             paddingBottom: isMobile ? 20 : 28,
             position: "relative",
             transition: "all 0.2s ease",
-            minHeight: isMobile ? "auto" : "520px",
-            marginTop: isMobile ? 0 : 0,
+            height: isMobile ? "auto" : "520px",
+            flexShrink: 0,
+            fontFamily: "'Montserrat', 'Fallback Montserrat'",
           }}>
             {/* Profile circle w/ initials */}
             <div
@@ -227,6 +328,7 @@ export default function ProfilePage() {
                   fontWeight: 800,
                   color: C.maroon,
                   letterSpacing: "0.02em",
+                  fontFamily: "'Montserrat', 'Fallback Montserrat'",
                 }}
               >
                 {initials}
@@ -241,6 +343,7 @@ export default function ProfilePage() {
                 color: C.maroon,
                 margin: isMobile ? "4px 0 4px 0" : "8px 0 4px 0",
                 textAlign: "center",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
               }}
             >
               {student.fullName}
@@ -256,6 +359,7 @@ export default function ProfilePage() {
               fontWeight: 600,
               color: C.textSub,
               marginBottom: isMobile ? 14 : 18,
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
             }}>
               {student.section}
             </div>
@@ -276,12 +380,13 @@ export default function ProfilePage() {
                 <IconUser size={isMobile ? 14 : 16} color={C.maroon} strokeWidth={2} />
                 <h3
                   style={{
-                    fontSize: isMobile ? "10px" : "11px",
+                    fontSize: "11px",
                     fontWeight: 700,
                     color: C.textDark,
                     margin: 0,
                     textTransform: "uppercase",
                     letterSpacing: "0.04em",
+                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
                   }}
                 >
                   Student Information
@@ -292,25 +397,24 @@ export default function ProfilePage() {
                 display: "grid",
                 gridTemplateColumns: "auto 1fr",
                 gap: isMobile ? "2px 8px" : "4px 12px",
-                fontSize: isMobile ? "12px" : "13px",
+                fontSize: "13px",
                 color: C.textSub,
                 lineHeight: isMobile ? 1.6 : 1.8,
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
               }}>
-                <span style={{ fontWeight: 600, color: C.textDark }}>No.</span>
-                <span style={{ fontSize: isMobile ? "11px" : "13px" }}>
+                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>No.</span>
+                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
                   {formatStudentNumber(student.studentNumber)}
                 </span>
                 
-                <span style={{ fontWeight: 600, color: C.textDark }}>Email</span>
-                <span style={{ fontSize: isMobile ? "11px" : "12px", wordBreak: "break-all" }}>
-                  {student.email}
-                </span>
+                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Email</span>
+                <span style={{ fontSize: "13px", wordBreak: "break-all", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.email}</span>
                 
-                <span style={{ fontWeight: 600, color: C.textDark }}>Course</span>
-                <span style={{ fontSize: isMobile ? "11px" : "13px" }}>{student.course}</span>
+                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Course</span>
+                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.course}</span>
                 
-                <span style={{ fontWeight: 600, color: C.textDark }}>Year</span>
-                <span style={{ fontSize: isMobile ? "11px" : "13px" }}>{student.year}</span>
+                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Year</span>
+                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.year}</span>
               </div>
             </div>
 
@@ -326,15 +430,16 @@ export default function ProfilePage() {
                 gap: 8,
                 marginBottom: 10,
               }}>
-                <IconBuilding size={isMobile ? 14 : 16} color={C.maroon} strokeWidth={2} />
+                <IconBook size={isMobile ? 14 : 16} color={C.maroon} strokeWidth={2} />
                 <h3
                   style={{
-                    fontSize: isMobile ? "10px" : "11px",
+                    fontSize: "11px",
                     fontWeight: 700,
                     color: C.textDark,
                     margin: 0,
                     textTransform: "uppercase",
                     letterSpacing: "0.04em",
+                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
                   }}
                 >
                   Class Information
@@ -345,11 +450,12 @@ export default function ProfilePage() {
                 display: "grid",
                 gridTemplateColumns: "auto 1fr",
                 gap: isMobile ? "2px 8px" : "4px 12px",
-                fontSize: isMobile ? "12px" : "13px",
+                fontSize: "13px",
                 color: C.textSub,
                 lineHeight: isMobile ? 1.6 : 1.8,
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
               }}>
-                <span style={{ fontWeight: 600, color: C.textDark }}>Type</span>
+                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Type</span>
                 <span>
                   <span style={{
                     display: "inline-block",
@@ -359,19 +465,20 @@ export default function ProfilePage() {
                     borderRadius: 4,
                     fontSize: isMobile ? "10px" : "12px",
                     fontWeight: 600,
+                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
                   }}>
                     {student.classType}
                   </span>
                 </span>
                 
-                <span style={{ fontWeight: 600, color: C.textDark }}>Location</span>
-                <span style={{ fontSize: isMobile ? "11px" : "13px" }}>{student.location}</span>
+                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Location</span>
+                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.location}</span>
                 
-                <span style={{ fontWeight: 600, color: C.textDark }}>Section</span>
-                <span style={{ fontSize: isMobile ? "11px" : "13px" }}>{student.sectionLabel}</span>
+                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Section</span>
+                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.sectionLabel}</span>
                 
-                <span style={{ fontWeight: 600, color: C.textDark }}>Adviser</span>
-                <span style={{ fontSize: isMobile ? "11px" : "13px" }}>{student.adviser}</span>
+                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Adviser</span>
+                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.adviser}</span>
               </div>
             </div>
           </div>
@@ -385,56 +492,55 @@ export default function ProfilePage() {
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
+            height: isMobile ? "auto" : "520px",
             minHeight: isMobile ? "400px" : "520px",
+            fontFamily: "'Montserrat', 'Fallback Montserrat'",
           }}>
+            {/* Header */}
             <div
               style={{
-                padding: isMobile ? "12px 16px" : "16px 24px",
-                background: C.green,
-                borderBottom: `1px solid ${C.border}`,
+                padding: isMobile ? "12px 16px" : "16px 20px",
+                borderBottom: `1px solid #E5E7EB`,
+                background: "#FFFFFF",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 flexWrap: "wrap",
                 gap: 8,
+                flexShrink: 0,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <IconClock size={isMobile ? 16 : 18} color={C.pageBg} strokeWidth={2} />
-                <span
-                  style={{
-                    fontSize: isMobile ? "12px" : "14px",
-                    fontWeight: 700,
-                    color: C.pageBg,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.03em",
-                  }}
-                >
+              <div>
+                <div style={{
+                  fontSize: "15px",
+                  fontWeight: 700,
+                  color: "#111827",
+                  fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                }}>
                   Rendered Services
-                </span>
-              </div>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                fontSize: isMobile ? "10px" : "12px",
-                color: C.pageBg,
-              }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600 }}>
-                  {renderedServices.length} total entries
-                </span>
+                </div>
+                <div style={{
+                  fontSize: "12px",
+                  color: "#6B7280",
+                  marginTop: 2,
+                  fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                }}>
+                  {totalEntries} entries
+                </div>
               </div>
             </div>
 
+            {/* Table */}
             <div style={{
               flex: 1,
               overflow: "auto",
-              padding: "0 4px 4px 4px",
+              scrollbarWidth: "thin",
+              scrollbarColor: "#CFCFCB transparent",
+              minHeight: 0,
             }}>
-              {/* Mobile view */}
               {isMobile ? (
                 <div style={{ padding: "8px" }}>
-                  {renderedServices.map((row, index) => (
+                  {currentEntries.map((row, index) => (
                     <div
                       key={index}
                       style={{
@@ -443,6 +549,7 @@ export default function ProfilePage() {
                         padding: "12px",
                         marginBottom: "8px",
                         border: `1px solid ${C.border}`,
+                        fontFamily: "'Montserrat', 'Fallback Montserrat'",
                       }}
                     >
                       <div style={{
@@ -452,7 +559,7 @@ export default function ProfilePage() {
                         marginBottom: 8,
                       }}>
                         <div>
-                          <span style={{ fontWeight: 700, color: C.textDark, fontSize: "14px" }}>
+                          <span style={{ fontWeight: 700, color: C.textDark, fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
                             {formatDate(row.date)}
                           </span>
                         </div>
@@ -460,6 +567,7 @@ export default function ProfilePage() {
                           fontWeight: 700,
                           color: C.maroon,
                           fontSize: "14px",
+                          fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
                           {row.hours} hrs
                         </span>
@@ -468,33 +576,30 @@ export default function ProfilePage() {
                         display: "grid",
                         gridTemplateColumns: "1fr 1fr",
                         gap: "4px 12px",
-                        fontSize: "11px",
+                        fontSize: "13px",
                         color: C.textSub,
                       }}>
                         <div>
-                          <span style={{ fontWeight: 600, color: C.textDark }}>QR Generated:</span>
-                          <span style={{ marginLeft: 4 }}>{row.qrGen}</span>
+                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>QR Generated:</span>
+                          <span style={{ marginLeft: 4, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{row.qrGen}</span>
                         </div>
                         <div>
-                          <span style={{ fontWeight: 600, color: C.textDark }}>QR Scanned:</span>
-                          <span style={{ marginLeft: 4 }}>{row.qrScan}</span>
+                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>QR Scanned:</span>
+                          <span style={{ marginLeft: 4, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{row.qrScan}</span>
                         </div>
                         <div>
-                          <span style={{ fontWeight: 600, color: C.textDark }}>Time Out:</span>
-                          <span style={{ marginLeft: 4 }}>{row.timeOut}</span>
+                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Time Out:</span>
+                          <span style={{ marginLeft: 4, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{row.timeOut}</span>
                         </div>
                         <div>
-                          <span style={{ fontWeight: 600, color: C.textDark }}>Site:</span>
+                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Site:</span>
                           <span style={{
                             display: "inline-block",
-                            background: C.goldBg,
-                            color: C.goldText,
-                            padding: "2px 10px",
-                            borderRadius: 4,
-                            fontSize: "10px",
-                            fontWeight: 600,
+                            color: C.textDark,
+                            fontSize: "12px",
+                            fontWeight: 500,
                             marginLeft: 4,
-                            textAlign: "center",
+                            fontFamily: "'Montserrat', 'Fallback Montserrat'",
                           }}>
                             {row.site}
                           </span>
@@ -504,97 +609,108 @@ export default function ProfilePage() {
                   ))}
                 </div>
               ) : (
-                /* Desktop view */
                 <table style={{
                   width: "100%",
                   borderCollapse: "collapse",
-                  fontSize: "12px",
+                  fontSize: "13px",
+                  tableLayout: "fixed",
+                  fontFamily: "'Montserrat', 'Fallback Montserrat'",
                 }}>
                   <thead>
                     <tr style={{
-                      borderBottom: `1px solid ${C.border}`,
-                      color: C.textDark,
-                      background: "#FAFAFA",
+                      borderBottom: `1px solid #E5E7EB`,
+                      background: "#F9FAFB",
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 2,
                     }}>
-                      <th style={{
-                        textAlign: "center",
-                        padding: "12px 16px",
-                        fontWeight: 700,
-                        fontSize: "10px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: C.textGray,
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                          <IconCalendar size={14} />
-                          Date
-                        </div>
+                      <th 
+                        style={{
+                          textAlign: "left",
+                          padding: "10px 20px",
+                          fontWeight: 700,
+                          fontSize: "11px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.8px",
+                          color: "#7B1D1D",
+                          width: "15%",
+                          fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          transition: "background 0.2s ease",
+                        }}
+                        onClick={() => handleSort("date")}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#F5F5F7"
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "#F9FAFB"
+                        }}
+                      >
+                        Date
+                        {getSortIcons("date")}
                       </th>
                       <th style={{
                         textAlign: "center",
-                        padding: "12px 16px",
+                        padding: "10px 20px",
                         fontWeight: 700,
-                        fontSize: "10px",
+                        fontSize: "11px",
                         textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: C.textGray,
+                        letterSpacing: "0.8px",
+                        color: "#7B1D1D",
+                        width: "25%",
+                        fontFamily: "'Montserrat', 'Fallback Montserrat'",
                       }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                          <IconQrcode size={14} />
-                          QR Generated
-                        </div>
+                        QR Code
                       </th>
                       <th style={{
                         textAlign: "center",
-                        padding: "12px 16px",
+                        padding: "10px 20px",
                         fontWeight: 700,
-                        fontSize: "10px",
+                        fontSize: "11px",
                         textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: C.textGray,
+                        letterSpacing: "0.8px",
+                        color: "#7B1D1D",
+                        width: "15%",
+                        fontFamily: "'Montserrat', 'Fallback Montserrat'",
                       }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                          <IconQrcode size={14} />
-                          QR Scanned
-                        </div>
+                        Time Out
                       </th>
                       <th style={{
                         textAlign: "center",
-                        padding: "12px 16px",
+                        padding: "10px 20px",
                         fontWeight: 700,
-                        fontSize: "10px",
+                        fontSize: "11px",
                         textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: C.textGray,
+                        letterSpacing: "0.8px",
+                        color: "#7B1D1D",
+                        width: "15%",
+                        fontFamily: "'Montserrat', 'Fallback Montserrat'",
                       }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                          <IconClockPause size={14} />
-                          Time Out
-                        </div>
-                      </th>
-                      <th style={{
-                        textAlign: "center",
-                        padding: "12px 16px",
-                        fontWeight: 700,
-                        fontSize: "10px",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: C.textGray,
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                        <IconClock size={14} />
                         Hours
-                        </div>
+                      </th>
+                      <th style={{
+                        textAlign: "center",
+                        padding: "10px 20px",
+                        fontWeight: 700,
+                        fontSize: "11px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.8px",
+                        color: "#7B1D1D",
+                        width: "30%",
+                        fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                      }}>
+                        Site
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {renderedServices.map((row, index) => (
+                    {currentEntries.map((row, index) => (
                       <tr
                         key={index}
                         style={{
-                          borderBottom: index < renderedServices.length - 1 ? `1px solid ${C.border}` : "none",
-                          transition: "background 0.15s ease",
+                          borderBottom: index < currentEntries.length - 1 ? `1px solid #F3F4F6` : "none",
+                          transition: "background 0.12s ease",
                           cursor: "default",
                         }}
                         onMouseEnter={(e) => {
@@ -605,89 +721,227 @@ export default function ProfilePage() {
                         }}
                       >
                         <td style={{
-                          padding: "12px 16px",
+                          padding: "14px 20px",
                           fontWeight: 600,
-                          color: C.textDark,
-                          textAlign: "center",
+                          color: "#111827",
+                          fontSize: "13px",
+                          fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
                           {formatDate(row.date)}
                         </td>
                         <td style={{
-                          padding: "12px 16px",
-                          color: C.textSub,
+                          padding: "14px 20px",
+                          color: "#6B7280",
                           textAlign: "center",
+                          fontSize: "13px",
+                          fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
-                          <div style={{ fontWeight: 500 }}>{row.qrGen}</div>
-                          <div style={{
-                            display: "inline-block",
-                            fontSize: "9px",
-                            fontWeight: 600,
-                            padding: "2px 12px",
-                            borderRadius: 4,
-                            background: C.goldBg,
-                            color: C.goldText,
-                            marginTop: 4,
-                            maxWidth: "180px",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}>
-                            {row.site}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <div>
+                              <span style={{ fontWeight: 500, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Generated: {row.qrGen}</span>
+                            </div>
+                            <div>
+                              <span style={{ fontWeight: 500, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Scanned: {row.qrScan}</span>
+                            </div>
                           </div>
                         </td>
                         <td style={{
-                          padding: "12px 16px",
-                          color: C.textSub,
-                          textAlign: "center",
-                        }}>
-                          <div style={{ fontWeight: 500 }}>{row.qrScan}</div>
-                          <div style={{
-                            display: "inline-block",
-                            fontSize: "9px",
-                            fontWeight: 600,
-                            padding: "2px 12px",
-                            borderRadius: 4,
-                            background: C.goldBg,
-                            color: C.goldText,
-                            marginTop: 4,
-                            maxWidth: "180px",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}>
-                            {row.site}
-                          </div>
-                        </td>
-                        <td style={{
-                          padding: "12px 16px",
-                          color: C.textSub,
+                          padding: "14px 20px",
+                          color: "#6B7280",
                           fontWeight: 500,
                           textAlign: "center",
+                          fontSize: "13px",
+                          fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
                           {row.timeOut}
                         </td>
                         <td style={{
-                          padding: "12px 16px",
+                          padding: "14px 20px",
                           fontWeight: 700,
-                          color: C.maroon,
+                          color: "#7B1D1D",
                           textAlign: "center",
-                          fontSize: "14px",
+                          fontSize: "13px",
+                          fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
                           {row.hours}
                           <span style={{
-                            fontSize: "10px",
+                            fontSize: "11px",
                             fontWeight: 400,
-                            color: C.textGray,
+                            color: "#6B7280",
                             marginLeft: 2,
+                            fontFamily: "'Montserrat', 'Fallback Montserrat'",
                           }}>
                             hrs
                           </span>
+                        </td>
+                        <td style={{
+                          padding: "14px 20px",
+                          textAlign: "center",
+                          fontSize: "13px",
+                          color: "#6B7280",
+                          fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                        }}>
+                          {row.site}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               )}
+            </div>
+
+            {/* Pagination */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "14px 20px",
+              borderTop: `1px solid #E5E7EB`,
+              flexWrap: "wrap",
+              gap: "12px",
+              flexShrink: 0,
+              background: "#FFFFFF",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
+            }}>
+              <div style={{
+                fontSize: "12px",
+                color: "#6B7280",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              }}>
+                Showing {totalEntries === 0 ? 0 : startIndex + 1}–
+                {endIndex} of {totalEntries} entries
+              </div>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}>
+                <button
+                  style={{
+                    minWidth: "28px",
+                    height: "28px",
+                    borderRadius: "6px",
+                    border: "1px solid #E5E7EB",
+                    background: "#FFFFFF",
+                    fontSize: "12px",
+                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                    fontWeight: 500,
+                    color: "#111827",
+                    cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "background 0.12s, border-color 0.12s",
+                    opacity: currentPage === 1 ? 0.35 : 1,
+                  }}
+                  disabled={currentPage === 1}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                >
+                  &#8249;
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
+                  <button
+                    key={p}
+                    style={{
+                      minWidth: "28px",
+                      height: "28px",
+                      borderRadius: "6px",
+                      border: p === currentPage ? "1px solid #7B1D1D" : "1px solid #E5E7EB",
+                      background: p === currentPage ? "#7B1D1D" : "#FFFFFF",
+                      fontSize: "12px",
+                      fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                      fontWeight: p === currentPage ? 700 : 500,
+                      color: p === currentPage ? "#FFFFFF" : "#111827",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "background 0.12s, border-color 0.12s",
+                    }}
+                    onClick={() => handlePageChange(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+                {totalPages > 5 && (
+                  <>
+                    <span style={{ color: "#6B7280", fontSize: 12, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>...</span>
+                    <button
+                      style={{
+                        minWidth: "28px",
+                        height: "28px",
+                        borderRadius: "6px",
+                        border: "1px solid #E5E7EB",
+                        background: "#FFFFFF",
+                        fontSize: "12px",
+                        fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                        fontWeight: 500,
+                        color: "#111827",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "background 0.12s, border-color 0.12s",
+                      }}
+                      onClick={() => handlePageChange(totalPages)}
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+                <button
+                  style={{
+                    minWidth: "28px",
+                    height: "28px",
+                    borderRadius: "6px",
+                    border: "1px solid #E5E7EB",
+                    background: "#FFFFFF",
+                    fontSize: "12px",
+                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                    fontWeight: 500,
+                    color: "#111827",
+                    cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "background 0.12s, border-color 0.12s",
+                    opacity: currentPage === totalPages ? 0.35 : 1,
+                  }}
+                  disabled={currentPage === totalPages}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                >
+                  &#8250;
+                </button>
+              </div>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                color: "#6B7280",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              }}>
+                <span>Rows per page:</span>
+                <select
+                  style={{
+                    border: "1.5px solid #E5E7EB",
+                    borderRadius: 8,
+                    padding: "4px 8px",
+                    fontSize: 12,
+                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                    color: "#111827",
+                    background: "#FFFFFF",
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                  value={pageSize}
+                  onChange={handlePageSizeChange}
+                >
+                  {[5, 10, 20, 50].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
