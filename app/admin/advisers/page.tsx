@@ -42,7 +42,7 @@ export default function AdminAdvisersPage({
   }>
 }) {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading adviser list…</div>}>
+    <Suspense fallback={<div style={{ padding: 24 }}>Loading facilitator list…</div>}>
       <AdviserListContent searchParams={searchParams} />
     </Suspense>
   )

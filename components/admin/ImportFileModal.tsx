@@ -221,11 +221,10 @@ export default function ImportFileModal({
   onClose: () => void
 }) {
   const isStudents = variant === "students"
-  // Modal chrome elsewhere in the admin UI says "Adviser" (AddAdviserModal:
-  // "Add Adviser", EditAdviserModal: "Edit Adviser", and the placeholder this
-  // replaces: "Import Adviser/s") even though in-form copy elsewhere uses
-  // "facilitator" — match the modal-title convention here.
-  const entityLabel = isStudents ? "Student/s" : "Adviser/s"
+  // Modal chrome elsewhere in the admin UI says "Facilitator" (AddAdviserModal:
+  // "Add Facilitator", EditAdviserModal: "Edit Facilitator", and this
+  // placeholder: "Import Facilitator/s") — match that convention here.
+  const entityLabel = isStudents ? "Student/s" : "Facilitator/s"
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
