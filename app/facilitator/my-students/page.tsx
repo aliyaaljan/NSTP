@@ -1000,7 +1000,7 @@ function MyStudentsContent() {
             {/* Sections filter */}
             <div className="overview-header">
               <div className="overview-label">Class Overview</div>
-              <div style={{ position: "relative" }} onMouseLeave={() => setSectionDropdownOpen(false)}>
+              {/* <div style={{ position: "relative" }} onMouseLeave={() => setSectionDropdownOpen(false)}>
                 <button
                   className="sections-btn"
                   onClick={() => setSectionDropdownOpen((o) => !o)}
@@ -1050,7 +1050,7 @@ function MyStudentsContent() {
                     </div>
                   </div>
                 )}
-              </div>
+              </div> */}
             </div>
 
             {/* Stat cards */}

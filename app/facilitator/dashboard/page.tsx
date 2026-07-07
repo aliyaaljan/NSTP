@@ -287,7 +287,7 @@ export default function DashboardPage() {
                   <div>
                     <div className="overview-header">
                       <div className="overview-label">Class Overview</div>
-                      <div style={{ position: "relative" }}>
+                      {/* <div style={{ position: "relative" }}>
                         <div onMouseLeave={() => setSectionDropdownOpen(false)}>
                           <button
                             className="sections-btn"
@@ -337,7 +337,7 @@ export default function DashboardPage() {
                             </div>
                           )}
                         </div>
-                      </div>
+                      </div> */}
                     </div>
                     <div className="stat-cards">
                       {statCards.map(({ label, value, Icon, onClick }) => (
@@ -510,7 +510,7 @@ export default function DashboardPage() {
                 <div className="right-panel">
                   {/* QR Scanner */}
                   <div
-                    className="qr-card"
+                    className="qr-card mt-[26.5px]" //pantay sa kpi cards
                     role="button"
                     tabIndex={0}
                     aria-label="Open QR code scanner"
