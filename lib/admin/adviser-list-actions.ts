@@ -28,10 +28,30 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import {
   deactivateUser,
+  findAppUserByEmail,
   provisionUser,
+  resolveRoleIdByCode,
   syncAuthBan,
   syncUserEmail,
 } from "@/lib/admin/user-provision"
+import { mapRows, parseImportFile } from "@/lib/admin/import/parse"
+import {
+  getAdviserImportLookups,
+  type AdviserImportLookups,
+} from "@/lib/admin/import/lookups"
+import {
+  emptyCommitResult,
+  isAcceptedImportFile,
+  IMPORT_CHUNK_SIZE,
+  type ImportCommitResult,
+  type RowIssue,
+} from "@/lib/admin/import/types"
+import {
+  ADVISER_IMPORT_COLUMNS,
+  validateAdviserImportValues,
+  type AdviserImportRow,
+  type ParseAdviserImportResult,
+} from "@/lib/admin/adviser-import"
 
 /**
  * Fetches everything the admin adviser list page needs.
@@ -279,4 +299,229 @@ export async function deleteAdviser(
 
   const service = createSupabaseServiceClient()
   return deactivateUser(service, adviserUserId)
+}
+
+/** Max upload size; also bounded by Next's 1 MB server-action body limit. */
+const IMPORT_MAX_FILE_BYTES = 1024 * 1024
+
+function warnUnknownAdviserLookups(
+  row: AdviserImportRow,
+  lookups: AdviserImportLookups,
+  issues: RowIssue[]
+) {
+  if (row.college && !lookups.college(row.college)) {
+    issues.push({
+      rowNumber: row.rowNumber,
+      message: `Unknown college "${row.college}" — will be left blank.`,
+    })
+  }
+  if (row.component && !lookups.component(row.component)) {
+    issues.push({
+      rowNumber: row.rowNumber,
+      message: `Unknown component "${row.component}" — will be left blank.`,
+    })
+  }
+}
+
+/** Phase 1 of the facilitator import: parse + validate, no writes. */
+export async function parseAdviserImport(
+  formData: FormData
+): Promise<ParseAdviserImportResult> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+
+  const file = formData.get("file")
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Please choose a .csv or .xlsx file to import." }
+  }
+  if (!isAcceptedImportFile(file.name)) {
+    return { ok: false, error: "Only .csv and .xlsx files are accepted." }
+  }
+  if (file.size > IMPORT_MAX_FILE_BYTES) {
+    return { ok: false, error: "File is too large (max 1 MB)." }
+  }
+
+  let table
+  try {
+    table = await parseImportFile(file)
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Could not read the file.",
+    }
+  }
+
+  const { rows, missingHeaders } = mapRows(table, ADVISER_IMPORT_COLUMNS)
+  if (missingHeaders.length > 0) {
+    return { ok: false, error: `Missing required column(s): ${missingHeaders.join(", ")}.` }
+  }
+  if (rows.length === 0) {
+    return { ok: false, error: "The file has no data rows." }
+  }
+
+  const service = createSupabaseServiceClient()
+  const lookups = await getAdviserImportLookups(service)
+
+  const issues: RowIssue[] = []
+  const validRows: AdviserImportRow[] = []
+  for (const { rowNumber, values } of rows) {
+    const validated = validateAdviserImportValues(values, rowNumber)
+    issues.push(...validated.issues)
+    if (!validated.row) continue
+    warnUnknownAdviserLookups(validated.row, lookups, issues)
+    validRows.push(validated.row)
+  }
+
+  return { ok: true, totalRows: rows.length, validRows, issues }
+}
+
+/**
+ * Phase 2 of the facilitator import: upsert one chunk of rows.
+ * Existing students are promoted to adviser (audited via role_change);
+ * existing admins keep their role and only gain the metadata columns.
+ * Never changes is_active on existing users.
+ */
+export async function commitAdviserImportChunk(input: {
+  rows: AdviserImportRow[]
+}): Promise<{ ok: true; result: ImportCommitResult } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+
+  if (!Array.isArray(input.rows)) return { ok: false, error: "Invalid rows payload." }
+  if (input.rows.length === 0) return { ok: true, result: emptyCommitResult() }
+  if (input.rows.length > IMPORT_CHUNK_SIZE) {
+    return { ok: false, error: `Send at most ${IMPORT_CHUNK_SIZE} rows per request.` }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user: actingUser },
+  } = await supabase.auth.getUser()
+  if (!actingUser) return { ok: false, error: "Unauthorized" }
+
+  const service = createSupabaseServiceClient()
+  const lookups = await getAdviserImportLookups(service)
+  const adviserRoleId = await resolveRoleIdByCode(service, "adviser")
+  if (!adviserRoleId) return { ok: false, error: "Adviser role not found." }
+
+  const result = emptyCommitResult()
+
+  for (const raw of input.rows) {
+    // Phase-1 output is client-held: re-validate and re-normalize everything.
+    const validated = validateAdviserImportValues(
+      {
+        full_name: raw.fullName ?? "",
+        college: raw.college ?? "",
+        component: raw.component ?? "",
+        partnership_type: raw.partnershipType ?? "",
+        email: raw.email ?? "",
+      },
+      raw.rowNumber ?? 0
+    )
+    if (!validated.row) {
+      result.skipped += 1
+      result.issues.push(...validated.issues)
+      continue
+    }
+    const row = validated.row
+
+    const metadata = {
+      college_id: row.college ? lookups.college(row.college) : null,
+      nstp_component_id: row.component ? lookups.component(row.component) : null,
+      partnership_type: row.partnershipType || null,
+    }
+
+    const existing = await findAppUserByEmail(service, row.email)
+
+    if (!existing) {
+      const provisioned = await provisionUser(service, {
+        email: row.email,
+        fullName: row.fullName,
+        roleCode: "adviser",
+      })
+      if (!provisioned.ok) {
+        result.skipped += 1
+        result.issues.push({ rowNumber: row.rowNumber, message: provisioned.error })
+        continue
+      }
+      const { error } = await service
+        .from("app_user")
+        .update(metadata)
+        .eq("app_user_id", provisioned.userId)
+      if (error) {
+        console.error("[commitAdviserImportChunk] metadata update failed", error)
+        result.issues.push({
+          rowNumber: row.rowNumber,
+          message: `Created ${row.email}'s account, but failed to save facilitator metadata (college/component/partnership type).`,
+        })
+      }
+      result.imported += 1
+      continue
+    }
+
+    if (existing.roleCode === "admin") {
+      // Admins keep their role and name; only the facilitator metadata lands.
+      const { error } = await service
+        .from("app_user")
+        .update(metadata)
+        .eq("app_user_id", existing.appUserId)
+      if (error) {
+        console.error("[commitAdviserImportChunk] admin metadata update failed", error)
+        result.skipped += 1
+        result.issues.push({
+          rowNumber: row.rowNumber,
+          message: `Failed to update ${row.email}.`,
+        })
+      } else {
+        result.updated += 1
+      }
+      continue
+    }
+
+    const promote = existing.roleCode === "student"
+    const { error } = await service
+      .from("app_user")
+      .update({
+        full_name: row.fullName,
+        ...(promote ? { role_id: adviserRoleId } : {}),
+        ...metadata,
+      })
+      .eq("app_user_id", existing.appUserId)
+
+    if (error) {
+      console.error("[commitAdviserImportChunk] update failed", error)
+      result.skipped += 1
+      result.issues.push({
+        rowNumber: row.rowNumber,
+        message: `Failed to update ${row.email}.`,
+      })
+      continue
+    }
+
+    if (promote) {
+      // Audit the promotion. Best-effort: the role change already succeeded.
+      const { error: auditError } = await service.from("role_change").insert({
+        target_user_id: existing.appUserId,
+        changed_by_user_id: actingUser.id,
+        old_role_id: existing.roleId,
+        new_role_id: adviserRoleId,
+        reason: "Facilitator roster import",
+      })
+      if (auditError) {
+        console.error("[commitAdviserImportChunk] role_change insert failed", auditError)
+        result.issues.push({
+          rowNumber: row.rowNumber,
+          message: `Promoted ${row.email} from student to facilitator, but the audit record failed to save.`,
+        })
+      } else {
+        result.issues.push({
+          rowNumber: row.rowNumber,
+          message: `Promoted ${row.email} from student to facilitator.`,
+        })
+      }
+    }
+    result.updated += 1
+  }
+
+  return { ok: true, result }
 }
