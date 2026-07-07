@@ -542,8 +542,17 @@ export default function RequestsPage() {
         box-shadow:0 10px 30px rgba(0,0,0,.06);
         }
 
+        .request-card-scroll{
+        max-height: 55vh;   
+        overflow-y: auto;
+        background: white;
+        border-radius: 15px;
+        border: 1px solid #E2E2E2;
+        box-shadow: 0 10px 30px rgba(0,0,0,.06);
+        }
+
         .request-item{
-        padding:24px 30px;
+        padding:12px 16px;
         border-bottom:1px solid #EEEEEE;
         transition:.2s ease;
         }
@@ -861,7 +870,7 @@ export default function RequestsPage() {
             </button>
           </div>
 
-          <div className="request-card">
+          <div className="request-card-scroll">
           {paginatedRequests.map((request) => {
                 const statusColor =
                   request.status === "Approved"
@@ -901,9 +910,9 @@ export default function RequestsPage() {
                       style={{
                         position: "absolute",
                         left: 0,
-                        top: 26,
+                        top: 15,
                         width: 6,
-                        height: "55%",
+                        height: "20%",
                         background: statusColor,
                         borderRadius: 10,
                       }}
