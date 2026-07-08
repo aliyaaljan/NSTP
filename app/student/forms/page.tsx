@@ -18,6 +18,7 @@ import {
   IconDownload,
 } from "@tabler/icons-react"
 import StudentSidebar from "@/components/shared/StudentSidebar"
+import ProfilePill from "@/components/shared/StudentProfilePill"
 import {
   KpiStatCard,
   KpiStatCardGrid,
@@ -455,13 +456,11 @@ export default function StudentFilesPage() {
             <div className="sf-header-left">
               <h1 className="sf-header-title">Forms</h1>
             </div>
-            <div className="sf-profile-pill">
-              <div className="sf-profile-avatar">{student.initials}</div>
-              <div style={{ minWidth: 0 }}>
-                <div className="sf-profile-name">{student.displayName}</div>
-                <div className="sf-profile-section">{student.section}</div>
-              </div>
-            </div>
+            <ProfilePill
+              name={student.displayName}
+              initials={student.initials}
+              section={student.section}
+            />
           </div>
 
           <ChartStyles />
@@ -485,11 +484,25 @@ export default function StudentFilesPage() {
                     borderRadius: COLORS.radius,
                     overflow: "hidden",
                     background: COLORS.cardBg,
-                    color: isHovered || isActive ? stat.color.icon : "#000000",
+                    color:
+                      hoveredCard === stat.label || activeFilter === stat.label
+                        ? stat.color.icon
+                        : "#666666",
                     border: `2px solid ${
-                      isHovered || isActive ? stat.color.icon : COLORS.border
+                      hoveredCard === stat.label || activeFilter === stat.label
+                        ? stat.color.icon
+                        : COLORS.border
                     }`,
-                    transition: "all .18s ease",
+                    transform:
+                      hoveredCard === stat.label
+                        ? "translateY(-8px)"
+                        : "translateY(0)",
+                    boxShadow:
+                      hoveredCard === stat.label
+                        ? "0 14px 28px rgba(0,0,0,.12)"
+                        : "0 4px 10px rgba(0,0,0,.05)",
+                    transition:
+                      "transform .25s ease, box-shadow .25s ease, border-color .18s ease, color .18s ease",
                   }}
                 >
                   <KpiStatCard

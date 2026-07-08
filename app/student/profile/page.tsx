@@ -456,21 +456,8 @@ export default function ProfilePage() {
                 fontFamily: "'Montserrat', 'Fallback Montserrat'",
               }}>
                 <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Type</span>
-                <span>
-                  <span style={{
-                    display: "inline-block",
-                    background: C.goldBg,
-                    color: C.goldText,
-                    padding: "0px 8px",
-                    borderRadius: 4,
-                    fontSize: isMobile ? "10px" : "12px",
-                    fontWeight: 600,
-                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                  }}>
-                    {student.classType}
-                  </span>
-                </span>
-                
+                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.classType}</span>
+
                 <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Location</span>
                 <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.location}</span>
                 
