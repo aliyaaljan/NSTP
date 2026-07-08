@@ -812,7 +812,7 @@ begin
   section_stats as (
     select
       s.section_id,
-      public.class_label(s.course_code, v_adviser_name) as section_name,
+      public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
       count(sm.enrollment_id)::integer as total,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric < s.required_hour_total*60)::integer as in_progress,
@@ -823,7 +823,7 @@ begin
     left join pending_requests pa on pa.section_id = s.section_id
     where s.adviser_user_id = p_adviser_user_id
       and t.is_active = true
-    group by s.section_id, s.course_code
+    group by s.section_id, s.course_code, t.school_year
   ),
   all_sections as (
     select
@@ -898,7 +898,7 @@ begin
   )
   select
     s.section_id,
-    public.class_label(s.course_code, v_adviser_name) as section_name,
+    public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
     u.full_name as student_name,
     u.student_number as student_number,
     u.sais_id::numeric as sais_id,
