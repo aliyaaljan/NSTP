@@ -73,10 +73,6 @@ export default function CalendarOverview({
   const [selectedRenderedDay, setSelectedRenderedDay] = useState<number | null>(null)
   const [rowGap, setRowGap] = useState<number>(8)
 
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
   // Row gap calculation based on container height
   useEffect(() => {
     const calculateRowGap = () => {
@@ -98,14 +94,25 @@ export default function CalendarOverview({
       setRowGap(Math.max(4, Math.min(40, maxRowGap)))
     }
     
-    const timer = setTimeout(calculateRowGap, 50)
-    window.addEventListener('resize', calculateRowGap)
+    // Immediate calculation
+    calculateRowGap()
+    
+    const resizeObserver = new ResizeObserver(() => {
+      calculateRowGap()
+    })
+    
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
     
     return () => {
-      clearTimeout(timer)
-      window.removeEventListener('resize', calculateRowGap)
+      resizeObserver.disconnect()
     }
   }, [currentMonth, currentYear])
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const getRenderedDaysForMonth = () => {
     const allDays = renderedDaysByMonth[currentMonth] || []
