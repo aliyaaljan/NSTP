@@ -671,10 +671,11 @@ begin
   select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
 
   return query
-  select s.section_id, public.class_label(s.course_code, v_adviser_name)
+  select s.section_id, public.class_label(s.course_code, v_adviser_name, t.school_year)
   from section s
   join term t on t.term_id = s.term_id
-  where s.adviser_user_id = p_adviser_user_id and t.is_active = true;
+  where s.adviser_user_id = p_adviser_user_id
+  order by t.start_date desc;
 end;
 $function$;
 
