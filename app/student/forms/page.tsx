@@ -61,7 +61,7 @@ const studentFilesStyles = `
   .sf-adv-filter-btn { display: flex; align-items: center; gap: 6px; border: none; border-radius: 999px; padding: 8px 18px; background: #1B4332; font-size: 13px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-weight: 500; cursor: pointer; color: #FFFFFF; transition: background 0.13s; }
   .sf-adv-filter-btn:hover { background: #14532D; }
   
-  .sf-adv-table-wrapper { overflow-y: auto; max-height: calc(100vh - 420px); scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
+  .sf-adv-table-wrapper { overflow-y: visible; max-height: none; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
   .sf-adv-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .sf-adv-table thead tr { background: #F9FAFB; border-bottom: 1px solid #E5E7EB; }
   .sf-adv-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 700; color: #7B1D1D; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
