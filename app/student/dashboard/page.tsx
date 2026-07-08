@@ -30,7 +30,7 @@ const C = {
   green: '#14492E',
   maroon:      "#7B1113",
   maroonDark:  "#6B0D10",
-  gold:        "#C8A84B",
+  gold:        "#014421",
   goldBg:      "#FFF3CD",
   goldText:    "#4A2C00",
   pageBg:      "#F0F0F0",
@@ -76,11 +76,11 @@ function HoursCard({
 
   return (
     <div style={{ 
-      background: C.hoursBg, 
+      background: C.cardBg, 
       borderRadius: 15, 
       padding: "18px 22px", 
-      border: `1.5px solid ${C.hoursBorder}`,
       transition: "all 0.3s ease",
+      boxShadow: C.cardShadow,
     }}>
       <div
         style={{
@@ -146,7 +146,7 @@ function HoursCard({
           minWidth: "60px",
           height: "clamp(18px, 2vw, 22px)", 
           background: C.track, 
-          borderRadius: 15,  //hehe if 14 po kasi itll look round lang kaya 7 nalang, medj same naman na sa container i thikn
+          borderRadius: 6,  //hehe if 14 po kasi itll look round lang kaya 7 nalang, medj same naman na sa container i thikn
           overflow: "hidden" 
         }}>
           <div style={{ 

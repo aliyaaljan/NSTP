@@ -52,21 +52,21 @@ const C = {
   textMuted: "#7A7A7A",
 
   approved: {
-    bg: "#C8D8C0",
+    bg: "#E8F2E3", //to be checked pa po ulit kasi no reference atm
     text: "#2D5C3A",
     border: "#8AAE8A",
     icon: "#3A7A4A",
   },
 
   review: {
-    bg: "#F5E6C0",
+    bg: "#FFF4D6",
     text: "#8B5E1A",
     border: "#D4A840",
     icon: "#C8882A",
   },
 
   declined: {
-    bg: "#D4B8B8",
+    bg: "#F4E3E3", //to be checked pa po ulit kasi no reference atm
     text: "#6B1A1A",
     border: "#B08080",
     icon: "#8B3A3A",
@@ -552,13 +552,13 @@ export default function RequestsPage() {
         }
 
         .request-item{
-        padding:12px 16px;
+        padding:16px 16px;
         border-bottom:1px solid #EEEEEE;
         transition:.2s ease;
         }
 
         .request-item:hover{
-        background:#FCFBF7;
+        background:#FAFAFA; 
         }
 
         .request-top{
@@ -604,12 +604,12 @@ export default function RequestsPage() {
         }
 
         .send-btn{
-        height:48px;
+        height:38px;
         padding:0 15px;
         background:${C.green};
         color:white;
         border:none;
-        border-radius:50px;
+        border-radius:999px;
         font-family:inherit;
         font-size:13px;
         font-weight:600;
@@ -620,16 +620,12 @@ export default function RequestsPage() {
         justify-content:center;
         gap:8px;
 
+        transition:transform .25s ease, box-shadow .25s ease;
+    }
 
-
-        transition:.25s ease;
-        }
-
-        .send-btn:hover{
-        transform:translateY(-2px);
-        background:#24563D;
-        box-shadow:0 12px 25px rgba(26,60,42,.3);
-        }
+    .send-btn:hover{
+        transform:scale(1.05);
+    }
 
         @media (max-width: 900px){
 
@@ -946,7 +942,12 @@ export default function RequestsPage() {
                                 marginTop: 6,
                             }}
                             >
-                            Submitted {request.date}
+                           Submitted{" "}
+                                {new Date(request.date).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                                })}
                             </div>
                         </div>
 
@@ -1633,7 +1634,12 @@ export default function RequestsPage() {
                 color: C.textMuted,
               }}
             >
-              Submitted: {selectedRequest.date}
+              Submitted:{" "}
+                {new Date(selectedRequest.date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+                })}
             </div>
 
             <div
@@ -1643,7 +1649,14 @@ export default function RequestsPage() {
                 marginTop: 5,
               }}
             >
-              Last edited: {selectedRequest.lastEdited ?? "Not edited yet"}
+              Last edited:{" "}
+                {selectedRequest.lastEdited
+                ? new Date(selectedRequest.lastEdited).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    })
+                : "Not edited yet"}
             </div>
 
             <div

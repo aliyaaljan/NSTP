@@ -338,15 +338,20 @@ export default function QRGenerationPage() {
           letter-spacing: -1px;
         }
 
-        .qr-box {
-        background:white;
-        border:2px solid #D9DDD8;
-        border-radius:28px;
-        min-height:650px;
-        padding:40px;
-        display:flex;
-        justify-content:center;
-        align-items:center;
+        .qr-box{
+          position: relative;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at top left, rgba(127,165,143,.18), transparent 45%),
+            radial-gradient(circle at bottom right, rgba(123,17,19,.08), transparent 40%),
+            linear-gradient(180deg, #FBFCFB 0%, #F4F7F5 100%);
+          border:2px solid #D9DDD8;
+          border-radius:28px;
+          min-height:650px;
+          padding:40px;
+          display:flex;
+          justify-content:center;
+          align-items:center;
       }
 
 
@@ -587,11 +592,50 @@ export default function QRGenerationPage() {
           }
 
 
-          .qr-box {
-            min-height: 480px;
-            padding: 14px;
-            border-radius: 16px;
-          }
+          .qr-box{
+            position: relative;
+            overflow: hidden;
+
+            background: white;
+            border: 2px solid #D9DDD8;
+            border-radius: 28px;
+            min-height: 650px;
+            padding: 40px;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+          .qr-box::before{
+            content: "";
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            border-radius: 50%;
+            background: rgba(127, 165, 143, 0.18);
+            filter: blur(80px);
+
+            top: -120px;
+            left: -120px;
+
+            z-index: 0;
+        }
+
+        .qr-box::after{
+            content: "";
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: rgba(123, 17, 19, 0.12);
+            filter: blur(70px);
+
+            bottom: -100px;
+            right: -100px;
+
+            z-index: 0;
+        }
 
 
           .qr-card {
@@ -599,6 +643,8 @@ export default function QRGenerationPage() {
             min-height: 360px;
             padding: 20px;
             border-radius: 22px;
+            position: relative;
+            z-index: 1;
           }
 
 
