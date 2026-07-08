@@ -5,11 +5,13 @@ import {
   IconChevronRight, 
   IconQrcode,
   IconInfoCircle,
+  IconScan,
 } from "@tabler/icons-react"
 import Link from "next/link"
 import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { QrGenerator } from "@/components/shared/QrGenerator"
+import { QrScanner } from "@/components/shared/QrScanner"
 
 interface QuickAccessProps {
   isMobile: boolean
@@ -21,6 +23,7 @@ interface QuickAccessProps {
   filesTotal: number
   filesSubmitted: number
   recentRequests: { title: string; status: string; time: string }[]
+  isLeader?: boolean
 }
 
 export default function QuickAccess({
@@ -33,8 +36,10 @@ export default function QuickAccess({
   filesTotal,
   filesSubmitted,
   recentRequests,
+  isLeader = false,
 }: QuickAccessProps) {
   const [showQrGenerator, setShowQrGenerator] = useState(false)
+  const [showQrScanner, setShowQrScanner] = useState(false)
 
   const statusStyles: Record<string, { bg: string; text: string }> = {
     "Pending Review": { bg: "#FFF3CD", text: "#8A6200" },
@@ -354,9 +359,15 @@ export default function QuickAccess({
           </div>
         </Link>
 
-        {/* Generate QR Card */}
+        {/* Generate QR OR Scan QR Card */}
         <div
-          onClick={() => setShowQrGenerator(true)}
+          onClick={() => {
+            if (isLeader) {
+              setShowQrScanner(true)
+            } else {
+              setShowQrGenerator(true)
+            }
+          }}
           style={{
             display: "flex",
             alignItems: "center",
@@ -383,7 +394,11 @@ export default function QuickAccess({
               flexShrink: 0,
             }}
           >
-            <IconQrcode size={sizes.qrIconSize} stroke={1.5} />
+            {isLeader ? (
+              <IconScan size={sizes.qrIconSize} stroke={1.5} />
+            ) : (
+              <IconQrcode size={sizes.qrIconSize} stroke={1.5} />
+            )}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ 
@@ -392,7 +407,7 @@ export default function QuickAccess({
               color: colors.textDark,
               fontFamily: "Montserrat, 'Montserrat Fallback'",
             }}>
-              Generate QR
+              {isLeader ? "Scan QR" : "Generate QR"}
             </div>
             <div style={{ 
               fontSize: sizes.smallTextSize, 
@@ -400,7 +415,7 @@ export default function QuickAccess({
               marginTop: "2px",
               fontFamily: "Montserrat, 'Montserrat Fallback'",
             }}>
-              Tap to open QR generator
+              {isLeader ? "Tap to scan student QR" : "Tap to open QR generator"}
             </div>
           </div>
         </div>
@@ -600,11 +615,21 @@ export default function QuickAccess({
       </div>
 
       {/* QR Generator Modal */}
-      {showQrGenerator && (
+      {!isLeader && showQrGenerator && (
         <QrGenerator
           onClose={() => setShowQrGenerator(false)}
           onGenerateSuccess={() => {}}
           studentName={studentName}
+        />
+      )}
+
+      {/* QR Scanner Modal */}
+      {isLeader && showQrScanner && (
+        <QrScanner
+          onClose={() => setShowQrScanner(false)}
+          onScanSuccess={() => {
+            setShowQrScanner(false)
+          }}
         />
       )}
     </>

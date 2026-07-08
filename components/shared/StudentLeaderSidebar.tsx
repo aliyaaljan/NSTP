@@ -36,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     icon: "ti-layout-dashboard",
     label: "Dashboard",
-    href: "/student/leader/dashboard",
+    href: "/student/dashboard",
   },
   { icon: "ti-presentation", label: "My Class", href: "/student/leader/classlist" },
   { icon: "ti-scan", label: "Scanner", href: "/student/leader/scanner" },
@@ -229,8 +229,7 @@ export default function StudentSidebar() {
               const active =
                 pathname === item.href ||
                 (item.label === "Dashboard" &&
-                  (pathname === "/student/leader/dashboard" ||
-                    pathname === "/student/leader"))
+                  (pathname === "/student/dashboard"))
 
               return (
                 <Link
