@@ -104,6 +104,7 @@ export const ENROLLMENT_LIST_SELECT = `
     course_code,
     required_hour_total,
     adviser_user_id,
+    term:term_id(school_year),
     app_user:adviser_user_id(full_name)
   ),
   attendance_session(duration_minute)
@@ -124,6 +125,7 @@ export interface EnrollmentListDbRow {
     course_code: string
     required_hour_total: number | null
     adviser_user_id: string
+    term: { school_year: string } | null
     app_user: { full_name: string } | null
   } | null
   attendance_session: Array<{ duration_minute: number | null }> | null
@@ -157,6 +159,7 @@ export function mapEnrollmentToStudentListRow(
     classLabel: formatClassLabel({
       courseCode: section.course_code,
       facilitatorName: section.app_user?.full_name,
+      schoolYear: section.term?.school_year,
     }),
     adviserName,
     hoursCompleted,
