@@ -43,7 +43,7 @@ export async function resolveActiveStudentEnrollment(
         required_hour_total,
         section_status_id,
         adviser:adviser_user_id ( full_name ),
-        term:term_id ( is_active )
+        term:term_id ( is_active, school_year )
       )
     `
     )
@@ -89,6 +89,9 @@ export async function resolveActiveStudentEnrollment(
   const adviser = Array.isArray(primary.section.adviser)
     ? primary.section.adviser[0]
     : primary.section.adviser
+  const term = Array.isArray(primary.section.term)
+    ? primary.section.term[0]
+    : primary.section.term
   return {
     enrollmentId: primary.enrollmentId,
     section: {
@@ -96,6 +99,7 @@ export async function resolveActiveStudentEnrollment(
       label: formatClassLabel({
         courseCode: primary.section.course_code,
         facilitatorName: adviser?.full_name,
+        schoolYear: term?.school_year,
       }),
       course_code: primary.section.course_code,
       required_hour_total: primary.section.required_hour_total,

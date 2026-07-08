@@ -22,7 +22,8 @@ export async function getActiveLeaderEnrollment(
       section:section_id!inner (
         section_id,
         course_code,
-        adviser:adviser_user_id ( full_name )
+        adviser:adviser_user_id ( full_name ),
+        term:term_id ( school_year )
       )
     `)
     .eq("student_user_id", userId)
@@ -54,12 +55,14 @@ export async function getActiveLeaderEnrollment(
         section_id: string
         course_code: string
         adviser: { full_name: string } | { full_name: string }[] | null
+        term: { school_year: string } | { school_year: string }[] | null
       }
     | null
     | undefined
   if (!section) return null
 
   const adviser = Array.isArray(section.adviser) ? section.adviser[0] : section.adviser
+  const term = Array.isArray(section.term) ? section.term[0] : section.term
 
   return {
     enrollmentId: row.enrollment_id,
@@ -67,6 +70,7 @@ export async function getActiveLeaderEnrollment(
     sectionName: formatClassLabel({
       courseCode: section.course_code,
       facilitatorName: adviser?.full_name,
+      schoolYear: term?.school_year,
     }),
     courseCode: section.course_code,
   }
