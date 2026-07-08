@@ -26,11 +26,13 @@ create policy appeal_insert_self on public.appeal for insert to authenticated
     )
   );
 
-create or replace function public.get_adviser_dashboard_data(p_adviser_user_id uuid)
+drop function if exists public.get_adviser_dashboard_data(uuid);
+
+create function public.get_adviser_dashboard_data(p_adviser_user_id uuid)
 returns table(
   section_id uuid, section_name text, total integer, pending integer,
   completed integer, completion_pct numeric, on_track integer,
-  at_risk integer, students jsonb
+  at_risk integer, students jsonb, is_active boolean, term_start_date date
 )
 language plpgsql stable security definer
 set search_path = public, pg_temp
@@ -67,6 +69,7 @@ begin
       s.section_id,
       public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
       t.is_active as term_is_active,
+      t.start_date as term_start_date,
       s.required_hour_total,
       count(sm.enrollment_id)::integer as total,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
@@ -82,7 +85,7 @@ begin
       and e.enrollment_status_id in (
             select enrollment_status_id from enrollment_status where code in ('active', 'completed')
           )
-    group by s.section_id, s.course_code, s.required_hour_total, t.school_year, t.is_active
+    group by s.section_id, s.course_code, s.required_hour_total, t.school_year, t.is_active, t.start_date
   ),
   pending_appeals as (
     select
@@ -112,19 +115,9 @@ begin
       least(round((select sum(ss.completed)::numeric from section_stats ss) / nullif((select sum(ss.total) from section_stats ss), 0) * 100, 2), 100) as completion_pct,
       (select sum(ss.on_track) from section_stats ss)::integer as on_track,
       (select sum(ss.at_risk) from section_stats ss)::integer as at_risk,
-      (select jsonb_agg(student) from section_stats ss2, lateral jsonb_array_elements(ss2.students) as student) as students
-  ),
-  all_active_classes as (
-    select
-      null::uuid as section_id,
-      'All Active Classes'::text as section_name,
-      (select coalesce(sum(ss.total), 0) from section_stats ss where ss.term_is_active)::integer as total,
-      (select coalesce(sum(pa.pending), 0) from pending_appeals pa)::integer as pending,
-      (select coalesce(sum(ss.completed), 0) from section_stats ss where ss.term_is_active)::integer as completed,
-      least(round((select sum(ss.completed)::numeric from section_stats ss where ss.term_is_active) / nullif((select sum(ss.total) from section_stats ss where ss.term_is_active), 0) * 100, 2), 100) as completion_pct,
-      (select coalesce(sum(ss.on_track), 0) from section_stats ss where ss.term_is_active)::integer as on_track,
-      (select coalesce(sum(ss.at_risk), 0) from section_stats ss where ss.term_is_active)::integer as at_risk,
-      (select jsonb_agg(student) from section_stats ss2, lateral jsonb_array_elements(ss2.students) as student where ss2.term_is_active) as students
+      (select jsonb_agg(student) from section_stats ss2, lateral jsonb_array_elements(ss2.students) as student) as students,
+      false as is_active,
+      null::date as term_start_date
   )
   select
     ss.section_id,
@@ -135,12 +128,12 @@ begin
     least(round((ss.completed::numeric/nullif(ss.total,0)*100), 2), 100) as completion_pct,
     ss.on_track,
     ss.at_risk,
-    ss.students
+    ss.students,
+    ss.term_is_active as is_active,
+    ss.term_start_date
   from section_stats ss
   left join pending_appeals pa on pa.section_id = ss.section_id
   union all
-  select * from all_classes
-  union all
-  select * from all_active_classes;
+  select * from all_classes;
 end;
 $function$;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
   IconSearch,
@@ -41,6 +41,8 @@ type DashboardRow = {
   on_track: number
   at_risk: number
   students: { name: string; pct: number }[]
+  is_active: boolean
+  term_start_date: string | null
 }
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
@@ -102,7 +104,7 @@ export default function DashboardPage() {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [initials, setInitials] = useState("")
-  const [sections, setSections] = useState<{ id: string; name: string }[]>([])
+  const [sections, setSections] = useState<{ id: string; name: string; isActive: boolean; termStartDate: string | null }[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
   const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at_hours: string }[]>([])
   const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string }[]>([])
@@ -110,6 +112,7 @@ export default function DashboardPage() {
   const [pageSize, setPageSize] = useState(10)
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
+  const didDefaultToActiveSection = useRef(false)
 
   const fetchDashboardBundle = useCallback(async (uid: string) => {
     const [
@@ -132,17 +135,25 @@ export default function DashboardPage() {
       const mappedSection = dashboardData.map((r: DashboardRow) => ({
         id: r.section_id ?? r.section_name,
         name: r.section_name,
+        isActive: r.is_active,
+        termStartDate: r.term_start_date,
       }))
-      const tierRank = (name: string) =>
-        name === "All Classes" ? 0 : name === "All Active Classes" ? 1 : 2
+      const tierRank = (name: string) => (name === "All Classes" ? 0 : 1)
       const sortedSection = [...mappedSection].sort((a, b) => {
         const rankDiff = tierRank(a.name) - tierRank(b.name)
         if (rankDiff !== 0) return rankDiff
-        // Individual classes already arrive most-recent-term-first from
-        // get_sections (ordered by t.start_date desc) — preserve that order.
-        return 0
+        // Latest class term first.
+        return new Date(b.termStartDate ?? 0).getTime() - new Date(a.termStartDate ?? 0).getTime()
       })
       setSections(sortedSection)
+
+      // Default the filter to the facilitator's current active class (only once,
+      // on first load — later refetches shouldn't yank the user's own selection).
+      if (!didDefaultToActiveSection.current) {
+        didDefaultToActiveSection.current = true
+        const activeSection = sortedSection.find((s) => s.isActive)
+        if (activeSection) setSelectedSection(activeSection.name)
+      }
     }
 
     if (auditError) console.log(auditError)
@@ -189,7 +200,7 @@ export default function DashboardPage() {
     if (!currentData) return null
 
     const currentSemData =
-      selectedSection === "All Classes" || selectedSection === "All Active Classes"
+      selectedSection === "All Classes"
         ? activeSemData
             .filter((r) => r.remaining_days !== "Semester ended")
             .sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0]
@@ -211,7 +222,7 @@ export default function DashboardPage() {
     currentPage * pageSize
   )
 
-  const pendingCount = dashboardData.find((r) => r.section_name === "All Active Classes")?.pending ?? 0
+  const pendingCount = dashboardData.find((r) => r.is_active)?.pending ?? 0
 
   return (
     <>
@@ -321,6 +332,7 @@ export default function DashboardPage() {
                                   border: "1px solid var(--border)",
                                   borderRadius: 10,
                                   boxShadow: "var(--shadow)",
+                                  width: "max-content",
                                   minWidth: 160,
                                   overflow: "hidden",
                                 }}
@@ -335,11 +347,25 @@ export default function DashboardPage() {
                                       setAnimKey((k) => k + 1)
                                       setSectionKey((k) => k + 1)
                                     }}
-                                    className={`block w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
+                                    className={`flex items-center justify-between gap-3 w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
                                       s.name === selectedSection ? "font-semibold bg-green text-white" : "font-normal text-text"
                                     }`}
                                   >
-                                    {s.name}
+                                    <span style={{ whiteSpace: "nowrap" }}>{s.name}</span>
+                                    {s.isActive && (
+                                      <span
+                                        className="adv-badge"
+                                        style={{
+                                          background: s.name === selectedSection ? "rgba(255,255,255,0.25)" : "rgba(27,67,50,0.12)",
+                                          color: s.name === selectedSection ? "#fff" : "var(--green-dark)",
+                                          padding: "2px 9px",
+                                          fontSize: 10.5,
+                                          flexShrink: 0,
+                                        }}
+                                      >
+                                        Active
+                                      </span>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -545,9 +571,7 @@ export default function DashboardPage() {
                       <DonutChart key={sectionKey} pct={currentData.completion_pct} />
                       <div className="completion-meta">
                         <div className="completion-name text-center">
-                          {selectedSection === "All Classes" || selectedSection === "All Active Classes"
-                            ? "NSTP Overall"
-                            : selectedSection}
+                          {selectedSection === "All Classes" ? "NSTP Overall" : selectedSection}
                         </div>
                         <div className="completion-sub text-center">
                           {currentData.on_track} / {currentData.total} students on track
