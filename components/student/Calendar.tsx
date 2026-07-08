@@ -395,75 +395,83 @@ export default function CalendarOverview({
         </div>
       )}
 
-      <div style={{
-        ...styles.calGrid,
-        rowGap: rowGap,
-      }}>
-        {DAYS.map(d => (
-          <div key={d} style={styles.calDayLabel}>{d}</div>
-        ))}
-        {cells.map((cell, idx) => {
-          if (!cell.inMonth) {
-            return <div key={idx} style={styles.calCellEmpty} />
-          }
+      {/* Calendar Grid */}
+      <div style={styles.calendarWrapper}>
+        {/* Weekday Labels */}
+        <div style={styles.weekdayRow}>
+          {DAYS.map(d => (
+            <div key={d} style={styles.calDayLabel}>{d}</div>
+          ))}
+        </div>
 
-          const dayEvents = eventMap.get(cell.day) || []
-          const hasEvent = dayEvents.length > 0
-          const isToday = currentYear === today.getFullYear() &&
-            currentMonth === today.getMonth() &&
-            cell.day === today.getDate()
-          const isHolidayDay = isHoliday(cell.day)
-          const isFuture = isFutureDate(cell.day)
-          const isRendered = isClient && renderedDays.includes(cell.day) && !isFuture
-          const hasRenderedTime = isRendered && renderedTime[cell.day]
-          const hasAnyContent = hasEvent || hasRenderedTime
+        {/* Dynamic Grid */}
+        <div style={{
+          ...styles.calGrid,
+          rowGap: rowGap,
+        }}>
+          {cells.map((cell, idx) => {
+            if (!cell.inMonth) {
+              return <div key={idx} style={styles.calCellEmpty} />
+            }
 
-          return (
-            <div
-              key={idx}
-              onClick={() => {
-                if (hasAnyContent) {
-                  handleDayClick(cell.day, dayEvents)
-                }
-              }}
-              style={{
-                ...styles.calCell,
-                cursor: hasAnyContent ? 'pointer' : 'default',
-                backgroundColor: isToday ? '#7B1D1D' : 'transparent',
-                color: isToday ? '#FFFFFF' : '#111827',
-                fontWeight: isToday ? 700 : 500,
-                borderRadius: isToday ? '50%' : '6px',
-                position: 'relative' as const,
-              }}
-              onMouseEnter={(e) => {
-                if (hasAnyContent && !isToday) {
-                  e.currentTarget.style.backgroundColor = '#F5F5F5'
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isToday) {
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                }
-              }}
-            >
-              {cell.day}
+            const dayEvents = eventMap.get(cell.day) || []
+            const hasEvent = dayEvents.length > 0
+            const isToday = currentYear === today.getFullYear() &&
+              currentMonth === today.getMonth() &&
+              cell.day === today.getDate()
+            const isHolidayDay = isHoliday(cell.day)
+            const isFuture = isFutureDate(cell.day)
+            const isRendered = isClient && renderedDays.includes(cell.day) && !isFuture
+            const hasRenderedTime = isRendered && renderedTime[cell.day]
+            const hasAnyContent = hasEvent || hasRenderedTime
 
-              {hasAnyContent && !isToday && (
-                <span style={{
-                  position: 'absolute',
-                  bottom: -2,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 14,
-                  height: 4,
-                  borderRadius: 3,
-                  backgroundColor: isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
-                  transition: 'all 0.2s ease',
-                }} />
-              )}
-            </div>
-          )
-        })}
+            return (
+              <div
+                key={idx}
+                onClick={() => {
+                  if (hasAnyContent) {
+                    handleDayClick(cell.day, dayEvents)
+                  }
+                }}
+                style={{
+                  ...styles.calCell,
+                  cursor: hasAnyContent ? 'pointer' : 'default',
+                  backgroundColor: isToday ? '#7B1D1D' : 'transparent',
+                  color: isToday ? '#FFFFFF' : '#111827',
+                  fontWeight: isToday ? 700 : 500,
+                  borderRadius: isToday ? '50%' : '6px',
+                  position: 'relative' as const,
+                }}
+                onMouseEnter={(e) => {
+                  if (hasAnyContent && !isToday) {
+                    e.currentTarget.style.backgroundColor = '#F5F5F5'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isToday) {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                  }
+                }}
+              >
+                {cell.day}
+
+                {hasAnyContent && !isToday && (
+                  <span style={{
+                    position: 'absolute',
+                    bottom: -2,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 14,
+                    height: 4,
+                    borderRadius: 3,
+                    backgroundColor: isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
+                    transition: 'all 0.2s ease',
+                  }} />
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Legend */}
@@ -542,13 +550,18 @@ const styles = {
     fontWeight: 700,
     color: '#111827',
   },
-  calGrid: {
+  calendarWrapper: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    minHeight: 0,
+  },
+  weekdayRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(7, 1fr)',
     gap: '8px',
-    flex: 1,
-    alignContent: 'center',
-    height: '100%',
+    flexShrink: 0,
+    marginBottom: '4px',
   },
   calDayLabel: {
     textAlign: 'center' as const,
@@ -558,6 +571,13 @@ const styles = {
     padding: '3px 0',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.4px',
+  },
+  calGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: '8px',
+    flex: 1,
+    alignContent: 'center',
   },
   calCell: {
     position: 'relative' as const,
