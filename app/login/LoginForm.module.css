@@ -333,8 +333,6 @@
     padding: clamp(40px, 8vh, 190px) clamp(0px, 8vw, 220px);
     position: relative;
     overflow: hidden;
-    background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
-    background-size: 24px 24px;
   }
 
   /* ── Logo ── */
