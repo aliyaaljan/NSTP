@@ -178,15 +178,14 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
               key={key}
               onClick={() => setFilter(key)}
               style={{
-                fontSize: "11px",
+                fontSize: isMobile ? "10px" : "11px",
                 fontWeight: 600,
-                padding: isMobile ? "4px 12px" : "4px 16px",
-                borderRadius: "8px",
-                border: active ? `1.5px solid ${activeColor}` : '1.5px solid #E5E7EB',
+                padding: isMobile ? "4px 10px" : "6px 14px",
+                borderRadius: "999px",
+                border: `2px solid ${active ? activeColor : '#E5E7EB'}`,
                 background: active ? activeBg : '#FFFFFF',
                 color: active ? activeColor : '#6B7280',
                 cursor: "pointer",
-                textTransform: "capitalize",
                 whiteSpace: "nowrap",
                 transition: "all 0.15s",
                 fontFamily: 'var(--font-content, sans-serif)',
@@ -593,21 +592,32 @@ function FormsFull({
       }}>
         {(["all", "submitted", "pending"] as const).map((key) => {
           const active = filter === key
-          const meta = key === "all" ? null : STATUS_META[key]
+          const isAll = key === "all"
+          const meta = isAll ? null : STATUS_META[key]
+          
+          let activeColor = '#111827'
+          let activeBg = '#F5F5F5'
+          let label = "All"
+          
+          if (!isAll) {
+            activeColor = meta!.color
+            activeBg = meta!.bg
+            label = meta!.label
+          }
+          
           return (
             <button
               key={key}
               onClick={() => setFilter(key)}
               style={{
-                fontSize: "11px",
+                fontSize: isMobile ? "10px" : "11px",
                 fontWeight: 600,
-                padding: isMobile ? "4px 12px" : "4px 16px",
-                borderRadius: "8px",
-                border: active ? `1.5px solid ${meta?.color ?? '#111827'}` : '1.5px solid #E5E7EB',
-                background: active ? (meta?.bg ?? '#F5F5F5') : '#FFFFFF',
-                color: active ? (meta?.color ?? '#111827') : '#6B7280',
+                padding: isMobile ? "4px 10px" : "6px 14px",
+                borderRadius: "999px",
+                border: `2px solid ${active ? activeColor : '#E5E7EB'}`,
+                background: active ? activeBg : '#FFFFFF',
+                color: active ? activeColor : '#6B7280',
                 cursor: "pointer",
-                textTransform: "capitalize",
                 whiteSpace: "nowrap",
                 transition: "all 0.15s",
                 fontFamily: 'var(--font-content, sans-serif)',
@@ -625,7 +635,7 @@ function FormsFull({
                 }
               }}
             >
-              {key === "all" ? "All" : meta!.label}
+              {label}
             </button>
           )
         })}
