@@ -10,6 +10,12 @@ import { getMyOpenSession, recordLeaderTimeIn, recordLeaderTimeOut } from "@/lib
 import { captureGeo, geoErrorMessage } from "@/lib/attendance/geo-client"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
+import {
+  KpiStatCard,
+  KpiStatCardGrid,
+  ChartStyles,
+} from "@/components/shared/ChartModule"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -58,17 +64,23 @@ export default function LeaderAttendancePage() {
     initials: string
     section: string
   } | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
 
   const leftPadding = isMobile
     ? `${COLLAPSED_W + RAIL_MARGIN * 2 + 8}px`
     : `${COLLAPSED_W + RAIL_MARGIN * 2}px`
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
     const interval = setInterval(() => {
       setCurrentTime(new Date())
     }, 1000)
     return () => clearInterval(interval)
-  }, [])
+  }, [isMounted])
 
   useEffect(() => {
     let cancelled = false
@@ -137,6 +149,33 @@ export default function LeaderAttendancePage() {
     })
   }
 
+  const info = [
+    {
+      id: 'date',
+      label: 'Date',
+      value: formatDate(currentTime),
+      icon: 'ti-calendar',
+      color: {
+        bg: "#C8D8C0",
+        text: "#2D5C3A",
+        border: "#8AAE8A",
+        icon: "#3A7A4A",
+      },
+    },
+    {
+      id: 'time',
+      label: 'Time',
+      value: formatTime(currentTime),
+      icon: 'ti-clock',
+      color: {
+        bg: "#F5E6C0",
+        text: "#8B5E1A",
+        border: "#D4A840",
+        icon: "#C8882A",
+      },
+    },
+  ]
+
   return (
     <div
       className={montserrat.variable}
@@ -158,7 +197,7 @@ export default function LeaderAttendancePage() {
           paddingBottom: isMobile ? "80px" : "32px",
           display: "flex",
           flexDirection: "column",
-          gap: isMobile ? "20px" : "28px",
+          gap: 0, 
           minWidth: 0,
           width: "100%",
           maxWidth: "100%",
@@ -173,6 +212,7 @@ export default function LeaderAttendancePage() {
           flexWrap: "wrap",
           gap: "12px",
           width: "100%",
+          marginBottom: isMobile ? "16px" : "24px", // Gap between header and stat cards
         }}>
           <div>
             <h1
@@ -198,102 +238,60 @@ export default function LeaderAttendancePage() {
         </div>
 
         {/* Date and Time */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-          gap: isMobile ? "12px" : "16px",
-        }}>
-          <div style={{
-            background: C.cardBg,
-            borderRadius: "16px",
-            padding: isMobile ? "16px 20px" : "20px 28px",
-            border: `2px solid ${C.border}`,
-            boxShadow: C.cardShadow,
-            display: "flex",
-            alignItems: "center",
-            gap: isMobile ? "14px" : "20px",
-            transition: "all 0.3s ease",
-          }}>
-            <div style={{
-              width: isMobile ? "44px" : "52px",
-              height: isMobile ? "44px" : "52px",
-              borderRadius: "12px",
-              background: C.greenBg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: C.green,
-              flexShrink: 0,
-            }}>
-              <IconCalendar size={isMobile ? 22 : 26} stroke={1.5} />
-            </div>
-            <div>
-              <div style={{
-                fontSize: isMobile ? "11px" : "12px",
-                fontWeight: 600,
-                color: C.textGray,
-                textTransform: "uppercase",
-                letterSpacing: "0.8px",
-                marginBottom: "2px",
-              }}>
-                Date
-              </div>
-              <div style={{
-                fontSize: isMobile ? "16px" : "20px",
-                fontWeight: 700,
-                color: C.textDark,
-              }}>
-                {formatDate(currentTime)}
-              </div>
-            </div>
-          </div>
+        <ChartStyles />
+        
+        <style>{`
+          .db-kpi-value {
+            font-size: ${isMobile ? '11px' : '20px'} !important;
+            line-height: 1.2 !important;
+          }
+          .db-kpi-label {
+            font-size: ${isMobile ? '9px' : '15px'} !important;
+            line-height: 1.2 !important;
+          }
+          .db-kpi-icon {
+            font-size: ${isMobile ? '16px' : '20px'} !important;
+          }
+          .attendance-stat-card {
+            cursor: default !important;
+          }
+          .attendance-stat-card .db-kpi-card {
+            cursor: default !important;
+          }
+          .attendance-stat-card:hover {
+            border-color: ${COLORS.border} !important;
+            transform: none !important;
+          }
+          .attendance-stat-card:hover .db-kpi-card {
+            transform: none !important;
+          }
+        `}</style>
 
-          <div style={{
-            background: C.cardBg,
-            borderRadius: "16px",
-            padding: isMobile ? "16px 20px" : "20px 28px",
-            border: `2px solid ${C.border}`,
-            boxShadow: C.cardShadow,
-            display: "flex",
-            alignItems: "center",
-            gap: isMobile ? "14px" : "20px",
-            transition: "all 0.3s ease",
-          }}>
-            <div style={{
-              width: isMobile ? "44px" : "52px",
-              height: isMobile ? "44px" : "52px",
-              borderRadius: "12px",
-              background: C.greenBg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: C.green,
-              flexShrink: 0,
-            }}>
-              <IconClock size={isMobile ? 22 : 26} stroke={1.5} />
-            </div>
-            <div>
-              <div style={{
-                fontSize: isMobile ? "11px" : "12px",
-                fontWeight: 600,
-                color: C.textGray,
-                textTransform: "uppercase",
-                letterSpacing: "0.8px",
-                marginBottom: "2px",
-              }}>
-                Time
-              </div>
-              <div style={{
-                fontSize: isMobile ? "16px" : "20px",
-                fontWeight: 700,
-                color: C.textDark,
-                fontFamily: "'Montserrat', sans-serif",
-                letterSpacing: "0.5px",
-              }}>
-                {formatTime(currentTime)}
-              </div>
-            </div>
-          </div>
+        <div style={{ marginBottom: "1px" }}> 
+          <KpiStatCardGrid columns={2}>
+            {info.map((stat) => {
+              return (
+                <div
+                  key={stat.id}
+                  className="attendance-stat-card"
+                  style={{
+                    cursor: "default",
+                    borderRadius: COLORS.radius,
+                    overflow: "hidden",
+                    background: COLORS.cardBg,
+                    color: "#000000",
+                    border: `2px solid ${COLORS.border}`,
+                  }}
+                >
+                  <KpiStatCard
+                    icon={stat.icon}
+                    label={stat.label}
+                    value={stat.value}
+                  />
+                </div>
+              )
+            })}
+          </KpiStatCardGrid>
         </div>
 
         {/* Session Card */}
