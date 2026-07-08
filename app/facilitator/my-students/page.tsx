@@ -13,9 +13,11 @@ import {
   IconX,
   IconPaperclip,
   IconPencil,
-  IconDownload
+  IconDownload,
+  IconPlus
 } from "@tabler/icons-react"
 import { FaRegQuestionCircle } from "react-icons/fa";
+import { RiRoadMapLine } from "react-icons/ri";
 
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
@@ -41,6 +43,8 @@ interface StudentSession {
   timeIn: string
   timeOut: string
   hours: number
+  statusId:string
+  status: string
 }
 
 interface Student {
@@ -286,14 +290,15 @@ const myStudentsStyles = `
   .ms-modal-right-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
   .ms-session-table-wrapper {overflow: auto; max-height:500px }
   .ms-session-table { width: 100%; border-collapse: collapse; table-layout: fixed;}
-  .ms-session-table th:nth-child(1) { width: 28%; }
-  .ms-session-table th:nth-child(2) { width: 21%; }
-  .ms-session-table th:nth-child(3) { width: 21%; }
-  .ms-session-table th:nth-child(4) { width: 17%; }
-  .ms-session-table th:nth-child(5) { width: 17%; }
+  .ms-session-table th:nth-child(1) { width: 23%; }
+  .ms-session-table th:nth-child(2) { width: 17%; }
+  .ms-session-table th:nth-child(3) { width: 17%; }
+  .ms-session-table th:nth-child(4) { width: 12%; }
+  .ms-session-table th:nth-child(5) { width: 23%; }
+  .ms-session-table th:nth-child(6) { width: 15%; }
   .ms-session-table { width: 100%; border-collapse: collapse; }
-  .ms-session-table thead { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid var(--border);}
-  .ms-session-table th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid var(--border);}
+  .ms-session-table thead { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid #F3F4F6; border-top: 1px solid #F3F4F6}
+  .ms-session-table th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 6px 8px 6px; border-bottom: 1px solid #F3F4F6;}
   .ms-session-table td { font-size: 12px; color: var(--text); padding: 8px; border-bottom: 1px solid #F3F4F6; }
   .ms-session-table tbody tr:last-child td { border-bottom: none; }
   .ms-session-table  tr:hover { background: #FAFAFA; }
@@ -301,8 +306,8 @@ const myStudentsStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     border-radius: 100%;
     background: var(--white);
     color: var(--muted);
@@ -311,7 +316,36 @@ const myStudentsStyles = `
   }
   .ms-session-action-btn:hover {
     background: #F9FAFB;
-    color: var(--maroon);
+    color: var(--green);
+  }
+  .ms-session-status-badge {
+    text-align: center;
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 88px;
+    white-space: nowrap;
+  }
+  .ms-session-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 5px 12px;
+    border: none;
+    border-radius: 999px;
+    background: var(--green);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: opacity 0.12s;
+  }
+  .ms-session-add-btn:hover {
+    opacity: 0.9;
   }
   .ms-session-empty { font-size: 12.5px; color: var(--muted); padding: 12px 0; }
   .ms-modal-header {
@@ -405,6 +439,8 @@ function MyStudentsContent() {
   const router = useRouter()
   const supabase = createClient()
   const searchParams = useSearchParams()
+
+  const today = format(new Date(), "yyyy-MM-dd")
 
   const [userId, setUserId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -562,20 +598,31 @@ function MyStudentsContent() {
   const [selectedStudentKey, setSelectedStudentKey] = useState<string | null>(null)
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
-  const [editingSession, setEditingSession] = useState<StudentSession | null>(
-    null
-  )
+  const [editingSession, setEditingSession] = useState<StudentSession | null>(null)
   const [editDate, setEditDate] = useState("")
   const [editTimeIn, setEditTimeIn] = useState("")
   const [editTimeOut, setEditTimeOut] = useState("")
+  const [editStatus, setEditStatus] = useState("")
+  const [voidReason, setVoidReason] = useState("")
+  const [sessionStatusOptions, setSessionStatusOptions] = useState<{attendance_session_status_id: string; code: string; name: string}[]>([])
   const [editTermRange, setEditTermRange] = useState<{ start_date: string; end_date: string } | null>(null)  
   const [editTimeError, setEditTimeError] = useState<string>("")
   const [isPending, startTransition] = useTransition()
+
+  const [addingSession, setAddingSession] = useState(false)
+  const [newSessionDate, setNewSessionDate] = useState("")
+  const [newSessionTimeIn, setNewSessionTimeIn] = useState("")
+  const [newSessionTimeOut, setNewSessionTimeOut] = useState("")
+  const [newSessionStatus, setNewSessionStatus] = useState("")
+  const [newSessionError, setNewSessionError] = useState("")
+  
   const [resolutionNote, setResolutionNote] = useState("")
-
-  const isSaveDisabled = !editDate || !editTimeIn || !editTimeOut || !!editTimeError ||
-  (editingSession != null && editDate === formatDate(editingSession.date) && editTimeIn === to24HourFormat(editingSession.timeIn) && editTimeOut === to24HourFormat(editingSession.timeOut))
-
+  
+  const selectedStatusOption = sessionStatusOptions.find((opt) => opt.attendance_session_status_id === editStatus)
+  const isVoidedSelected = selectedStatusOption?.code === "voided"
+  const isSaveDisabled = !editDate || !editTimeIn || !editTimeOut || !editStatus || !!editTimeError ||
+  (editingSession != null && editDate === formatDate(editingSession.date) && editTimeIn === to24HourFormat(editingSession.timeIn) && editTimeOut === to24HourFormat(editingSession.timeOut) && editStatus === editingSession.statusId)
+  const isAddSaveDisabled = !newSessionDate || !newSessionTimeIn || !newSessionTimeOut || !!newSessionError
   // fetch student requests from database
   const refreshRequests = async () => {
     const res = await getAdviserPendingRequests()
@@ -593,6 +640,13 @@ function MyStudentsContent() {
     }, 600)
     return () => clearTimeout(timeoutId)
   }, [editDate, editTimeIn, editTimeOut, editTermRange])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setNewSessionError(validateEditTimeEdit(newSessionDate, newSessionTimeIn, newSessionTimeOut, editTermRange))
+    }, 600)
+    return () => clearTimeout(timeoutId)
+  }, [newSessionDate, newSessionTimeIn, newSessionTimeOut, editTermRange])
 
   const fetchStatsAndSections = useCallback(async (userId: string) => {
     const { data: statData, error: statError } = await supabase.rpc("get_students_stats", { p_adviser_user_id: userId })
@@ -638,7 +692,11 @@ function MyStudentsContent() {
         .select(`appeal_type_id, name`)
         .order("name")
       if (requestTypeData) setRequestTypes(requestTypeData)
-
+      
+      
+      // fetch session status
+      const {data: sessionStatusData } = await supabase.from("attendance_session_status").select(`*`).order("name")
+      if (sessionStatusData) setSessionStatusOptions(sessionStatusData)
       await Promise.all([
         fetchStatsAndSections(user.id),
         fetchStudents(user.id),
@@ -822,6 +880,7 @@ function MyStudentsContent() {
       date: formatDateReadable(editDate),
       timeIn: to12HourFormat(editTimeIn),
       timeOut: to12HourFormat(editTimeOut),
+      statusId:editStatus
     }
 
     const updatedSessions = selectedStudent.sessions.map((s) =>
@@ -840,6 +899,8 @@ function MyStudentsContent() {
       p_session_date: editDate,
       p_time_in: editTimeIn,
       p_time_out: editTimeOut,
+      p_attendance_session_status_id: editStatus,
+      p_void_reason: isVoidedSelected ? voidReason : null
     })
 
     if (error) {
@@ -863,6 +924,29 @@ function MyStudentsContent() {
     await fetchStudents(userId)
   }
 
+  async function handleAddSession() {
+    const validationError = validateEditTimeEdit(newSessionDate, newSessionTimeIn, newSessionTimeOut, editTermRange)
+    setNewSessionError(validationError)
+    if (validationError || !selectedStudent || !userId) return
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error } = await supabase.rpc("create_attendance_session", {
+      p_enrollment_id: selectedStudent.enrollment_id,
+      p_session_date: newSessionDate,
+      p_time_in: newSessionTimeIn,
+      p_time_out: newSessionTimeOut,
+    })
+
+    if (error) {
+      console.error("create_attendance_session error:", error.message, error.details)
+      return
+    }
+
+    setAddingSession(false)
+    await fetchStudents(userId)
+  }
+
   function validateEditTimeEdit(
     date: string,
     timeIn: string,
@@ -870,6 +954,10 @@ function MyStudentsContent() {
     termRange: { start_date: string; end_date: string } | null
   ): string {
     if (!date || !timeIn || !timeOut) return ""
+
+    if (date > today) {
+      return "Date cannot be in the future."
+    }
 
     if (termRange) {
       if (date < termRange.start_date || date > termRange.end_date) {
@@ -898,6 +986,17 @@ function MyStudentsContent() {
       Others: { bg: "#F3F4F6", color: "#374151" },
     }
     return map[type] ?? { bg: "#F3F4F6", color: "#374151" }
+  }
+
+  function sessionStatusStyle(status: string): { bg: string; color: string } {
+    const map: Record<string, { bg: string; color: string }> = {
+      ongoing: { bg: "#D1FAE5", color: "#065F46" },
+      completed: { bg: "#D1FAE5", color: "#065F46" },
+      "under review": { bg: "#FEF3C7", color: "#92400E" }, //im not sure if gagamitin talaga
+      flagged: { bg: "#FEE2E2", color: "#991B1B" },
+      voided: { bg: "#F3F4F6", color: "#374151" },
+    }
+    return map[status] ?? { bg: "#F3F4F6", color: "#374151" }
   }
 
   const EXPORT_COLUMNS: {key: keyof Student; label: string}[] = [
@@ -1492,7 +1591,7 @@ function MyStudentsContent() {
                         <button className="adv-filter-btn" onClick={clearPendingFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
                         </button>
-                      )} */}x
+                      )} */}
                     </div>
                   </div>
 
@@ -1690,7 +1789,7 @@ function MyStudentsContent() {
                 <ModalField label="Classification" value={selectedStudent.classification} />
               </ModalRow>
               <ModalRow>
-                <ModalField label="Site Location" value={selectedStudent.site_location} />
+                <ModalField label="Site Location" value={selectedStudent.site_location ? selectedStudent.site_location : "Not Assigned to a Location Yet"} />
                 <ModalField label="Status">
                   <span className="ms-status-badge" style={{ background: statusConfig[selectedStudent.status].bg, color: statusConfig[selectedStudent.status].color }}>
                     {statusConfig[selectedStudent.status].label}
@@ -1713,19 +1812,40 @@ function MyStudentsContent() {
               <ModalField label="Progress">
                 <div className="ms-hours-label" style={{ marginTop: 6 }}>
                   <span>{selectedStudent.hours_logged} / {selectedStudent.total_hours} hrs</span>
-                  <span>{Math.round((selectedStudent.hours_logged / selectedStudent.total_hours) * 100)}%</span>
+                  <span>{selectedStudent.completion_percentage}%</span>
                 </div>
                 <div className="ms-hours-track">
-                  <div className="ms-hours-fill" style={{ width: `${Math.round((selectedStudent.hours_logged / selectedStudent.total_hours) * 100)}%`, background: progressColor(selectedStudent.status) }} />
+                  <div className="ms-hours-fill" style={{ width: `${selectedStudent.completion_percentage}%`, background: progressColor(selectedStudent.status) }} />
                 </div>
               </ModalField>
             </>
           )}
-          rightTitle="Session History"
           rightContent={selectedStudent && (
-            selectedStudent.sessions.length === 0 ? (
-              <div className="ms-session-empty">No sessions logged yet.</div>
-            ) : (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div className="ms-modal-right-title">Daily Time Record</div>
+                <button
+                  className="ms-session-add-btn"
+                  onClick={async () => {
+                    setNewSessionDate("")
+                    setNewSessionTimeIn("")
+                    setNewSessionTimeOut("")
+                    setNewSessionStatus("")
+                    setNewSessionError("")
+                    setEditTermRange(null)
+                    const { data, error } = await supabase.rpc("get_section_term_range", { p_section_id: selectedStudent.section_id })
+                    if (!error && data && data.length > 0) setEditTermRange(data[0])
+                    setAddingSession(true)
+                  }}
+                >
+                  <IconPlus size={14} stroke={1.75} />
+                  Add Session
+                </button>
+              </div>
+
+              {selectedStudent.sessions.length === 0 ? (
+                <div className="ms-session-empty">No sessions logged yet.</div>
+                ) : (
               <div className="ms-session-table-wrapper">
                 <table className="ms-session-table">
                   <thead>
@@ -1734,28 +1854,42 @@ function MyStudentsContent() {
                       <th>Time In</th>
                       <th>Time Out</th>
                       <th>Hours</th>
+                      <th>Status</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedStudent.sessions.map((sess, i) => (
-                      <tr key={i}>
+                      <tr key={sess.id}>
                         <td>{sess.date}</td>
                         <td>{sess.timeIn}</td>
                         <td>{sess.timeOut}</td>
                         <td>{sess.hours}</td>
                         <td>
-                          <button className="ms-session-action-btn" onClick={async (e) => {
+                          <span
+                            className="ms-session-status-badge"
+                            style={{background: sessionStatusStyle(sess.status).bg, color: sessionStatusStyle(sess.status).color}}
+                          >
+                            {sess.status.charAt(0).toUpperCase() + sess.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="flex flex-row gap-1">
+                          <button title="Edit Session" className="ms-session-action-btn" onClick={async (e) => {
                             e.stopPropagation()
                             setEditingSession(sess)
                             setEditDate(formatDate(sess.date))
                             setEditTimeIn(to24HourFormat(sess.timeIn))
                             setEditTimeOut(to24HourFormat(sess.timeOut))
                             setEditTermRange(null)
+                            setEditStatus(sess.statusId)
+                            setVoidReason("")
                             const { data, error } = await supabase.rpc("get_section_term_range", { p_section_id: selectedStudent.section_id })
                             if (!error && data && data.length > 0) setEditTermRange(data[0])
                           }}>
-                            <IconPencil size={14} stroke={1.75} />
+                            <IconPencil size={14} stroke={1.75}/>
+                          </button>
+                          <button title="View Location" className="ms-session-action-btn">
+                            <RiRoadMapLine size={14}/>
                           </button>
                         </td>
                       </tr>
@@ -1763,7 +1897,8 @@ function MyStudentsContent() {
                   </tbody>
                 </table>
               </div>
-            )
+            )}
+            </div>
           )}
         />
 
@@ -1820,6 +1955,57 @@ function MyStudentsContent() {
         </NstpModal>
 
         <NstpModal
+          open={addingSession}
+          onClose={() => setAddingSession(false)}
+          title="Add Session"
+          size="sm"
+        >
+          <ModalField label="Date">
+            <input
+              type="date"
+              className="ms-edit-input"
+              value={newSessionDate}
+              max={today}
+              onChange={(e) => setNewSessionDate(e.target.value)}
+            />
+          </ModalField>
+          <ModalRow>
+            <ModalField label="Time In">
+              <input
+                type="time"
+                className="ms-edit-input"
+                value={newSessionTimeIn}
+                onChange={(e) => setNewSessionTimeIn(e.target.value)}
+              />
+            </ModalField>
+            <ModalField label="Time Out">
+              <input
+                type="time"
+                className="ms-edit-input"
+                value={newSessionTimeOut}
+                onChange={(e) => setNewSessionTimeOut(e.target.value)}
+              />
+            </ModalField>
+          </ModalRow>
+          {newSessionError && (
+            <div style={{ fontSize: 12.5, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "8px 12px" }}>
+              {newSessionError}
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button className="ms-edit-cancel-btn" onClick={() => setAddingSession(false)}>Cancel</button>
+            <button
+              className="ms-edit-save-btn"
+              onClick={handleAddSession}
+              disabled={isAddSaveDisabled}
+              style={{ opacity: isAddSaveDisabled ? 0.4 : 1, cursor: isAddSaveDisabled ? "not-allowed" : "pointer" }}
+            >
+              Add
+            </button>
+          </div>
+        </NstpModal>
+
+        <NstpModal
           open={exportStudent}
           onClose={() => setExportStudent(false)}
           title="Export Students"
@@ -1858,12 +2044,12 @@ function MyStudentsContent() {
 
         <NstpModal
           open={!!editingSession}
-          onClose={() => { setEditingSession(null); setEditTermRange(null) }}
+          onClose={() => { setEditingSession(null); setEditTermRange(null); setEditStatus(""); setVoidReason("")}}
           title="Edit Session"
           size="sm"
         >
           <ModalField label="Date">
-            <input type="date" className="ms-edit-input" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+            <input type="date" max={today} className="ms-edit-input" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
           </ModalField>
           <ModalRow>
             <ModalField label="Time In">
@@ -1873,11 +2059,31 @@ function MyStudentsContent() {
               <input type="time" className="ms-edit-input" value={editTimeOut} onChange={(e) => setEditTimeOut(e.target.value)} />
             </ModalField>
           </ModalRow>
+          <ModalField label="Status">
+            <select
+              className="ms-edit-input"
+              value={editStatus}
+              onChange={(e) => setEditStatus(e.target.value)}
+            >
+              {sessionStatusOptions.filter((opt) => !["ongoing", "flagged", "under review"].includes(opt.code) || opt.attendance_session_status_id === editStatus).map((opt) => (
+                <option key={opt.attendance_session_status_id} value={opt.attendance_session_status_id}>
+                  {opt.name}
+                </option>
+              ))}
+            </select>
+          </ModalField>
+          {isVoidedSelected && (
+            <ModalField label="Reason for Voided Reason (Optional)">
+              <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="Provide the student a justification for voiding this session..."
+                rows={3} style={{ width: "100%", boxSizing: "border-box", marginTop: 6, padding: 10, border: "1px solid var(--border)", borderRadius: 8, outline: "none", resize: "none", fontSize: 13 }} />
+          </ModalField>
+          )}
           {editTimeError && (
             <div style={{ fontSize: 12.5, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "8px 12px" }}>{editTimeError}</div>
           )}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-            <button className="ms-edit-cancel-btn" onClick={() => { setEditingSession(null); setEditTermRange(null) }}>Cancel</button>
+            <button className="ms-edit-cancel-btn" onClick={() => { setEditingSession(null); setEditTermRange(null); setEditStatus(""); setVoidReason("") }}>Cancel</button>
             <button className="ms-edit-save-btn" onClick={handleSaveSession} disabled={isSaveDisabled}
               style={{ opacity: isSaveDisabled ? 0.4 : 1, cursor: isSaveDisabled ? "not-allowed" : "pointer" }}>
               Save
