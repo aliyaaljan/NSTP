@@ -1,6 +1,6 @@
 # Dev Seed — Setup Guide
 
-> ⚠️ **This Supabase project (`kzvkkqpgammbtoubbflo`) is the DEVELOPMENT / isolated backend — not
+> **This Supabase project (`kzvkkqpgammbtoubbflo`) is the DEVELOPMENT / isolated backend — not
 > production.** The app is pre-launch. On deployment, production will use a separate, fresh Supabase
 > backend. Everything here that exists for convenience — seeded test data, the fake `@up.edu.ph`
 > password accounts, the enabled email/password auth provider, and the dev password-login path —
@@ -17,19 +17,33 @@
 | Admin   | `admin.test@up.edu.ph` | admin |
 | Adviser | `adviser.test@up.edu.ph` | adviser |
 | Student | `student.test@up.edu.ph` | student |
+| Student leader | `studentleader.test@up.edu.ph` | student (leader in adviser.test's active class) |
+
+v5 also (optionally, if these real team-member accounts already exist on the
+backend — no-ops otherwise) promotes **rblopez@up.edu.ph** and
+**jbtulic@up.edu.ph** to facilitators with their own class history, and enrolls
+**slimbaro@up.edu.ph**, **jlrabang@up.edu.ph**, **atmendoza5@up.edu.ph**, and
+**apvalido@up.edu.ph** as students in adviser.test's active class.
 
 **Dashboard data:**
-- 3 terms (2 past, 1 current)
-- 4 sections (1 active for adviser.test, 2 completed + 1 active for student.test)
-- 1 geofence
-- 50 synthetic students (no `auth.users` rows → zero MAU cost)
-- ~53 enrollments
-- ~220 attendance sessions, ~380 events
-- 4 appeals (3 in adviser's section, 1 from student.test)
+- 5 terms, all 2nd-semester only (4 past, 1 active) — NSTP 2 only, no NSTP 1, no ROTC
+- 27 sections across 9 facilitators (adviser.test + 6 synthetic advisers + rblopez +
+  jbtulic), with varied history depth and statuses (draft/active/archived/completed,
+  including facilitators with no current-year class) for admin/facilitator UI testing
+- 4 geofences
+- ~175 synthetic students (no `auth.users` rows → zero MAU cost)
+- ~185 enrollments
+- ~1600 attendance sessions, ~3200 events
+- Every class roster follows an hour-tier spread (0%, 20%, 40%, 60%, 80%, 100%, 115%
+  of the 60-hour requirement) by student index, so progress bars/colors vary across
+  every section, not just one flagship class
+- 6 appeals (3 in adviser.test's section, 2 in rblopez's, 1 from student.test), 2 appeal messages
+- 9 required forms (6 on adviser.test's active class, 3 on rblopez's), 6 submissions
 
 **Student test account history:**
-- 2 completed past enrollments (60 hrs each → shown as history)
-- 1 active current enrollment (36 hrs closed + 1 open session)
+- 1 completed + 1 archived past enrollment, 2 dropped enrollments (one in a current
+  active-term class, one in a draft class), 1 active enrollment in adviser.test's
+  class (60% of hour requirement, 12 closed sessions)
 
 ---
 

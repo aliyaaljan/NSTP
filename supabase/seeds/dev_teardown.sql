@@ -10,6 +10,14 @@
 -- Run in: Supabase SQL editor (Dashboard → SQL editor)
 -- Safe to re-run. Leaves lookup/RBAC tables untouched.
 -- After running, you can re-seed with dev_seed.sql.
+--
+-- v5 note: dev_seed.sql now also gives real team-member accounts (rblopez,
+-- jbtulic, etc.) facilitator/student roles and 5eed-prefixed sections/enrollments.
+-- This teardown removes those sections/enrollments (5eed-prefixed) same as any
+-- synthetic one, but does NOT touch the real accounts' app_user row itself
+-- (their app_user_id is their real auth UUID, not 5eed-prefixed) — their role,
+-- college, and component fields are left as last set. Re-running dev_seed.sql
+-- re-applies those fields and recreates their sections from scratch.
 -- ============================================================
 
 -- -- Target sets ----------------------------------------------
