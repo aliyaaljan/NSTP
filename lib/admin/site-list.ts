@@ -134,6 +134,7 @@ export const SITE_LIST_SELECT = `
     section_id,
     course_code,
     adviser_user_id,
+    term:term_id(school_year),
     adviser:adviser_user_id(full_name)
   )
 ` as const
@@ -149,6 +150,7 @@ export interface SiteListDbRow {
     section_id: string
     course_code: string
     adviser_user_id: string | null
+    term: { school_year: string } | null
     adviser: { full_name: string } | null
   } | null
 }
@@ -200,6 +202,7 @@ export function mapSiteListDbRow(row: SiteListDbRow): SiteListRow | null {
   const classLabel = formatClassLabel({
     courseCode: section.course_code,
     facilitatorName: section.adviser?.full_name,
+    schoolYear: section.term?.school_year,
   })
 
   return {
