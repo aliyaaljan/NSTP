@@ -97,7 +97,7 @@ export default function DashboardPage() {
   const [searchVal, setSearchVal] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
-  const [selectedSection, setSelectedSection] = useState("All Sections")
+  const [selectedSection, setSelectedSection] = useState("All Classes")
   const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false)
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -130,13 +130,17 @@ export default function DashboardPage() {
     if (sectionError) console.error(sectionError)
     if (sectionData && dashboardData) {
       const mappedSection = dashboardData.map((r: DashboardRow) => ({
-        id: r.section_id ?? "all",
+        id: r.section_id ?? r.section_name,
         name: r.section_name,
       }))
+      const tierRank = (name: string) =>
+        name === "All Classes" ? 0 : name === "All Active Classes" ? 1 : 2
       const sortedSection = [...mappedSection].sort((a, b) => {
-        if (a.name === "All Sections") return -1
-        if (b.name === "All Sections") return 1
-        return a.name.localeCompare(b.name)
+        const rankDiff = tierRank(a.name) - tierRank(b.name)
+        if (rankDiff !== 0) return rankDiff
+        // Individual classes already arrive most-recent-term-first from
+        // get_sections (ordered by t.start_date desc) — preserve that order.
+        return 0
       })
       setSections(sortedSection)
     }
@@ -184,7 +188,12 @@ export default function DashboardPage() {
     const currentData = dashboardData.find((r) => r.section_name === selectedSection)
     if (!currentData) return null
 
-    const currentSemData = selectedSection === "All Sections" ? activeSemData.slice().sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0] : activeSemData.find((r) => r.section_name === selectedSection)
+    const currentSemData =
+      selectedSection === "All Classes" || selectedSection === "All Active Classes"
+        ? activeSemData
+            .filter((r) => r.remaining_days !== "Semester ended")
+            .sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0]
+        : activeSemData.find((r) => r.section_name === selectedSection)
 
   const statCards = [
     { label: "Total Students", value: currentData.total, Icon: IconUsers, onClick:  () => router.push(`${navRoutes["My Students"]}?tab=list`)},
@@ -202,7 +211,7 @@ export default function DashboardPage() {
     currentPage * pageSize
   )
 
-  const pendingCount = dashboardData.find((r) => r.section_name === "All Sections")?.pending ?? 0
+  const pendingCount = dashboardData.find((r) => r.section_name === "All Active Classes")?.pending ?? 0
 
   return (
     <>
@@ -287,7 +296,7 @@ export default function DashboardPage() {
                   <div>
                     <div className="overview-header">
                       <div className="overview-label">Class Overview</div>
-                      {/* <div style={{ position: "relative" }}>
+                      <div style={{ position: "relative" }}>
                         <div onMouseLeave={() => setSectionDropdownOpen(false)}>
                           <button
                             className="sections-btn"
@@ -337,7 +346,7 @@ export default function DashboardPage() {
                             </div>
                           )}
                         </div>
-                      </div> */}
+                      </div>
                     </div>
                     <div className="stat-cards">
                       {statCards.map(({ label, value, Icon, onClick }) => (
@@ -536,7 +545,7 @@ export default function DashboardPage() {
                       <DonutChart key={sectionKey} pct={currentData.completion_pct} />
                       <div className="completion-meta">
                         <div className="completion-name text-center">
-                          {selectedSection === "All Sections"
+                          {selectedSection === "All Classes" || selectedSection === "All Active Classes"
                             ? "NSTP Overall"
                             : selectedSection}
                         </div>
