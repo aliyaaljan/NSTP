@@ -77,10 +77,10 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
   const displayForms = getFilteredForms()
 
   const getSectionTitle = () => {
-    if (filter === "all") return "All Files"
-    if (filter === "submitted") return "Submitted Files"
-    if (filter === "pending") return "Pending Files"
-    return "Files"
+    if (filter === "all") return "All Forms"
+    if (filter === "submitted") return "Submitted Forms"
+    if (filter === "pending") return "Pending Forms"
+    return "Forms"
   }
 
   const totalItems = displayForms.length
@@ -141,14 +141,14 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
             letterSpacing: "0.5px",
           }}
         >
-          FILES
+          FORMS
         </span>
         <span style={{ 
           fontSize: "11px", 
           color: '#6B7280', 
           fontWeight: 600 
         }}>
-          {submitted.length}/{Forms.length} files submitted
+          {submitted.length}/{Forms.length} Forms submitted
         </span>
       </div>
 
@@ -264,7 +264,7 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
                   e.currentTarget.style.borderColor = isSubmitted ? '#2D6A4F' : '#F3AA2C'
                 }}
               >
-                <i className="ti ti-file-text" style={{ fontSize: isMobile ? "14px" : "16px" }} />
+                <i className="ti ti-Form-text" style={{ fontSize: isMobile ? "14px" : "16px" }} />
                 <span style={{ 
                   fontSize: isMobile ? "6px" : "7px", 
                   fontWeight: 600,
@@ -400,7 +400,7 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
             color: '#6B7280',
             padding: "8px 0",
           }}>
-            No files to show.
+            No Forms to show.
           </span>
         ) : (
           <ul style={{ 
@@ -517,10 +517,10 @@ function FormsFull({
   const visible = getVisibleForms()
 
   const getSectionTitle = () => {
-    if (filter === "all") return "All Files"
-    if (filter === "submitted") return "Submitted Files"
-    if (filter === "pending") return "Pending Files"
-    return "Files"
+    if (filter === "all") return "All Forms"
+    if (filter === "submitted") return "Submitted Forms"
+    if (filter === "pending") return "Pending Forms"
+    return "Forms"
   }
 
   return (
@@ -557,7 +557,7 @@ function FormsFull({
             letterSpacing: "0.5px",
           }}
         >
-          FILES
+          FormS
         </span>
         <span style={{ 
           fontSize: "11px", 
@@ -697,7 +697,7 @@ function FormsFull({
                   color: isSubmitted ? meta.color : '#B8860B',
                 }}
               >
-                <i className="ti ti-file-text" style={{ fontSize: isMobile ? "15px" : "17px" }} />
+                <i className="ti ti-Form-text" style={{ fontSize: isMobile ? "15px" : "17px" }} />
               </span>
 
               <div style={{ flex: 1, minWidth: 0 }}>
