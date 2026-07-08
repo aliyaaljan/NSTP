@@ -208,18 +208,31 @@ DECLARE
   v_time_in    uuid := (SELECT attendance_event_type_id FROM attendance_event_type WHERE code = 'time_in');
   v_time_out   uuid := (SELECT attendance_event_type_id FROM attendance_event_type WHERE code = 'time_out');
   v_manual_src uuid := (SELECT attendance_event_source_id FROM attendance_event_source WHERE code = 'adviser_manual');
-  v_closed     uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'closed');
-  dd int; s timestamptz; e timestamptz; sid uuid;
+  -- NOTE: live DB's attendance_session_status codes have drifted from migrations/app code
+  -- (open/closed/... -> completed/flagged/ongoing/"under review"/voided). Seed uses the live
+  -- codes so it runs against prod as-is; see nstp-schema-drift-remediation memory.
+  v_closed     uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'completed');
+  -- Baguio-area landmarks (rotated per session) so seeded events carry realistic locations:
+  -- UP Baguio Main Campus, UP Baguio Social Hall, UP Baguio Gymnasium, UP Baguio Amphitheater,
+  -- Baguio City Library, Baguio Cathedral, Camp John Hay.
+  v_lats numeric[] := ARRAY[16.411100, 16.410800, 16.412000, 16.411500, 16.412300, 16.413600, 16.401500];
+  v_lngs numeric[] := ARRAY[120.596600, 120.596200, 120.597000, 120.595900, 120.596000, 120.594100, 120.606700];
+  dd int; s timestamptz; e timestamptz; sid uuid; li int; v_lat numeric; v_lng numeric;
 BEGIN
   FOR dd IN 0..p_n-1 LOOP
     s := p_base + (dd * 7 * INTERVAL '1 day') + (p_offset_min * INTERVAL '1 minute');
     e := s + INTERVAL '3 hours';
     sid := gen_random_uuid();
+    li := (dd % array_length(v_lats, 1)) + 1;
+    v_lat := v_lats[li];
+    v_lng := v_lngs[li];
     INSERT INTO attendance_session (attendance_session_id, enrollment_id, attendance_session_status_id, started_at, ended_at)
     VALUES (sid, p_enr, v_closed, s, e);
-    INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id)
-    VALUES (gen_random_uuid(), p_enr, sid, v_time_in,  v_manual_src, s, p_adviser),
-           (gen_random_uuid(), p_enr, sid, v_time_out, v_manual_src, e, p_adviser);
+    INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id,
+                                   generated_latitude, generated_longitude, generated_accuracy_meter,
+                                   scan_latitude, scan_longitude, scan_accuracy_meter)
+    VALUES (gen_random_uuid(), p_enr, sid, v_time_in,  v_manual_src, s, p_adviser, v_lat, v_lng, 12.0, v_lat, v_lng, 12.0),
+           (gen_random_uuid(), p_enr, sid, v_time_out, v_manual_src, e, p_adviser, v_lat, v_lng, 12.0, v_lat, v_lng, 12.0);
   END LOOP;
 END;
 $$ LANGUAGE plpgsql;
@@ -308,7 +321,8 @@ DO $$
 DECLARE
   v_active_st  uuid := (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'active');
   v_adviser_test uuid := (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph');
-  v_open       uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'open');
+  -- NOTE: 'open'/'closed' don't exist on live DB right now — using live codes ongoing/voided.
+  v_open       uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'ongoing');
   v_voided     uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'voided');
   v_time_in    uuid := (SELECT attendance_event_type_id FROM attendance_event_type WHERE code = 'time_in');
   v_manual_src uuid := (SELECT attendance_event_source_id FROM attendance_event_source WHERE code = 'adviser_manual');
@@ -371,8 +385,10 @@ BEGIN
     v_session_id := gen_random_uuid();
     INSERT INTO attendance_session (attendance_session_id, enrollment_id, attendance_session_status_id, started_at, ended_at)
     VALUES (v_session_id, '5eed4902-0000-0000-0000-000000000000', v_open, v_start, NULL);
-    INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id)
-    VALUES (gen_random_uuid(), '5eed4902-0000-0000-0000-000000000000', v_session_id, v_time_in, v_manual_src, v_start, v_adviser_test);
+    INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id,
+                                   generated_latitude, generated_longitude, generated_accuracy_meter, scan_latitude, scan_longitude, scan_accuracy_meter)
+    VALUES (gen_random_uuid(), '5eed4902-0000-0000-0000-000000000000', v_session_id, v_time_in, v_manual_src, v_start, v_adviser_test,
+            16.411100, 120.596600, 12.0, 16.411100, 120.596600, 12.0); -- UP Baguio Main Campus
   END IF;
 
   -- synthetic idx 21: 1 open session only (regular student, currently timed in)
@@ -380,8 +396,10 @@ BEGIN
   v_session_id := gen_random_uuid();
   INSERT INTO attendance_session (attendance_session_id, enrollment_id, attendance_session_status_id, started_at, ended_at)
   VALUES (v_session_id, '5eed4021-0000-0000-0000-000000000000', v_open, v_start, NULL);
-  INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id)
-  VALUES (gen_random_uuid(), '5eed4021-0000-0000-0000-000000000000', v_session_id, v_time_in, v_manual_src, v_start, v_adviser_test);
+  INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id,
+                                 generated_latitude, generated_longitude, generated_accuracy_meter, scan_latitude, scan_longitude, scan_accuracy_meter)
+  VALUES (gen_random_uuid(), '5eed4021-0000-0000-0000-000000000000', v_session_id, v_time_in, v_manual_src, v_start, v_adviser_test,
+          16.412300, 120.596000, 12.0, 16.412300, 120.596000, 12.0); -- Baguio City Library
 
   -- synthetic idx 30: voided session (missed cutoff)
   INSERT INTO attendance_session (attendance_session_id, enrollment_id, attendance_session_status_id, started_at, ended_at, void_reason)
@@ -393,9 +411,11 @@ BEGIN
     v_session_id := gen_random_uuid();
     INSERT INTO attendance_session (attendance_session_id, enrollment_id, attendance_session_status_id, started_at, ended_at)
     VALUES (v_session_id, '5eed4080-0000-0000-0000-000000000000', v_open, v_start, NULL);
-    INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id)
+    INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id,
+                                   generated_latitude, generated_longitude, generated_accuracy_meter, scan_latitude, scan_longitude, scan_accuracy_meter)
     VALUES (gen_random_uuid(), '5eed4080-0000-0000-0000-000000000000', v_session_id, v_time_in, v_manual_src,
-            v_start, (SELECT id FROM auth.users WHERE email = 'rblopez@up.edu.ph'));
+            v_start, (SELECT id FROM auth.users WHERE email = 'rblopez@up.edu.ph'),
+            16.412000, 120.597000, 12.0, 16.412000, 120.597000, 12.0); -- UP Baguio Gymnasium
   END IF;
 
   IF EXISTS (SELECT 1 FROM enrollment WHERE enrollment_id = '5eed4093-0000-0000-0000-000000000000') THEN
