@@ -94,12 +94,15 @@ const studentFilesStyles = `
   
   /* Modal */
   .sf-modal-backdrop { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 100; background: rgba(0,0,0,0.35); backdrop-filter: blur(2px); padding: 16px; }
-  .sf-modal { width: 100%; max-width: 480px; background: #FFFFFF; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: flex; flex-direction: column; }
-  .sf-modal-header { padding: 16px 24px; background: #1B4332; display: flex; align-items: center; justify-content: space-between; }
+  .sf-modal { width: 100%; max-width: 480px; max-height: 90vh; background: #FFFFFF; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: flex; flex-direction: column; }
+  .sf-modal-header { padding: 16px 24px; background: #1B4332; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
   .sf-modal-title { color: #FFFFFF; font-size: 13px; font-weight: 700; }
   .sf-modal-close { background: transparent; border: none; cursor: pointer; color: #FFFFFF; }
-  .sf-modal-body { padding: 24px; overflow-y: auto; display: flex; flex-direction: column; }
-  .sf-modal-footer { padding-top: 16px; border-top: 1px solid #E5E7EB; margin-top: 16px; }
+  .sf-modal-body { padding: 24px; overflow-y: auto; display: flex; flex-direction: column; flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
+  .sf-modal-body::-webkit-scrollbar { width: 4px; }
+  .sf-modal-body::-webkit-scrollbar-track { background: transparent; }
+  .sf-modal-body::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 4px; }
+  .sf-modal-footer { padding-top: 16px; border-top: 1px solid #E5E7EB; margin-top: 16px; flex-shrink: 0; }
 
   /* Add Button & Upload Submit */
   .sf-add-btn-wrapper { display: flex; flex-direction: column; gap: 10px; width: 100%; }
@@ -116,21 +119,28 @@ const studentFilesStyles = `
   .sf-dropdown-item:hover { background: #F5F5F7; }
 
   /* File Preview Cards */
-  .sf-file-grid { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; margin-bottom: 16px; }
-  .sf-file-preview-card { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: #F9FAFB; border-radius: 10px; border: 1px solid #E5E7EB; }
-  .sf-file-preview-icon-wrapper { width: 40px; height: 40px; border-radius: 8px; background: #E8EDE5; display: flex; align-items: center; justify-content: center; color: #1B4332; }
+  .sf-file-grid { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; margin-bottom: 16px; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
+  .sf-file-grid::-webkit-scrollbar { width: 4px; }
+  .sf-file-grid::-webkit-scrollbar-track { background: transparent; }
+  .sf-file-grid::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 4px; }
+  .sf-file-preview-card { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: #F9FAFB; border-radius: 10px; border: 1px solid #E5E7EB; flex-shrink: 0; }
+  .sf-file-preview-icon-wrapper { width: 40px; height: 40px; border-radius: 8px; background: #E8EDE5; display: flex; align-items: center; justify-content: center; color: #1B4332; flex-shrink: 0; }
   .sf-file-preview-info { flex: 1; min-width: 0; }
   .sf-file-preview-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sf-file-preview-meta { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-  .sf-file-preview-type { font-size: 10px; font-weight: 700; color: #FFFFFF; background: #1B4332; padding: 2px 10px; border-radius: 12px; }
+  .sf-file-preview-type { font-size: 10px; font-weight: 700; color: #FFFFFF; background: #1B4332; padding: 2px 10px; border-radius: 12px; flex-shrink: 0; }
   .sf-file-preview-size { font-size: 11px; color: #6B7280; }
-  .sf-file-preview-remove { background: none; border: none; color: #9CA3AF; cursor: pointer; padding: 6px; }
+  .sf-file-preview-remove { background: none; border: none; color: #9CA3AF; cursor: pointer; padding: 6px; flex-shrink: 0; }
   .sf-file-preview-remove:hover { color: #7B1D1D}
   .sf-empty-state { text-align: center; padding: 60px 20px; color: #9CA3AF; display: flex; flex-direction: column; align-items: center; }
-  .sf-link-input-container { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #E8EDE5; border-radius: 10px; border: 1px solid #8AAE8A; margin-bottom: 12px; }
-  .sf-link-input { border: none; outline: none; background: transparent; font-size: 13px; width: 100%; }
-  .sf-link-add-btn { background: #1B4332; color: #FFF; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
-  .sf-link-cancel-btn { background: transparent; border: 1px solid #B0B0B0; padding: 6px 16px; border-radius: 6px; cursor: pointer; }
+  
+  /* Link Input */
+  .sf-link-input-container { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #E8EDE5; border-radius: 10px; border: 1px solid #8AAE8A; margin-bottom: 12px; flex-shrink: 0; width: 100%; }
+  .sf-link-input { border: none; outline: none; background: transparent; font-size: 13px; width: 100%; min-width: 0; font-family: var(--font-montserrat, 'Montserrat', sans-serif); }
+  .sf-link-add-btn { background: #1B4332; color: #FFF; border: none; padding: 6px 24px; border-radius: 6px; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+  .sf-link-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .sf-link-cancel-btn { background: #FFFFFF; border: 1px solid #B0B0B0; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; font-weight: 500; color: #111827; flex-shrink: 0; }
+  .sf-link-cancel-btn:hover { background: #F5F5F5; }
 `
 
 // Types
@@ -307,7 +317,7 @@ export default function StudentFilesPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // --- Handlers ---
+  // Handlers
 
   const handleUploadClick = (form: Form) => {
     setSelectedForm(form)
@@ -504,6 +514,28 @@ export default function StudentFilesPage() {
 
   const isUploadDisabled = () =>
     selectedFiles.length === 0 && links.length === 0
+  
+  // URL Validation
+  const isValidUrl = (url: string) => {
+    if (!url || url.trim() === "") return false
+    
+    try {
+      const urlObj = new URL(url)
+      return urlObj.protocol === "http:" || 
+            urlObj.protocol === "https:" || 
+            urlObj.protocol === "ftp:" ||
+            urlObj.protocol === "ftps:"
+    } catch {
+      const urlPattern = /^(https?:\/\/|ftp:\/\/|ftps:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?(\/.*)?$/i
+      return urlPattern.test(url.trim())
+    }
+  }
+
+  // Merge files and links for display
+  const mergedItems = [
+    ...selectedFiles.map((file) => ({ type: "file" as const, data: file })),
+    ...links.map((link) => ({ type: "link" as const, data: link })),
+  ]
 
   return (
     <>
@@ -954,7 +986,7 @@ export default function StudentFilesPage() {
                           onChange={(e) => setLinkInput(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
-                              if (linkInput.trim().startsWith("http")) {
+                              if (isValidUrl(linkInput.trim())) {
                                 setLinks((p) => [...p, linkInput.trim()])
                                 setLinkInput("")
                                 setShowLinkInput(false)
@@ -968,23 +1000,17 @@ export default function StudentFilesPage() {
                         <button
                           className="sf-link-add-btn"
                           onClick={() => {
-                            if (linkInput.trim().startsWith("http")) {
+                            if (isValidUrl(linkInput.trim())) {
                               setLinks((p) => [...p, linkInput.trim()])
                               setLinkInput("")
                               setShowLinkInput(false)
                             }
                           }}
-                          disabled={
-                            !linkInput.trim() ||
-                            !linkInput.trim().startsWith("http")
-                          }
+                          disabled={!isValidUrl(linkInput.trim())}
+                          style={{ display: "flex", alignItems: "center", gap: "6px" }}
                         >
-                          <IconPlus
-                            size={14}
-                            stroke={2}
-                            style={{ color: "#FFFFFF" }}
-                          />{" "}
-                          Add
+                          <IconPlus size={14} stroke={2} style={{ color: "#FFFFFF", flexShrink: 0 }} />
+                          <span style={{ whiteSpace: "nowrap" }}>Add</span>
                         </button>
                         <button
                           className="sf-link-cancel-btn"
@@ -998,89 +1024,90 @@ export default function StudentFilesPage() {
                       </div>
                     )}
 
-                    {selectedFiles.length > 0 && (
+                    {/* Files & Links Display */}
+                    {mergedItems.length > 0 && (
                       <div className="sf-file-grid">
-                        {selectedFiles.map((file, index) => (
-                          <div key={index} className="sf-file-preview-card">
-                            <div className="sf-file-preview-icon-wrapper">
-                              {getFileIcon(file)}
-                            </div>
-                            <div className="sf-file-preview-info">
-                              <div className="sf-file-preview-name">
-                                {file.name}
-                              </div>
-                              <div className="sf-file-preview-meta">
-                                <span className="sf-file-preview-type">
-                                  FILE
-                                </span>
-                                <span className="sf-file-preview-size">
-                                  {formatFileSize(file.size)}
-                                </span>
-                              </div>
-                            </div>
-                            <button
-                              className="sf-file-preview-remove"
-                              onClick={() =>
-                                setSelectedFiles((p) =>
-                                  p.filter((_, i) => i !== index)
-                                )
-                              }
-                            >
-                              <IconX size={18} stroke={2} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {links.length > 0 && (
-                      <div className="sf-file-grid">
-                        {links.map((link, index) => (
-                          <div key={index} className="sf-file-preview-card">
-                            <div
-                              className="sf-file-preview-icon-wrapper"
-                              style={{
-                                background: "#E8EDE5",
-                                color: "#1B4332",
-                              }}
-                            >
-                              <IconLink size={20} stroke={1.75} />
-                            </div>
-                            <div className="sf-file-preview-info">
-                              <div className="sf-file-preview-name">{link}</div>
-                              <div className="sf-file-preview-meta">
-                                <span
-                                  className="sf-file-preview-type"
-                                  style={{ background: "#1B4332" }}
+                        {mergedItems.map((item, index) => {
+                          if (item.type === "file") {
+                            const file = item.data
+                            return (
+                              <div key={`file-${index}`} className="sf-file-preview-card">
+                                <div className="sf-file-preview-icon-wrapper">
+                                  {getFileIcon(file)}
+                                </div>
+                                <div className="sf-file-preview-info">
+                                  <div className="sf-file-preview-name">
+                                    {file.name}
+                                  </div>
+                                  <div className="sf-file-preview-meta">
+                                    <span className="sf-file-preview-type">
+                                      FILE
+                                    </span>
+                                    <span className="sf-file-preview-size">
+                                      {formatFileSize(file.size)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <button
+                                  className="sf-file-preview-remove"
+                                  onClick={() =>
+                                    setSelectedFiles((p) =>
+                                      p.filter((_, i) => i !== index)
+                                    )
+                                  }
                                 >
-                                  LINK
-                                </span>
+                                  <IconX size={18} stroke={2} />
+                                </button>
                               </div>
-                            </div>
-                            <button
-                              className="sf-file-preview-remove"
-                              onClick={() =>
-                                setLinks((p) => p.filter((_, i) => i !== index))
-                              }
-                            >
-                              <IconX size={18} stroke={2} />
-                            </button>
-                          </div>
-                        ))}
+                            )
+                          } else {
+                            const link = item.data
+                            return (
+                              <div key={`link-${index}`} className="sf-file-preview-card">
+                                <div
+                                  className="sf-file-preview-icon-wrapper"
+                                  style={{
+                                    background: "#E8EDE5",
+                                    color: "#1B4332",
+                                  }}
+                                >
+                                  <IconLink size={20} stroke={1.75} />
+                                </div>
+                                <div className="sf-file-preview-info">
+                                  <div className="sf-file-preview-name">{link}</div>
+                                  <div className="sf-file-preview-meta">
+                                    <span
+                                      className="sf-file-preview-type"
+                                      style={{ background: "#1B4332" }}
+                                    >
+                                      LINK
+                                    </span>
+                                  </div>
+                                </div>
+                                <button
+                                  className="sf-file-preview-remove"
+                                  onClick={() =>
+                                    setLinks((p) => p.filter((_, i) => i !== index))
+                                  }
+                                >
+                                  <IconX size={18} stroke={2} />
+                                </button>
+                              </div>
+                            )
+                          }
+                        })}
                       </div>
                     )}
 
-                    {selectedFiles.length === 0 &&
-                      links.length === 0 &&
-                      !showLinkInput && (
-                        <div className="sf-empty-state">
-                          <IconPlus size={40} stroke={1.5} />
-                          <p>Click "Add" to get started</p>
-                          <p className="sf-empty-sub">
-                            Choose to upload a file or add a link
-                          </p>
-                        </div>
-                      )}
+                    {mergedItems.length === 0 && !showLinkInput && (
+                      <div className="sf-empty-state">
+                        <IconPlus size={40} stroke={1.5} />
+                        <p>Click "Add" to get started</p>
+                        <p className="sf-empty-sub">
+                          Choose to upload a file or add a link
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="sf-modal-footer">
