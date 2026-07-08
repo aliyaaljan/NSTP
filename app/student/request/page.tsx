@@ -731,7 +731,7 @@ export default function RequestsPage() {
         border:1px solid #E5E7EB;
         background:white;
         color:${C.textDark};
-        font-weight:700;
+        font-weight:500;
         font-size:11px;
         cursor:pointer;
         display:flex;
@@ -742,6 +742,7 @@ export default function RequestsPage() {
         .pagination-btn.active {
         background:${C.maroon};
         color:white;
+        font-weight:700;
         }
 
         .pagination-btn.disabled {
