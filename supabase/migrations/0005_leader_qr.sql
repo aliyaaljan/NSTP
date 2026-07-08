@@ -121,7 +121,7 @@ begin
   return query
   select
     s.section_id,
-    public.class_label(s.course_code, au.full_name)               as section_name,
+    public.class_label(s.course_code, au.full_name, t.school_year) as section_name,
     s.course_code,
     s.required_hour_total                                         as required_hours,
     count(e.enrollment_id)                                        as total_students,
@@ -151,6 +151,7 @@ begin
     )                                                             as students
   from        public.section s
   join        public.app_user au on au.app_user_id = s.adviser_user_id
+  join        public.term t on t.term_id = s.term_id
   join        public.enrollment e
     on        e.section_id           = s.section_id
     and       e.enrollment_status_id = v_active_status_id
@@ -169,7 +170,7 @@ begin
     limit 1
   ) open_sess on true
   where s.section_id = v_section_id
-  group by s.section_id, au.full_name, s.course_code, s.required_hour_total;
+  group by s.section_id, au.full_name, s.course_code, s.required_hour_total, t.school_year;
 end;
 $$;
 
