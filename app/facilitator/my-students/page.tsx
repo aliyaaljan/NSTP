@@ -1492,7 +1492,7 @@ function MyStudentsContent() {
                         <button className="adv-filter-btn" onClick={clearPendingFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
                         </button>
-                      )} */}
+                      )} */}x
                     </div>
                   </div>
 
@@ -1823,7 +1823,7 @@ function MyStudentsContent() {
           open={exportStudent}
           onClose={() => setExportStudent(false)}
           title="Export Students"
-          size="sm"
+          size="md"
         >
           {/* <ModalField label="Section">
             <select className="ms-edit-input" value={exportSection} onChange={(e) => setExportSection(e.target.value)}>
@@ -1831,6 +1831,12 @@ function MyStudentsContent() {
             </select>
           </ModalField> */}
           <ModalField label="Choose Columns">
+            <button
+              onClick={() => exportColumns.length > 0 ? setExportColumns([]) : setExportColumns(EXPORT_COLUMNS.map((col) => col.key))}
+              style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 11.5, color: "var(--maroon)", fontWeight: 600, fontFamily: "var(--font)", padding: 0 }}
+            >
+             {exportColumns.length > 0 ? "Deselect All" : "Select All"} 
+            </button>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
               {EXPORT_COLUMNS.map((c) => (
                 <label key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
