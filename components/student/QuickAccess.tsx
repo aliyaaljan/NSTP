@@ -25,6 +25,11 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
     initials: ["JD", "MP", "AS", "RC"],
   }
 
+  // Student data manual data
+  const studentData = {
+    name: "Juan Dela Cruz",
+  }
+
   const filesData = {
     total: 8,
     pending: 2,
@@ -599,6 +604,7 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
         <QrGenerator
           onClose={() => setShowQrGenerator(false)}
           onGenerateSuccess={() => {}}
+          studentName={studentData.name} 
         />
       )}
     </>

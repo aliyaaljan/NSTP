@@ -10,9 +10,10 @@ import { captureGeo, geoErrorMessage } from "@/lib/attendance/geo-client"
 interface QrGeneratorProps {
   onClose: () => void
   onGenerateSuccess?: () => void
+  studentName?: string 
 }
 
-export function QrGenerator({ onClose, onGenerateSuccess }: QrGeneratorProps) {
+export function QrGenerator({ onClose, onGenerateSuccess, studentName }: QrGeneratorProps) {
   const generatingRef = useRef(false)
   const [generated, setGenerated] = useState(false)
   const [token, setToken] = useState<string | null>(null)
@@ -273,6 +274,13 @@ export function QrGenerator({ onClose, onGenerateSuccess }: QrGeneratorProps) {
                 </div>
 
                 <div className="qr-info-grid">
+                  {/* Student name */}
+                  {studentName && (
+                    <div className="qr-info-item">
+                      <span className="qr-info-label">Student:</span>
+                      <span className="qr-info-value">{studentName}</span>
+                    </div>
+                  )}
                   <div className="qr-info-item">
                     <span className="qr-info-label">Location:</span>
                     <span className="qr-info-value">{locationLabel || "—"}</span>
