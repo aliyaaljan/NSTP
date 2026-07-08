@@ -744,7 +744,7 @@ begin
   return query
   select
     s.section_id,
-    public.class_label(s.course_code, v_adviser_name) as section_name,
+    public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
     t.end_date as sem_end_date,
     case
       when floor(t.end_date - current_date) <= 0 then 'Semester ended'
@@ -757,8 +757,7 @@ begin
     end as remaining_days
   from section s
   join term t on t.term_id = s.term_id
-  where s.adviser_user_id = p_adviser_user_id
-    and t.is_active = true;
+  where s.adviser_user_id = p_adviser_user_id;
 end;
 $function$;
 
