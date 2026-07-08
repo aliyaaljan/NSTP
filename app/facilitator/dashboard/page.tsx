@@ -7,13 +7,13 @@ import {
   IconQrcode,
   IconAlertTriangle,
   IconInfoCircle,
-  IconChevronDown,
   IconEye,
   IconAlertCircle,
   IconUsers,
   IconClock,
   IconCircleCheck,
   IconInbox,
+  IconFilter,
 } from "@tabler/icons-react"
 import {
   navRoutes,
@@ -97,10 +97,12 @@ export default function DashboardPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [activeNav, setActiveNav] = useState("Dashboard")
   const [searchVal, setSearchVal] = useState("")
+  const [debouncedSearchVal, setDebouncedSearchVal] = useState("")
+  const [sortOrder, setSortOrder] = useState<"none" | "desc" | "asc">("none")
+  const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [selectedSection, setSelectedSection] = useState("All Classes")
-  const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false)
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [initials, setInitials] = useState("")
@@ -175,6 +177,13 @@ export default function DashboardPage() {
     })
   }, [supabase, fetchDashboardBundle])
 
+  // Debounce search input so filtering the student list doesn't run on
+  // every keystroke — keeps typing smooth once a section has many students.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchVal(searchVal), 250)
+    return () => clearTimeout(t)
+  }, [searchVal])
+
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
     onChange: () => {
@@ -214,10 +223,15 @@ export default function DashboardPage() {
 
   const students = currentData.students ?? []
 
-  const filtered = searchVal.trim() ? students.filter((s) => s.name.toLowerCase().includes(searchVal.toLowerCase())) : students
+  const filtered = debouncedSearchVal.trim() ? students.filter((s) => s.name.toLowerCase().includes(debouncedSearchVal.toLowerCase())) : students
 
-  const totalPages = Math.max(1, Math.ceil(filtered?.length / pageSize))
-  const paginated = filtered?.slice(
+  const sorted =
+    sortOrder === "none"
+      ? filtered
+      : [...filtered].sort((a, b) => (sortOrder === "desc" ? b.pct - a.pct : a.pct - b.pct))
+
+  const totalPages = Math.max(1, Math.ceil(sorted?.length / pageSize))
+  const paginated = sorted?.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   )
@@ -307,72 +321,6 @@ export default function DashboardPage() {
                   <div>
                     <div className="overview-header">
                       <div className="overview-label">Class Overview</div>
-                      <div style={{ position: "relative" }}>
-                        <div onMouseLeave={() => setSectionDropdownOpen(false)}>
-                          <button
-                            className="sections-btn"
-                            onClick={() => setSectionDropdownOpen((o) => !o)}
-                          >
-                            {selectedSection} <IconChevronDown size={13} stroke={2} />
-                          </button>
-
-                          {sectionDropdownOpen && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "100%",
-                                right: 0,
-                                paddingTop: 6,
-                                zIndex: 10,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  background: "var(--white)",
-                                  border: "1px solid var(--border)",
-                                  borderRadius: 10,
-                                  boxShadow: "var(--shadow)",
-                                  width: "max-content",
-                                  minWidth: 160,
-                                  overflow: "hidden",
-                                }}
-                              >
-                                {sections.map((s) => (
-                                  <div
-                                    key={s.id}
-                                    onClick={() => {
-                                      setSelectedSection(s.name)
-                                      setSectionDropdownOpen(false)
-                                      setCurrentPage(1)
-                                      setAnimKey((k) => k + 1)
-                                      setSectionKey((k) => k + 1)
-                                    }}
-                                    className={`flex items-center justify-between gap-3 w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
-                                      s.name === selectedSection ? "font-semibold bg-green text-white" : "font-normal text-text"
-                                    }`}
-                                  >
-                                    <span style={{ whiteSpace: "nowrap" }}>{s.name}</span>
-                                    {s.isActive && (
-                                      <span
-                                        className="adv-badge"
-                                        style={{
-                                          background: s.name === selectedSection ? "rgba(255,255,255,0.25)" : "rgba(27,67,50,0.12)",
-                                          color: s.name === selectedSection ? "#fff" : "var(--green-dark)",
-                                          padding: "2px 9px",
-                                          fontSize: 10.5,
-                                          flexShrink: 0,
-                                        }}
-                                      >
-                                        Active
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
                     </div>
                     <div className="stat-cards">
                       {statCards.map(({ label, value, Icon, onClick }) => (
@@ -390,18 +338,78 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Student Progress */}
-                  <div className="progress-card">
+                  <div className="progress-card" style={{ marginTop: -8 }}>
                     <div className="progress-card-header">
                       <div className="card-title" style={{ marginBottom: 0 }}>
                         Student Progress
                       </div>
-                      {currentSemData?.remaining_days && (
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          {currentSemData.remaining_days}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        {currentSemData?.remaining_days && (
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                            {currentSemData.remaining_days}
+                          </div>
+                        )}
+                        <div style={{ position: "relative" }}>
+                          <div onMouseLeave={() => setSortMenuOpen(false)}>
+                            <button
+                              className="adv-filter-btn"
+                              onClick={() => setSortMenuOpen((o) => !o)}
+                              aria-label="Sort students by progress"
+                              aria-expanded={sortMenuOpen}
+                              style={{ width: 60, height: 38, borderRadius: 999, padding: 0, justifyContent: "center", borderColor: sortOrder !== "none" ? "var(--green-dark)" : undefined }}
+                            >
+                              <IconFilter size={16} stroke={2} />
+                            </button>
+
+                            {sortMenuOpen && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: "100%",
+                                  right: 0,
+                                  paddingTop: 6,
+                                  zIndex: 10,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    background: "var(--white)",
+                                    border: "1px solid var(--border)",
+                                    borderRadius: 10,
+                                    boxShadow: "var(--shadow)",
+                                    width: "max-content",
+                                    minWidth: 190,
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  {[
+                                    { value: "none" as const, label: "Sort: Default" },
+                                    { value: "desc" as const, label: "Progress: High to Low" },
+                                    { value: "asc" as const, label: "Progress: Low to High" },
+                                  ].map((opt) => (
+                                    <div
+                                      key={opt.value}
+                                      onClick={() => {
+                                        setSortOrder(opt.value)
+                                        setSortMenuOpen(false)
+                                        setCurrentPage(1)
+                                        setAnimKey((k) => k + 1)
+                                      }}
+                                      className={`flex items-center justify-between gap-3 w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
+                                        opt.value === sortOrder ? "font-semibold bg-green text-white" : "font-normal text-text"
+                                      }`}
+                                    >
+                                      <span style={{ whiteSpace: "nowrap" }}>{opt.label}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
-                    <div className="student-list" key={animKey}>
+                    <div className={`student-list ${filtered.length === 0 ? "student-list--empty" : ""}`} key={animKey}>
                       {filtered.length === 0 ? (
                         <div className="no-results">
                           No students match your search.
@@ -443,7 +451,7 @@ export default function DashboardPage() {
                           onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
                           style={{ border: "1.5px solid var(--border)", borderRadius: 10, padding: "5px 10px", fontSize: 13, fontFamily: "var(--font)", color: "var(--text)", background: "var(--white)", cursor: "pointer", outline: "none", appearance: "auto", minWidth: 60, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
                         >
-                          {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                          {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
                         </select>
                       </div>
                       <div
@@ -588,7 +596,7 @@ export default function DashboardPage() {
                   <Calendar semEndDate={currentSemData?.sem_end_date} />
                   {/* Recent Activity */}
                   <div className={`activity-card ${recentActivity.length === 0 ? "flex-1" : ""}`} style={{ width: "100%" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, paddingRight: 20 }}>
                       <div className="card-title">Recent Activity</div>
                       <InfoCircle tooltip="All recent activity for the last 7 days." />
                     </div>

@@ -209,7 +209,7 @@ export function ChartStyles() {
         font-weight: 800;
         line-height: 1.1;
         font-family: var(--font);
-        color: var(--maroon);
+        color: var(--text);
         position: relative;
         z-index: 1;
         display: flex;
@@ -252,7 +252,7 @@ export function ChartStyles() {
         align-items: center;
         justify-content: center;
         opacity: 0.12;
-        color: var(--maroon);
+        color: var(--muted);
         pointer-events: none;
         z-index: 0;
         transition: all 0.3s ease;

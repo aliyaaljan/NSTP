@@ -480,18 +480,25 @@ export const dashboardStyles = `
   font-weight: 600;
   border-radius: 999px;
 }  .bottom-row { display: flex; gap: 14px; align-items: flex-start; flex: 1; }
-  .progress-card { height: 100%; display:flex; flex-direction:column; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; align-items: stretch;}
+  .progress-card { display:flex; flex-direction:column; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 20px 18px; box-shadow: var(--shadow); min-width: 0; align-items: stretch;}
   .progress-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .view-all-btn { background: none; border: none; color: var(--maroon); font-weight: 700; cursor: pointer; font-size: 13px; font-family: var(--font); text-decoration: underline; text-underline-offset: 2px; padding: 0; }
-  .student-list { display: flex; flex-direction: column; flex: 1;}
+  .student-list { display: flex; flex-direction: column; }
+  .student-list--empty { flex: 1; }
   .student-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F9FAFB; }
   .student-row:last-child { border-bottom: none; }
   .student-info { flex: 1; min-width: 0; }
   .student-name { font-size: 13px; font-weight: 500; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600; }
   .no-results { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 0; margin-bottom: auto; margin-top: auto; }
-  .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
-  .activity-card-scroll {overflow-y: auto; max-height: 235px; padding-right: 8px;}
+  .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 0 18px 20px; box-shadow: var(--shadow); }
+  .activity-card-scroll {
+    overflow-y: auto; max-height: 235px;
+    scrollbar-width: thin; scrollbar-color: #CFCFCB transparent;
+    padding-right: 12px;
+  }
+  .activity-card-scroll::-webkit-scrollbar { width: 5px; }
+  .activity-card-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
   .activity-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 0 12px; gap: 8px; }
   .activity-empty-icon { width: 36px; height: 36px; border-radius: 50%; background: #F3F4F6; display: flex; align-items: center; justify-content: center; color: var(--light); }
   .activity-empty-text { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.5; }
@@ -505,7 +512,7 @@ export const dashboardStyles = `
   .cal-nav-btn:hover { background: var(--border); color: var(--text); }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.28em; }
   .cal-day-label { display: flex; align-items: center; justify-content: center; font-size: 0.72em; font-weight: 700; color: var(--muted); padding: 0 0 0.2em; text-transform: uppercase; letter-spacing: 0.04em; }
-  .cal-cell { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 0.92em; color: var(--text); cursor: default; line-height: 1; }
+  .cal-cell { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 1.05em; color: var(--text); cursor: default; line-height: 1; }
   .cal-day-num { position: relative; z-index: 1; }
   .cal-cell.cal-empty { visibility: hidden; }
   .cal-cell.cal-today,
@@ -535,6 +542,13 @@ export const dashboardStyles = `
   .ic-btn-active { color: var(--muted) !important; }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  /* ── Responsive dashboard layout ── */
+  @media (max-width: 980px) {
+    .dashboard-layout { flex-direction: column; }
+    .right-panel { width: 100%; }
+    .activity-card { width: 100%; }
+  }
 
   /* ── Sub-page shared layout (My Students, Forms, Group Summary) ── */
   button.db-kpi-card {
