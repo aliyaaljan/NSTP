@@ -101,10 +101,12 @@ declare
   v_active_status_id uuid;
   v_open_status_id   uuid;
   v_closed_status_id uuid;
+  v_corrected_status_id uuid;
 begin
   select enrollment_status_id         into v_active_status_id from public.enrollment_status         where code = 'active';
   select attendance_session_status_id into v_open_status_id   from public.attendance_session_status where code = 'open';
   select attendance_session_status_id into v_closed_status_id from public.attendance_session_status where code = 'closed';
+  select attendance_session_status_id into v_corrected_status_id from public.attendance_session_status where code = 'corrected';
 
   -- Resolve the one active section the caller leads
   select e.section_id into v_section_id
@@ -162,7 +164,7 @@ begin
     select coalesce(sum(sess.duration_minute), 0)::int as minutes_rendered
     from   public.attendance_session sess
     where  sess.enrollment_id               = e.enrollment_id
-      and  sess.attendance_session_status_id = v_closed_status_id
+      and  sess.attendance_session_status_id in (v_closed_status_id, v_corrected_status_id)
   ) hrs on true
   left join lateral (
     select sess.attendance_session_id, sess.started_at
@@ -587,7 +589,7 @@ begin
       on att.enrollment_id = e.enrollment_id
       and att.attendance_session_status_id not in (
             select attendance_session_status_id from attendance_session_status
-            where code in ('voided', 'open', 'under_appeal')
+            where code in ('voided', 'open')
           )
     where e.enrollment_status_id in (
             select enrollment_status_id from enrollment_status where code in ('active', 'completed')
@@ -795,7 +797,7 @@ begin
     where (att.attendance_session_status_id is null
            or att.attendance_session_status_id not in (
              select attendance_session_status_id from attendance_session_status
-             where code in ('voided', 'open', 'under_appeal')
+             where code in ('voided', 'open')
            ))
       and e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
@@ -874,7 +876,7 @@ begin
       on att.enrollment_id = e.enrollment_id
       and att.attendance_session_status_id not in (
             select attendance_session_status_id from attendance_session_status
-            where code in ('voided', 'open', 'under_appeal')
+            where code in ('voided', 'open')
           )
     where e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
@@ -900,7 +902,7 @@ begin
     from attendance_session att
     where att.attendance_session_status_id not in (
             select attendance_session_status_id from attendance_session_status
-            where code in ('voided', 'open', 'under_appeal')
+            where code in ('voided', 'open')
           )
     group by att.enrollment_id
   )

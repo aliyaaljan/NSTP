@@ -43,7 +43,7 @@ create table attendance_event_source (
 
 create table attendance_session_status (
   attendance_session_status_id uuid primary key default gen_random_uuid(),
-  code text not null unique,          -- 'open'|'closed'|'auto_closed'|'voided'|'under_appeal'|'corrected'
+  code text not null unique,          -- 'open'|'closed'|'voided'|'corrected'
   name text not null
 );
 
@@ -199,6 +199,8 @@ create table attendance_session (
   duration_minute              integer generated always as
                                  (floor(extract(epoch from (ended_at - started_at)) / 60)::int) stored,
   void_reason                  text,
+  is_flagged                   boolean not null default false,   -- advisory flag (e.g. off-site at time-out); session still counts
+  flag_reason                  text,                             -- human-readable reason the session was flagged
   created_at                   timestamptz not null default now(),
   updated_at                   timestamptz not null default now()
 );
@@ -492,13 +494,13 @@ insert into attendance_event_source (code, name) values
   ('system_auto',    'System Automatic')
 on conflict (code) do nothing;
 
+-- Session lifecycle (mutually exclusive). Off-site is an advisory boolean (attendance_session.is_flagged),
+-- not a status; "under appeal" is derived from the appeal table. See docs/DECISIONS.md.
 insert into attendance_session_status (code, name) values
-  ('open',         'Open'),
-  ('closed',       'Closed'),
-  ('auto_closed',  'Auto-Closed (geofence exit)'),
-  ('voided',       'Voided (forgot to time out)'),
-  ('under_appeal', 'Under Appeal'),
-  ('corrected',    'Corrected')
+  ('open',      'Open'),        -- timed in, not yet timed out
+  ('closed',    'Closed'),      -- completed (normal time-out or manual add)
+  ('voided',    'Voided'),      -- auto-voided at daily cutoff, or manually voided; does not count
+  ('corrected', 'Corrected')    -- existing session whose times were adjusted via a correcting event
 on conflict (code) do nothing;
 
 insert into appeal_status (code, name) values

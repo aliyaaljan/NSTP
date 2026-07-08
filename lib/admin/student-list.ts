@@ -107,7 +107,7 @@ export const ENROLLMENT_LIST_SELECT = `
     term:term_id(school_year),
     app_user:adviser_user_id(full_name)
   ),
-  attendance_session(duration_minute)
+  attendance_session(duration_minute, attendance_session_status(code))
 ` as const
 
 /** Raw row shape returned by `ENROLLMENT_LIST_SELECT`. */
@@ -128,7 +128,10 @@ export interface EnrollmentListDbRow {
     term: { school_year: string } | null
     app_user: { full_name: string } | null
   } | null
-  attendance_session: Array<{ duration_minute: number | null }> | null
+  attendance_session: Array<{
+    duration_minute: number | null
+    attendance_session_status: { code: string } | { code: string }[] | null
+  }> | null
 }
 
 export function mapEnrollmentToStudentListRow(
@@ -139,11 +142,16 @@ export function mapEnrollmentToStudentListRow(
   if (!student || !section) return null
 
   const hoursRequired = section.required_hour_total ?? 60
+  // Count completed sessions only: 'closed' (normal/manual) + 'corrected' (edited).
   const studentMinutes =
-    row.attendance_session?.reduce(
-      (sum, session) => sum + (session.duration_minute ?? 0),
-      0
-    ) ?? 0
+    row.attendance_session?.reduce((sum, session) => {
+      const st = Array.isArray(session.attendance_session_status)
+        ? session.attendance_session_status[0]
+        : session.attendance_session_status
+      return st?.code === "closed" || st?.code === "corrected"
+        ? sum + (session.duration_minute ?? 0)
+        : sum
+    }, 0) ?? 0
   const hoursCompleted = Math.round(studentMinutes / 60)
   const pct = completionPct(hoursCompleted, hoursRequired)
   const adviserName = section.app_user?.full_name ?? "Unassigned"

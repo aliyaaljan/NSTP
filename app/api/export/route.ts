@@ -152,7 +152,7 @@ export async function GET(request: Request) {
             enrollment_id,
             app_user(full_name, email, student_number),
             section!inner(course_code, required_hour_total, term:term_id(school_year), app_user(full_name)),
-            attendance_session(duration_minute)
+            attendance_session(duration_minute, attendance_session_status(code))
           `
           )
           .eq("enrollment_status_id", activeStatusId)
@@ -176,11 +176,16 @@ export async function GET(request: Request) {
 
         rawEnrollments.forEach((en: any) => {
           const targetHours = en.section?.required_hour_total || 60
+          // Count completed sessions only: 'closed' (normal/manual) + 'corrected' (edited).
           const totalMinutes =
-            en.attendance_session?.reduce(
-              (sum: number, s: any) => sum + (s.duration_minute || 0),
-              0
-            ) || 0
+            en.attendance_session?.reduce((sum: number, s: any) => {
+              const st = Array.isArray(s.attendance_session_status)
+                ? s.attendance_session_status[0]
+                : s.attendance_session_status
+              return st?.code === "closed" || st?.code === "corrected"
+                ? sum + (s.duration_minute || 0)
+                : sum
+            }, 0) || 0
           const hoursRendered = parseFloat((totalMinutes / 60).toFixed(1))
           const pct = Math.min(
             100,

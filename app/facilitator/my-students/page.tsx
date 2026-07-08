@@ -990,11 +990,10 @@ function MyStudentsContent() {
 
   function sessionStatusStyle(status: string): { bg: string; color: string } {
     const map: Record<string, { bg: string; color: string }> = {
-      ongoing: { bg: "#D1FAE5", color: "#065F46" },
-      completed: { bg: "#D1FAE5", color: "#065F46" },
-      "under review": { bg: "#FEF3C7", color: "#92400E" }, //im not sure if gagamitin talaga
-      flagged: { bg: "#FEE2E2", color: "#991B1B" },
-      voided: { bg: "#F3F4F6", color: "#374151" },
+      open:      { bg: "#DBEAFE", color: "#1E40AF" },
+      closed:    { bg: "#D1FAE5", color: "#065F46" },
+      voided:    { bg: "#F3F4F6", color: "#374151" },
+      corrected: { bg: "#FEF3C7", color: "#92400E" },
     }
     return map[status] ?? { bg: "#F3F4F6", color: "#374151" }
   }
@@ -2065,7 +2064,7 @@ function MyStudentsContent() {
               value={editStatus}
               onChange={(e) => setEditStatus(e.target.value)}
             >
-              {sessionStatusOptions.filter((opt) => !["ongoing", "flagged", "under review"].includes(opt.code) || opt.attendance_session_status_id === editStatus).map((opt) => (
+              {sessionStatusOptions.filter((opt) => !["open", "corrected"].includes(opt.code) || opt.attendance_session_status_id === editStatus).map((opt) => (
                 <option key={opt.attendance_session_status_id} value={opt.attendance_session_status_id}>
                   {opt.name}
                 </option>

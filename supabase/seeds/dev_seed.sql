@@ -208,10 +208,7 @@ DECLARE
   v_time_in    uuid := (SELECT attendance_event_type_id FROM attendance_event_type WHERE code = 'time_in');
   v_time_out   uuid := (SELECT attendance_event_type_id FROM attendance_event_type WHERE code = 'time_out');
   v_manual_src uuid := (SELECT attendance_event_source_id FROM attendance_event_source WHERE code = 'adviser_manual');
-  -- NOTE: live DB's attendance_session_status codes have drifted from migrations/app code
-  -- (open/closed/... -> completed/flagged/ongoing/"under review"/voided). Seed uses the live
-  -- codes so it runs against prod as-is; see nstp-schema-drift-remediation memory.
-  v_closed     uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'completed');
+  v_closed     uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'closed');
   -- Baguio-area landmarks (rotated per session) so seeded events carry realistic locations:
   -- UP Baguio Main Campus, UP Baguio Social Hall, UP Baguio Gymnasium, UP Baguio Amphitheater,
   -- Baguio City Library, Baguio Cathedral, Camp John Hay.
@@ -321,8 +318,7 @@ DO $$
 DECLARE
   v_active_st  uuid := (SELECT enrollment_status_id FROM enrollment_status WHERE code = 'active');
   v_adviser_test uuid := (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph');
-  -- NOTE: 'open'/'closed' don't exist on live DB right now — using live codes ongoing/voided.
-  v_open       uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'ongoing');
+  v_open       uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'open');
   v_voided     uuid := (SELECT attendance_session_status_id FROM attendance_session_status WHERE code = 'voided');
   v_time_in    uuid := (SELECT attendance_event_type_id FROM attendance_event_type WHERE code = 'time_in');
   v_manual_src uuid := (SELECT attendance_event_source_id FROM attendance_event_source WHERE code = 'adviser_manual');

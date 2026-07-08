@@ -57,7 +57,7 @@ begin
       on att.enrollment_id = e.enrollment_id
       and att.attendance_session_status_id not in (
             select attendance_session_status_id from attendance_session_status
-            where code in ('voided', 'open', 'under_appeal')
+            where code in ('voided', 'open')
           )
     where e.enrollment_status_id in (
             select enrollment_status_id from enrollment_status where code in ('active', 'completed')

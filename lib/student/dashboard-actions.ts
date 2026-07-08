@@ -112,13 +112,13 @@ export async function getStudentDashboard(): Promise<ActionResult> {
       .filter(Boolean)
       .slice(0, 4)
 
-    const { data: closedStatus } = await service
+    // Rendered hours count completed sessions only: 'closed' (normal/manual) + 'corrected' (edited via appeal/adviser).
+    const { data: countedStatuses } = await service
       .from("attendance_session_status")
       .select("attendance_session_status_id")
-      .eq("code", "closed")
-      .single()
+      .in("code", ["closed", "corrected"])
 
-    if (!closedStatus) {
+    if (!countedStatuses || countedStatuses.length === 0) {
       return {
         ok: true,
         data: {
@@ -139,9 +139,9 @@ export async function getStudentDashboard(): Promise<ActionResult> {
       .from("attendance_session")
       .select("started_at, duration_minute")
       .eq("enrollment_id", primary.enrollmentId)
-      .eq(
+      .in(
         "attendance_session_status_id",
-        closedStatus.attendance_session_status_id
+        countedStatuses.map((s) => s.attendance_session_status_id)
       )
 
     let totalMinutes = 0

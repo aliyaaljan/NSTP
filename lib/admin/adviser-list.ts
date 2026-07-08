@@ -100,7 +100,7 @@ export const ADVISER_LIST_SELECT = `
     enrollment(
       enrollment_id,
       enrollment_status_id,
-      attendance_session(duration_minute)
+      attendance_session(duration_minute, attendance_session_status(code))
     )
   )
 ` as const
@@ -120,7 +120,10 @@ export interface AdviserListDbRow {
         enrollment: Array<{
           enrollment_id: string
           enrollment_status_id: string
-          attendance_session: Array<{ duration_minute: number | null }> | null
+          attendance_session: Array<{
+            duration_minute: number | null
+            attendance_session_status: { code: string } | { code: string }[] | null
+          }> | null
         }> | null
       }>
     | null
@@ -169,11 +172,16 @@ export function mapAdviserDbRowToListRow(
 
     for (const enrollment of enrollments) {
       studentCount += 1
+      // Count completed sessions only: 'closed' (normal/manual) + 'corrected' (edited).
       const minutes =
-        enrollment.attendance_session?.reduce(
-          (sum, session) => sum + (session.duration_minute ?? 0),
-          0
-        ) ?? 0
+        enrollment.attendance_session?.reduce((sum, session) => {
+          const st = Array.isArray(session.attendance_session_status)
+            ? session.attendance_session_status[0]
+            : session.attendance_session_status
+          return st?.code === "closed" || st?.code === "corrected"
+            ? sum + (session.duration_minute ?? 0)
+            : sum
+        }, 0) ?? 0
       const hoursCompleted = Math.round(minutes / 60)
       completionSum += completionPct(hoursCompleted, hoursRequired)
     }
