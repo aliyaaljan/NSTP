@@ -133,6 +133,12 @@ const studentFilesStyles = `
   .sf-link-cancel-btn { background: transparent; border: 1px solid #B0B0B0; padding: 6px 16px; border-radius: 6px; cursor: pointer; }
 `
 
+// Types
+type SortField = "name" | "deadline" | null
+type SortDirection = "asc" | "desc" | null
+type FilterField = "status"
+type ActiveFilters = Partial<Record<FilterField, string[]>>
+
 interface Form {
   id: string
   name: string
@@ -142,9 +148,6 @@ interface Form {
   submittedFiles?: { name: string; type: string; size: string; url?: string }[]
   submittedLinks?: string[]
 }
-
-type SortField = "name" | "deadline" | null
-type SortDirection = "asc" | "desc" | null
 
 export default function StudentFilesPage() {
   const [forms, setForms] = useState<Form[]>([])
@@ -173,7 +176,50 @@ export default function StudentFilesPage() {
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const pageSize = 5
+  const [pageSize, setPageSize] = useState(5)
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const filterPanelRef = useRef<HTMLDivElement>(null)
+
+  // Filter groups
+  const filterGroups: { label: string; field: FilterField; values: () => string[] }[] = [
+    { label: "Status", field: "status", values: () => ["uploaded", "pending"] },
+  ]
+
+  function toggleFilter(field: FilterField, value: string) {
+    setActiveFilters(prev => {
+      const current = prev[field] ?? []
+      const updated = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value]
+      const next = { ...prev }
+      if (updated.length === 0) delete next[field]
+      else next[field] = updated
+      return next
+    })
+    setCurrentPage(1)
+  }
+
+  function clearAllFilters() {
+    setActiveFilters({})
+    setSearchQuery("")
+    setActiveFilter("All")
+    setCurrentPage(1)
+  }
+
+  // Filter count 
+  const totalActiveFilters = Object.values(activeFilters).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)
+
+  useEffect(() => {
+    if (!showFilterPanel) return
+    function handleClickOutside(e: MouseEvent) {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)) {
+        setShowFilterPanel(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showFilterPanel])
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes"
@@ -334,7 +380,7 @@ export default function StudentFilesPage() {
     }
   }
 
-  // --- Table & Filter Logic ---
+  // Table & Filter Logic 
 
   const uploadedCount = forms.filter((f) => f.status === "uploaded").length
   const totalCount = forms.length
@@ -370,9 +416,23 @@ export default function StudentFilesPage() {
       form.status !== (activeFilter === "Submitted" ? "uploaded" : "pending")
     )
       return false
+
     if (searchQuery.trim() !== "")
       return form.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
-    return true
+
+    const matchFilters = (Object.entries(activeFilters) as [FilterField, string[]][]).every(([field, values]) => {
+      if (!values || values.length === 0) return true
+      if (field === "status") {
+        return values.includes(form.status)
+      }
+      if (field === "hasTemplate") {
+        const label = form.hasTemplate ? "Yes" : "No"
+        return values.includes(label)
+      }
+      return true
+    })
+
+    return matchFilters
   })
 
   const sortedForms = useMemo(() => {
@@ -530,6 +590,7 @@ export default function StudentFilesPage() {
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {/* Search Bar */}
                 <div className="sf-adv-search-bar">
                   <IconSearch size={16} stroke={1.75} color="#6B7280" />
                   <input
@@ -542,9 +603,154 @@ export default function StudentFilesPage() {
                     }}
                   />
                 </div>
-                <button className="sf-adv-filter-btn">
-                  <IconFilter size={16} stroke={2} /> Filter
-                </button>
+
+                {/* Filter Button */}
+                <div ref={filterPanelRef} style={{ position: "relative" }}>
+                  <button
+                    className="sf-adv-filter-btn"
+                    onClick={() => setShowFilterPanel(v => !v)}
+                    style={{
+                      width: 60,
+                      height: 38,
+                      border: `1.5px solid ${totalActiveFilters > 0 ? "#7B1D1D" : "#1B4332"}`,
+                      borderRadius: 999,
+                      background: "white",
+                      color: totalActiveFilters > 0 ? "#7B1D1D" : "#1B4332",
+                      fontSize: 22,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "0.2s ease",
+                      position: "relative",
+                    }}
+                  >
+                    <IconFilter size={18} stroke={1.75} />
+                    {totalActiveFilters > 0 && (
+                      <span style={{
+                        position: "absolute",
+                        top: -6,
+                        right: -6,
+                        background: "#7B1D1D",
+                        color: "#fff",
+                        borderRadius: "50%",
+                        width: 16,
+                        height: 16,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}>
+                        {totalActiveFilters}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Filter Popup */}
+                  {showFilterPanel && (
+                    <div style={{
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      right: 0,
+                      background: "#FFFFFF",
+                      border: "1px solid #E5E7EB",
+                      borderRadius: 14,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                      zIndex: 100,
+                      padding: 16,
+                    }}>
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 12,
+                      }}>
+                        <span style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "#6B7280",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}>Filter</span>
+                        {totalActiveFilters > 0 && (
+                          <button
+                            onClick={clearAllFilters}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: 11.5,
+                              color: "#7B1D1D",
+                              fontWeight: 600,
+                              fontFamily: "var(--font-montserrat, 'Montserrat', sans-serif)",
+                              padding: 0,
+                            }}
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", gap: 24 }}>
+                        {filterGroups.map(({ label, field, values }) => {
+                          const opts = values()
+                          if (opts.length === 0) return null
+                          const checked = activeFilters[field] ?? []
+                          return (
+                            <div key={field} style={{ minWidth: 130 }}>
+                              <div style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: "#111827",
+                                marginBottom: 8,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.4px",
+                              }}>{label}</div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                {opts.map(v => {
+                                  // Format display value
+                                  let displayValue = v
+                                  if (field === "status") {
+                                    displayValue = v === "uploaded" ? "Submitted" : "Pending"
+                                  }
+                                  return (
+                                    <label
+                                      key={v}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        cursor: "pointer",
+                                        fontSize: 13,
+                                        color: "#111827",
+                                        fontFamily: "var(--font-montserrat, 'Montserrat', sans-serif)",
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked.includes(v)}
+                                        onChange={() => toggleFilter(field, v)}
+                                        style={{
+                                          accentColor: "#7B1D1D",
+                                          width: 14,
+                                          height: 14,
+                                          cursor: "pointer",
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                      {displayValue}
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -664,6 +870,38 @@ export default function StudentFilesPage() {
                 >
                   &#8250;
                 </button>
+              </div>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                color: "#6B7280",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              }}>
+                <span>Rows per page:</span>
+                <select
+                  style={{
+                    border: "1.5px solid #E5E7EB",
+                    borderRadius: 8,
+                    padding: "4px 8px",
+                    fontSize: 12,
+                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                    color: "#111827",
+                    background: "#FFFFFF",
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                >
+                  {[5, 10, 20, 50].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
