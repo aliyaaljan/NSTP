@@ -1021,6 +1021,146 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- Attendance corrections/manual-add + daily auto-void.
+-- These two functions previously existed ONLY on the live DB (schema drift) and
+-- were written against the drifted session-status codes. Captured here and
+-- reconciled to the canonical lifecycle (open/closed/voided/corrected).
+-- ---------------------------------------------------------------------------
+
+-- create_attendance_session — facilitator manually adds a completed session
+-- (e.g. overnight work auto-voided at cutoff, or a forgotten re-login after a break).
+-- Modelled append-only: a new session + a correction event sourced adviser_manual.
+create or replace function public.create_attendance_session(
+  p_enrollment_id uuid,
+  p_session_date date,
+  p_time_in time without time zone,
+  p_time_out time without time zone
+)
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_status_id       uuid;
+  v_event_source_id uuid;
+  v_event_type_id   uuid;
+  v_new_session_id  uuid;
+begin
+  -- Authorization: only the enrollment's section adviser or an admin may add a session.
+  if not exists (
+    select 1
+    from enrollment e
+    join section s on s.section_id = e.section_id
+    where e.enrollment_id = p_enrollment_id
+      and (s.adviser_user_id = auth.uid() or public.app_is_admin())
+  ) then
+    raise exception 'not authorized to add a session for this enrollment';
+  end if;
+
+  select atts.attendance_session_status_id into v_status_id
+  from attendance_session_status atts where atts.code = 'closed' limit 1;
+  if v_status_id is null then
+    raise exception 'Status code "closed" not found.';
+  end if;
+
+  select atte.attendance_event_source_id into v_event_source_id
+  from attendance_event_source atte where atte.code = 'adviser_manual' limit 1;
+  if v_event_source_id is null then
+    raise exception 'Event source "adviser_manual" not found.';
+  end if;
+
+  select attt.attendance_event_type_id into v_event_type_id
+  from attendance_event_type attt where attt.code = 'correction' limit 1;
+
+  insert into attendance_session (
+    enrollment_id, started_at, ended_at, attendance_session_status_id
+  )
+  values (
+    p_enrollment_id,
+    (p_session_date + p_time_in)  at time zone 'Asia/Manila',
+    (p_session_date + p_time_out) at time zone 'Asia/Manila',
+    v_status_id
+  )
+  returning attendance_session_id into v_new_session_id;
+
+  insert into attendance_event (
+    enrollment_id, attendance_session_id, attendance_event_type_id,
+    attendance_event_source_id, effective_at
+  )
+  values (
+    p_enrollment_id, v_new_session_id, v_event_type_id, v_event_source_id, now()
+  );
+end;
+$function$;
+
+-- automatic_cut_off_sessions — daily job: void sessions still 'open' past the
+-- section's daily cutoff (Business Rule #1). Voided = did not complete, does not
+-- count; ended_at is left null. Writes an append-only 'void'/'system_auto' event.
+-- (Rewritten: the previous live version referenced non-existent time_in/time_out
+--  columns, wrote to the generated duration_minute, and used undefined variables.)
+create or replace function public.automatic_cut_off_sessions()
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_voided_status_id uuid;
+  v_open_status_id   uuid;
+  v_source_id        uuid;
+  v_type_id          uuid;
+begin
+  select attendance_session_status_id into v_voided_status_id from attendance_session_status where code = 'voided' limit 1;
+  select attendance_session_status_id into v_open_status_id   from attendance_session_status where code = 'open'   limit 1;
+  select attendance_event_source_id   into v_source_id        from attendance_event_source   where code = 'system_auto' limit 1;
+  select attendance_event_type_id     into v_type_id          from attendance_event_type     where code = 'void' limit 1;
+
+  if v_voided_status_id is null or v_open_status_id is null then
+    raise exception 'automatic_cut_off_sessions: required session status codes (voided/open) missing';
+  end if;
+
+  with due as (
+    select att.attendance_session_id, att.enrollment_id
+    from   attendance_session att
+    join   enrollment e on e.enrollment_id = att.enrollment_id
+    join   section     s on s.section_id   = e.section_id
+    where  att.attendance_session_status_id = v_open_status_id
+      and  now() > ((att.started_at at time zone 'Asia/Manila')::date + s.daily_cutoff_time) at time zone 'Asia/Manila'
+  ),
+  voided as (
+    update attendance_session att
+    set    attendance_session_status_id = v_voided_status_id,
+           void_reason = 'Auto-voided: not timed out before the section daily cutoff.'
+    from   due
+    where  att.attendance_session_id = due.attendance_session_id
+    returning att.attendance_session_id, att.enrollment_id
+  )
+  insert into attendance_event (
+    enrollment_id, attendance_session_id, attendance_event_type_id,
+    attendance_event_source_id, effective_at
+  )
+  select v.enrollment_id, v.attendance_session_id, v_type_id, v_source_id, now()
+  from   voided v
+  where  v_type_id is not null and v_source_id is not null;
+end;
+$function$;
+
+-- Lock down the two functions' execute surface.
+revoke execute on function public.create_attendance_session(uuid, date, time, time) from public;
+revoke execute on function public.create_attendance_session(uuid, date, time, time) from anon;
+grant  execute on function public.create_attendance_session(uuid, date, time, time) to authenticated;
+revoke execute on function public.automatic_cut_off_sessions() from public;
+revoke execute on function public.automatic_cut_off_sessions() from anon;
+revoke execute on function public.automatic_cut_off_sessions() from authenticated;
+
+-- Re-affirm the daily cutoff cron (idempotent by job name) where pg_cron is available.
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('automatic-cut-off-sessions', '0 17 * * *', 'select public.automatic_cut_off_sessions();');
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Realtime Broadcast authorization for the per-user "you've been scanned"
 -- signal. recordScan() sends a private broadcast on `attendance-user:<uid>`;
 -- this policy lets an authenticated user RECEIVE only on their own topic, so
