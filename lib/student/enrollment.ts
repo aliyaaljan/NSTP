@@ -6,6 +6,7 @@ import { formatClassLabel } from "@/lib/shared/class-label"
 export type ActiveStudentEnrollment = {
   enrollmentId: string
   adviserName: string | null
+  adviserEmail: string | null
   termEndDate: string | null
   section: {
     section_id: string
@@ -44,7 +45,7 @@ export async function resolveActiveStudentEnrollment(
         course_code,
         required_hour_total,
         section_status_id,
-        adviser:adviser_user_id ( full_name ),
+        adviser:adviser_user_id ( full_name, email ),
         term:term_id ( is_active, school_year, end_date )
       )
     `
@@ -97,6 +98,7 @@ export async function resolveActiveStudentEnrollment(
   return {
     enrollmentId: primary.enrollmentId,
     adviserName: adviser?.full_name ?? null,
+    adviserEmail: adviser?.email ?? null,
     termEndDate: term?.end_date ?? null,
     section: {
       section_id: primary.section.section_id,

@@ -13,6 +13,7 @@ export type StudentDashboardData = {
   studentNumber: string | null
   sectionName: string | null
   adviserName: string | null
+  adviserEmail: string | null
   termEndDate: string | null
   requiredHours: number
   hoursRendered: number
@@ -57,6 +58,7 @@ function emptyDashboard(
     studentNumber,
     sectionName: null,
     adviserName: null,
+    adviserEmail: null,
     termEndDate: null,
     requiredHours: 60,
     hoursRendered: 0,
@@ -124,6 +126,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
           enrollmentId: primary.enrollmentId,
           sectionName: primary.section.label,
           adviserName: primary.adviserName,
+          adviserEmail: primary.adviserEmail,
           termEndDate: primary.termEndDate,
           requiredHours: primary.section.required_hour_total ?? 60,
           classmateCount,
@@ -182,6 +185,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
         studentNumber,
         sectionName: primary.section.label,
         adviserName: primary.adviserName,
+        adviserEmail: primary.adviserEmail,
         termEndDate: primary.termEndDate,
         requiredHours: primary.section.required_hour_total ?? 60,
         hoursRendered: Math.floor(totalMinutes / 60),
