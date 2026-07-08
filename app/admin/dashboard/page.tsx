@@ -394,6 +394,7 @@ export default async function AdminDashboardPage({
           section!section_adviser_user_id_fkey!inner(
             section_id,
             course_code,
+            term:term_id(school_year),
             enrollment(
               enrollment_id,
               enrollment_status_id
@@ -405,6 +406,7 @@ export default async function AdminDashboardPage({
           section!section_adviser_user_id_fkey(
             section_id,
             course_code,
+            term:term_id(school_year),
             enrollment(
               enrollment_id,
               enrollment_status_id
@@ -414,8 +416,8 @@ export default async function AdminDashboardPage({
 
   const enrollmentSelect =
     selectedSection || selectedAdviser
-      ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, course_code, required_hour_total, app_user!inner(full_name)), attendance_session(duration_minute)`
-      : `student_user_id, app_user(full_name, student_number), section(section_id, course_code, required_hour_total, app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
+      ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, course_code, required_hour_total, term:term_id(school_year), app_user!inner(full_name)), attendance_session(duration_minute)`
+      : `student_user_id, app_user(full_name, student_number), section(section_id, course_code, required_hour_total, term:term_id(school_year), app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
 
   // ---  Base Queries ---
   let studentsQuery = supabase
@@ -573,7 +575,7 @@ export default async function AdminDashboardPage({
     //Filter Dropdown for section list lookup
     supabase
       .from("section")
-      .select("section_id, course_code, app_user:adviser_user_id(full_name)"),
+      .select("section_id, course_code, term:term_id(school_year), app_user:adviser_user_id(full_name)"),
     // Filter dropdown for advisers list lookup
     supabase
       .from("app_user")
@@ -604,6 +606,7 @@ export default async function AdminDashboardPage({
     (sectionsFilterRes.data ?? []) as unknown as {
       section_id: string
       course_code: string
+      term: { school_year: string } | null
       app_user: { full_name: string } | null
     }[]
   )
@@ -612,6 +615,7 @@ export default async function AdminDashboardPage({
       label: formatClassLabel({
         courseCode: s.course_code,
         facilitatorName: s.app_user?.full_name,
+        schoolYear: s.term?.school_year,
       }),
     }))
     .sort((a, b) => a.label.localeCompare(b.label))
@@ -682,6 +686,7 @@ export default async function AdminDashboardPage({
     const sectionLabel = formatClassLabel({
       courseCode: sectionData.course_code,
       facilitatorName: sectionData.app_user?.full_name,
+      schoolYear: sectionData.term?.school_year,
     })
     const targetHours = sectionData.required_hour_total || 60
     const studentMinutes =
@@ -803,6 +808,7 @@ export default async function AdminDashboardPage({
         ? formatClassLabel({
             courseCode: sectionRosters[0].course_code,
             facilitatorName: adv.full_name,
+            schoolYear: sectionRosters[0]?.term?.school_year,
           })
         : "Floating"
       return {

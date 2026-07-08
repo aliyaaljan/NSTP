@@ -122,6 +122,7 @@ export const FORM_REQUIREMENT_LIST_SELECT = `
     section_id,
     course_code,
     adviser_user_id,
+    term:term_id(school_year),
     app_user:adviser_user_id(full_name)
   )
 ` as const
@@ -141,6 +142,7 @@ export interface FormRequirementListDbRow {
     section_id: string
     course_code: string
     adviser_user_id: string
+    term: { school_year: string } | null
     app_user: { full_name: string } | null
   } | null
 }
@@ -149,6 +151,7 @@ export interface FormListSectionDbRow {
   section_id: string
   course_code: string
   adviser_user_id: string
+  term: { school_year: string } | null
   app_user: { full_name: string } | null
 }
 
@@ -254,6 +257,7 @@ export function buildFormListRows(
         sectionName: formatClassLabel({
           courseCode: section.course_code,
           facilitatorName: section.app_user?.full_name,
+          schoolYear: section.term?.school_year,
         }),
         adviserName: section.app_user?.full_name ?? "Unassigned",
         submittedCount: submissionCounts.get(countKey) ?? 0,

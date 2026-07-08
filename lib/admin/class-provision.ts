@@ -2,13 +2,18 @@ import "server-only"
 import { lookupId } from "@/lib/lookups"
 import type { ServiceClient } from "@/lib/admin/user-provision"
 
-/** Fallback when a facilitator has no NSTP component on record. */
-const DEFAULT_COURSE_CODE = "NSTP 2 CWTS"
+const DEFAULT_COMPONENT = "CWTS"
 
-/** "CWTS" → "NSTP 2 CWTS"; null/blank → the CWTS default. */
-export function courseCodeFromComponent(componentCode: string | null | undefined): string {
-  const code = (componentCode ?? "").trim().toUpperCase()
-  return code ? `NSTP 2 ${code}` : DEFAULT_COURSE_CODE
+function nstpLevelFromSemester(semester: string | null | undefined): "1" | "2" {
+  return semester === "first" ? "1" : "2"
+}
+
+export function courseCodeFromComponent(
+  componentCode: string | null | undefined,
+  semester: string | null | undefined
+): string {
+  const code = (componentCode ?? "").trim().toUpperCase() || DEFAULT_COMPONENT
+  return `NSTP ${nstpLevelFromSemester(semester)} ${code}`
 }
 
 export type EnsureFacilitatorClassResult =
@@ -28,7 +33,7 @@ export async function ensureFacilitatorClass(
 ): Promise<EnsureFacilitatorClassResult> {
   const { data: term } = await service
     .from("term")
-    .select("term_id")
+    .select("term_id, semester")
     .eq("is_active", true)
     .maybeSingle()
   if (!term) {
@@ -45,7 +50,7 @@ export async function ensureFacilitatorClass(
   }
 
   const componentCode = (adviser.nstp_component as { code?: string } | null)?.code
-  const courseCode = courseCodeFromComponent(componentCode)
+  const courseCode = courseCodeFromComponent(componentCode, term.semester)
   const activeStatusId = await lookupId("section_status", "active")
 
   const { data: existing, error: findError } = await service

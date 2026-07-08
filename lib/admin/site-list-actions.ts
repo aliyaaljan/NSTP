@@ -99,6 +99,7 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
         label: formatClassLabel({
           courseCode: row.course_code as string,
           facilitatorName: (row.adviser as { full_name?: string } | null)?.full_name,
+          schoolYear: activeTerm?.school_year,
         }),
         adviserUserId: (row.adviser_user_id as string | null) ?? "",
         supervisorName:

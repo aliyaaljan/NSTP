@@ -54,20 +54,25 @@ returns text language sql immutable as $$
   end;
 $$;
 
-create or replace function public.class_label(p_course_code text, p_facilitator_name text)
+drop function if exists public.class_label(text, text);
+
+create or replace function public.class_label(p_course_code text, p_facilitator_name text, p_school_year text)
 returns text language sql immutable as $$
   select case
     when coalesce(trim(p_course_code), '') <> '' and coalesce(trim(p_facilitator_name), '') <> ''
       then trim(p_course_code) || ' — ' || public.class_label_surname(p_facilitator_name)
-    when coalesce(trim(p_course_code), '') <> '' then trim(p_course_code)
+           || case when coalesce(trim(p_school_year), '') <> '' then ' · A.Y. ' || trim(p_school_year) else '' end
+    when coalesce(trim(p_course_code), '') <> ''
+      then trim(p_course_code)
+           || case when coalesce(trim(p_school_year), '') <> '' then ' · A.Y. ' || trim(p_school_year) else '' end
     when coalesce(trim(p_facilitator_name), '') <> '' then public.class_label_surname(p_facilitator_name)
     else 'Unassigned class'
   end;
 $$;
 
-revoke execute on function public.class_label(text, text) from public;
-revoke execute on function public.class_label(text, text) from anon;
-grant  execute on function public.class_label(text, text) to authenticated;
+revoke execute on function public.class_label(text, text, text) from public;
+revoke execute on function public.class_label(text, text, text) from anon;
+grant  execute on function public.class_label(text, text, text) to authenticated;
 revoke execute on function public.class_label_surname(text) from public;
 revoke execute on function public.class_label_surname(text) from anon;
 grant  execute on function public.class_label_surname(text) to authenticated;
@@ -116,7 +121,7 @@ begin
   return query
   select
     s.section_id,
-    public.class_label(s.course_code, au.full_name)               as section_name,
+    public.class_label(s.course_code, au.full_name, t.school_year) as section_name,
     s.course_code,
     s.required_hour_total                                         as required_hours,
     count(e.enrollment_id)                                        as total_students,
@@ -146,6 +151,7 @@ begin
     )                                                             as students
   from        public.section s
   join        public.app_user au on au.app_user_id = s.adviser_user_id
+  join        public.term t on t.term_id = s.term_id
   join        public.enrollment e
     on        e.section_id           = s.section_id
     and       e.enrollment_status_id = v_active_status_id
@@ -164,7 +170,7 @@ begin
     limit 1
   ) open_sess on true
   where s.section_id = v_section_id
-  group by s.section_id, au.full_name, s.course_code, s.required_hour_total;
+  group by s.section_id, au.full_name, s.course_code, s.required_hour_total, t.school_year;
 end;
 $$;
 
@@ -576,15 +582,16 @@ begin
             select attendance_session_status_id from attendance_session_status
             where code in ('voided', 'open', 'under_appeal')
           )
-    where e.enrollment_status_id = (
-            select enrollment_status_id from enrollment_status where code = 'active'
+    where e.enrollment_status_id in (
+            select enrollment_status_id from enrollment_status where code in ('active', 'completed')
           )
     group by e.enrollment_id, e.section_id
   ),
   section_stats as (
     select
       s.section_id,
-      public.class_label(s.course_code, v_adviser_name) as section_name,
+      public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
+      t.is_active as term_is_active,
       s.required_hour_total,
       count(sm.enrollment_id)::integer as total,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
@@ -597,11 +604,10 @@ begin
     join enrollment e on e.section_id = s.section_id and e.enrollment_id = sm.enrollment_id
     join app_user u on u.app_user_id = e.student_user_id
     where s.adviser_user_id = p_adviser_user_id
-      and t.is_active = true
-      and e.enrollment_status_id = (
-            select enrollment_status_id from enrollment_status where code = 'active'
+      and e.enrollment_status_id in (
+            select enrollment_status_id from enrollment_status where code in ('active', 'completed')
           )
-    group by s.section_id, s.course_code, s.required_hour_total
+    group by s.section_id, s.course_code, s.required_hour_total, t.school_year, t.is_active
   ),
   pending_appeals as (
     select
@@ -621,10 +627,10 @@ begin
           )
     group by e.section_id
   ),
-  all_sections as (
+  all_classes as (
     select
       null::uuid as section_id,
-      'All Sections'::text as section_name,
+      'All Classes'::text as section_name,
       (select sum(ss.total) from section_stats ss)::integer as total,
       (select coalesce(sum(pa.pending), 0) from pending_appeals pa)::integer as pending,
       (select sum(ss.completed) from section_stats ss)::integer as completed,
@@ -632,6 +638,18 @@ begin
       (select sum(ss.on_track) from section_stats ss)::integer as on_track,
       (select sum(ss.at_risk) from section_stats ss)::integer as at_risk,
       (select jsonb_agg(student) from section_stats ss2, lateral jsonb_array_elements(ss2.students) as student) as students
+  ),
+  all_active_classes as (
+    select
+      null::uuid as section_id,
+      'All Active Classes'::text as section_name,
+      (select coalesce(sum(ss.total), 0) from section_stats ss where ss.term_is_active)::integer as total,
+      (select coalesce(sum(pa.pending), 0) from pending_appeals pa)::integer as pending,
+      (select coalesce(sum(ss.completed), 0) from section_stats ss where ss.term_is_active)::integer as completed,
+      least(round((select sum(ss.completed)::numeric from section_stats ss where ss.term_is_active) / nullif((select sum(ss.total) from section_stats ss where ss.term_is_active), 0) * 100, 2), 100) as completion_pct,
+      (select coalesce(sum(ss.on_track), 0) from section_stats ss where ss.term_is_active)::integer as on_track,
+      (select coalesce(sum(ss.at_risk), 0) from section_stats ss where ss.term_is_active)::integer as at_risk,
+      (select jsonb_agg(student) from section_stats ss2, lateral jsonb_array_elements(ss2.students) as student where ss2.term_is_active) as students
   )
   select
     ss.section_id,
@@ -646,7 +664,9 @@ begin
   from section_stats ss
   left join pending_appeals pa on pa.section_id = ss.section_id
   union all
-  select * from all_sections;
+  select * from all_classes
+  union all
+  select * from all_active_classes;
 end;
 $function$;
 
@@ -666,10 +686,11 @@ begin
   select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
 
   return query
-  select s.section_id, public.class_label(s.course_code, v_adviser_name)
+  select s.section_id, public.class_label(s.course_code, v_adviser_name, t.school_year)
   from section s
   join term t on t.term_id = s.term_id
-  where s.adviser_user_id = p_adviser_user_id and t.is_active = true;
+  where s.adviser_user_id = p_adviser_user_id
+  order by t.start_date desc;
 end;
 $function$;
 
@@ -724,7 +745,7 @@ begin
   return query
   select
     s.section_id,
-    public.class_label(s.course_code, v_adviser_name) as section_name,
+    public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
     t.end_date as sem_end_date,
     case
       when floor(t.end_date - current_date) <= 0 then 'Semester ended'
@@ -737,8 +758,7 @@ begin
     end as remaining_days
   from section s
   join term t on t.term_id = s.term_id
-  where s.adviser_user_id = p_adviser_user_id
-    and t.is_active = true;
+  where s.adviser_user_id = p_adviser_user_id;
 end;
 $function$;
 
@@ -793,7 +813,7 @@ begin
   section_stats as (
     select
       s.section_id,
-      public.class_label(s.course_code, v_adviser_name) as section_name,
+      public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
       count(sm.enrollment_id)::integer as total,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric < s.required_hour_total*60)::integer as in_progress,
@@ -804,7 +824,7 @@ begin
     left join pending_requests pa on pa.section_id = s.section_id
     where s.adviser_user_id = p_adviser_user_id
       and t.is_active = true
-    group by s.section_id, s.course_code
+    group by s.section_id, s.course_code, t.school_year
   ),
   all_sections as (
     select
@@ -879,7 +899,7 @@ begin
   )
   select
     s.section_id,
-    public.class_label(s.course_code, v_adviser_name) as section_name,
+    public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
     u.full_name as student_name,
     u.student_number as student_number,
     u.sais_id::numeric as sais_id,

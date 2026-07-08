@@ -104,7 +104,7 @@ export async function GET(request: Request) {
             `
             full_name,
             email,
-            section!section_adviser_user_id_fkey(section_id, course_code)
+            section!section_adviser_user_id_fkey(section_id, course_code, term:term_id(school_year))
           `
           )
           .eq("role_id", adviserRoleId)
@@ -131,7 +131,11 @@ export async function GET(request: Request) {
             sections.length > 0
               ? sections
                   .map((s: any) =>
-                    formatClassLabel({ courseCode: s.course_code, facilitatorName: adv.full_name })
+                    formatClassLabel({
+                      courseCode: s.course_code,
+                      facilitatorName: adv.full_name,
+                      schoolYear: s.term?.school_year,
+                    })
                   )
                   .join(", ")
               : "Unassigned",
@@ -147,7 +151,7 @@ export async function GET(request: Request) {
             `
             enrollment_id,
             app_user(full_name, email, student_number),
-            section!inner(course_code, required_hour_total, app_user(full_name)),
+            section!inner(course_code, required_hour_total, term:term_id(school_year), app_user(full_name)),
             attendance_session(duration_minute)
           `
           )
@@ -193,6 +197,7 @@ export async function GET(request: Request) {
             formatClassLabel({
               courseCode: en.section?.course_code,
               facilitatorName: en.section?.app_user?.full_name,
+              schoolYear: en.section?.term?.school_year,
             }),
             en.section?.app_user?.full_name || "Unassigned",
             hoursRendered,

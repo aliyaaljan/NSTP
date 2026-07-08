@@ -81,7 +81,7 @@ export async function getStudentListData(
     enrollmentQuery,
     supabase
       .from("section")
-      .select("section_id, course_code, app_user:adviser_user_id(full_name)"),
+      .select("section_id, course_code, term:term_id(school_year), app_user:adviser_user_id(full_name)"),
     supabase.auth.getUser(),
   ])
 
@@ -97,6 +97,7 @@ export async function getStudentListData(
   const sections: StudentListSectionOption[] = ((sectionsRes.data ?? []) as unknown as {
     section_id: string
     course_code: string
+    term: { school_year: string } | null
     app_user: { full_name: string } | null
   }[])
     .map((section) => ({
@@ -104,6 +105,7 @@ export async function getStudentListData(
       label: formatClassLabel({
         courseCode: section.course_code,
         facilitatorName: section.app_user?.full_name,
+        schoolYear: section.term?.school_year,
       }),
     }))
     .sort((a, b) => a.label.localeCompare(b.label))

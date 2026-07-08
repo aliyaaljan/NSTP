@@ -10,11 +10,15 @@ export function extractSurname(fullName: string): string {
 export interface ClassLabelParts {
   courseCode: string | null | undefined
   facilitatorName: string | null | undefined
+  schoolYear?: string | null | undefined
 }
 
-export function formatClassLabel({ courseCode, facilitatorName }: ClassLabelParts): string {
+export function formatClassLabel({ courseCode, facilitatorName, schoolYear }: ClassLabelParts): string {
   const course = (courseCode ?? "").trim()
   const surname = extractSurname(facilitatorName ?? "")
-  if (course && surname) return `${course} — ${surname}`
-  return course || surname || "Unassigned class"
+  const year = (schoolYear ?? "").trim()
+  const yearSuffix = year ? ` · A.Y. ${year}` : ""
+  if (course && surname) return `${course} — ${surname}${yearSuffix}`
+  if (course) return `${course}${yearSuffix}`
+  return surname || "Unassigned class"
 }

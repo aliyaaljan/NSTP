@@ -63,7 +63,7 @@ export async function getFormListData(query: FormListQuery): Promise<FormListPag
       .order("title", { ascending: true }),
     supabase
       .from("section")
-      .select("section_id, course_code, adviser_user_id, app_user:adviser_user_id(full_name)"),
+      .select("section_id, course_code, adviser_user_id, term:term_id(school_year), app_user:adviser_user_id(full_name)"),
     supabase.from("form_requirement_exclusion").select("section_id, form_requirement_id"),
     supabase
       .from("enrollment")
@@ -104,6 +104,7 @@ export async function getFormListData(query: FormListQuery): Promise<FormListPag
       label: formatClassLabel({
         courseCode: section.course_code,
         facilitatorName: section.app_user?.full_name,
+        schoolYear: section.term?.school_year,
       }),
     }))
     .sort((a, b) => a.label.localeCompare(b.label))

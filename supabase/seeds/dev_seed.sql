@@ -143,7 +143,7 @@ VALUES
 
   ('5eed3012-0000-0000-0000-000000000000', '5eed0002-0000-0000-0000-000000000000',
    (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph'),
-   'NSTP 1 CWTS',
+   'NSTP 2 CWTS',
    (SELECT section_status_id FROM section_status WHERE code = 'archived'), 60),
 
   ('5eed3013-0000-0000-0000-000000000000', '5eed0003-0000-0000-0000-000000000000',
@@ -153,14 +153,15 @@ VALUES
 
   ('5eed3014-0000-0000-0000-000000000000', '5eed0004-0000-0000-0000-000000000000',
    (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph'),
-   'NSTP 1 LTS',
+   'NSTP 2 LTS',
    (SELECT section_status_id FROM section_status WHERE code = 'archived'), 60),
 
   -- adviser.test: THE shared active class (QR workflows) -----
+  -- course level follows the active term's semester: 'first' → NSTP 1, else NSTP 2.
   ('5eed3031-0000-0000-0000-000000000000',
    (SELECT term_id FROM term WHERE is_active LIMIT 1),
    (SELECT id FROM auth.users WHERE email = 'adviser.test@up.edu.ph'),
-   'NSTP 2 CWTS',
+   (CASE (SELECT semester FROM term WHERE is_active LIMIT 1) WHEN 'first' THEN 'NSTP 1 CWTS' ELSE 'NSTP 2 CWTS' END),
    (SELECT section_status_id FROM section_status WHERE code = 'active'), 60),
 
   -- student.test's other classes (synthetic advisers) --------
@@ -171,19 +172,19 @@ VALUES
 
   ('5eed3052-0000-0000-0000-000000000000', '5eed0004-0000-0000-0000-000000000000',
    '5eed1002-0000-0000-0000-000000000000',
-   'NSTP 1 LTS',
+   'NSTP 2 LTS',
    (SELECT section_status_id FROM section_status WHERE code = 'archived'), 60),
 
   ('5eed3053-0000-0000-0000-000000000000',
    (SELECT term_id FROM term WHERE is_active LIMIT 1),
    '5eed1003-0000-0000-0000-000000000000',
-   'NSTP 2 CWTS',
+   (CASE (SELECT semester FROM term WHERE is_active LIMIT 1) WHEN 'first' THEN 'NSTP 1 CWTS' ELSE 'NSTP 2 CWTS' END),
    (SELECT section_status_id FROM section_status WHERE code = 'active'), 60),
 
   ('5eed3054-0000-0000-0000-000000000000',
    (SELECT term_id FROM term WHERE is_active LIMIT 1),
    '5eed1001-0000-0000-0000-000000000000',
-   'NSTP 2 LTS',
+   (CASE (SELECT semester FROM term WHERE is_active LIMIT 1) WHEN 'first' THEN 'NSTP 1 LTS' ELSE 'NSTP 2 LTS' END),
    (SELECT section_status_id FROM section_status WHERE code = 'draft'), 60)
 
 ON CONFLICT (section_id) DO NOTHING;

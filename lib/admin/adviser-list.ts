@@ -96,6 +96,7 @@ export const ADVISER_LIST_SELECT = `
     section_id,
     course_code,
     required_hour_total,
+    term:term_id(school_year),
     enrollment(
       enrollment_id,
       enrollment_status_id,
@@ -115,6 +116,7 @@ export interface AdviserListDbRow {
         section_id: string
         course_code: string
         required_hour_total: number | null
+        term: { school_year: string } | null
         enrollment: Array<{
           enrollment_id: string
           enrollment_status_id: string
@@ -151,6 +153,7 @@ export function mapAdviserDbRowToListRow(
     // At most one class per (adviser, term); course_code is uniform across it.
     courseCode: sections[0]?.course_code,
     facilitatorName: row.full_name,
+    schoolYear: sections[0]?.term?.school_year,
   })
   const sortedSections = [...sections]
   const sectionIds = sortedSections.map((s) => s.section_id)

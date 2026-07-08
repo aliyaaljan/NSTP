@@ -127,7 +127,8 @@ export const SECTION_LIST_SELECT = `
   adviser_user_id,
   section_status_id,
   adviser:adviser_user_id(app_user_id, full_name),
-  section_status:section_status_id(section_status_id, code, name)
+  section_status:section_status_id(section_status_id, code, name),
+  term:term_id(school_year)
 ` as const
 
 /** Raw row shape returned by `SECTION_LIST_SELECT`. */
@@ -147,6 +148,7 @@ export interface SectionListDbRow {
     code: string
     name: string
   } | null
+  term: { school_year: string } | null
 }
 
 export const SECTION_STATUS_FILTER_OPTIONS: ReadonlyArray<{
@@ -247,6 +249,7 @@ export function mapSectionDbRowToListRow(
     name: formatClassLabel({
       courseCode: row.course_code,
       facilitatorName: row.adviser?.full_name,
+      schoolYear: row.term?.school_year,
     }),
     courseCode: row.course_code,
     adviserUserId: row.adviser_user_id,
