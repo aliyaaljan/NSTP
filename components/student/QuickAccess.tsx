@@ -1,7 +1,7 @@
 "use client"
 import { 
   IconUsers, 
-  IconEdit, 
+  IconPencil, 
   IconChevronRight, 
   IconQrcode,
   IconInfoCircle,
@@ -513,7 +513,7 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <IconEdit size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textDark} />
+              <IconPencil size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textDark} />
               <span style={{ 
                 fontSize: sizes.textSize, 
                 fontWeight: 700, 
@@ -535,6 +535,8 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
               overflowY: "auto",
               minHeight: 0,
               paddingRight: "2px",
+              scrollbarWidth: "thin",
+              scrollbarColor: `${colors.textMuted} transparent`,
             }}
           >
             {requestData.map((req, i) => {

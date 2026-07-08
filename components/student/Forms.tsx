@@ -146,9 +146,9 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
         <span style={{ 
           fontSize: "11px", 
           color: '#6B7280', 
-          fontWeight: 600 
+          fontWeight: 400 
         }}>
-          {submitted.length}/{Forms.length} Forms submitted
+          {submitted.length}/{Forms.length} forms submitted
         </span>
       </div>
 
@@ -400,7 +400,7 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
             color: '#6B7280',
             padding: "8px 0",
           }}>
-            No Forms to show.
+            No forms to show.
           </span>
         ) : (
           <ul style={{ 
