@@ -54,20 +54,25 @@ returns text language sql immutable as $$
   end;
 $$;
 
-create or replace function public.class_label(p_course_code text, p_facilitator_name text)
+drop function if exists public.class_label(text, text);
+
+create or replace function public.class_label(p_course_code text, p_facilitator_name text, p_school_year text)
 returns text language sql immutable as $$
   select case
     when coalesce(trim(p_course_code), '') <> '' and coalesce(trim(p_facilitator_name), '') <> ''
       then trim(p_course_code) || ' — ' || public.class_label_surname(p_facilitator_name)
-    when coalesce(trim(p_course_code), '') <> '' then trim(p_course_code)
+           || case when coalesce(trim(p_school_year), '') <> '' then ' · A.Y. ' || trim(p_school_year) else '' end
+    when coalesce(trim(p_course_code), '') <> ''
+      then trim(p_course_code)
+           || case when coalesce(trim(p_school_year), '') <> '' then ' · A.Y. ' || trim(p_school_year) else '' end
     when coalesce(trim(p_facilitator_name), '') <> '' then public.class_label_surname(p_facilitator_name)
     else 'Unassigned class'
   end;
 $$;
 
-revoke execute on function public.class_label(text, text) from public;
-revoke execute on function public.class_label(text, text) from anon;
-grant  execute on function public.class_label(text, text) to authenticated;
+revoke execute on function public.class_label(text, text, text) from public;
+revoke execute on function public.class_label(text, text, text) from anon;
+grant  execute on function public.class_label(text, text, text) to authenticated;
 revoke execute on function public.class_label_surname(text) from public;
 revoke execute on function public.class_label_surname(text) from anon;
 grant  execute on function public.class_label_surname(text) to authenticated;
