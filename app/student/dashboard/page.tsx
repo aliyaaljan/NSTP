@@ -301,7 +301,7 @@ export default function StudentDashboardPage() {
                 flexDirection: "column",
                 height: "100%",
               }}>
-                <Documents documents={formsToDocuments(formViews)} />
+                <Documents Forms={formsToDocuments(formViews)} />
               </div>
             </div>
           </div>
@@ -336,7 +336,7 @@ export default function StudentDashboardPage() {
               maxHeight: isMobile ? "500px" : "550px",
               order: isMobile ? 2 : 0,
             }}>
-              <Documents documents={formsToDocuments(formViews)} />
+              <Documents Forms={formsToDocuments(formViews)} />
             </div>
 
             <div style={{ 
