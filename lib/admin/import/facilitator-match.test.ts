@@ -116,4 +116,33 @@ describe("class label helpers", () => {
     )
     expect(formatClassLabel({ courseCode: null, facilitatorName: null })).toBe("Unassigned class")
   })
+
+  it("appends the academic year when provided", () => {
+    expect(
+      formatClassLabel({
+        courseCode: "NSTP 2 CWTS",
+        facilitatorName: "Kimberly P. Paglingayen",
+        schoolYear: "2025-2026",
+      })
+    ).toBe("NSTP 2 CWTS — Paglingayen · A.Y. 2025-2026")
+  })
+
+  it("appends the academic year even with no facilitator name", () => {
+    expect(
+      formatClassLabel({ courseCode: "NSTP 2 CWTS", facilitatorName: null, schoolYear: "2025-2026" })
+    ).toBe("NSTP 2 CWTS · A.Y. 2025-2026")
+  })
+
+  it("omits the year suffix when school year is missing or blank", () => {
+    expect(
+      formatClassLabel({
+        courseCode: "NSTP 2 CWTS",
+        facilitatorName: "Kimberly P. Paglingayen",
+        schoolYear: null,
+      })
+    ).toBe("NSTP 2 CWTS — Paglingayen")
+    expect(
+      formatClassLabel({ courseCode: "NSTP 2 CWTS", facilitatorName: "Paglingayen", schoolYear: "  " })
+    ).toBe("NSTP 2 CWTS — Paglingayen")
+  })
 })
