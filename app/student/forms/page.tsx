@@ -75,7 +75,7 @@ const studentFilesStyles = `
   
   .sf-form-name { display: flex; align-items: center; gap: 10px; font-weight: 500; color: #111827; }
   .sf-form-icon { color: #1B4332; flex-shrink: 0; }
-  .sf-deadline { color: #6B7280; font-size: 13px; text-align: center; }
+  .sf-deadline { color: #6B7280; font-size: 13px; text-align: left; }
   .sf-status-cell { text-align: center; }
   .sf-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; background: #E8EDE5; color: #1B4332; min-width: 100px; justify-content: center; cursor: pointer; }
   .sf-status-badge-submitted { background: #D1FAE5; color: #065F46; }
@@ -153,6 +153,7 @@ interface Form {
   id: string
   name: string
   deadline: string
+  sortDate: Date | null
   status: "uploaded" | "pending"
   hasTemplate: boolean
   submittedFiles?: { name: string; type: string; size: string; url?: string }[]
@@ -183,8 +184,8 @@ export default function StudentFilesPage() {
   const [linkInput, setLinkInput] = useState("")
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [sortField, setSortField] = useState<SortField>(null)
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null)
+  const [sortField, setSortField] = useState<SortField>("deadline")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [pageSize, setPageSize] = useState(5)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
@@ -281,12 +282,26 @@ export default function StudentFilesPage() {
           }
         }
 
+        // Parse date for sorting
+        let sortDate: Date | null = null
+        let formattedDeadline = "—"
+        if (req.due_date) {
+          const dateObj = new Date(req.due_date)
+          if (!isNaN(dateObj.getTime())) {
+            sortDate = dateObj
+            formattedDeadline = dateObj.toLocaleDateString('en-US', { 
+              month: 'long', 
+              day: 'numeric', 
+              year: 'numeric' 
+            })
+          }
+        }
+
         return {
           id: req.form_requirement_id,
           name: req.title,
-          deadline: req.due_date
-            ? new Date(req.due_date).toLocaleDateString()
-            : "—",
+          deadline: formattedDeadline,
+          sortDate: sortDate,
           status:
             req.status === "missing" || req.status === "rejected"
               ? "pending"
@@ -449,10 +464,18 @@ export default function StudentFilesPage() {
     if (!sortField || !sortDirection) return filteredForms
     return [...filteredForms].sort((a, b) => {
       let comparison = 0
-      if (sortField === "name") comparison = a.name.localeCompare(b.name)
-      else if (sortField === "deadline")
-        comparison =
-          new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+      if (sortField === "name") {
+        comparison = a.name.localeCompare(b.name)
+      } else if (sortField === "deadline") {
+        const dateA = a.sortDate
+        const dateB = b.sortDate
+        
+        // Handle null dates
+        if (dateA === null && dateB === null) comparison = 0
+        else if (dateA === null) comparison = 1 // goes to end
+        else if (dateB === null) comparison = -1
+        else comparison = dateA.getTime() - dateB.getTime()
+      }
       return sortDirection === "asc" ? comparison : -comparison
     })
   }, [filteredForms, sortField, sortDirection])
@@ -800,7 +823,7 @@ export default function StudentFilesPage() {
                         File {getSortIcons("name")}
                       </th>
                       <th
-                        style={{ width: "25%", textAlign: "center" }}
+                        style={{ width: "25%", textAlign: "left" }}
                         onClick={() => handleSort("deadline")}
                       >
                         Deadline {getSortIcons("deadline")}
