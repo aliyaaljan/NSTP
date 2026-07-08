@@ -36,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
   { icon: "ti-users", label: "My Class", href: "/student/classlist" },
   { icon: "ti-qrcode", label: "Attendance", href: "/student/attendance" },
-  { icon: "ti-folder", label: "Files", href: "/student/files" },
+  { icon: "ti-folder", label: "Forms", href: "/student/forms" },
   { icon: "ti-pencil", label: "Submit Request", href: "/student/request" },
 ]
 

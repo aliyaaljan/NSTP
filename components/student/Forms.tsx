@@ -2,39 +2,39 @@
 
 import { useMemo, useState, useEffect, useRef } from "react"
 
-export type DocumentStatus = "submitted" | "pending"
+export type FormStatus = "submitted" | "pending"
 
-export interface DocumentItem {
+export interface FormItem {
   id: string
   name: string
-  status: DocumentStatus
+  status: FormStatus
   note?: string
 }
 
-export interface DocumentsProps {
-  documents?: DocumentItem[]
+export interface FormsProps {
+  Forms?: FormItem[]
   variant?: "compact" | "full"
   maxListHeight?: number
 }
 
-const STATUS_META: Record<DocumentStatus, { label: string; color: string; bg: string; icon: string }> = {
+const STATUS_META: Record<FormStatus, { label: string; color: string; bg: string; icon: string }> = {
   submitted: { label: "Submitted", color: "#2D6A4F", bg: "rgba(45,106,79,0.10)", icon: "ti-check" },
   pending: { label: "Pending", color: "#F3AA2C", bg: "rgba(243,170,44,0.12)", icon: "ti-clock" },
 }
 
-export default function Documents({
-  documents = [],
+export default function Forms({
+  Forms = [],
   variant = "compact",
   maxListHeight = 360,
-}: DocumentsProps) {
+}: FormsProps) {
   if (variant === "compact") {
-    return <DocumentsCompact documents={documents} />
+    return <FormsCompact Forms={Forms} />
   }
-  return <DocumentsFull documents={documents} maxListHeight={maxListHeight} />
+  return <FormsFull Forms={Forms} maxListHeight={maxListHeight} />
 }
 
-function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
-  const [filter, setFilter] = useState<"all" | DocumentStatus>("all")
+function FormsCompact({ Forms }: { Forms: FormItem[] }) {
+  const [filter, setFilter] = useState<"all" | FormStatus>("all")
   const [isMobile, setIsMobile] = useState(false)
   const [scrollIndex, setScrollIndex] = useState(0)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -60,10 +60,10 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
   
-  const submitted = documents.filter((d) => d.status === "submitted")
-  const pendingDocs = documents.filter((d) => d.status === "pending")
+  const submitted = Forms.filter((d) => d.status === "submitted")
+  const pendingDocs = Forms.filter((d) => d.status === "pending")
   
-  const getFilteredDocuments = () => {
+  const getFilteredForms = () => {
     if (filter === "all") {
       return [...pendingDocs, ...submitted]
     } else if (filter === "submitted") {
@@ -71,10 +71,10 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
     } else if (filter === "pending") {
       return pendingDocs
     }
-    return documents
+    return Forms
   }
 
-  const displayDocuments = getFilteredDocuments()
+  const displayForms = getFilteredForms()
 
   const getSectionTitle = () => {
     if (filter === "all") return "All Files"
@@ -83,13 +83,13 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
     return "Files"
   }
 
-  const totalItems = displayDocuments.length
+  const totalItems = displayForms.length
   const maxIndex = Math.max(0, Math.ceil(totalItems / itemsPerRow) - 1)
 
   const getVisibleItems = () => {
     const start = scrollIndex * itemsPerRow
     const end = start + itemsPerRow
-    return displayDocuments.slice(start, end)
+    return displayForms.slice(start, end)
   }
 
   const visibleItems = getVisibleItems()
@@ -148,7 +148,7 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
           color: '#6B7280', 
           fontWeight: 600 
         }}>
-          {submitted.length}/{documents.length} files submitted
+          {submitted.length}/{Forms.length} files submitted
         </span>
       </div>
 
@@ -394,7 +394,7 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
         >
           {getSectionTitle()}
         </span>
-        {displayDocuments.length === 0 ? (
+        {displayForms.length === 0 ? (
           <span style={{ 
             fontSize: "11px", 
             color: '#6B7280',
@@ -415,7 +415,7 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
             overflowY: "auto",
             scrollbarWidth: "thin",
           }}>
-            {displayDocuments.map((doc) => {
+            {displayForms.map((doc) => {
               const meta = STATUS_META[doc.status]
               return (
                 <li
@@ -477,14 +477,14 @@ function DocumentsCompact({ documents }: { documents: DocumentItem[] }) {
   )
 }
 
-function DocumentsFull({
-  documents,
+function FormsFull({
+  Forms,
   maxListHeight,
 }: {
-  documents: DocumentItem[]
+  Forms: FormItem[]
   maxListHeight: number
 }) {
-  const [filter, setFilter] = useState<"all" | DocumentStatus>("all")
+  const [filter, setFilter] = useState<"all" | FormStatus>("all")
   const [isMobile, setIsMobile] = useState(false)
   
   useEffect(() => {
@@ -496,13 +496,13 @@ function DocumentsFull({
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const submittedCount = useMemo(() => documents.filter((d) => d.status === "submitted").length, [documents])
-  const total = documents.length
+  const submittedCount = useMemo(() => Forms.filter((d) => d.status === "submitted").length, [Forms])
+  const total = Forms.length
   const pct = total === 0 ? 0 : Math.round((submittedCount / total) * 100)
 
-  const getVisibleDocuments = () => {
-    const pendingDocs = documents.filter((d) => d.status === "pending")
-    const submittedDocs = documents.filter((d) => d.status === "submitted")
+  const getVisibleForms = () => {
+    const pendingDocs = Forms.filter((d) => d.status === "pending")
+    const submittedDocs = Forms.filter((d) => d.status === "submitted")
     
     if (filter === "all") {
       return [...pendingDocs, ...submittedDocs]
@@ -511,10 +511,10 @@ function DocumentsFull({
     } else if (filter === "pending") {
       return pendingDocs
     }
-    return documents
+    return Forms
   }
 
-  const visible = getVisibleDocuments()
+  const visible = getVisibleForms()
 
   const getSectionTitle = () => {
     if (filter === "all") return "All Files"

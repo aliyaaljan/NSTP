@@ -1,7 +1,7 @@
 "use client"
 
 import CalendarOverview from "@/components/student/Calendar";
-import Documents from "@/components/student/Documents";
+import Documents from "@/components/student/Forms";
 
 import { useState, useEffect } from "react"
 import { Montserrat } from "next/font/google"

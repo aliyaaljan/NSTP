@@ -1,7 +1,7 @@
 "use client"
 
 import CalendarOverview from "@/components/student/Calendar";
-import Documents from "@/components/student/Documents";
+import Documents from "@/components/student/Forms";
 import ScannedStudents from "@/components/student/ScannedStudents";
 import type { GeneratedStudent } from "@/components/student/ScannedStudents";
 

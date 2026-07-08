@@ -453,7 +453,7 @@ export default function StudentFilesPage() {
           {/* Header */}
           <div className="sf-header">
             <div className="sf-header-left">
-              <h1 className="sf-header-title">Forms &amp; Documents</h1>
+              <h1 className="sf-header-title">Forms</h1>
             </div>
             <div className="sf-profile-pill">
               <div className="sf-profile-avatar">{student.initials}</div>

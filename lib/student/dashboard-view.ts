@@ -1,5 +1,5 @@
 import type { StudentFormView } from "@/lib/forms/submission-actions"
-import type { DocumentItem } from "@/components/student/Documents"
+import type { DocumentItem } from "@/components/student/Forms"
 import type { CalendarEvent } from "@/components/student/Calendar"
 
 export function getInitials(fullName: string): string {
