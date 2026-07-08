@@ -11,6 +11,7 @@ import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import type { StudentDashboardData } from "@/lib/student/dashboard-actions"
 import { getMyForms } from "@/lib/forms/submission-actions"
 import type { StudentFormView } from "@/lib/forms/submission-actions"
+import { getStudentRequests } from "@/lib/student/appeal-actions"
 import { getInitials, formsToDocuments, formsToCalendarEvents } from "@/lib/student/dashboard-view"
 import QuickAccess from "@/components/student/QuickAccess";
 
@@ -50,20 +51,23 @@ function HoursCard({
   rendered,
   target,
   isMobile,
+  deadline,
 }: {
   rendered: number
   target: number
   isMobile: boolean
+  deadline: string | null
 }) {
-  const percent = Math.min(100, Math.round((rendered / target) * 100)) 
-  const deadline = "2026-07-14"
-  const daysRemaining = Math.max(
-    0,
-    Math.ceil(
-      (new Date(deadline).getTime() - Date.now()) /
-        (1000 * 60 * 60 * 24)
-    )
-  )
+  const percent = Math.min(100, Math.round((rendered / target) * 100))
+  const daysRemaining = deadline
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(deadline).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24)
+        )
+      )
+    : null
 
   return (
     <div style={{ 
@@ -103,18 +107,20 @@ function HoursCard({
 
         <span>/ {target} hours</span>
 
-        <span
-          style={{
-            marginLeft: isMobile ? 0 : "auto",
-            fontSize: "clamp(12px, 1vw, 14px)",
-            fontWeight: 700,
-            color: C.textMuted,
-            whiteSpace: "nowrap",
-            alignSelf: isMobile ? "flex-start" : "auto",
-          }}
-        >
-          {daysRemaining} days remaining
-        </span>
+        {daysRemaining !== null && (
+          <span
+            style={{
+              marginLeft: isMobile ? 0 : "auto",
+              fontSize: "clamp(12px, 1vw, 14px)",
+              fontWeight: 700,
+              color: C.textMuted,
+              whiteSpace: "nowrap",
+              alignSelf: isMobile ? "flex-start" : "auto",
+            }}
+          >
+            {daysRemaining} days remaining
+          </span>
+        )}
       </div>
       <div style={{ 
         display: "flex", 
@@ -159,6 +165,9 @@ export default function StudentDashboardPage() {
   const [isTablet, setIsTablet] = useState(false)
   const [dashboard, setDashboard] = useState<StudentDashboardData | null>(null)
   const [formViews, setFormViews] = useState<StudentFormView[]>([])
+  const [recentRequests, setRecentRequests] = useState<
+    { title: string; status: string; time: string }[]
+  >([])
 
   useEffect(() => {
     const accepted = localStorage.getItem("privacyAccepted")
@@ -183,6 +192,15 @@ export default function StudentDashboardPage() {
       if (res.data.enrollmentId) {
         const formsRes = await getMyForms(res.data.enrollmentId)
         if (formsRes.ok) setFormViews(formsRes.data)
+
+        const requestsRes = await getStudentRequests(res.data.enrollmentId)
+        if (requestsRes.ok) {
+          setRecentRequests(
+            requestsRes.data
+              .slice(0, 3)
+              .map((r) => ({ title: r.title, status: r.status, time: r.date }))
+          )
+        }
       }
     }
     load()
@@ -255,7 +273,12 @@ export default function StudentDashboardPage() {
           />
         </div>
 
-        <HoursCard rendered={hoursRendered} target={hoursTarget} isMobile={isMobile} />
+        <HoursCard
+          rendered={hoursRendered}
+          target={hoursTarget}
+          isMobile={isMobile}
+          deadline={dashboard?.termEndDate ?? null}
+        />
 
         {/* Calendar and Documents */}
         {isTablet ? (
@@ -271,7 +294,21 @@ export default function StudentDashboardPage() {
               minHeight: "auto",
               maxHeight: "none",
             }}>
-              <QuickAccess isMobile={isMobile} />
+              <QuickAccess
+                isMobile={isMobile}
+                studentName={fullName}
+                sectionName={sectionName}
+                adviserName={dashboard?.adviserName ?? null}
+                classmateCount={dashboard?.classmateCount ?? 0}
+                classmateInitials={dashboard?.classmateInitials ?? []}
+                filesTotal={formViews.length}
+                filesSubmitted={
+                  formViews.filter(
+                    (v) => v.status === "submitted" || v.status === "approved"
+                  ).length
+                }
+                recentRequests={recentRequests}
+              />
             </div>
             
             {/* Calendar and Documents */}
@@ -348,7 +385,21 @@ export default function StudentDashboardPage() {
               height: "100%",
               order: isMobile ? 0 : 0,
             }}>
-              <QuickAccess isMobile={isMobile} />
+              <QuickAccess
+                isMobile={isMobile}
+                studentName={fullName}
+                sectionName={sectionName}
+                adviserName={dashboard?.adviserName ?? null}
+                classmateCount={dashboard?.classmateCount ?? 0}
+                classmateInitials={dashboard?.classmateInitials ?? []}
+                filesTotal={formViews.length}
+                filesSubmitted={
+                  formViews.filter(
+                    (v) => v.status === "submitted" || v.status === "approved"
+                  ).length
+                }
+                recentRequests={recentRequests}
+              />
             </div>
           </div>
         )}

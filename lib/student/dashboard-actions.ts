@@ -4,16 +4,22 @@ import "server-only"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { resolveActiveStudentEnrollment } from "@/lib/student/enrollment"
+import { lookupId } from "@/lib/lookups"
+import { getInitials } from "@/lib/student/dashboard-view"
 
 export type StudentDashboardData = {
   enrollmentId: string | null
   fullName: string
   studentNumber: string | null
   sectionName: string | null
+  adviserName: string | null
+  termEndDate: string | null
   requiredHours: number
   hoursRendered: number
   renderedDaysByMonth: Record<number, number[]>
   renderedTimeByMonth: Record<number, Record<number, string>>
+  classmateCount: number
+  classmateInitials: string[]
 }
 
 type ActionResult =
@@ -50,10 +56,14 @@ function emptyDashboard(
     fullName,
     studentNumber,
     sectionName: null,
+    adviserName: null,
+    termEndDate: null,
     requiredHours: 60,
     hoursRendered: 0,
     renderedDaysByMonth: {},
     renderedTimeByMonth: {},
+    classmateCount: 0,
+    classmateInitials: [],
   }
 }
 
@@ -82,6 +92,24 @@ export async function getStudentDashboard(): Promise<ActionResult> {
       return { ok: true, data: emptyDashboard(fullName, studentNumber) }
     }
 
+    const { data: classmates } = await service
+      .from("enrollment")
+      .select("app_user:student_user_id(full_name)")
+      .eq("section_id", primary.section.section_id)
+      .eq(
+        "enrollment_status_id",
+        await lookupId("enrollment_status", "active")
+      )
+
+    const classmateCount = classmates?.length ?? 0
+    const classmateInitials = (classmates ?? [])
+      .map((c) => {
+        const au = Array.isArray(c.app_user) ? c.app_user[0] : c.app_user
+        return au?.full_name ? getInitials(au.full_name) : ""
+      })
+      .filter(Boolean)
+      .slice(0, 4)
+
     const { data: closedStatus } = await service
       .from("attendance_session_status")
       .select("attendance_session_status_id")
@@ -95,7 +123,11 @@ export async function getStudentDashboard(): Promise<ActionResult> {
           ...emptyDashboard(fullName, studentNumber),
           enrollmentId: primary.enrollmentId,
           sectionName: primary.section.label,
+          adviserName: primary.adviserName,
+          termEndDate: primary.termEndDate,
           requiredHours: primary.section.required_hour_total ?? 60,
+          classmateCount,
+          classmateInitials,
         },
       }
     }
@@ -149,10 +181,14 @@ export async function getStudentDashboard(): Promise<ActionResult> {
         fullName,
         studentNumber,
         sectionName: primary.section.label,
+        adviserName: primary.adviserName,
+        termEndDate: primary.termEndDate,
         requiredHours: primary.section.required_hour_total ?? 60,
         hoursRendered: Math.floor(totalMinutes / 60),
         renderedDaysByMonth,
         renderedTimeByMonth,
+        classmateCount,
+        classmateInitials,
       },
     }
   } catch (err) {

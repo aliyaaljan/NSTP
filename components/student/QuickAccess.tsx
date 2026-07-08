@@ -13,42 +13,40 @@ import { QrGenerator } from "@/components/shared/QrGenerator"
 
 interface QuickAccessProps {
   isMobile: boolean
+  studentName: string
+  sectionName: string
+  adviserName: string | null
+  classmateCount: number
+  classmateInitials: string[]
+  filesTotal: number
+  filesSubmitted: number
+  recentRequests: { title: string; status: string; time: string }[]
 }
 
-export default function QuickAccess({ isMobile }: QuickAccessProps) {
+export default function QuickAccess({
+  isMobile,
+  studentName,
+  sectionName,
+  adviserName,
+  classmateCount,
+  classmateInitials,
+  filesTotal,
+  filesSubmitted,
+  recentRequests,
+}: QuickAccessProps) {
   const [showQrGenerator, setShowQrGenerator] = useState(false)
-  // Mock data
-  const classData = {
-    section: "NSTP 1 - BSCS 2A",
-    members: 32,
-    adviser: "Prof. Maria Santos",
-    initials: ["JD", "MP", "AS", "RC"],
-  }
-
-  // Student data manual data
-  const studentData = {
-    name: "Juan Dela Cruz",
-  }
-
-  const filesData = {
-    total: 8,
-    pending: 2,
-    submitted: 6,
-  }
-
-  const requestData = [
-    { title: "Field Trip Permission", status: "Approved", time: "2 hours ago" },
-    { title: "Medical Certificate", status: "Under Review", time: "1 day ago" },
-    { title: "Excuse Letter", status: "Rejected", time: "3 days ago" },
-  ]
 
   const statusStyles: Record<string, { bg: string; text: string }> = {
-    Approved: { bg: "#E4F1E9", text: "#14492E" },
+    "Pending Review": { bg: "#FFF3CD", text: "#8A6200" },
     "Under Review": { bg: "#FFF3CD", text: "#8A6200" },
+    Approved: { bg: "#E4F1E9", text: "#14492E" },
     Rejected: { bg: "#FBE7E7", text: "#7B1113" },
+    Withdrawn: { bg: "#ECECEA", text: "#5A5A58" },
   }
+  const defaultStatusStyle = { bg: "#ECECEA", text: "#5A5A58" }
 
-  const completionPct = Math.round((filesData.submitted / filesData.total) * 100)
+  const completionPct =
+    filesTotal > 0 ? Math.round((filesSubmitted / filesTotal) * 100) : 0
   const radius = 30
   const circumference = 2 * Math.PI * radius
   const dashOffset = circumference - (completionPct / 100) * circumference
@@ -290,20 +288,20 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
             <IconChevronRight size={sizes.iconSize} stroke={sizes.iconStroke} color={colors.textMuted} />
           </div>
 
-        <div style={{ 
-          fontSize: sizes.smallTextSize, 
-          fontWeight: 600, 
+        <div style={{
+          fontSize: sizes.smallTextSize,
+          fontWeight: 600,
           color: colors.textDark,
           fontFamily: "Montserrat, 'Montserrat Fallback'",
         }}>
-          {classData.section}
+          {sectionName}
         </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center" }}>
-              {classData.initials.map((initials, i) => (
+              {classmateInitials.map((initials, i) => (
                 <div
-                  key={initials}
+                  key={`${initials}-${i}`}
                   style={{
                     width: sizes.avatarSize,
                     height: sizes.avatarSize,
@@ -341,17 +339,17 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
                   fontFamily: "Montserrat, 'Montserrat Fallback'",
                 }}
               >
-                +{classData.members - classData.initials.length}
+                +{Math.max(0, classmateCount - classmateInitials.length)}
               </div>
             </div>
 
-            <div style={{ 
-              fontSize: sizes.tinyTextSize, 
-              color: colors.textMuted, 
+            <div style={{
+              fontSize: sizes.tinyTextSize,
+              color: colors.textMuted,
               textAlign: "right",
               fontFamily: "Montserrat, 'Montserrat Fallback'",
             }}>
-              Adviser: <span style={{ color: colors.textGray, fontWeight: 600 }}>{classData.adviser}</span>
+              Adviser: <span style={{ color: colors.textGray, fontWeight: 600 }}>{adviserName ?? "—"}</span>
             </div>
           </div>
         </Link>
@@ -473,7 +471,7 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
               marginTop: "3px",
               fontFamily: "Montserrat, 'Montserrat Fallback'",
             }}>
-              {filesData.submitted}/{filesData.total} files submitted
+              {filesSubmitted}/{filesTotal} files submitted
             </div>
             <div 
               style={{ 
@@ -539,8 +537,8 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
               scrollbarColor: `${colors.textMuted} transparent`,
             }}
           >
-            {requestData.map((req, i) => {
-              const style = statusStyles[req.status]
+            {recentRequests.map((req, i) => {
+              const style = statusStyles[req.status] ?? defaultStatusStyle
               return (
                 <div
                   key={i}
@@ -606,7 +604,7 @@ export default function QuickAccess({ isMobile }: QuickAccessProps) {
         <QrGenerator
           onClose={() => setShowQrGenerator(false)}
           onGenerateSuccess={() => {}}
-          studentName={studentData.name} 
+          studentName={studentName}
         />
       )}
     </>

@@ -145,7 +145,9 @@ begin
                               / nullif(s.required_hour_total * 60, 0) * 100,
                               1
                             ),
-        'has_open_session', open_sess.attendance_session_id is not null
+        'has_open_session', open_sess.attendance_session_id is not null,
+        'generated_at',     qct.generated_at,
+        'scanned_at',       open_sess.started_at
       )
       order by u.full_name
     )                                                             as students
@@ -163,12 +165,17 @@ begin
       and  sess.attendance_session_status_id = v_closed_status_id
   ) hrs on true
   left join lateral (
-    select sess.attendance_session_id
+    select sess.attendance_session_id, sess.started_at
     from   public.attendance_session sess
     where  sess.enrollment_id               = e.enrollment_id
       and  sess.attendance_session_status_id = v_open_status_id
     limit 1
   ) open_sess on true
+  left join lateral (
+    select qc.generated_at
+    from   public.qr_current_token qc
+    where  qc.enrollment_id = e.enrollment_id
+  ) qct on true
   where s.section_id = v_section_id
   group by s.section_id, au.full_name, s.course_code, s.required_hour_total, t.school_year;
 end;
