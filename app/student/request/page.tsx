@@ -521,7 +521,6 @@ export default function RequestsPage() {
         }
 
         .divider{
-          height:2px;
           background:#D9DDD8;
           margin-top:10px;
           margin-bottom:24px;

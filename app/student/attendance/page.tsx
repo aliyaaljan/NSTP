@@ -693,7 +693,6 @@ export default function QRGenerationPage() {
 
           <div
             style={{
-              height: 2,
               background: "#D9DDD8",
               marginTop: 10,
               marginBottom: 24,
