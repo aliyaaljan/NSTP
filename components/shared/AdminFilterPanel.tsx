@@ -11,16 +11,62 @@ import {
 import { FONT_BODY } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
+function FilterOptionLabel({
+  optLabel,
+  checked,
+  onToggle,
+  compact = false,
+}: {
+  optLabel: string
+  checked: boolean
+  onToggle: () => void
+  compact?: boolean
+}) {
+  return (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 8,
+        cursor: "pointer",
+        fontSize: 13,
+        color: COLORS.text,
+        fontFamily: FONT_BODY,
+        whiteSpace: compact ? "normal" : "nowrap",
+        lineHeight: 1.35,
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        style={{
+          accentColor: COLORS.maroon,
+          width: 14,
+          height: 14,
+          cursor: "pointer",
+          flexShrink: 0,
+          marginTop: 2,
+        }}
+      />
+      {optLabel}
+    </label>
+  )
+}
+
 export function AdminFilterPanel({
   groups,
   activeFilters,
   onChange,
   onClear,
+  width,
 }: {
   groups: FilterGroupDef[]
   activeFilters: ActiveFilters
   onChange: (next: ActiveFilters) => void
   onClear: () => void
+  /** Fixed panel width; enables a shorter, grouped layout for wide option lists. */
+  width?: number
 }) {
   const totalActive = countActiveFilters(activeFilters)
 
@@ -70,6 +116,7 @@ export function AdminFilterPanel({
         boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
         zIndex: 100,
         padding: 16,
+        ...(width ? { width, overflow: "hidden" } : {}),
       }}
     >
       <div
@@ -112,67 +159,106 @@ export function AdminFilterPanel({
         )}
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 24,
-          flexWrap: "nowrap",
-          alignItems: "flex-start",
-        }}
-      >
-        {flatColumns.map(({ key, label, field, options }) => {
-          const checked = activeFilters[field] ?? []
-          return (
-            <div key={key} style={{ minWidth: 120, flexShrink: 0 }}>
+      {width ? (
+        <div
+          style={{
+            display: "flex",
+            gap: 28,
+            alignItems: "flex-start",
+          }}
+        >
+          {groups.map((group) => {
+            if (group.options.length === 0) return null
+            const checked = activeFilters[group.field] ?? []
+            const rowsPerColumn = group.optionsPerColumn ?? 5
+            const columnCount = Math.max(
+              1,
+              Math.ceil(group.options.length / rowsPerColumn)
+            )
+            return (
               <div
+                key={group.field}
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: COLORS.text,
-                  marginBottom: 8,
-                  minHeight: label ? undefined : 17,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.4px",
-                  fontFamily: FONT_BODY,
+                  flex: group.field === "section" ? "1.65 1 0" : "1 1 0",
+                  minWidth: 0,
                 }}
               >
-                {label ?? "\u00A0"}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {options.map(({ value, label: optLabel }) => (
-                  <label
-                    key={value}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      cursor: "pointer",
-                      fontSize: 13,
-                      color: COLORS.text,
-                      fontFamily: FONT_BODY,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: COLORS.text,
+                    marginBottom: 8,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.4px",
+                    fontFamily: FONT_BODY,
+                  }}
+                >
+                  {group.label}
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+                    gap: "6px 18px",
+                  }}
+                >
+                  {group.options.map(({ value, label: optLabel }) => (
+                    <FilterOptionLabel
+                      key={value}
+                      optLabel={optLabel}
                       checked={checked.includes(value)}
-                      onChange={() => toggle(field, value)}
-                      style={{
-                        accentColor: COLORS.maroon,
-                        width: 14,
-                        height: 14,
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
+                      onToggle={() => toggle(group.field, value)}
+                      compact
                     />
-                    {optLabel}
-                  </label>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            gap: 24,
+            flexWrap: "nowrap",
+            alignItems: "flex-start",
+          }}
+        >
+          {flatColumns.map(({ key, label, field, options }) => {
+            const checked = activeFilters[field] ?? []
+            return (
+              <div key={key} style={{ minWidth: 120, flexShrink: 0 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: COLORS.text,
+                    marginBottom: 8,
+                    minHeight: label ? undefined : 17,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.4px",
+                    fontFamily: FONT_BODY,
+                  }}
+                >
+                  {label ?? "\u00A0"}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {options.map(({ value, label: optLabel }) => (
+                    <FilterOptionLabel
+                      key={value}
+                      optLabel={optLabel}
+                      checked={checked.includes(value)}
+                      onToggle={() => toggle(field, value)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
