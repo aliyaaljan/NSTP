@@ -142,6 +142,13 @@ alter table section_geofence enable row level security;
 create policy section_geofence_read on section_geofence for select to authenticated
   using (public.app_can_read_section(section_id));
 
+create policy section_geofence_insert on section_geofence 
+  for insert to authenticated
+  with check (
+    public.app_is_admin() 
+    or public.app_advises_section(section_id)
+  );
+
 alter table enrollment enable row level security;
 create policy enrollment_read on enrollment for select to authenticated
   using (student_user_id = (select auth.uid()) or public.app_advises_section(section_id));
