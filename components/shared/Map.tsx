@@ -89,8 +89,7 @@ export default function Map({ student_name, session }: MapProps) {
                     <div className="flex flex-col p-4">
                         <div>Student {student_name}</div>
                         <div>Scanned by {loc.recordedBy}</div>
-                        <div>Recoded at {loc.recordedAt}</div>
-                        <div></div>
+                        <div>Recorded at {loc.recordedAt}</div>
                     </div>
                 </Popup>
                 </Marker>
