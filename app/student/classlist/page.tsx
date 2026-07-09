@@ -382,7 +382,14 @@ const pages = []
             font-size:11px;
             font-weight:700;
             letter-spacing:1px;
-            }
+
+            min-width:0;
+        }
+
+        .table-head > div{
+            min-width:0;
+        }
+
 
         .row{
             display:grid;
@@ -390,6 +397,12 @@ const pages = []
             padding:18px 24px;
             border-bottom:1px solid #F0F0F0;
             transition:.2s;
+
+            min-width:0;
+        }
+
+        .row > div{
+            min-width:0;
         }
 
         .row:hover{
@@ -414,31 +427,45 @@ const pages = []
             font-weight:700;
             color:${C.textDark};
             white-space: normal;
+            min-width:0;
+            overflow-wrap: break-word;
             word-break: break-word;
         }
 
         .student-email{
             font-size:11px;
             color:#7B8190;
+            min-width:0;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
 
         .student-course{
             font-size:13px;
             font-weight:500;
             color:#4B5563;
+            min-width:0;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
 
         .student-year{
             font-size:13px;
             font-weight:500;
             color:#4B5563;
+            min-width:0;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
 
         .site{
             display:flex;
+            align-items:center;
+            min-width:0;
             font-size:13px;
             font-weight:500;
             color:#4B5563;
+            overflow-wrap:anywhere;
         }
 
         .site span{
