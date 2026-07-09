@@ -231,7 +231,7 @@ const myStudentsStyles = `
   .adv-table th:nth-child(4) { width: 13%; }
   .adv-table th:nth-child(5) { width: 14%; }
   .adv-table th:nth-child(6) { width: 20%; }
-  .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center; }
+  .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center; white-space: nowrap; }
   .ms-site-badge { display: inline-block; padding: 3px 0; font-size: 12px; font-weight: 500; color: var(--text); }
   .ms-role-badge {display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center;}
   .ms-hours-cell { min-width: 160px; }
@@ -255,6 +255,7 @@ const myStudentsStyles = `
     cursor: pointer;
     transition: background 0.12s;
   }
+  .ms-request-row > div { min-width: 0; }
   .ms-request-row:last-child { border-bottom: none; }
   .ms-request-row:hover { background: #FAFAFA; }
   .ms-request-student { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -268,7 +269,7 @@ const myStudentsStyles = `
   .ms-request-meta  { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
   .ms-request-type  { font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; display: inline-block; }
   .ms-request-date  { font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .ms-request-note  { font-size: 12px; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ms-request-note  { font-size: 12px; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; word-break: break-word; }
   .ms-attachment-tag { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; color: var(--muted); }
 
   .ms-requests-thead {
@@ -290,7 +291,7 @@ const myStudentsStyles = `
   .ms-req-modal-note {
     font-size: 13px; color: var(--text); line-height: 1.6;
     background: #F9FAFB; border-radius: 10px; padding: 12px 14px;
-    margin-top: 4px;
+    margin-top: 4px; overflow-wrap: anywhere; word-break: break-word;
   }
   .ms-req-modal-attachment {
     display: flex; align-items: center; gap: 14px;
@@ -1735,11 +1736,10 @@ function MyStudentsContent() {
                               </div>
                               <div>
                                 <span
-                                  className="ms-request-type"
+                                  className="ms-status-badge"
                                   style={{
                                     background: badge.bg,
                                     color: badge.color,
-                                    borderRadius: "6px",
                                   }}
                                 >
                                   {r.status}
@@ -1911,7 +1911,7 @@ function MyStudentsContent() {
                           </span>
                         </td>
                         <td className="flex flex-row gap-1">
-                          <button title="Edit Session" className="ms-session-action-btn" disabled={sess.status === 'open'} onClick={async (e) => {
+                          <button title="Edit Session" className="ms-session-action-btn" onClick={async (e) => {
                             e.stopPropagation()
                             setEditingSession(sess)
                             setEditDate(formatDate(sess.date))
@@ -1962,7 +1962,7 @@ function MyStudentsContent() {
                 <ModalField label="Date Submitted" value={selectedRequest.date} />
               </ModalRow>
               <div>
-                <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14, marginBottom: 6 }}>{selectedRequest.title}</div>
+                <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14, marginBottom: 6, overflowWrap: "anywhere", wordBreak: "break-word" }}>{selectedRequest.title}</div>
                 <div className="nstp-modal-label">Details</div>
                 <div className="ms-req-modal-note">{selectedRequest.note}</div>
               </div>
