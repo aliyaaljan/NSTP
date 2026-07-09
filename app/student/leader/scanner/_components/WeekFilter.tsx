@@ -370,7 +370,6 @@ export function WeekFilter({
                         padding: isMobile ? "4px 2px" : "6px 2px",
                         fontSize: isMobile ? "10px" : "11px",
                         fontWeight: isSelected ? 700 : isCurrent ? 700 : 500,
-                        borderRadius: "4px",
                         border: `2px solid ${
                           isSelected ? pillActiveColor : 'transparent'
                         }`,
