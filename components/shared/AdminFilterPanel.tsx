@@ -177,6 +177,71 @@ export function AdminFilterPanel({
   )
 }
 
+export function AdminIconFilterButton({
+  activeFilters,
+  onToggle,
+  open,
+  ariaLabel = "Filter",
+}: {
+  activeFilters: ActiveFilters
+  onToggle: () => void
+  open: boolean
+  ariaLabel?: string
+}) {
+  const totalActive = countActiveFilters(activeFilters)
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-haspopup="true"
+      aria-label={ariaLabel}
+      style={{
+        width: 60,
+        height: 38,
+        border: `1.5px solid ${
+          totalActive > 0 ? COLORS.maroon : COLORS.green
+        }`,
+        borderRadius: 999,
+        background: COLORS.white,
+        color: totalActive > 0 ? COLORS.maroon : COLORS.green,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        transition: "border-color 0.13s, color 0.13s",
+        padding: 0,
+        flexShrink: 0,
+      }}
+    >
+      <i className="ti ti-filter" style={{ fontSize: 18 }} />
+      {totalActive > 0 && (
+        <span
+          style={{
+            position: "absolute",
+            top: -6,
+            right: -6,
+            background: COLORS.maroon,
+            color: "#fff",
+            borderRadius: "50%",
+            width: 16,
+            height: 16,
+            fontSize: 9,
+            fontWeight: 700,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {totalActive}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export function AdminFilterButton({
   activeFilters,
   onToggle,

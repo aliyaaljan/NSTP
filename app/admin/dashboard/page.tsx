@@ -6,8 +6,7 @@ import {
 } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
-import DashboardFilters from "@/components/shared/DashboardFilters"
-import DashboardExportButton from "@/components/admin/DashboardExportButton"
+import DashboardToolbar from "@/components/admin/DashboardToolbar"
 import AdminCalendarPanel from "@/components/admin/AdminCalendarPanel"
 import SectionProgressPanel from "@/components/admin/SectionProgressPanel"
 import RemainingDaysChart from "@/components/admin/RemainingDaysChart"
@@ -974,23 +973,12 @@ export default async function AdminDashboardPage({
         <ProfilePill user={currentUserMeta} />
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          flexWrap: "wrap",
-          marginBottom: 12,
-        }}
-      >
-        <DashboardFilters
-          currentFilter={currentFilter}
-          sections={availableSections}
-          advisers={availableAdvisers}
-        />
-        <DashboardExportButton sections={exportSections} />
-      </div>
+      <DashboardToolbar
+        currentFilter={currentFilter}
+        sections={availableSections}
+        advisers={availableAdvisers}
+        exportSections={exportSections}
+      />
 
       <ChartStyles />
       <KpiStatCardGrid columns={4}>

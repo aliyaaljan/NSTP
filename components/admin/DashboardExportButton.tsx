@@ -8,6 +8,7 @@ import {
   EXPORT_FILE_TYPE_OPTIONS,
   type ExportSectionOption,
 } from "@/lib/admin/export-analytics"
+import AdminExportTriggerButton from "@/components/admin/AdminExportTriggerButton"
 import { FONT_BODY, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS } from "@/lib/admin-theme"
 
@@ -176,27 +177,7 @@ export default function DashboardExportButton({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={resetAndOpen}
-        style={{
-          fontFamily: FONT_BODY,
-          fontSize: "12.5px",
-          fontWeight: 600,
-          color: "#fff",
-          background: ADMIN_COLORS.green,
-          border: "none",
-          borderRadius: 20,
-          padding: "5px 13px",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          cursor: "pointer",
-        }}
-      >
-        <i className="ti ti-upload" style={{ fontSize: 16 }} />
-        Export
-      </button>
+      <AdminExportTriggerButton onClick={resetAndOpen} />
 
       {open && (
         <div

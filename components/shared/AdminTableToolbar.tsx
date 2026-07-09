@@ -2,11 +2,11 @@
 
 import { useState } from "react"
 import {
-  AdminFilterButton,
   AdminFilterPanel,
+  AdminIconFilterButton,
   useFilterPanelDismiss,
 } from "@/components/shared/AdminFilterPanel"
-import { countActiveFilters, type ActiveFilters, type FilterGroupDef } from "@/lib/admin/filter-utils"
+import { type ActiveFilters, type FilterGroupDef } from "@/lib/admin/filter-utils"
 
 export function AdminTableToolbar({
   title,
@@ -33,7 +33,6 @@ export function AdminTableToolbar({
 }) {
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useFilterPanelDismiss(filterOpen, () => setFilterOpen(false))
-  const hasFilters = countActiveFilters(activeFilters) > 0
 
   return (
     <div className="admin-table-toolbar">
@@ -49,10 +48,19 @@ export function AdminTableToolbar({
           gap: 12,
           marginLeft: "auto",
           flexWrap: "wrap",
+          flex: "1 1 320px",
+          justifyContent: "flex-end",
+          minWidth: 0,
         }}
       >
-        <div className="admin-search-bar">
-          <i className="ti ti-search" style={{ fontSize: 16, color: "var(--muted)" }} />
+        <div
+          className="admin-search-bar"
+          style={{ flex: "1 1 280px", minWidth: 0, maxWidth: 420 }}
+        >
+          <i
+            className="ti ti-search"
+            style={{ fontSize: 16, color: "var(--muted)", flexShrink: 0 }}
+          />
           <input
             type="search"
             className="admin-search-input"
@@ -62,11 +70,11 @@ export function AdminTableToolbar({
           />
         </div>
 
-        <div ref={filterRef} style={{ position: "relative" }}>
-          <AdminFilterButton
+        <div ref={filterRef} style={{ position: "relative", flexShrink: 0 }}>
+          <AdminIconFilterButton
             activeFilters={activeFilters}
             open={filterOpen}
-            onToggle={() => setFilterOpen((v) => !v)}
+            onToggle={() => setFilterOpen((open) => !open)}
           />
           {filterOpen && (
             <AdminFilterPanel
@@ -80,17 +88,6 @@ export function AdminTableToolbar({
             />
           )}
         </div>
-
-        {hasFilters && (
-          <button
-            type="button"
-            className="admin-filter-btn admin-filter-btn-active"
-            onClick={onClearFilters}
-          >
-            <i className="ti ti-x" style={{ fontSize: 13 }} />
-            Clear
-          </button>
-        )}
 
         {actions}
       </div>
