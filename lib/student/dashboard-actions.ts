@@ -6,11 +6,13 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { resolveActiveStudentEnrollment } from "@/lib/student/enrollment"
 import { lookupId } from "@/lib/lookups"
 import { getInitials } from "@/lib/student/dashboard-view"
+import { extractNstpType } from "@/lib/shared/class-label"
 
 export type StudentDashboardData = {
   enrollmentId: string | null
   fullName: string
   studentNumber: string | null
+  email: string | null
   sectionName: string | null
   adviserName: string | null
   adviserEmail: string | null
@@ -21,6 +23,10 @@ export type StudentDashboardData = {
   renderedTimeByMonth: Record<number, Record<number, string>>
   classmateCount: number
   classmateInitials: string[]
+  programName: string | null
+  classificationName: string | null
+  nstpType: string | null
+  siteLocation: string | null
 }
 
 type ActionResult =
@@ -50,12 +56,14 @@ function manilaMonthDay(iso: string): { month: number; day: number } | null {
 
 function emptyDashboard(
   fullName: string,
-  studentNumber: string | null
+  studentNumber: string | null,
+  email: string | null
 ): StudentDashboardData {
   return {
     enrollmentId: null,
     fullName,
     studentNumber,
+    email,
     sectionName: null,
     adviserName: null,
     adviserEmail: null,
@@ -66,6 +74,10 @@ function emptyDashboard(
     renderedTimeByMonth: {},
     classmateCount: 0,
     classmateInitials: [],
+    programName: null,
+    classificationName: null,
+    nstpType: null,
+    siteLocation: null,
   }
 }
 
@@ -81,17 +93,18 @@ export async function getStudentDashboard(): Promise<ActionResult> {
 
     const { data: appUser } = await service
       .from("app_user")
-      .select("full_name, student_number")
+      .select("full_name, student_number, email")
       .eq("app_user_id", user.id)
       .single()
 
     const fullName = appUser?.full_name ?? ""
     const studentNumber = appUser?.student_number ?? null
+    const email = appUser?.email ?? null
 
     const primary = await resolveActiveStudentEnrollment(service, user.id)
 
     if (!primary) {
-      return { ok: true, data: emptyDashboard(fullName, studentNumber) }
+      return { ok: true, data: emptyDashboard(fullName, studentNumber, email) }
     }
 
     const { data: classmates } = await service
@@ -122,7 +135,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
       return {
         ok: true,
         data: {
-          ...emptyDashboard(fullName, studentNumber),
+          ...emptyDashboard(fullName, studentNumber, email),
           enrollmentId: primary.enrollmentId,
           sectionName: primary.section.label,
           adviserName: primary.adviserName,
@@ -131,6 +144,10 @@ export async function getStudentDashboard(): Promise<ActionResult> {
           requiredHours: primary.section.required_hour_total ?? 60,
           classmateCount,
           classmateInitials,
+          programName: primary.programName,
+          classificationName: primary.classificationName,
+          nstpType: extractNstpType(primary.section.course_code),
+          siteLocation: primary.siteLocation,
         },
       }
     }
@@ -183,6 +200,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
         enrollmentId: primary.enrollmentId,
         fullName,
         studentNumber,
+        email,
         sectionName: primary.section.label,
         adviserName: primary.adviserName,
         adviserEmail: primary.adviserEmail,
@@ -193,6 +211,10 @@ export async function getStudentDashboard(): Promise<ActionResult> {
         renderedTimeByMonth,
         classmateCount,
         classmateInitials,
+        programName: primary.programName,
+        classificationName: primary.classificationName,
+        nstpType: extractNstpType(primary.section.course_code),
+        siteLocation: primary.siteLocation,
       },
     }
   } catch (err) {
