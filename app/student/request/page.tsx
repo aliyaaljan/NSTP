@@ -562,7 +562,7 @@ export default function RequestsPage() {
         }
 
         .request-item{
-        padding:16px 16px;
+        padding:16px 25px;
         border-bottom:1px solid #EEEEEE;
         transition:.2s ease;
         }
@@ -583,6 +583,8 @@ export default function RequestsPage() {
           font-size:15px;
           font-weight:700;
           color:${C.textDark};
+          overflow-wrap: break-word;
+          word-break: break-word;
         }
 
         .request-body{
@@ -590,12 +592,16 @@ export default function RequestsPage() {
           line-height:1.7;
           color:#444;
           margin-bottom:8px;
+          overflow-wrap: break-word;
+          word-break: break-word;
         }
 
         .request-note{
           font-size:11px;
           color:${C.textMuted};
           font-style:italic;
+          overflow-wrap: break-word;
+          word-break: break-word;
         }
 
         .request-header{

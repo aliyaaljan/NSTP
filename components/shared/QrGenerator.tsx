@@ -311,7 +311,7 @@ export function QrGenerator({ onClose, onGenerateSuccess, studentName }: QrGener
             ? "Tap 'Try Again' to generate a new QR code"
             : generated
             ? "QR code refreshes automatically every minute"
-            : "Generate a QR code for students to scan"}
+            : "Have your QR code ready to scan"}
         </p>
       </div>
 

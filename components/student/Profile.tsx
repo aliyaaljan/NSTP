@@ -109,7 +109,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
 
   const getLeftPadding = () => {
     if (isMobile) {
-      return `${COLLAPSED_W + RAIL_MARGIN * 2 + 12}px`
+      return '16px' 
     }
     return `${COLLAPSED_W + RAIL_MARGIN * 2}px`
   }
@@ -237,12 +237,12 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
         style={{
           flex: 1,
           paddingLeft: getLeftPadding(),
-          paddingRight: isMobile ? "20px" : "32px",
-          paddingTop: isMobile ? "20px" : "28px",
-          paddingBottom: isMobile ? "20px" : "28px",
+          paddingRight: isMobile ? "16px" : "32px", 
+          paddingTop: isMobile ? "16px" : "28px",
+          paddingBottom: isMobile ? "16px" : "28px",
           display: "flex",
           flexDirection: "column",
-          gap: isMobile ? "20px" : "24px",
+          gap: isMobile ? "16px" : "24px",
           minWidth: 0,
           width: "100%",
           maxWidth: "100%",
