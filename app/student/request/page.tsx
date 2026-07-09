@@ -17,7 +17,7 @@ import { createClient } from "@/lib/client"
 import {KpiStatCard, KpiStatCardGrid, ChartStyles,} from "@/components/shared/ChartModule"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import SuccessModal from "@/components/shared/SuccessModal"
-import { IconX } from "@tabler/icons-react"
+import { IconX, IconCircleCheck, IconHourglass, IconClock, IconCircleX, } from "@tabler/icons-react"
 
 const MAX_NUM_ATTACHMENT = 1
 
@@ -846,17 +846,17 @@ export default function RequestsPage() {
                         }`,
                       
                         transform:
-                          hoveredCard === stat.label
-                            ? "translateY(-8px)"
-                            : "translateY(0)",
-                      
+                            hoveredCard === stat.label
+                                ? "translateY(-1.5px)"
+                                : "translateY(0)",
+
                         boxShadow:
-                          hoveredCard === stat.label
-                            ? "0 14px 28px rgba(0,0,0,.12)"
-                            : "0 4px 10px rgba(0,0,0,.05)",
+                            hoveredCard === stat.label
+                                ? "0 6px 14px rgba(0,0,0,.07)"
+                                : "0 4px 10px rgba(0,0,0,.05)",
                       
                         transition:
-                          "transform .25s ease, box-shadow .25s ease, border-color .18s ease, color .18s ease",
+                            "transform .2s ease, box-shadow .2s ease, border-color .18s ease, color .18s ease",
                       }}
                   >
                     <KpiStatCard
@@ -1145,19 +1145,27 @@ export default function RequestsPage() {
                 </h2>
 
                 <button
-                    onClick={() => setShowModal(false)}
-                    style={{
+                onClick={() => setShowModal(false)}
+                onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "rgba(255, 255, 255, 0.18)")
+                }
+                onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                }
+                style={{
                     background: "transparent",
                     border: "none",
                     color: "#fff",
-                    fontSize: 24,
-                    fontWeight: 700,
                     cursor: "pointer",
-                    lineHeight: 1,
-                    padding: 0,
-                    }}
+                    display: "flex",
+                    alignItems: "center",
+                    padding: 6,
+                    borderRadius: 8,
+                    transition: "background 0.13s",
+                    flexShrink: 0,
+                }}
                 >
-                    <IconX size={20} stroke={2} />
+                <IconX size={20} stroke={2} />
                 </button>
                 </div>
             <div style={{ marginBottom: 16 }}>
@@ -1530,20 +1538,28 @@ export default function RequestsPage() {
                 </h2>
 
                 <button
-                    onClick={() => setSelectedRequest(null)}
-                    style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#fff",
-                        fontSize: 24,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        lineHeight: 1,
-                        padding: 0,
-                    }}
-                    >
-                    <IconX size={20} stroke={2} />
-                    </button>
+                onClick={() => setSelectedRequest(null)}
+                onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "rgba(255, 255, 255, 0.18)")
+                }
+                onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                }
+                style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#fff",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: 6,
+                    borderRadius: 8,
+                    transition: "background 0.13s",
+                    flexShrink: 0,
+                }}
+                >
+                <IconX size={20} stroke={2} />
+                </button>
                 </div>
 
             <label
