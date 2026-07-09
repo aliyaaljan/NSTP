@@ -343,7 +343,7 @@ export default function AddGpsSiteModal({
                 <span style={{ color: COLORS.headerGreen, fontSize: "15px" }}>
                   Selected: {form.radiusMeters} meters
                 </span>
-                <span>Max: 1000m</span>
+                <span>Max: 1km</span>
               </div>
 
             </div>
