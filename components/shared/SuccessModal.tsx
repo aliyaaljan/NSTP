@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { IconX } from "@tabler/icons-react"
 
 interface SuccessToastProps {
   show: boolean
@@ -94,7 +95,7 @@ export default function SuccessToast({
           padding: 0,
         }}
       >
-        ×
+        <IconX size={20} stroke={2} />
       </button>
 
       <style>
