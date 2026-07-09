@@ -630,7 +630,7 @@ begin
             select appeal_status_id from appeal_status where code in ('pending', 'under_review')
           )
       and t.is_active = true
-      and appe.assigned_adviser_user_id = p_adviser_user_id
+      and s.adviser_user_id = p_adviser_user_id
       and e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
           )
@@ -982,6 +982,71 @@ begin
 end;
 $function$;
 
+-- Drop the dead 6-arg update overload (unused; the Edit Session UI always sends void_reason).
+drop function if exists public.update_attendance_session(uuid, uuid, date, time, time, uuid);
+
+-- update_attendance_session (7-arg) — the overload the Edit Session UI actually calls
+-- (status id + void reason). Reconciled from a live-only ad-hoc definition that had NO
+-- caller guard (trusted p_adviser_user_id -> IDOR) and no pinned search_path. Now guarded
+-- and search_path-pinned, and it writes an append-only correction/adviser_manual event so
+-- every time edit leaves an audit trail (Business Rule #5).
+create or replace function public.update_attendance_session(
+  p_attendance_session_id uuid,
+  p_adviser_user_id uuid,
+  p_session_date date,
+  p_time_in time without time zone,
+  p_time_out time without time zone,
+  p_attendance_session_status_id uuid,
+  p_void_reason text
+)
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_enrollment_id   uuid;
+  v_event_source_id uuid;
+  v_event_type_id   uuid;
+begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to edit this session';
+  end if;
+
+  select att.enrollment_id into v_enrollment_id
+  from attendance_session att
+  join enrollment e on e.enrollment_id = att.enrollment_id
+  join section s on s.section_id = e.section_id
+  where att.attendance_session_id = p_attendance_session_id
+    and s.adviser_user_id = p_adviser_user_id;
+
+  if v_enrollment_id is null then
+    raise exception 'Not authorized to edit this session';
+  end if;
+
+  update attendance_session
+  set
+    started_at = (p_session_date + p_time_in) at time zone 'Asia/Manila',
+    ended_at = (p_session_date + p_time_out) at time zone 'Asia/Manila',
+    attendance_session_status_id = p_attendance_session_status_id,
+    void_reason = p_void_reason
+  where attendance_session_id = p_attendance_session_id;
+
+  select attt.attendance_event_type_id into v_event_type_id
+  from attendance_event_type attt where attt.code = 'correction' limit 1;
+  select atte.attendance_event_source_id into v_event_source_id
+  from attendance_event_source atte where atte.code = 'adviser_manual' limit 1;
+
+  insert into attendance_event (
+    enrollment_id, attendance_session_id, attendance_event_type_id,
+    attendance_event_source_id, effective_at, recorded_by_user_id
+  )
+  values (
+    v_enrollment_id, p_attendance_session_id, v_event_type_id,
+    v_event_source_id, now(), auth.uid()
+  );
+end;
+$function$;
+
 -- Lock down the RPC surface: authenticated only (the guard enforces row scope).
 do $$
 declare fn text;
@@ -993,7 +1058,8 @@ begin
     'public.get_active_sem(uuid)',
     'public.get_students_stats(uuid)',
     'public.get_my_students(uuid)',
-    'public.update_attendance_session(uuid, uuid, date, time, time)'
+    'public.update_attendance_session(uuid, uuid, date, time, time)',
+    'public.update_attendance_session(uuid, uuid, date, time, time, uuid, text)'
   ] loop
     execute format('revoke execute on function %s from public;', fn);
     execute format('revoke execute on function %s from anon;', fn);
@@ -1030,13 +1096,16 @@ end $$;
 -- create_attendance_session — facilitator manually adds a completed session
 -- (e.g. overnight work auto-voided at cutoff, or a forgotten re-login after a break).
 -- Modelled append-only: a new session + a correction event sourced adviser_manual.
+-- Returns the new attendance_session_id so callers (e.g. approving a "missing session"
+-- request) can link the created session back to the request.
+drop function if exists public.create_attendance_session(uuid, date, time, time);
 create or replace function public.create_attendance_session(
   p_enrollment_id uuid,
   p_session_date date,
   p_time_in time without time zone,
   p_time_out time without time zone
 )
-returns void
+returns uuid
 language plpgsql security definer
 set search_path = public, pg_temp
 as $function$
@@ -1090,6 +1159,8 @@ begin
   values (
     p_enrollment_id, v_new_session_id, v_event_type_id, v_event_source_id, now()
   );
+
+  return v_new_session_id;
 end;
 $function$;
 

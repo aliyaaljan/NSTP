@@ -1,19 +1,31 @@
 "use server"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 
 import { lookupId } from "../lookups"
 import { revalidatePath } from "next/cache"
-import { parseReason, packReason } from "../student/appeal-utils"
 import { formatClassLabel } from "@/lib/shared/class-label"
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string }
 
-// fetch pending/open appeals or requests assigned to adviser's section
+// Correction the facilitator confirms when approving a time request. The UI
+// pre-fills this from the request's structured fields; the facilitator can adjust.
+export type ApproveCorrection = {
+  // edit = fix times on an existing session; add = create a missing session;
+  // restore = supply the time-out for an auto-voided session (-> corrected);
+  // clear_flag = leave times, just clear the off-site flag; none = approve only.
+  action: "edit" | "add" | "restore" | "clear_flag" | "none"
+  attendanceSessionId?: string | null
+  sessionDate?: string // YYYY-MM-DD (for add/edit/restore)
+  timeIn?: string // HH:MM 24h
+  timeOut?: string // HH:MM 24h
+  resolutionNote?: string
+}
 
-// fetch pending/open appeals or requests assigned to adviser's section
+// fetch every request for the sections handled by the logged-in adviser (any status)
 export async function getAdviserPendingRequests(): Promise<
   ActionResult<any[]>
 > {
@@ -33,18 +45,27 @@ export async function getAdviserPendingRequests(): Promise<
       .eq("app_user_id", user.id)
       .maybeSingle()
 
-    // Fetch all requests matching sections handled by the logged-in adviser (No status filter)
     const { data: appeals, error } = await supabase
       .from("appeal")
       .select(
         `
           appeal_id,
           appeal_type_id,
-          reason,
+          title,
+          details,
+          attendance_session_id,
+          requested_time_in,
+          requested_time_out,
           created_at,
           appeal_status!inner (name, code),
+          appeal_type:appeal_type_id (name),
           appeal_attachment (storage_path, file_name, content_type, file_size_byte),
+          attendance_session:attendance_session_id (
+              started_at, ended_at, is_flagged, flag_reason,
+              attendance_session_status:attendance_session_status_id (code)
+          ),
           enrollment!inner (
+              enrollment_id,
               student_user_id,
               section_id,
               app_user!inner (full_name, student_number),
@@ -58,13 +79,13 @@ export async function getAdviserPendingRequests(): Promise<
     if (error) throw error
 
     const mapped = (appeals || []).map((app: any) => {
-      // unpack triple pipe-formatted inputs
-      const { type, title, body } = parseReason(app.reason || "")
       const student = app.enrollment?.app_user
+      const session = app.attendance_session
 
       return {
         appeal_id: app.appeal_id,
         appeal_type_id: app.appeal_type_id,
+        enrollment_id: app.enrollment?.enrollment_id || "",
         section_id: app.enrollment?.section_id || "",
         student_name: student?.full_name || "Unknown Student",
         student_number: student?.student_number || "—",
@@ -73,11 +94,25 @@ export async function getAdviserPendingRequests(): Promise<
           facilitatorName: caller?.full_name,
           schoolYear: app.enrollment?.section?.term?.school_year,
         }),
-        appeal_type_name: type || "Others",
-        title: title || "Request",
-        note: body || "",
+        appeal_type_name: app.appeal_type?.name || "Others",
+        title: app.title || "Request",
+        note: app.details || "",
         status: app.appeal_status?.name || "Pending Review",
         statusCode: app.appeal_status?.code || "pending",
+        attachments: app.appeal_attachment ?? [],
+        // structured time-correction context (null for legacy/free-text requests)
+        attendanceSessionId: app.attendance_session_id ?? null,
+        requestedTimeIn: app.requested_time_in ?? null,
+        requestedTimeOut: app.requested_time_out ?? null,
+        session: session
+          ? {
+              startedAt: session.started_at ?? null,
+              endedAt: session.ended_at ?? null,
+              isFlagged: session.is_flagged ?? false,
+              flagReason: session.flag_reason ?? null,
+              statusCode: session.attendance_session_status?.code ?? null,
+            }
+          : null,
         date: app.created_at
           ? new Date(app.created_at).toLocaleDateString("en-US", {
               month: "short",
@@ -85,7 +120,6 @@ export async function getAdviserPendingRequests(): Promise<
               year: "numeric",
             })
           : "—",
-        attachments: app.appeal_attachment ?? [],
       }
     })
 
@@ -95,42 +129,54 @@ export async function getAdviserPendingRequests(): Promise<
   }
 }
 
-// resolving student requests
+// Verify the caller advises the appeal's enrollment; returns the appeal row (service-read).
+async function assertAdvisesAppeal(
+  appealId: string
+): Promise<
+  | { ok: true; userId: string; enrollmentId: string }
+  | { ok: false; error: string }
+> {
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Not authenticated" }
 
+  const service = createSupabaseServiceClient()
+  const { data: appeal } = await service
+    .from("appeal")
+    .select("enrollment_id")
+    .eq("appeal_id", appealId)
+    .maybeSingle()
+  if (!appeal) return { ok: false, error: "Appeal not found" }
+
+  const { data: advises } = await supabase.rpc("app_advises_enrollment", {
+    p_enrollment_id: appeal.enrollment_id,
+  })
+  if (!advises) return { ok: false, error: "Permission denied" }
+
+  return { ok: true, userId: user.id, enrollmentId: appeal.enrollment_id }
+}
+
+// resolve a request (approve/reject) WITHOUT applying an attendance correction
 export async function resolveStudentRequest(
   appealId: string,
   decision: "approved" | "rejected",
   resolutionNote: string
 ): Promise<ActionResult<any>> {
   try {
-    const supabase = await createSupabaseServerClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return { ok: false, error: "Not authenticated" }
-
-    const { data: appeal } = await supabase
-      .from("appeal")
-      .select("enrollment_id")
-      .eq("appeal_id", appealId)
-      .single()
-    if (!appeal) throw new Error("Appeal not found")
-
-    const { data: advises } = await supabase.rpc("app_advises_enrollment", {
-      p_enrollment_id: appeal.enrollment_id,
-    })
-
-    if (!advises) throw new Error("Permission denied")
+    const guard = await assertAdvisesAppeal(appealId)
+    if (!guard.ok) throw new Error(guard.error)
 
     const statusId = await lookupId("appeal_status", decision)
+    const service = createSupabaseServiceClient()
 
-    const { error } = await supabase
+    const { error } = await service
       .from("appeal")
       .update({
         appeal_status_id: statusId,
         resolution_note: resolutionNote,
-        resolved_by_user_id: user.id,
+        resolved_by_user_id: guard.userId,
         resolved_at: new Date().toISOString(),
       })
       .eq("appeal_id", appealId)
@@ -147,36 +193,115 @@ export async function resolveStudentRequest(
   }
 }
 
-// function so when an adviser opens a request,
-// it turns to 'under review'
+// approve a time request AND apply the confirmed correction, then link the session
+export async function approveRequestWithCorrection(
+  appealId: string,
+  correction: ApproveCorrection
+): Promise<ActionResult<any>> {
+  try {
+    const guard = await assertAdvisesAppeal(appealId)
+    if (!guard.ok) throw new Error(guard.error)
 
+    const supabase = await createSupabaseServerClient()
+    const service = createSupabaseServiceClient()
+
+    let linkedSessionId: string | null = correction.attendanceSessionId ?? null
+
+    if (correction.action === "add") {
+      if (!correction.sessionDate || !correction.timeIn || !correction.timeOut) {
+        return { ok: false, error: "Missing date/time for the new session" }
+      }
+      const { data: newId, error } = await supabase.rpc("create_attendance_session", {
+        p_enrollment_id: guard.enrollmentId,
+        p_session_date: correction.sessionDate,
+        p_time_in: correction.timeIn,
+        p_time_out: correction.timeOut,
+      })
+      if (error) throw error
+      linkedSessionId = (newId as string) ?? null
+    } else if (correction.action === "edit" || correction.action === "restore") {
+      if (
+        !correction.attendanceSessionId ||
+        !correction.sessionDate ||
+        !correction.timeIn ||
+        !correction.timeOut
+      ) {
+        return { ok: false, error: "Missing session/time for the correction" }
+      }
+      const { data: correctedStatus } = await service
+        .from("attendance_session_status")
+        .select("attendance_session_status_id")
+        .eq("code", "corrected")
+        .single()
+
+      const { error } = await supabase.rpc("update_attendance_session", {
+        p_attendance_session_id: correction.attendanceSessionId,
+        p_adviser_user_id: guard.userId,
+        p_session_date: correction.sessionDate,
+        p_time_in: correction.timeIn,
+        p_time_out: correction.timeOut,
+        p_attendance_session_status_id:
+          correctedStatus?.attendance_session_status_id,
+        p_void_reason: null,
+      })
+      if (error) throw error
+    } else if (correction.action === "clear_flag") {
+      if (!correction.attendanceSessionId) {
+        return { ok: false, error: "Missing session for clear-flag" }
+      }
+      const { error } = await service
+        .from("attendance_session")
+        .update({ is_flagged: false, flag_reason: null })
+        .eq("attendance_session_id", correction.attendanceSessionId)
+      if (error) throw error
+    }
+
+    const approvedStatusId = await lookupId("appeal_status", "approved")
+    const { error: resolveError } = await service
+      .from("appeal")
+      .update({
+        appeal_status_id: approvedStatusId,
+        resolution_note: correction.resolutionNote ?? null,
+        resolved_by_user_id: guard.userId,
+        resolved_at: new Date().toISOString(),
+        attendance_session_id: linkedSessionId,
+      })
+      .eq("appeal_id", appealId)
+    if (resolveError) throw resolveError
+
+    revalidatePath("/facilitator/dashboard")
+    revalidatePath("/facilitator/my-students")
+    return { ok: true, data: { appealId, attendanceSessionId: linkedSessionId } }
+  } catch (err: any) {
+    return { ok: false, error: err.message }
+  }
+}
+
+// when an adviser opens a pending request, flip it to 'under review'
 export async function transitionToUnderReview(
   appealId: string
 ): Promise<ActionResult<any>> {
   try {
-    const supabase = await createSupabaseServerClient()
+    const service = createSupabaseServiceClient()
 
     const openStatusId = await lookupId("appeal_status", "pending")
     const reviewStatusId = await lookupId("appeal_status", "under_review")
 
-    const { data: appeal, error: fetchError } = await supabase
+    const { data: appeal, error: fetchError } = await service
       .from("appeal")
       .select("appeal_status_id")
       .eq("appeal_id", appealId)
-      .single()
+      .maybeSingle()
 
     if (fetchError || !appeal)
       return { ok: false, error: "Record check failed" }
 
-    // do nothing if request already transitioned to 'open' or 'under review'
+    // idempotent: only pending -> under_review
     if (appeal.appeal_status_id !== openStatusId) {
-      return {
-        ok: true,
-        data: "Skipped",
-      }
+      return { ok: true, data: "Skipped" }
     }
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await service
       .from("appeal")
       .update({ appeal_status_id: reviewStatusId })
       .eq("appeal_id", appealId)

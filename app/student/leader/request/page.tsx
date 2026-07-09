@@ -13,6 +13,17 @@ import {
   submitStudentRequest,
   updateStudentRequest,
 } from "@/lib/student/appeal-actions"
+import {
+  getMySessionsForRequest,
+  type RequestSessionOption,
+} from "@/lib/student/attendance-history-actions"
+import TimeCorrectionFields from "@/components/student/TimeCorrectionFields"
+import {
+  EMPTY_TIME_CORRECTION,
+  buildStructuredCorrection,
+  type StructuredCorrection,
+  type TimeCorrectionState,
+} from "@/lib/student/time-correction"
 import { createClient } from "@/lib/client"
 import {KpiStatCard, KpiStatCardGrid, ChartStyles,} from "@/components/shared/ChartModule"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
@@ -152,6 +163,10 @@ export default function RequestsPage() {
   const [formTitle, setFormTitle] = useState("")
   const [formBody, setFormBody] = useState("")
   const [formFiles, setFormFiles] = useState<File[]>([])
+  const [sessionOptions, setSessionOptions] = useState<RequestSessionOption[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [timeCorrection, setTimeCorrection] =
+    useState<TimeCorrectionState>(EMPTY_TIME_CORRECTION)
   const [editFiles, setEditFiles] = useState<{ storage_path: string; file_name: string }[]>([])
   const [activeFilter, setActiveFilter] = useState("All")
 
@@ -218,6 +233,16 @@ export default function RequestsPage() {
     }
   }, [])
 
+  // Load the student's sessions for the structured time-correction picker
+  useEffect(() => {
+    if (!showModal) return
+    setSessionsLoading(true)
+    getMySessionsForRequest().then((res) => {
+      if (res.ok) setSessionOptions(res.data)
+      setSessionsLoading(false)
+    })
+  }, [showModal])
+
   const counts = {
     Approved: requests.filter(
       (r) => r.status?.trim().toLowerCase() === "approved"
@@ -263,6 +288,17 @@ export default function RequestsPage() {
       (t) => t.appeal_type_id === formTypeId
     )
     const typeName = selectedTypeObj ? selectedTypeObj.name : "Others"
+    const isTimeRequest = typeName === "Hour Adjustment"
+
+    let structured: StructuredCorrection | undefined
+    if (isTimeRequest) {
+      const built = buildStructuredCorrection(timeCorrection, sessionOptions)
+      if (!built.ok) {
+        alert(built.error)
+        return
+      }
+      structured = built.value
+    }
 
     startTransition(async () => {
       const {data: { user },} = await supabase.auth.getUser()
@@ -313,10 +349,10 @@ export default function RequestsPage() {
       const res = await submitStudentRequest(
         profile.enrollmentId,
         formTypeId,
-        typeName,
         formTitle,
         formBody,
-        uploadedAttachments
+        uploadedAttachments,
+        structured
       )
 
       if (res.ok) {
@@ -324,6 +360,7 @@ export default function RequestsPage() {
         setFormTitle("")
         setFormBody("")
         setFormFiles([])
+        setTimeCorrection(EMPTY_TIME_CORRECTION)
         setShowModal(false)
         alert("Request submitted successfully!")
       } else {
@@ -350,18 +387,12 @@ export default function RequestsPage() {
   function handleEditSave() {
     if (!profile.enrollmentId || !selectedRequest || !editTypeId) return
 
-    const selectedTypeObj = requestType.find(
-      (t) => t.appeal_type_id === editTypeId
-    )
-    const typeName = selectedTypeObj ? selectedTypeObj.name : "Others"
-
     startTransition(async () => {
       const cleanBody = editBody.replace(/^Request:\s*/, "")
 
       const res = await updateStudentRequest(
         selectedRequest.id,
         editTypeId,
-        typeName,
         editTitle,
         cleanBody
       )
@@ -483,6 +514,9 @@ export default function RequestsPage() {
     setCurrentPage(1)
   }, [activeFilter, itemsPerPage])
 
+  const selectedFormTypeName =
+    requestType.find((t) => t.appeal_type_id === formTypeId)?.name ?? ""
+  const isTimeRequest = selectedFormTypeName === "Hour Adjustment"
 
   return (
     <>
@@ -1347,6 +1381,14 @@ export default function RequestsPage() {
                 )}
               </div>
             </div>
+            {isTimeRequest && (
+              <TimeCorrectionFields
+                sessions={sessionOptions}
+                value={timeCorrection}
+                onChange={setTimeCorrection}
+                loading={sessionsLoading}
+              />
+            )}
             <div
               style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
             >
@@ -1356,6 +1398,7 @@ export default function RequestsPage() {
                     setFormTitle("")
                     setFormBody("")
                     setFormFiles([])
+                    setTimeCorrection(EMPTY_TIME_CORRECTION)
                     if (requestType.length > 0) {
                     setFormTypeId(requestType[0].appeal_type_id)
                     }

@@ -261,34 +261,47 @@ create trigger attendance_event_no_delete
 -- ============================================================
 -- Appeals (ticket + threaded messages)
 -- ============================================================
+-- The section adviser is the authoritative owner of a request (one facilitator
+-- per section), so there is no assigned_adviser_user_id column — it is derived
+-- from enrollment -> section. Title/details are separate columns (no delimiter
+-- packing). Attachments live in appeal_attachment (below), not inline.
 create table appeal (
   appeal_id                uuid primary key default gen_random_uuid(),
   enrollment_id            uuid not null references enrollment(enrollment_id),
   attendance_session_id    uuid references attendance_session(attendance_session_id),
   requester_user_id        uuid not null references app_user(app_user_id),
-  assigned_adviser_user_id uuid references app_user(app_user_id),
   appeal_status_id         uuid not null references appeal_status(appeal_status_id),
   appeal_type_id           uuid references appeal_type(appeal_type_id),
   requested_time_in        timestamptz,
   requested_time_out       timestamptz,
-  reason                   text not null,
+  title                    text not null default '',
+  details                  text not null default '',
   resolution_note          text,
   resolved_by_user_id      uuid references app_user(app_user_id),
   resolved_at              timestamptz,
-  storage_path             text,     -- optional supporting-document attachment
-  file_name                text,
-  content_type             text,
-  file_size_byte           bigint,
   created_at               timestamptz not null default now(),
   updated_at               timestamptz not null default now()
 );
 
+-- Threaded messages on a request (ticket style). Currently unused by the app —
+-- reserved for a planned future student<->adviser message thread.
 create table appeal_message (
   appeal_message_id uuid primary key default gen_random_uuid(),
   appeal_id         uuid not null references appeal(appeal_id) on delete cascade,
   sender_user_id    uuid not null references app_user(app_user_id),
   body              text not null,
   created_at        timestamptz not null default now()
+);
+
+-- Supporting-document attachments for a request (0..n files per appeal).
+create table appeal_attachment (
+  appeal_attachment_id uuid primary key default gen_random_uuid(),
+  appeal_id            uuid not null references appeal(appeal_id) on delete cascade,
+  storage_path         text not null,
+  file_name            text not null,
+  content_type         text,
+  file_size_byte       bigint,
+  uploaded_at          timestamptz not null default now()
 );
 
 -- ============================================================
@@ -383,9 +396,9 @@ create index login_session_user_idx           on login_session(app_user_id);
 
 -- Covering indexes for unindexed FK columns (perf advisor lint 0001).
 create index appeal_requester_idx             on appeal(requester_user_id);
-create index appeal_assigned_adviser_idx      on appeal(assigned_adviser_user_id);
 create index appeal_resolved_by_idx           on appeal(resolved_by_user_id);
 create index appeal_message_sender_idx        on appeal_message(sender_user_id);
+create index appeal_attachment_appeal_idx     on appeal_attachment(appeal_id);
 create index attendance_event_recorded_by_idx on attendance_event(recorded_by_user_id);
 create index attendance_event_corrects_idx    on attendance_event(corrects_event_id);
 create index form_uploaded_by_idx             on form(uploaded_by_user_id);
@@ -504,11 +517,10 @@ insert into attendance_session_status (code, name) values
 on conflict (code) do nothing;
 
 insert into appeal_status (code, name) values
-  ('pending',      'Pending'),
+  ('pending',      'Pending Review'),
   ('under_review', 'Under Review'),
   ('approved',     'Approved'),
-  ('rejected',     'Rejected'),
-  ('withdrawn',    'Withdrawn')
+  ('rejected',     'Rejected')
 on conflict (code) do nothing;
 
 insert into section_status (code, name) values

@@ -468,40 +468,42 @@ DROP FUNCTION _seed_render_sessions(uuid, int, timestamptz, int, uuid);
 
 -- -- 10. Appeals -------------------------------------------------
 -- 3 on adviser.test's active class + 1 from student.test (dropped enrollment).
-INSERT INTO appeal (appeal_id, enrollment_id, requester_user_id, assigned_adviser_user_id, appeal_status_id, reason, requested_time_in) VALUES
+INSERT INTO appeal (appeal_id, enrollment_id, requester_user_id, appeal_status_id, appeal_type_id, title, details, requested_time_in) VALUES
   ('5eed7001-0000-0000-0000-000000000000','5eed4022-0000-0000-0000-000000000000','5eed2022-0000-0000-0000-000000000000',
-   (SELECT id FROM auth.users WHERE email='adviser.test@up.edu.ph'),
    (SELECT appeal_status_id FROM appeal_status WHERE code='pending'),
-   'I was present but my QR scan failed to load on my phone.', '2026-02-09 08:10:00+08'),
+   (SELECT appeal_type_id FROM appeal_type WHERE code='hour adjustment'),
+   'QR scan failed', 'I was present but my QR scan failed to load on my phone.', '2026-02-09 08:10:00+08'),
   ('5eed7002-0000-0000-0000-000000000000','5eed4024-0000-0000-0000-000000000000','5eed2024-0000-0000-0000-000000000000',
-   (SELECT id FROM auth.users WHERE email='adviser.test@up.edu.ph'),
    (SELECT appeal_status_id FROM appeal_status WHERE code='under_review'),
-   'My phone battery died during the session. I was present for the full 3 hours.', '2026-02-16 08:05:00+08'),
+   (SELECT appeal_type_id FROM appeal_type WHERE code='hour adjustment'),
+   'Phone battery died', 'My phone battery died during the session. I was present for the full 3 hours.', '2026-02-16 08:05:00+08'),
   ('5eed7003-0000-0000-0000-000000000000','5eed4026-0000-0000-0000-000000000000','5eed2026-0000-0000-0000-000000000000',
-   (SELECT id FROM auth.users WHERE email='adviser.test@up.edu.ph'),
    (SELECT appeal_status_id FROM appeal_status WHERE code='approved'),
-   'I timed in but forgot to scan out. Please correct my time-out.', '2026-02-02 08:00:00+08')
+   (SELECT appeal_type_id FROM appeal_type WHERE code='hour adjustment'),
+   'Forgot to time out', 'I timed in but forgot to scan out. Please correct my time-out.', '2026-02-02 08:00:00+08')
 ON CONFLICT (appeal_id) DO NOTHING;
 
-INSERT INTO appeal (appeal_id, enrollment_id, requester_user_id, assigned_adviser_user_id, appeal_status_id, reason, requested_time_in)
+INSERT INTO appeal (appeal_id, enrollment_id, requester_user_id, appeal_status_id, appeal_type_id, title, details, requested_time_in)
 SELECT '5eed7004-0000-0000-0000-000000000000','5eed4913-0000-0000-0000-000000000000', id,
-       '5eed1004-0000-0000-0000-000000000000',
        (SELECT appeal_status_id FROM appeal_status WHERE code='pending'),
-       'The QR code was not displaying properly and I could not scan in time.', now() - INTERVAL '3 days'
+       (SELECT appeal_type_id FROM appeal_type WHERE code='hour adjustment'),
+       'QR not displaying', 'The QR code was not displaying properly and I could not scan in time.', now() - INTERVAL '3 days'
 FROM auth.users WHERE email='student.test@up.edu.ph'
 ON CONFLICT (appeal_id) DO NOTHING;
 
 -- 2 on rblopez's active class (parity — she needs the same variety as adviser.test).
-INSERT INTO appeal (appeal_id, enrollment_id, requester_user_id, assigned_adviser_user_id, appeal_status_id, reason, requested_time_in)
-SELECT v.appeal_id::uuid, v.enrollment_id::uuid, v.requester_id::uuid, u.id,
-       (SELECT appeal_status_id FROM appeal_status WHERE code = v.status), v.reason, v.req_time_in::timestamptz
+INSERT INTO appeal (appeal_id, enrollment_id, requester_user_id, appeal_status_id, appeal_type_id, title, details, requested_time_in)
+SELECT v.appeal_id::uuid, v.enrollment_id::uuid, v.requester_id::uuid,
+       (SELECT appeal_status_id FROM appeal_status WHERE code = v.status),
+       (SELECT appeal_type_id FROM appeal_type WHERE code='hour adjustment'),
+       v.title, v.details, v.req_time_in::timestamptz
 FROM auth.users u
 JOIN (VALUES
   ('5eed7011-0000-0000-0000-000000000000','5eed4081-0000-0000-0000-000000000000','5eed2081-0000-0000-0000-000000000000','pending',
-   'The QR code kept showing as expired even though I scanned within a minute.', '2026-02-12 08:15:00+08'),
+   'QR showed expired', 'The QR code kept showing as expired even though I scanned within a minute.', '2026-02-12 08:15:00+08'),
   ('5eed7012-0000-0000-0000-000000000000','5eed4083-0000-0000-0000-000000000000','5eed2083-0000-0000-0000-000000000000','rejected',
-   'I was 15 minutes late but the geofence blocked my check-in entirely.', '2026-02-19 08:20:00+08')
-) AS v(appeal_id, enrollment_id, requester_id, status, reason, req_time_in) ON true
+   'Geofence blocked check-in', 'I was 15 minutes late but the geofence blocked my check-in entirely.', '2026-02-19 08:20:00+08')
+) AS v(appeal_id, enrollment_id, requester_id, status, title, details, req_time_in) ON true
 WHERE u.email = 'rblopez@up.edu.ph'
   AND EXISTS (SELECT 1 FROM enrollment WHERE enrollment_id = v.enrollment_id::uuid)
 ON CONFLICT (appeal_id) DO NOTHING;

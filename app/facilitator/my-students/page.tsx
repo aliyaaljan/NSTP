@@ -29,6 +29,8 @@ import {
   getAdviserPendingRequests,
   resolveStudentRequest,
   transitionToUnderReview,
+  approveRequestWithCorrection,
+  type ApproveCorrection,
 } from "@/lib/facilitator/appeal-actions"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 
@@ -99,6 +101,7 @@ interface Attachment {
 interface PendingRequest {
   section_id: string
   section_name: string
+  enrollment_id: string
   student_name: string
   student_number: string
   appeal_id: string
@@ -110,6 +113,117 @@ interface PendingRequest {
   status: string
   statusCode: string
   attachments: Attachment[]
+  // structured time-correction context (null for legacy/free-text requests)
+  attendanceSessionId: string | null
+  requestedTimeIn: string | null
+  requestedTimeOut: string | null
+  session: {
+    startedAt: string | null
+    endedAt: string | null
+    isFlagged: boolean
+    flagReason: string | null
+    statusCode: string | null
+  } | null
+}
+
+// ISO instant -> Manila local date / 24h time (for pre-filling the correction).
+function isoToManilaDate(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ""
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d)
+}
+function isoToManilaTime(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ""
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d)
+}
+
+type ApplyPlan = {
+  isTimeRequest: boolean
+  isFlagCase: boolean
+  action: ApproveCorrection["action"]
+  date: string
+  timeIn: string
+  timeOut: string
+  timeInLocked: boolean // restore keeps the existing time-in
+  summary: string
+}
+
+function deriveApplyPlan(r: PendingRequest | null): ApplyPlan {
+  const empty: ApplyPlan = {
+    isTimeRequest: false,
+    isFlagCase: false,
+    action: "none",
+    date: "",
+    timeIn: "",
+    timeOut: "",
+    timeInLocked: false,
+    summary: "",
+  }
+  if (!r) return empty
+  const hasTimes = !!r.requestedTimeIn || !!r.requestedTimeOut
+  const isTimeRequest = !!r.attendanceSessionId || hasTimes
+  if (!isTimeRequest) return empty
+
+  if (!r.attendanceSessionId) {
+    return {
+      isTimeRequest: true,
+      isFlagCase: false,
+      action: "add",
+      date: isoToManilaDate(r.requestedTimeIn) || isoToManilaDate(r.requestedTimeOut),
+      timeIn: isoToManilaTime(r.requestedTimeIn),
+      timeOut: isoToManilaTime(r.requestedTimeOut),
+      timeInLocked: false,
+      summary: "Add a new session for this student.",
+    }
+  }
+  if (r.session?.statusCode === "voided") {
+    return {
+      isTimeRequest: true,
+      isFlagCase: false,
+      action: "restore",
+      date: isoToManilaDate(r.session.startedAt),
+      timeIn: isoToManilaTime(r.session.startedAt),
+      timeOut: isoToManilaTime(r.requestedTimeOut) || isoToManilaTime(r.session.endedAt),
+      timeInLocked: true,
+      summary: "Restore this auto-timed-out session with the correct time-out.",
+    }
+  }
+  if (hasTimes) {
+    return {
+      isTimeRequest: true,
+      isFlagCase: false,
+      action: "edit",
+      date: isoToManilaDate(r.session?.startedAt) || isoToManilaDate(r.requestedTimeIn),
+      timeIn: isoToManilaTime(r.requestedTimeIn) || isoToManilaTime(r.session?.startedAt),
+      timeOut: isoToManilaTime(r.requestedTimeOut) || isoToManilaTime(r.session?.endedAt),
+      timeInLocked: false,
+      summary: "Correct the recorded time on this session.",
+    }
+  }
+  // session referenced, no requested times -> off-site flag explanation
+  return {
+    isTimeRequest: true,
+    isFlagCase: true,
+    action: "none",
+    date: "",
+    timeIn: "",
+    timeOut: "",
+    timeInLocked: false,
+    summary: "The student is explaining an off-site flag. The session still counts.",
+  }
 }
 
 const statusConfig: Record<
@@ -650,7 +764,22 @@ function MyStudentsContent() {
   const [newSessionError, setNewSessionError] = useState("")
   
   const [resolutionNote, setResolutionNote] = useState("")
-  
+  const [applyDate, setApplyDate] = useState("")
+  const [applyTimeIn, setApplyTimeIn] = useState("")
+  const [applyTimeOut, setApplyTimeOut] = useState("")
+  const [clearFlag, setClearFlag] = useState(false)
+
+  // Pre-fill the correction whenever a (time) request is opened for review.
+  useEffect(() => {
+    const plan = deriveApplyPlan(selectedRequest)
+    setApplyDate(plan.date)
+    setApplyTimeIn(plan.timeIn)
+    setApplyTimeOut(plan.timeOut)
+    setClearFlag(false)
+  }, [selectedRequest])
+
+  const applyPlan = deriveApplyPlan(selectedRequest)
+
   const selectedStatusOption = sessionStatusOptions.find((opt) => opt.attendance_session_status_id === editStatus)
   const isVoidedSelected = selectedStatusOption?.code === "voided"
   const isSaveDisabled = !editDate || !editTimeIn || !editTimeOut || !editStatus || !!editTimeError ||
@@ -1975,6 +2104,37 @@ function MyStudentsContent() {
                   ))}
                 </ModalField>
               )}
+              {applyPlan.isTimeRequest && (
+                <div style={{ padding: 12, borderRadius: 8, border: "1px solid var(--border)", background: "rgba(0,0,0,0.02)" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Attendance correction</div>
+                  <div style={{ fontSize: 12, color: "var(--muted, #666)", marginBottom: 10 }}>{applyPlan.summary}</div>
+                  {applyPlan.isFlagCase ? (
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                      <input type="checkbox" checked={clearFlag} onChange={(e) => setClearFlag(e.target.checked)} />
+                      Clear the off-site flag on this session
+                    </label>
+                  ) : (
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <div style={{ flex: "1 1 120px" }}>
+                        <label className="nstp-modal-label">Date</label>
+                        <input type="date" value={applyDate} onChange={(e) => setApplyDate(e.target.value)}
+                          style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid var(--border)", borderRadius: 8, fontSize: 13 }} />
+                      </div>
+                      <div style={{ flex: "1 1 100px" }}>
+                        <label className="nstp-modal-label">Time In</label>
+                        <input type="time" value={applyPlan.timeInLocked ? applyPlan.timeIn : applyTimeIn} disabled={applyPlan.timeInLocked}
+                          onChange={(e) => setApplyTimeIn(e.target.value)}
+                          style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, background: applyPlan.timeInLocked ? "#F3F4F6" : "#fff" }} />
+                      </div>
+                      <div style={{ flex: "1 1 100px" }}>
+                        <label className="nstp-modal-label">Time Out</label>
+                        <input type="time" value={applyTimeOut} onChange={(e) => setApplyTimeOut(e.target.value)}
+                          style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid var(--border)", borderRadius: 8, fontSize: 13 }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="nstp-modal-label">Review Comment / Notes</label>
                 <textarea value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)}
@@ -1986,9 +2146,21 @@ function MyStudentsContent() {
                   className="nstp-modal-btn nstp-modal-btn-danger" style={{ opacity: isPending ? 0.6 : 1 }}>
                   Reject Request
                 </button>
-                <button disabled={isPending} onClick={() => startTransition(async () => { const res = await resolveStudentRequest(selectedRequest.appeal_id, "approved", resolutionNote); if (res.ok) { await refreshRequests(); setSelectedRequest(null); setResolutionNote("") } else alert(res.error) })}
+                <button disabled={isPending} onClick={() => startTransition(async () => {
+                    const res = applyPlan.isTimeRequest
+                      ? await approveRequestWithCorrection(selectedRequest.appeal_id, {
+                          action: applyPlan.isFlagCase ? (clearFlag ? "clear_flag" : "none") : applyPlan.action,
+                          attendanceSessionId: selectedRequest.attendanceSessionId,
+                          sessionDate: applyDate,
+                          timeIn: applyPlan.timeInLocked ? applyPlan.timeIn : applyTimeIn,
+                          timeOut: applyTimeOut,
+                          resolutionNote,
+                        })
+                      : await resolveStudentRequest(selectedRequest.appeal_id, "approved", resolutionNote)
+                    if (res.ok) { await refreshRequests(); setSelectedRequest(null); setResolutionNote("") } else alert(res.error)
+                  })}
                   className="nstp-modal-btn nstp-modal-btn-primary" style={{ opacity: isPending ? 0.6 : 1 }}>
-                  Approve Request
+                  {applyPlan.isTimeRequest && !applyPlan.isFlagCase ? "Approve & Apply" : "Approve Request"}
                 </button>
               </div>
             </>

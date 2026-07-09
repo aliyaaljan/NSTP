@@ -132,7 +132,6 @@ export interface AdviserListDbRow {
 /** Raw row for pending-appeal aggregation. */
 export interface AdviserPendingAppealDbRow {
   appeal_id: string
-  assigned_adviser_user_id: string | null
   enrollment: {
     section: { adviser_user_id: string } | null
   } | null
@@ -230,10 +229,8 @@ export function buildPendingAppealCounts(
   const counts = new Map<string, number>()
 
   for (const row of rows) {
-    const adviserId =
-      row.assigned_adviser_user_id ??
-      row.enrollment?.section?.adviser_user_id ??
-      null
+    // The section adviser is the authoritative owner of a request.
+    const adviserId = row.enrollment?.section?.adviser_user_id ?? null
     if (!adviserId) continue
     counts.set(adviserId, (counts.get(adviserId) ?? 0) + 1)
   }

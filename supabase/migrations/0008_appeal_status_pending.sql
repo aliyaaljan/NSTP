@@ -1,7 +1,7 @@
 -- Align appeal_status initial-state code with application layer (pending, not open).
 
 update public.appeal_status
-set code = 'pending', name = 'Pending'
+set code = 'pending', name = 'Pending Review'
 where code = 'open';
 
 drop policy if exists appeal_insert_self on public.appeal;
@@ -11,7 +11,6 @@ create policy appeal_insert_self on public.appeal for insert to authenticated
     requester_user_id = (select auth.uid())
     and exists (select 1 from public.enrollment e
                 where e.enrollment_id = appeal.enrollment_id and e.student_user_id = (select auth.uid()))
-    and assigned_adviser_user_id is null
     and resolved_by_user_id is null
     and resolved_at is null
     and resolution_note is null
@@ -99,7 +98,7 @@ begin
             select appeal_status_id from appeal_status where code in ('pending', 'under_review')
           )
       and t.is_active = true
-      and appe.assigned_adviser_user_id = p_adviser_user_id
+      and s.adviser_user_id = p_adviser_user_id
       and e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
           )

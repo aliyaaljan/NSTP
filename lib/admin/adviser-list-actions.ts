@@ -97,7 +97,6 @@ export async function getAdviserListData(
 
   const pendingAppealsSelect = `
     appeal_id,
-    assigned_adviser_user_id,
     enrollment(enrollment_id, section:section_id(adviser_user_id))
   `
 

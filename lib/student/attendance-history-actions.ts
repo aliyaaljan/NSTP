@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { resolveActiveStudentEnrollment } from "@/lib/student/enrollment"
 import { lookupId } from "@/lib/lookups"
-import { manilaDateKey, manilaClock } from "@/lib/student/leader/scan-history"
+import { manilaDateKey, manilaClock, formatDate } from "@/lib/student/leader/scan-history"
 
 export type AttendanceHistoryRow = {
   attendanceSessionId: string
@@ -123,6 +123,88 @@ export async function getMyAttendanceHistory(): Promise<ActionResult> {
     return {
       ok: false,
       error: "Failed to load attendance history. Please try again.",
+    }
+  }
+}
+
+// Session options for the "Submit Request" time-correction picker. Unlike
+// getMyAttendanceHistory (dashboard: closed + corrected only), this includes
+// voided sessions (so a student can request a restore) and surfaces each
+// session's status + off-site flag.
+export type RequestSessionOption = {
+  sessionId: string
+  dateKey: string // YYYY-MM-DD (Manila) — feeds the correction date
+  dateLabel: string // readable
+  timeIn: string // HH:MM 24h (Manila) for input pre-fill; "" if none
+  timeOut: string // HH:MM 24h (Manila); "" if none
+  timeInLabel: string // 12h display
+  timeOutLabel: string // 12h display
+  statusCode: string
+  isFlagged: boolean
+}
+
+function manilaTime24(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ""
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d)
+}
+
+export async function getMySessionsForRequest(): Promise<
+  | { ok: true; data: RequestSessionOption[] }
+  | { ok: false; error: string }
+> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const service = createSupabaseServiceClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: "Not authenticated" }
+
+    const primary = await resolveActiveStudentEnrollment(service, user.id)
+    if (!primary) return { ok: true, data: [] }
+
+    const { data: sessions, error } = await service
+      .from("attendance_session")
+      .select(
+        "attendance_session_id, started_at, ended_at, is_flagged, attendance_session_status:attendance_session_status_id ( code )"
+      )
+      .eq("enrollment_id", primary.enrollmentId)
+      .order("started_at", { ascending: false })
+
+    if (error) {
+      console.error("[getMySessionsForRequest] query failed", error)
+      return { ok: false, error: "Failed to load your sessions." }
+    }
+
+    const rows: RequestSessionOption[] = (sessions ?? [])
+      .map((s: any) => ({
+        sessionId: s.attendance_session_id,
+        dateKey: manilaDateKey(s.started_at),
+        dateLabel: formatDate(manilaDateKey(s.started_at)),
+        timeIn: manilaTime24(s.started_at),
+        timeOut: manilaTime24(s.ended_at),
+        timeInLabel: manilaClock(s.started_at),
+        timeOutLabel: manilaClock(s.ended_at),
+        statusCode: s.attendance_session_status?.code ?? "",
+        isFlagged: s.is_flagged ?? false,
+      }))
+      // in-progress ('open') sessions aren't correctable via a request
+      .filter((r) => r.statusCode && r.statusCode !== "open")
+
+    return { ok: true, data: rows }
+  } catch (err) {
+    console.error("[getMySessionsForRequest] failed", err)
+    return {
+      ok: false,
+      error: "Failed to load your sessions. Please try again.",
     }
   }
 }
