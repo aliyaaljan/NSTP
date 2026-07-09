@@ -16,6 +16,7 @@ import {
 import { createClient } from "@/lib/client"
 import {KpiStatCard, KpiStatCardGrid, ChartStyles,} from "@/components/shared/ChartModule"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+import SuccessModal from "@/components/shared/SuccessModal"
 
 const MAX_NUM_ATTACHMENT = 1
 
@@ -325,7 +326,8 @@ export default function RequestsPage() {
         setFormBody("")
         setFormFiles([])
         setShowModal(false)
-        alert("Request submitted successfully!")
+        setSuccessMessage("Your request has been submitted successfully.")
+        setShowSuccessModal(true)
       } else {
         alert(res.error)
       }
@@ -368,6 +370,9 @@ export default function RequestsPage() {
       if (res.ok) {
         await loadRequests(profile.enrollmentId)
         setSelectedRequest(null)
+      
+        setSuccessMessage("Your request has been updated successfully.")
+        setShowSuccessModal(true)
       } else {
         alert("Failed to update request or it is no longer 'Pending Review'.")
       }
@@ -482,6 +487,9 @@ export default function RequestsPage() {
   useEffect(() => {
     setCurrentPage(1)
   }, [activeFilter, itemsPerPage])
+
+    const [showSuccessModal, setShowSuccessModal] = useState(false)
+    const [successMessage, setSuccessMessage] = useState("")
 
 
   return (
@@ -777,6 +785,12 @@ export default function RequestsPage() {
         font-family:inherit;
         font-size:11px;
         background:white;
+        }
+
+        .input-field:focus {
+        outline: none;
+        border: 1px solid #1A3C2A !important;
+        box-shadow: 0 0 0 2px rgba(26, 60, 42, 0.12);
         }
 
       `}</style>
@@ -1159,6 +1173,7 @@ export default function RequestsPage() {
               </label>
 
               <select
+                className="input-field"
                 value={formTypeId}
                 onChange={(e) => setFormTypeId(e.target.value)}
                 style={{
@@ -1194,27 +1209,37 @@ export default function RequestsPage() {
               </label>
               
               <textarea
-                rows={1}
+                className="input-field"
                 value={formTitle}
                 maxLength={50}
-                onChange={(e) => {
-                    setFormTitle(e.target.value)
-                    e.target.style.height = "auto"
-                    e.target.style.height = `${e.target.scrollHeight}px`
-                }}
+                rows={2}
+                onChange={(e) => setFormTitle(e.target.value)}
                 style={{
                     width: "100%",
-                    minHeight: 48,
+                    height: 45,             
                     padding: "10px 14px",
                     borderRadius: 8,
                     border: "1px solid #ccc",
                     fontSize: 14,
                     fontFamily: "inherit",
                     resize: "none",
-                    overflow: "hidden",
+                    overflowY: "auto",      
                     boxSizing: "border-box",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "#CFCFCB transparent",
                 }}
                 />
+
+                <div
+                style={{
+                    fontSize: 12,
+                    color: C.textMuted,
+                    textAlign: "right",
+                    marginTop: 5,
+                }}
+                >
+                {formTitle.length}/50
+                </div>
             </div>
 
             <div style={{ marginBottom: 24 }}>
@@ -1230,6 +1255,7 @@ export default function RequestsPage() {
                 Details
               </label>
               <textarea
+                className="input-field"
                 value={formBody}
                 onChange={(e) => setFormBody(e.target.value)}
                 placeholder="Describe your request or concern..."
@@ -1270,8 +1296,24 @@ export default function RequestsPage() {
                   Attachment (Optional)
                 </label>
 
+                {formFiles.length < MAX_NUM_ATTACHMENT && (
                 <label
-                  style={{
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                    e.preventDefault()
+
+                    const files = Array.from(e.dataTransfer.files)
+
+                    if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
+                    alert(
+                        `You can attach at most ${MAX_NUM_ATTACHMENT} file.`
+                    )
+                    return
+                    }
+
+                    setFormFiles((prev) => [...prev, ...files])
+                }}
+                    style={{
                     width: "100%",
                     height: 120,
                     border: "2px dashed #C9C9C9",
@@ -1284,44 +1326,51 @@ export default function RequestsPage() {
                     background: "#FAFAF7",
                     boxSizing: "border-box",
                     fontFamily: "inherit",
-                  }}
+                    }}
                 >
-                  <span
+                    <span
                     style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: C.green,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: C.green,
                     }}
-                  >
+                    >
                     Drop your file here
-                  </span>
+                    </span>
 
-                  <span
+                    <span
                     style={{
-                      fontSize: 12,
-                      color: C.textMuted,
-                      marginTop: 4,
+                        fontSize: 12,
+                        color: C.textMuted,
+                        marginTop: 4,
                     }}
-                  >
+                    >
                     or click to browse
-                  </span>
+                    </span>
 
-                  <input
+                    <input
                     type="file"
                     hidden
                     multiple
                     onChange={(e) => {
-                      if (e.target.files) {
+                        if (e.target.files) {
                         const files = Array.from(e.target.files)
+
                         if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
-                          alert(`You can attach at most ${MAX_NUM_ATTACHMENT} ${MAX_NUM_ATTACHMENT === 1 ? "file" : "files"}.`)
-                          return
+                            alert(
+                            `You can attach at most ${MAX_NUM_ATTACHMENT} ${
+                                MAX_NUM_ATTACHMENT === 1 ? "file" : "files"
+                            }.`
+                            )
+                            return
                         }
+
                         setFormFiles((prev) => [...prev, ...files])
-                      }
+                        }
                     }}
-                  />
+                    />
                 </label>
+                )}
 
                 {formFiles.length > 0 && (
                   <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1493,6 +1542,7 @@ export default function RequestsPage() {
               Request Category
             </label>
             <select
+                className="input-field"
                 value={editTypeId}
                 onChange={(e) => setEditTypeId(e.target.value)}
                 disabled={!isEditable}
@@ -1536,18 +1586,15 @@ export default function RequestsPage() {
             </label>
 
             <textarea
-                rows={1}
+                className="input-field"
                 value={editTitle}
                 disabled={!isEditable}
                 maxLength={50}
-                onChange={(e) => {
-                    setEditTitle(e.target.value)
-                    e.target.style.height = "auto"
-                    e.target.style.height = `${e.target.scrollHeight}px`
-                }}
+                rows={2}
+                onChange={(e) => setEditTitle(e.target.value)}
                 style={{
                     width: "100%",
-                    minHeight: 48,
+                    height: 45,
                     padding: "10px 14px",
                     borderRadius: 8,
                     background: isEditable ? "#fff" : "#F3F4F6",
@@ -1556,11 +1603,27 @@ export default function RequestsPage() {
                     fontSize: 14,
                     fontFamily: "inherit",
                     resize: "none",
-                    overflow: "hidden",
+                    overflowY: "auto",
                     boxSizing: "border-box",
                     cursor: isEditable ? "text" : "default",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "#CFCFCB transparent",
                 }}
                 />
+
+                {isEditable && (
+                <div
+                    style={{
+                    fontSize: 12,
+                    color: C.textMuted,
+                    textAlign: "right",
+                    marginTop: 5,
+                    marginBottom: 10,
+                    }}
+                >
+                    {editTitle.length}/50
+                </div>
+                )}
 
             <label
               style={{
@@ -1575,6 +1638,7 @@ export default function RequestsPage() {
             </label>
 
             <textarea
+              className="input-field"
               value={editBody}
               disabled={!isEditable}
               onChange={(e) => setEditBody(e.target.value)}
@@ -1625,6 +1689,7 @@ export default function RequestsPage() {
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
+                      cursor: "pointer",
                     }}
                   >
                     <i className="ti ti-paperclip" style={{ fontSize: 16, color: C.green }} />
@@ -1714,6 +1779,13 @@ export default function RequestsPage() {
           </div>
         </div>
       )}
+
+        <SuccessModal
+        show={showSuccessModal}
+        message={successMessage}
+        onClose={() => setShowSuccessModal(false)}
+        />
+
     </>
   )
 }
