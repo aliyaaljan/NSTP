@@ -548,6 +548,8 @@ export default function RequestsPage() {
         border-radius: 15px;
         border: 1px solid #E2E2E2;
         box-shadow: 0 10px 30px rgba(0,0,0,.06);
+        scrollbar-width: thin; 
+        scrollbar-color: #CFCFCB transparent;
         }
 
         .request-item{
@@ -1097,6 +1099,8 @@ export default function RequestsPage() {
                 maxHeight:"90vh",
                 overflowY:"auto",
                 boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
+                scrollbarWidth: "thin",
+                scrollbarColor: "#CFCFCB transparent",
                }}
           >
             <div
@@ -1430,6 +1434,8 @@ export default function RequestsPage() {
                 overflowY:"auto",
                 boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
                 fontFamily: "var(--font-montserrat), sans-serif",
+                scrollbarWidth: "thin",
+                scrollbarColor: "#CFCFCB transparent",
                }}
           >
             <div
