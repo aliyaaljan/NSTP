@@ -12,6 +12,8 @@ export function StatsCards({
   notScannedCount,
   selectedMonth,
   selectedWeek,
+  onCardClick, 
+  activeFilter, 
 }: {
   isMobile: boolean
   totalScans: number
@@ -20,6 +22,8 @@ export function StatsCards({
   notScannedCount: number
   selectedMonth?: string
   selectedWeek?: string
+  onCardClick?: (filterType: 'on-time' | 'late' | 'not-scanned') => void 
+  activeFilter?: 'on-time' | 'late' | 'not-scanned' | null 
 }) {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
 
@@ -50,18 +54,21 @@ export function StatsCards({
       value: onTimeCount,
       color: onTimeColor,
       icon: "ti-circle-check",
+      filterType: 'on-time' as const,
     },
     {
       label: "Late",
       value: lateCount,
       color: lateColor,
       icon: "ti-circle-check",
+      filterType: 'late' as const,
     },
     {
       label: "Not Scanned",
       value: notScannedCount,
       color: notScannedColor,
       icon: "ti-user-x",
+      filterType: 'not-scanned' as const,
     },
   ]
 
@@ -89,6 +96,12 @@ export function StatsCards({
       default:
         return null
     }
+  }
+
+  const defaultColor = "#666666"
+
+  const isFilterActive = (filterType: 'on-time' | 'late' | 'not-scanned') => {
+    return activeFilter === filterType
   }
 
   return (
@@ -123,12 +136,15 @@ export function StatsCards({
       >
         {stats.map((stat) => {
           const isHovered = hoveredCard === stat.label
+          const isNotScanned = stat.filterType === 'not-scanned'
+          const isActive = isFilterActive(stat.filterType)
 
           return (
             <div
               key={stat.label}
               onMouseEnter={() => setHoveredCard(stat.label)}
               onMouseLeave={() => setHoveredCard(null)}
+              onClick={() => onCardClick?.(stat.filterType)}
               style={{
                 position: "relative",
                 flex: 1,
@@ -137,18 +153,26 @@ export function StatsCards({
                 textAlign: "left",
                 background: "#FFFFFF",
                 backgroundImage: "linear-gradient(to bottom right, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0))",
-                border: `1px solid ${isHovered ? stat.color.icon : "#ECECEA"}`,
+                border: `2px solid ${
+                  isActive 
+                    ? stat.color.icon 
+                    : isHovered 
+                      ? stat.color.icon 
+                      : "#ECECEA"
+                }`,
                 borderRadius: "14px",
                 padding: "16px 18px",
-                boxShadow: isHovered 
+                boxShadow: isActive 
                   ? "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
-                  : "0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04)",
+                  : isHovered 
+                    ? "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
+                    : "0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04)",
                 cursor: "pointer",
                 transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                 overflow: "hidden",
                 textDecoration: "none",
                 color: "inherit",
-                transform: isHovered ? "translateY(-2px)" : "translateY(0)",
+                transform: isActive || isHovered ? "translateY(-2px)" : "translateY(0)",
               }}
             >
               {/* Header with label */}
@@ -166,7 +190,11 @@ export function StatsCards({
                   style={{
                     fontSize: "11.5px",
                     fontWeight: 600,
-                    color: isHovered ? stat.color.icon : "#6B7280",
+                    color: isActive 
+                      ? (isNotScanned ? "#000000" : stat.color.icon)
+                      : isHovered 
+                        ? (isNotScanned ? "#000000" : stat.color.icon) 
+                        : defaultColor,
                     textTransform: "uppercase",
                     letterSpacing: "0.5px",
                     transition: "color .25s ease",
@@ -184,7 +212,11 @@ export function StatsCards({
                   fontWeight: 800,
                   lineHeight: 1.1,
                   fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                  color: isHovered ? stat.color.icon : "#111827",
+                  color: isActive 
+                    ? (isNotScanned ? "#000000" : stat.color.icon)
+                    : isHovered 
+                      ? (isNotScanned ? "#000000" : stat.color.icon) 
+                      : defaultColor,
                   position: "relative",
                   zIndex: 1,
                   display: "flex",
@@ -205,15 +237,19 @@ export function StatsCards({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  opacity: isHovered ? 0.2 : 0.08,
-                  color: isHovered ? stat.color.icon : "#000000",
+                  opacity: isActive ? 0.2 : isHovered ? 0.2 : 0.08,
+                  color: isActive 
+                    ? (isNotScanned ? "#000000" : stat.color.icon)
+                    : isHovered 
+                      ? (isNotScanned ? "#000000" : stat.color.icon) 
+                      : defaultColor,
                   pointerEvents: "none",
                   zIndex: 0,
                   transition: "all 0.3s ease",
-                  transform: isHovered ? "rotate(0deg) scale(1.08)" : "rotate(0deg) scale(1)",
+                  transform: isActive || isHovered ? "rotate(0deg) scale(1.08)" : "rotate(0deg) scale(1)",
                 }}
               >
-                {getIcon(stat.icon, 110, isHovered ? stat.color.icon : "#000000")}
+                {getIcon(stat.icon, 110, isActive ? (isNotScanned ? "#000000" : stat.color.icon) : isHovered ? (isNotScanned ? "#000000" : stat.color.icon) : defaultColor)}
               </div>
             </div>
           )

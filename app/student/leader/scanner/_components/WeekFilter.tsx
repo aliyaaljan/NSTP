@@ -80,24 +80,11 @@ export function WeekFilter({
     setSelectedMonth(monthStr)
     setPickerMonth(monthIndex)
     setIsDropdownOpen(false)
-    onSelectWeek("week-1")
+    onSelectWeek("all")
   }
 
   const navigateYear = (delta: number) => {
     setPickerYear((prev) => prev + delta)
-  }
-
-  const goToToday = () => {
-    const today = new Date()
-    const monthStr = today.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    })
-    setSelectedMonth(monthStr)
-    setPickerYear(today.getFullYear())
-    setPickerMonth(today.getMonth())
-    setIsDropdownOpen(false)
-    onSelectWeek("week-1") 
   }
 
   // Week "All"
@@ -143,15 +130,25 @@ export function WeekFilter({
     if (isDropdownOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
       setButtonPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
+        top: rect.bottom + 6,
+        left: rect.left + rect.width / 2,
         width: rect.width,
       })
     }
   }, [isDropdownOpen])
 
-  const dropdownWidth = isMobile ? "160px" : "200px"
-  const dropdownLeftOffset = isMobile ? 60 : 80
+  const dropdownWidth = isMobile ? "180px" : "200px"
+
+  // Pill style constants
+  const pillActiveColor = '#2D6A4F'
+  const pillActiveBg = 'rgba(45,106,79,0.10)'
+  const pillBorderColor = '#E5E7EB'
+  const pillTextColor = '#6B7280'
+  const pillHoverBg = '#F5F5F5'
+  const pillHoverBorder = '#6B7280'
+  const pillHeight = '38px'
+  const pillRadius = '999px'
+  const pillPaddingX = isMobile ? "14px" : "20px"
 
   return (
     <div
@@ -175,17 +172,18 @@ export function WeekFilter({
         <button
           onClick={onGeneralAllClick}
           style={{
-            fontSize: isMobile ? "10px" : "14px",
-            fontWeight: 700,
-            padding: isMobile ? "4px 10px" : "10px 24px",
-            borderRadius: "999px",
-            border: `2px solid ${!selectedMonth && selectedWeek === "all" ? C.green : C.border}`,
-            background: !selectedMonth && selectedWeek === "all" ? C.greenBg : C.cardBg,
-            color: !selectedMonth && selectedWeek === "all" ? C.green : C.textGray,
+            height: pillHeight,
+            fontSize: isMobile ? "10px" : "12px",
+            fontWeight: 600,
+            padding: `0 ${pillPaddingX}`,
+            borderRadius: pillRadius,
+            border: `2px solid ${!selectedMonth && selectedWeek === "all" ? pillActiveColor : pillBorderColor}`,
+            background: !selectedMonth && selectedWeek === "all" ? pillActiveBg : '#FFFFFF',
+            color: !selectedMonth && selectedWeek === "all" ? pillActiveColor : pillTextColor,
             cursor: "pointer",
             whiteSpace: "nowrap",
             transition: "all 0.15s",
-            fontFamily: "'Montserrat', sans-serif",
+            fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
@@ -193,14 +191,14 @@ export function WeekFilter({
           }}
           onMouseEnter={(e) => {
             if (selectedMonth || selectedWeek !== "all") {
-              e.currentTarget.style.background = C.greenBg
-              e.currentTarget.style.borderColor = C.green
+              e.currentTarget.style.background = pillHoverBg
+              e.currentTarget.style.borderColor = pillHoverBorder
             }
           }}
           onMouseLeave={(e) => {
             if (selectedMonth || selectedWeek !== "all") {
-              e.currentTarget.style.background = C.cardBg
-              e.currentTarget.style.borderColor = C.border
+              e.currentTarget.style.background = '#FFFFFF'
+              e.currentTarget.style.borderColor = pillBorderColor
             }
           }}
         >
@@ -213,44 +211,44 @@ export function WeekFilter({
             ref={buttonRef}
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             style={{
-              fontSize: isMobile ? "10px" : "14px",
-              fontWeight: 700,
-              padding: isMobile ? "4px 10px" : "10px 24px",
-              borderRadius: "999px",
-              border: `2px solid ${selectedMonth ? C.green : C.border}`,
-              background: selectedMonth ? C.greenBg : C.cardBg,
-              color: selectedMonth ? C.green : C.textDark,
+              height: pillHeight,
+              fontSize: isMobile ? "10px" : "12px",
+              fontWeight: 600,
+              padding: `0 ${pillPaddingX}`,
+              borderRadius: pillRadius,
+              border: `2px solid ${selectedMonth ? pillActiveColor : pillBorderColor}`,
+              background: selectedMonth ? pillActiveBg : '#FFFFFF',
+              color: selectedMonth ? pillActiveColor : pillTextColor,
               cursor: "pointer",
               whiteSpace: "nowrap",
               transition: "all 0.15s",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: "4px",
-              minWidth: isMobile ? "auto" : "200px",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = C.greenBg
-              e.currentTarget.style.borderColor = C.green
+              e.currentTarget.style.background = pillHoverBg
+              e.currentTarget.style.borderColor = pillHoverBorder
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = selectedMonth ? C.greenBg : C.cardBg
-              e.currentTarget.style.borderColor = selectedMonth ? C.green : C.border
+              e.currentTarget.style.background = selectedMonth ? pillActiveBg : '#FFFFFF'
+              e.currentTarget.style.borderColor = selectedMonth ? pillActiveColor : pillBorderColor
             }}
           >
             <span
               style={{
-                fontSize: isMobile ? "9px" : "14px",
+                fontSize: isMobile ? "10px" : "12px",
               }}
             >
               {selectedMonth || "Select Month"}
             </span>
             <IconChevronDown
-              size={isMobile ? 12 : 16}
+              size={isMobile ? 12 : 14}
               stroke={2}
               style={{
-                color: C.textGray,
+                color: pillTextColor,
                 transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
                 transition: "transform 0.3s ease",
                 flexShrink: 0,
@@ -264,16 +262,13 @@ export function WeekFilter({
               style={{
                 position: "fixed",
                 top: buttonPosition.top,
-                left:
-                  buttonPosition.left +
-                  buttonPosition.width / 2 -
-                  dropdownLeftOffset,
+                left: buttonPosition.left - (parseInt(dropdownWidth) / 2),
                 width: dropdownWidth,
-                background: C.cardBg,
-                border: `1px solid ${C.border}`,
-                borderRadius: isMobile ? "6px" : "8px",
+                background: '#FFFFFF',
+                border: `1px solid ${pillBorderColor}`,
+                borderRadius: "12px",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.10)",
-                padding: isMobile ? "5px" : "8px",
+                padding: isMobile ? "10px" : "12px",
                 zIndex: 1000,
                 maxHeight: "80vh",
                 overflowY: "auto",
@@ -285,44 +280,43 @@ export function WeekFilter({
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: isMobile ? "3px" : "6px",
-                  padding: "0 1px",
-                  gap: "1px",
+                  marginBottom: isMobile ? "8px" : "10px",
+                  padding: "0 2px",
                 }}
               >
                 <button
                   onClick={() => navigateYear(-1)}
                   style={{
-                    padding: isMobile ? "1px 4px" : "2px 8px",
-                    border: `1px solid ${C.border}`,
-                    background: C.cardBg,
-                    borderRadius: "3px",
+                    background: 'none',
+                    border: 'none',
                     cursor: "pointer",
-                    fontSize: isMobile ? "10px" : "12px",
-                    color: C.textDark,
-                    transition: "all 0.15s",
-                    minWidth: isMobile ? "18px" : "28px",
-                    minHeight: isMobile ? "16px" : "26px",
+                    color: '#9CA3AF',
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    padding: "2px",
+                    borderRadius: "4px",
+                    transition: "background 0.12s",
+                    fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = C.greenBg
-                    e.currentTarget.style.borderColor = C.green
+                    e.currentTarget.style.background = pillHoverBg
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = C.cardBg
-                    e.currentTarget.style.borderColor = C.border
+                    e.currentTarget.style.background = 'transparent'
                   }}
                 >
-                  ‹
+                  <IconChevronDown 
+                    size={14} 
+                    stroke={2} 
+                    style={{ transform: 'rotate(90deg)' }}
+                  />
                 </button>
                 <span
                   style={{
                     fontWeight: 700,
-                    fontSize: isMobile ? "10px" : "13px",
-                    color: C.textDark,
+                    fontSize: isMobile ? "12px" : "13px",
+                    color: '#111827',
+                    fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
                   }}
                 >
                   {pickerYear}
@@ -330,71 +324,38 @@ export function WeekFilter({
                 <button
                   onClick={() => navigateYear(1)}
                   style={{
-                    padding: isMobile ? "1px 4px" : "2px 8px",
-                    border: `1px solid ${C.border}`,
-                    background: C.cardBg,
-                    borderRadius: "3px",
+                    background: 'none',
+                    border: 'none',
                     cursor: "pointer",
-                    fontSize: isMobile ? "10px" : "12px",
-                    color: C.textDark,
-                    transition: "all 0.15s",
-                    minWidth: isMobile ? "18px" : "28px",
-                    minHeight: isMobile ? "16px" : "26px",
+                    color: '#9CA3AF',
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    padding: "2px",
+                    borderRadius: "4px",
+                    transition: "background 0.12s",
+                    fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = C.greenBg
-                    e.currentTarget.style.borderColor = C.green
+                    e.currentTarget.style.background = pillHoverBg
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = C.cardBg
-                    e.currentTarget.style.borderColor = C.border
+                    e.currentTarget.style.background = 'transparent'
                   }}
                 >
-                  ›
+                  <IconChevronDown 
+                    size={14} 
+                    stroke={2} 
+                    style={{ transform: 'rotate(-90deg)' }}
+                  />
                 </button>
               </div>
-
-              {/* Today button */}
-              <button
-                onClick={goToToday}
-                style={{
-                  width: "100%",
-                  padding: isMobile ? "2px" : "4px",
-                  marginBottom: isMobile ? "3px" : "6px",
-                  border: `1.5px solid ${C.maroon}`,
-                  background: "rgba(123, 17, 19, 0.08)",
-                  borderRadius: "3px",
-                  cursor: "pointer",
-                  fontSize: isMobile ? "8px" : "11px",
-                  fontWeight: 600,
-                  color: C.maroon,
-                  transition: "all 0.15s",
-                  fontFamily: "'Montserrat', sans-serif",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(123, 17, 19, 0.15)"
-                  e.currentTarget.style.transform = "scale(1.02)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(123, 17, 19, 0.08)"
-                  e.currentTarget.style.transform = "scale(1)"
-                }}
-              >
-                Today
-              </button>
 
               {/* Month grid */}
               <div
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: isMobile ? "2px" : "4px",
+                  gap: isMobile ? "4px" : "6px",
                 }}
               >
                 {MONTHS_SHORT.map((monthName, idx) => {
@@ -406,46 +367,41 @@ export function WeekFilter({
                       key={idx}
                       onClick={() => handleMonthSelect(idx)}
                       style={{
-                        padding: isMobile ? "2px 1px" : "4px 2px",
-                        fontSize: isMobile ? "8px" : "11px",
-                        fontWeight: isSelected ? 700 : 600,
-                        borderRadius: "2px",
-                        border: `1.5px solid ${
-                          isSelected ? C.green : isCurrent ? C.maroon : C.border
+                        padding: isMobile ? "4px 2px" : "6px 2px",
+                        fontSize: isMobile ? "10px" : "11px",
+                        fontWeight: isSelected ? 700 : isCurrent ? 700 : 500,
+                        border: `2px solid ${
+                          isSelected ? pillActiveColor : 'transparent'
                         }`,
                         background: isSelected
-                          ? C.greenBg
+                          ? pillActiveBg
                           : isCurrent
-                          ? "rgba(123, 17, 19, 0.08)"
-                          : C.cardBg,
+                          ? '#7B1D1D'
+                          : 'transparent',
                         color: isSelected
-                          ? C.green
+                          ? pillActiveColor
                           : isCurrent
-                          ? C.maroon
-                          : C.textDark,
+                          ? '#FFFFFF'
+                          : '#6B7280',
                         cursor: "pointer",
                         transition: "all 0.15s",
-                        fontFamily: "'Montserrat', sans-serif",
+                        fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
                         position: "relative" as const,
-                        minHeight: isMobile ? "18px" : "28px",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        borderRadius: isCurrent ? '50%' : '4px',
                       }}
                       onMouseEnter={(e) => {
-                        if (!isSelected) {
-                          e.currentTarget.style.background = C.greenBg
-                          e.currentTarget.style.borderColor = C.green
+                        if (!isSelected && !isCurrent) {
+                          e.currentTarget.style.background = pillHoverBg
+                          e.currentTarget.style.borderColor = pillHoverBorder
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (!isSelected) {
-                          e.currentTarget.style.background = isCurrent
-                            ? "rgba(123, 17, 19, 0.08)"
-                            : C.cardBg
-                          e.currentTarget.style.borderColor = isCurrent
-                            ? C.maroon
-                            : C.border
+                        if (!isSelected && !isCurrent) {
+                          e.currentTarget.style.background = 'transparent'
+                          e.currentTarget.style.borderColor = 'transparent'
                         }
                       }}
                     >
@@ -464,7 +420,7 @@ export function WeekFilter({
         <div
           style={{
             display: "flex",
-            gap: "3px",
+            gap: isMobile ? "6px" : "8px",
             flexWrap: "wrap",
             width: "100%",
           }}
@@ -473,17 +429,18 @@ export function WeekFilter({
           <button
             onClick={handleWeekAllClick}
             style={{
-              fontSize: isMobile ? "9px" : "14px",
+              height: pillHeight,
+              fontSize: isMobile ? "10px" : "12px",
               fontWeight: 600,
-              padding: isMobile ? "3px 8px" : "10px 24px",
-              borderRadius: "999px",
-              border: `2px solid ${selectedWeek === "all" ? C.green : C.border}`,
-              background: selectedWeek === "all" ? C.greenBg : C.cardBg,
-              color: selectedWeek === "all" ? C.green : C.textGray,
+              padding: `0 ${pillPaddingX}`,
+              borderRadius: pillRadius,
+              border: `2px solid ${selectedWeek === "all" ? pillActiveColor : pillBorderColor}`,
+              background: selectedWeek === "all" ? pillActiveBg : '#FFFFFF',
+              color: selectedWeek === "all" ? pillActiveColor : pillTextColor,
               cursor: "pointer",
               whiteSpace: "nowrap",
               transition: "all 0.15s",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
               flex: isMobile ? "1" : "0 1 auto",
               minWidth: isMobile ? "0" : "auto",
               textAlign: "center",
@@ -493,20 +450,21 @@ export function WeekFilter({
             }}
             onMouseEnter={(e) => {
               if (selectedWeek !== "all") {
-                e.currentTarget.style.background = C.greenBg
-                e.currentTarget.style.borderColor = C.green
+                e.currentTarget.style.background = pillHoverBg
+                e.currentTarget.style.borderColor = pillHoverBorder
               }
             }}
             onMouseLeave={(e) => {
               if (selectedWeek !== "all") {
-                e.currentTarget.style.background = C.cardBg
-                e.currentTarget.style.borderColor = C.border
+                e.currentTarget.style.background = '#FFFFFF'
+                e.currentTarget.style.borderColor = pillBorderColor
               }
             }}
           >
             All
           </button>
 
+          {/* Week 1-5 buttons */}
           {[1, 2, 3, 4, 5].map((weekNum) => {
             const isSelected = selectedWeek === `week-${weekNum}`
             return (
@@ -514,17 +472,18 @@ export function WeekFilter({
                 key={weekNum}
                 onClick={() => handleWeekSelect(weekNum)}
                 style={{
-                  fontSize: isMobile ? "9px" : "14px",
+                  height: pillHeight,
+                  fontSize: isMobile ? "10px" : "12px",
                   fontWeight: 600,
-                  padding: isMobile ? "3px 8px" : "10px 24px",
-                  borderRadius: "999px",
-                  border: `2px solid ${isSelected ? C.green : C.border}`,
-                  background: isSelected ? C.greenBg : C.cardBg,
-                  color: isSelected ? C.green : C.textGray,
+                  padding: `0 ${pillPaddingX}`,
+                  borderRadius: pillRadius,
+                  border: `2px solid ${isSelected ? pillActiveColor : pillBorderColor}`,
+                  background: isSelected ? pillActiveBg : '#FFFFFF',
+                  color: isSelected ? pillActiveColor : pillTextColor,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
                   transition: "all 0.15s",
-                  fontFamily: "'Montserrat', sans-serif",
+                  fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
                   flex: isMobile ? "1" : "0 1 auto",
                   minWidth: isMobile ? "0" : "auto",
                   textAlign: "center",
@@ -534,14 +493,14 @@ export function WeekFilter({
                 }}
                 onMouseEnter={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.background = C.greenBg
-                    e.currentTarget.style.borderColor = C.green
+                    e.currentTarget.style.background = pillHoverBg
+                    e.currentTarget.style.borderColor = pillHoverBorder
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.background = C.cardBg
-                    e.currentTarget.style.borderColor = C.border
+                    e.currentTarget.style.background = '#FFFFFF'
+                    e.currentTarget.style.borderColor = pillBorderColor
                   }
                 }}
               >

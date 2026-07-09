@@ -16,6 +16,8 @@ import {
 import { createClient } from "@/lib/client"
 import {KpiStatCard, KpiStatCardGrid, ChartStyles,} from "@/components/shared/ChartModule"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+import SuccessModal from "@/components/shared/SuccessModal"
+import { IconX, IconCircleCheck, IconHourglass, IconClock, IconCircleX, } from "@tabler/icons-react"
 
 const MAX_NUM_ATTACHMENT = 1
 
@@ -44,7 +46,7 @@ const montserrat = Montserrat({
 
 const C = {
   maroon: "#6B1A1A",
-  green: "#1A3C2A",
+  green: "#1A3C2D",
   gold: "#C8963C",
   pageBg: "#F0F0F0",
   border: "#D9D9D9",
@@ -325,7 +327,8 @@ export default function RequestsPage() {
         setFormBody("")
         setFormFiles([])
         setShowModal(false)
-        alert("Request submitted successfully!")
+        setSuccessMessage("Your request has been submitted successfully.")
+        setShowSuccessModal(true)
       } else {
         alert(res.error)
       }
@@ -368,6 +371,9 @@ export default function RequestsPage() {
       if (res.ok) {
         await loadRequests(profile.enrollmentId)
         setSelectedRequest(null)
+      
+        setSuccessMessage("Your request has been updated successfully.")
+        setShowSuccessModal(true)
       } else {
         alert("Failed to update request or it is no longer 'Pending Review'.")
       }
@@ -483,6 +489,9 @@ export default function RequestsPage() {
     setCurrentPage(1)
   }, [activeFilter, itemsPerPage])
 
+    const [showSuccessModal, setShowSuccessModal] = useState(false)
+    const [successMessage, setSuccessMessage] = useState("")
+
 
   return (
     <>
@@ -548,6 +557,8 @@ export default function RequestsPage() {
         border-radius: 15px;
         border: 1px solid #E2E2E2;
         box-shadow: 0 10px 30px rgba(0,0,0,.06);
+        scrollbar-width: thin; 
+        scrollbar-color: #CFCFCB transparent;
         }
 
         .request-item{
@@ -777,6 +788,11 @@ export default function RequestsPage() {
         background:white;
         }
 
+        .input-field:focus {
+        outline: none;
+        border: 1.5px solid #14532D !important;
+        }
+
       `}</style>
 
       <div className={`${montserrat.variable} requests-page`}>
@@ -830,17 +846,17 @@ export default function RequestsPage() {
                         }`,
                       
                         transform:
-                          hoveredCard === stat.label
-                            ? "translateY(-8px)"
-                            : "translateY(0)",
-                      
+                            hoveredCard === stat.label
+                                ? "translateY(-1.5px)"
+                                : "translateY(0)",
+
                         boxShadow:
-                          hoveredCard === stat.label
-                            ? "0 14px 28px rgba(0,0,0,.12)"
-                            : "0 4px 10px rgba(0,0,0,.05)",
+                            hoveredCard === stat.label
+                                ? "0 6px 14px rgba(0,0,0,.07)"
+                                : "0 4px 10px rgba(0,0,0,.05)",
                       
                         transition:
-                          "transform .25s ease, box-shadow .25s ease, border-color .18s ease, color .18s ease",
+                            "transform .2s ease, box-shadow .2s ease, border-color .18s ease, color .18s ease",
                       }}
                   >
                     <KpiStatCard
@@ -1075,28 +1091,32 @@ export default function RequestsPage() {
       {/* modal */}
       {showModal && (
         <div
-          style={{
+            style={{
             position: "fixed",
             inset: 0,
             background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(5px)",
+            WebkitBackdropFilter: "blur(5px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 100,
+            zIndex: 200,
             fontFamily: "var(--font-montserrat), sans-serif",
-          }}
+            }}
           onClick={(e) => e.target === e.currentTarget && setShowModal(false)}
         >
           <div
             style={{
                 background:"#fff",
-                borderRadius:16,
+                borderRadius:20,
                 padding:"32px 24px",
                 width:"calc(100% - 32px)",
                 maxWidth:480,
                 maxHeight:"90vh",
                 overflowY:"auto",
                 boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
+                scrollbarWidth: "thin",
+                scrollbarColor: "#CFCFCB transparent",
                }}
           >
             <div
@@ -1104,7 +1124,7 @@ export default function RequestsPage() {
                     background: C.green,
                     color: "#fff",
                     margin: "-32px -24px 24px",
-                    padding: "18px 24px",
+                    padding: "24px 24px",
                     borderTopLeftRadius: 16,
                     borderTopRightRadius: 16,
                     display: "flex",
@@ -1116,52 +1136,62 @@ export default function RequestsPage() {
                 <h2
                     style={{
                     margin: 0,
-                    fontSize: 20,
-                    fontWeight: 800,
+                    fontSize: 17,
+                    fontWeight: 700,
                     color: "#fff",
-                    letterSpacing: 0.5,
                     }}
                 >
                     Send Request / Concern
                 </h2>
 
                 <button
-                    onClick={() => setShowModal(false)}
-                    style={{
+                onClick={() => setShowModal(false)}
+                onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "rgba(255, 255, 255, 0.18)")
+                }
+                onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                }
+                style={{
                     background: "transparent",
                     border: "none",
                     color: "#fff",
-                    fontSize: 24,
-                    fontWeight: 700,
                     cursor: "pointer",
-                    lineHeight: 1,
-                    padding: 0,
-                    }}
+                    display: "flex",
+                    alignItems: "center",
+                    padding: 6,
+                    borderRadius: 8,
+                    transition: "background 0.13s",
+                    flexShrink: 0,
+                }}
                 >
-                    ×
+                <IconX size={20} stroke={2} />
                 </button>
                 </div>
             <div style={{ marginBottom: 16 }}>
               <label
                 style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#555",
-                  display: "block",
-                  marginBottom: 6,
-                }}
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#6B7280",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.6px",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
               >
                 Request Category
               </label>
 
               <select
+                className="input-field"
                 value={formTypeId}
                 onChange={(e) => setFormTypeId(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "10px 14px",
                   borderRadius: 8,
-                  border: "1px solid #ccc",
+                  border: "1.5px solid #E5E7EB",
                   fontSize: 14,
                 }}
               >
@@ -1179,53 +1209,68 @@ export default function RequestsPage() {
             <div style={{ marginBottom: 16 }}>
               <label
                 style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#555",
-                  display: "block",
-                  marginBottom: 6,
-                }}
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#6B7280",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.6px",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
               >
                 Title
               </label>
               
               <textarea
-                rows={1}
+                className="input-field"
                 value={formTitle}
                 maxLength={50}
-                onChange={(e) => {
-                    setFormTitle(e.target.value)
-                    e.target.style.height = "auto"
-                    e.target.style.height = `${e.target.scrollHeight}px`
-                }}
+                rows={2}
+                onChange={(e) => setFormTitle(e.target.value)}
                 style={{
                     width: "100%",
-                    minHeight: 48,
+                    height: 45,             
                     padding: "10px 14px",
                     borderRadius: 8,
-                    border: "1px solid #ccc",
+                    border: "1.5px solid #E5E7EB",
                     fontSize: 14,
                     fontFamily: "inherit",
                     resize: "none",
-                    overflow: "hidden",
+                    overflowY: "auto",      
                     boxSizing: "border-box",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "#CFCFCB transparent",
                 }}
                 />
+
+                <div
+                style={{
+                    fontSize: 12,
+                    color: C.textMuted,
+                    textAlign: "right",
+                    marginTop: 1,
+                }}
+                >
+                {formTitle.length}/50
+                </div>
             </div>
 
             <div style={{ marginBottom: 24 }}>
               <label
                 style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#555",
-                  display: "block",
-                  marginBottom: 6,
-                }}
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#6B7280",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.6px",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
               >
                 Details
               </label>
               <textarea
+                className="input-field"
                 value={formBody}
                 onChange={(e) => setFormBody(e.target.value)}
                 placeholder="Describe your request or concern..."
@@ -1236,7 +1281,7 @@ export default function RequestsPage() {
                   width: "100%",
                   padding: "10px 14px",
                   borderRadius: 8,
-                  border: "1px solid #ccc",
+                  border: "1.5px solid #E5E7EB",
                   fontSize: 14,
                   outline: "none",
                   resize: "vertical",
@@ -1248,7 +1293,7 @@ export default function RequestsPage() {
                   fontSize: 12,
                   color: C.textMuted,
                   textAlign: "right",
-                  marginTop: 5,
+                  marginTop: 1,
                 }}
               >
                 {formBody.length}/500
@@ -1256,21 +1301,39 @@ export default function RequestsPage() {
               <div style={{ marginTop: 16 }}>
                 <label
                   style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "#555",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#6B7280",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.6px",
                     display: "block",
-                    marginBottom: 8,
+                    marginBottom: 6,
                   }}
                 >
                   Attachment (Optional)
                 </label>
 
+                {formFiles.length < MAX_NUM_ATTACHMENT && (
                 <label
-                  style={{
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                    e.preventDefault()
+
+                    const files = Array.from(e.dataTransfer.files)
+
+                    if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
+                    alert(
+                        `You can attach at most ${MAX_NUM_ATTACHMENT} file.`
+                    )
+                    return
+                    }
+
+                    setFormFiles((prev) => [...prev, ...files])
+                }}
+                    style={{
                     width: "100%",
                     height: 120,
-                    border: "2px dashed #C9C9C9",
+                    border: "2px dashed #E5E7EB",
                     borderRadius: 14,
                     display: "flex",
                     flexDirection: "column",
@@ -1280,44 +1343,51 @@ export default function RequestsPage() {
                     background: "#FAFAF7",
                     boxSizing: "border-box",
                     fontFamily: "inherit",
-                  }}
+                    }}
                 >
-                  <span
+                    <span
                     style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: C.green,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: C.green,
                     }}
-                  >
+                    >
                     Drop your file here
-                  </span>
+                    </span>
 
-                  <span
+                    <span
                     style={{
-                      fontSize: 12,
-                      color: C.textMuted,
-                      marginTop: 4,
+                        fontSize: 12,
+                        color: C.textMuted,
+                        marginTop: 4,
                     }}
-                  >
+                    >
                     or click to browse
-                  </span>
+                    </span>
 
-                  <input
+                    <input
                     type="file"
                     hidden
                     multiple
                     onChange={(e) => {
-                      if (e.target.files) {
+                        if (e.target.files) {
                         const files = Array.from(e.target.files)
+
                         if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
-                          alert(`You can attach at most ${MAX_NUM_ATTACHMENT} ${MAX_NUM_ATTACHMENT === 1 ? "file" : "files"}.`)
-                          return
+                            alert(
+                            `You can attach at most ${MAX_NUM_ATTACHMENT} ${
+                                MAX_NUM_ATTACHMENT === 1 ? "file" : "files"
+                            }.`
+                            )
+                            return
                         }
+
                         setFormFiles((prev) => [...prev, ...files])
-                      }
+                        }
                     }}
-                  />
+                    />
                 </label>
+                )}
 
                 {formFiles.length > 0 && (
                   <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1349,7 +1419,11 @@ export default function RequestsPage() {
               </div>
             </div>
             <div
-              style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
+            style={{
+                display: "flex",
+                gap: 10,
+                width: "100%",
+            }}
             >
               <button
                 onClick={() => {
@@ -1362,17 +1436,18 @@ export default function RequestsPage() {
                     }
                 }}
                 style={{
-                    padding: "10px 22px",
-                    borderRadius: 10,
-                    border: "1px solid #D9D9D9",
+                    padding: "10px 24px",
+                    borderRadius: 12,
+                    border: "1.5px solid #E5E7EB",
                     background: "#FFFFFF",
+                    color: "#111827",
+                    fontSize: 13.5,
+                    fontWeight: 600,
                     fontFamily: "inherit",
-                    fontSize: 14,
                     cursor: "pointer",
-                    fontWeight: 700,
-                    color: C.textDark,
-                    transition: ".2s ease",
-                }}
+                    transition: "background 0.13s, opacity 0.13s",
+                    flex: 1,
+                  }}
                 >
                 Cancel
                 </button>
@@ -1380,21 +1455,22 @@ export default function RequestsPage() {
                 onClick={handleSubmit}
                 disabled={isPending || !formTitle.trim() || !formBody.trim()}
                 style={{
-                  padding: "10px 24px",
-                  borderRadius: 8,
-                  border: "none",
-                  background:
-                    !formTitle.trim() || !formBody.trim() ? "#BDBDBD" : C.green,
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  cursor:
-                    !formTitle.trim() || !formBody.trim()
-                      ? "not-allowed"
-                      : "pointer",
-                  letterSpacing: 0.5,
-                  opacity: !formTitle.trim() || !formBody.trim() ? 0.7 : 1,
-                }}
+                    padding: "10px 24px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: C.green,
+                    color: "#fff",
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    fontFamily: "inherit",
+                    cursor:
+                      !formTitle.trim() || !formBody.trim()
+                        ? "not-allowed"
+                        : "pointer",
+                    transition: "background 0.13s, opacity 0.13s",
+                    opacity: !formTitle.trim() || !formBody.trim() ? 0.45 : 1,
+                    flex: 1,
+                  }}
               >
                 {isPending ? "Submitting..." : "Submit"}
               </button>
@@ -1405,16 +1481,18 @@ export default function RequestsPage() {
 
       {selectedRequest && (
         <div
-          style={{
+            style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,.45)",
+            background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(5px)",
+            WebkitBackdropFilter: "blur(5px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 100,
-          }}
-          
+            zIndex: 200,
+            fontFamily: "var(--font-montserrat), sans-serif",
+            }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelectedRequest(null)
           }}
@@ -1422,7 +1500,7 @@ export default function RequestsPage() {
           <div
             style={{
                 background:"#fff",
-                borderRadius:16,
+                borderRadius:20,
                 padding:"32px 24px",
                 width:"calc(100% - 32px)",
                 maxWidth:480,
@@ -1430,6 +1508,8 @@ export default function RequestsPage() {
                 overflowY:"auto",
                 boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
                 fontFamily: "var(--font-montserrat), sans-serif",
+                scrollbarWidth: "thin",
+                scrollbarColor: "#CFCFCB transparent",
                }}
           >
             <div
@@ -1437,7 +1517,7 @@ export default function RequestsPage() {
                     background: C.green,
                     color: "#fff",
                     margin: "-32px -24px 24px",
-                    padding: "18px 24px",
+                    padding: "24px 24px",
                     borderTopLeftRadius: 16,
                     borderTopRightRadius: 16,
                     display: "flex",
@@ -1449,37 +1529,46 @@ export default function RequestsPage() {
                 <h2
                     style={{
                     margin: 0,
-                    fontSize: 20,
-                    fontWeight: 800,
+                    fontSize: 17,
+                    fontWeight: 700,
                     color: "#fff",
-                    letterSpacing: 0.5,
                     }}
                 >
                     Review Request
                 </h2>
 
                 <button
-                    onClick={() => setSelectedRequest(null)}
-                    style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#fff",
-                        fontSize: 24,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        lineHeight: 1,
-                        padding: 0,
-                    }}
-                    >
-                    ×
-                    </button>
+                onClick={() => setSelectedRequest(null)}
+                onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "rgba(255, 255, 255, 0.18)")
+                }
+                onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                }
+                style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#fff",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: 6,
+                    borderRadius: 8,
+                    transition: "background 0.13s",
+                    flexShrink: 0,
+                }}
+                >
+                <IconX size={20} stroke={2} />
+                </button>
                 </div>
 
             <label
               style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#555",
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#6B7280",
+                textTransform: "uppercase",
+                letterSpacing: "0.6px",
                 display: "block",
                 marginBottom: 6,
               }}
@@ -1487,6 +1576,7 @@ export default function RequestsPage() {
               Request Category
             </label>
             <select
+                className="input-field"
                 value={editTypeId}
                 onChange={(e) => setEditTypeId(e.target.value)}
                 disabled={!isEditable}
@@ -1495,7 +1585,7 @@ export default function RequestsPage() {
                 padding: "10px 14px",
                 borderRadius: 8,
                 background: isEditable ? "#fff" : "#F3F4F6",
-                border: isEditable ? "1px solid #ccc" : "none",
+                border: isEditable ? "1.5px solid #E5E7EB" : "none",
                 color: "#444",
                 fontSize: 14,
                 outline: "none",
@@ -1518,10 +1608,12 @@ export default function RequestsPage() {
             </select>
 
             <label
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#555",
+             style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#6B7280",
+                textTransform: "uppercase",
+                letterSpacing: "0.6px",
                 display: "block",
                 marginBottom: 6,
               }}
@@ -1530,37 +1622,52 @@ export default function RequestsPage() {
             </label>
 
             <textarea
-                rows={1}
+                className="input-field"
                 value={editTitle}
                 disabled={!isEditable}
                 maxLength={50}
-                onChange={(e) => {
-                    setEditTitle(e.target.value)
-                    e.target.style.height = "auto"
-                    e.target.style.height = `${e.target.scrollHeight}px`
-                }}
+                rows={2}
+                onChange={(e) => setEditTitle(e.target.value)}
                 style={{
                     width: "100%",
-                    minHeight: 48,
+                    height: 45,
                     padding: "10px 14px",
                     borderRadius: 8,
                     background: isEditable ? "#fff" : "#F3F4F6",
-                    border: isEditable ? "1px solid #ccc" : "none",
+                    border: isEditable ? "1.5px solid #E5E7EB" : "none",
                     color: "#444",
                     fontSize: 14,
                     fontFamily: "inherit",
                     resize: "none",
-                    overflow: "hidden",
+                    overflowY: "auto",
                     boxSizing: "border-box",
                     cursor: isEditable ? "text" : "default",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "#CFCFCB transparent",
                 }}
                 />
 
+                {isEditable && (
+                <div
+                    style={{
+                    fontSize: 12,
+                    color: C.textMuted,
+                    textAlign: "right",
+                    marginTop: 1,
+                    marginBottom: 10,
+                    }}
+                >
+                    {editTitle.length}/50
+                </div>
+                )}
+
             <label
               style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#555",
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#6B7280",
+                textTransform: "uppercase",
+                letterSpacing: "0.6px",
                 display: "block",
                 marginBottom: 6,
               }}
@@ -1569,6 +1676,7 @@ export default function RequestsPage() {
             </label>
 
             <textarea
+              className="input-field"
               value={editBody}
               disabled={!isEditable}
               onChange={(e) => setEditBody(e.target.value)}
@@ -1579,12 +1687,12 @@ export default function RequestsPage() {
                 padding: "10px 14px",
                 borderRadius: 8,
                 background: isEditable ? "#fff" : "#F3F4F6",
-                border: isEditable ? "1px solid #ccc" : "none",
+                border: isEditable ? "1.5px solid #E5E7EB" : "none",
                 color: "#444",
                 fontSize: 14,
                 outline: "none",
                 boxSizing: "border-box",
-                marginBottom: 16,
+                marginBottom: 1,
                 fontFamily: "inherit",
                 cursor: isEditable ? "text" : "default",
               }}
@@ -1619,6 +1727,7 @@ export default function RequestsPage() {
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
+                      cursor: "pointer",
                     }}
                   >
                     <i className="ti ti-paperclip" style={{ fontSize: 16, color: C.green }} />
@@ -1660,45 +1769,49 @@ export default function RequestsPage() {
             </div>
 
             <div
-              style={{
+            style={{
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: 10,
                 marginTop: 25,
-              }}
+            }}
             >
-              <button
-                onClick={() => setSelectedRequest(null)}
-                style={{
-                  padding: "10px 22px",
-                  borderRadius: 10,
-                  border: "1px solid #D9D9D9",
-                  background: "#FFFFFF",
-                  fontFamily: "inherit",
-                  fontSize: 14,
-                  cursor: "pointer",
-                  fontWeight: 700,
-                  color: C.textDark,
-                  transition: ".2s ease",
-                }}
-              >
-                Cancel
-              </button>
+              {isEditable && (
+                <button
+                    onClick={() => setSelectedRequest(null)}
+                    style={{
+                    padding: "10px 24px",
+                    borderRadius: 12,
+                    border: "1px solid #E5E7EB",
+                    background: "#FFFFFF",
+                    fontFamily: "inherit",
+                    fontSize: 13.5,
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    color: "#111827",
+                    flex: 1,
+                    }}
+                >
+                    Cancel
+                </button>
+                )}
 
               {isEditable && (
                 <button
                   onClick={handleEditSave}
                   disabled={isPending || !hasChanges()}
                   style={{
-                    background: hasChanges() ? C.green : "#BDBDBD",
+                    background: C.green,
                     color: "white",
                     border: "none",
                     padding: "10px 24px",
                     borderRadius: 10,
                     fontFamily: "inherit",
-                    fontWeight: 700,
+                    fontSize: 13.5,
+                    fontWeight: 600,
                     cursor: hasChanges() ? "pointer" : "not-allowed",
-                    opacity: hasChanges() ? 1 : 0.7,
+                    opacity: hasChanges() ? 1 : 0.45,
+                    flex: 1,
                   }}
                 >
                   {isPending ? "Saving..." : "Save Changes"}
@@ -1708,6 +1821,13 @@ export default function RequestsPage() {
           </div>
         </div>
       )}
+
+        <SuccessModal
+        show={showSuccessModal}
+        message={successMessage}
+        onClose={() => setShowSuccessModal(false)}
+        />
+
     </>
   )
 }

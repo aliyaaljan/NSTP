@@ -23,6 +23,14 @@ import { filterScansByMonthAndWeek } from "@/lib/student/leader/scan-history"
 import { createClient } from "@/lib/client"
 import { create } from "domain"
 
+// Get week number from a date
+const getWeekNumber = (date: Date): string => {
+  const startOfYear = new Date(date.getFullYear(), 0, 1)
+  const diff = (date.getTime() - startOfYear.getTime() + (startOfYear.getTimezoneOffset() - date.getTimezoneOffset()) * 60000) / 86400000
+  const weekNumber = Math.ceil((diff + startOfYear.getDay() + 1) / 7)
+  return `week-${weekNumber}`
+}
+
 export default function LeaderScannerPage() {
   const { isMobile } = useIsMobile()
   const [scannerOpen, setScannerOpen] = useState(false)
@@ -32,6 +40,7 @@ export default function LeaderScannerPage() {
   const [scans, setScans] = useState<ScanRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [classRoster, setClassRoster] = useState<string[]>([])
+  const [statusFilter, setStatusFilter] = useState<'on-time' | 'late' | 'not-scanned' | null>(null) 
 
   const [profile, setProfile] = useState<{
     name: string
@@ -116,7 +125,8 @@ export default function LeaderScannerPage() {
   const handleGeneralAllClick = () => {
     setSelectedMonth("")
     setSelectedWeek("all")
-    setShouldAutoSelect(false) 
+    setShouldAutoSelect(false)
+    setStatusFilter(null)
   }
 
   // Handle month selection
@@ -128,15 +138,35 @@ export default function LeaderScannerPage() {
     }
   }
 
+  // Card click filter
+  const handleCardClick = (filterType: 'on-time' | 'late' | 'not-scanned') => {
+    if (statusFilter === filterType) {
+      setStatusFilter(null)
+    } else {
+      setStatusFilter(filterType)
+    }
+  }
+
   const leftPadding = isMobile
     ? `${COLLAPSED_W + RAIL_MARGIN * 2 + 8}px`
     : `${COLLAPSED_W + RAIL_MARGIN * 2}px`
 
-  const filteredScans = filterScansByMonthAndWeek(
+  // Filter by month and week
+  let filteredScans = filterScansByMonthAndWeek(
     scans,
     selectedMonth,
     selectedWeek
   )
+
+  // Filter by status 
+  if (statusFilter) {
+    filteredScans = filteredScans.filter(scan => {
+      if (statusFilter === 'on-time') return scan.status === "On Time"
+      if (statusFilter === 'late') return scan.status === "Late"
+      if (statusFilter === 'not-scanned') return false 
+      return true
+    })
+  }
 
   const groupedByMonthData =
     selectedWeek === "all" ? groupByMonth(filteredScans) : null
@@ -145,14 +175,54 @@ export default function LeaderScannerPage() {
     selectedWeek !== "all" ? groupByDate(filteredScans) : null
 
   // check who has not been scanned
-  const scannedNames = new Set(filteredScans.map((s) => s.name))
-  const notScannedNames = classRoster.filter((name) => !scannedNames.has(name))
+  const scannedNames = new Set(scans.filter(s => {
+    const monthMatch = !selectedMonth || new Date(s.date).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    }) === selectedMonth
+    
+    const weekMatch = selectedWeek === "all" || getWeekNumber(new Date(s.date)) === selectedWeek
+    
+    return monthMatch && weekMatch
+  }).map(s => s.name))
+  
+  let notScannedNames = classRoster.filter((name) => !scannedNames.has(name))
+
+  // If filtering by "not scanned"
+  if (statusFilter === 'not-scanned') {
+    // Show not scanned names
+  }
 
   const totalScans = filteredScans.length
-  const onTimeCount = filteredScans.filter((s) => s.status === "On Time").length
-  const lateCount = filteredScans.filter((s) => s.status === "Late").length
+  const onTimeCount = scans.filter(s => {
+    const monthMatch = !selectedMonth || new Date(s.date).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    }) === selectedMonth
+    const weekMatch = selectedWeek === "all" || getWeekNumber(new Date(s.date)) === selectedWeek
+    return monthMatch && weekMatch && s.status === "On Time"
+  }).length
+  
+  const lateCount = scans.filter(s => {
+    const monthMatch = !selectedMonth || new Date(s.date).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    }) === selectedMonth
+    const weekMatch = selectedWeek === "all" || getWeekNumber(new Date(s.date)) === selectedWeek
+    return monthMatch && weekMatch && s.status === "Late"
+  }).length
 
-  const notScannedCount = notScannedNames.length
+  const notScannedCount = classRoster.filter(name => {
+    const scannedInPeriod = scans.some(s => {
+      const monthMatch = !selectedMonth || new Date(s.date).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      }) === selectedMonth
+      const weekMatch = selectedWeek === "all" || getWeekNumber(new Date(s.date)) === selectedWeek
+      return s.name === name && monthMatch && weekMatch
+    })
+    return !scannedInPeriod
+  }).length
 
   const months = useMemo(() => {
     if (!scans || scans.length === 0) return []
@@ -216,6 +286,8 @@ export default function LeaderScannerPage() {
           notScannedCount={notScannedCount}
           selectedMonth={selectedMonth}
           selectedWeek={selectedWeek}
+          onCardClick={handleCardClick}
+          activeFilter={statusFilter}
         />
 
         <QRCard
@@ -239,7 +311,7 @@ export default function LeaderScannerPage() {
           groupedByMonth={groupedByMonthData}
           groupedByDate={groupedByDateData}
           selectedWeek={selectedWeek}
-          notScannedNames={notScannedNames}
+          notScannedNames={statusFilter === 'not-scanned' ? notScannedNames : []}
         />
 
         {scannerOpen && (
