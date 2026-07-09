@@ -8,7 +8,6 @@ import {
   IconClipboardText,
   IconCircleCheck,
   IconClock,
-  IconX,
   IconDownload,
   IconFilter,
   IconFolder,
@@ -22,6 +21,7 @@ import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { createClient } from "@/lib/client"
+import { NstpModal } from "@/components/shared/Modal"
 
 import {
   getSubmissionsByForm,
@@ -107,17 +107,6 @@ const formsStyles = `
   }
   .fm-icon-btn:hover { border-color: var(--maroon); color: var(--maroon); background: #FEF2F2; }
   .fm-icon-btn.danger:hover { border-color: #EF4444; color: #EF4444; background: #FEF2F2; }
-  .fm-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; }
-  .fm-modal { background: var(--white); border-radius: 20px; width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
-  .fm-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border); }
-  .fm-modal-title  { font-weight: 700; font-size: 16px; }
-  .fm-modal-close  { background: none; border: none; cursor: pointer; color: var(--muted); display: flex; align-items: center; padding: 4px; border-radius: 6px; transition: background 0.12s; }
-  .fm-modal-close:hover { background: var(--border); }
-  .fm-modal-body   { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
-  .fm-modal-label  { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
-  .fm-modal-actions { display: flex; gap: 10px; padding: 0 22px 22px; }
-  .fm-modal-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; cursor: pointer; font-size: 13.5px; font-weight: 700; font-family: var(--font); transition: background 0.13s; }
-  .fm-modal-btn-approve { background: #D1FAE5; color: #065F46; }
   .fm-upload-zone {
     border: 2px dashed var(--border); border-radius: 12px;
     padding: 32px; text-align: center; cursor: pointer;
@@ -824,104 +813,82 @@ export default function FormsPage() {
         </div>
 
         {/* Upload modal */}
-        {showUpload && (
-          <div
-            className="fm-modal-backdrop"
-            onClick={() => setShowUpload(false)}
-          >
-            <div className="fm-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="fm-modal-header">
-                <div className="fm-modal-title">Upload Form Template</div>
-                <button
-                  className="fm-modal-close"
-                  onClick={() => setShowUpload(false)}
-                >
-                  <IconX size={18} stroke={1.75} />
-                </button>
-              </div>
-              <div className="fm-modal-body">
-                <div>
-                  <div className="fm-modal-label">Form Type</div>
-                  <select
-                    value={uploadTitle}
-                    onChange={(e) => setUploadTitle(e.target.value)}
-                    style={{
-                      width: "100%",
-                      border: "1.5px solid var(--border)",
-                      borderRadius: 10,
-                      padding: "9px 12px",
-                      fontSize: 13,
-                      fontFamily: "var(--font)",
-                      color: "var(--text)",
-                      background: "var(--white)",
-                      outline: "none",
-                      marginTop: 4,
-                    }}
-                  >
-                    <option>Daily Time Record</option>
-                    <option>Accomplishment Report</option>
-                    <option>Attendance Sheet</option>
-                    <option>Incident Report</option>
-                  </select>
+        <NstpModal
+          open={showUpload}
+          onClose={() => setShowUpload(false)}
+          title="Upload Form Template"
+          size="md"
+          actions={[
+            {
+              label: "Cancel",
+              onClick: () => setShowUpload(false),
+              variant: "secondary",
+            },
+            {
+              label: isUploading ? "Uploading..." : "Upload",
+              onClick: handleUploadSubmit,
+              variant: "approve",
+              disabled: isUploading || !uploadFile,
+            },
+          ]}
+        >
+          <div>
+            <div className="nstp-modal-label">Form Type</div>
+            <select
+              value={uploadTitle}
+              onChange={(e) => setUploadTitle(e.target.value)}
+              style={{
+                width: "100%",
+                border: "1.5px solid var(--border)",
+                borderRadius: 10,
+                padding: "9px 12px",
+                fontSize: 13,
+                fontFamily: "var(--font)",
+                color: "var(--text)",
+                background: "var(--white)",
+                outline: "none",
+                marginTop: 4,
+              }}
+            >
+              <option>Daily Time Record</option>
+              <option>Accomplishment Report</option>
+              <option>Attendance Sheet</option>
+              <option>Incident Report</option>
+            </select>
+          </div>
+          <div>
+            <div className="nstp-modal-label">File</div>
+            <div
+              className="fm-upload-zone"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadFile ? (
+                <div style={{ color: "var(--green)", fontWeight: "bold" }}>
+                  {uploadFile.name}
                 </div>
-                <div>
-                  <div className="fm-modal-label">File</div>
-                  <div
-                    className="fm-upload-zone"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    {uploadFile ? (
-                      <div
-                        style={{ color: "var(--green)", fontWeight: "bold" }}
-                      >
-                        {uploadFile.name}
-                      </div>
-                    ) : (
-                      <>
-                        <IconUpload
-                          size={28}
-                          stroke={1.5}
-                          color="var(--muted)"
-                        />
-                        <div className="fm-upload-zone-text">
-                          Click to browse or drag & drop
-                        </div>
-                        <div className="fm-upload-zone-sub">
-                          PDF, DOCX up to 200 KB
-                        </div>
-                      </>
-                    )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={(e) =>
-                        e.target.files && setUploadFile(e.target.files[0])
-                      }
-                      style={{ display: "none" }}
-                    />
+              ) : (
+                <>
+                  <IconUpload size={28} stroke={1.5} color="var(--muted)" />
+                  <div className="fm-upload-zone-text">
+                    Click to browse or drag & drop
                   </div>
-                </div>
-              </div>
-              <div className="fm-modal-actions">
-                <button
-                  className="fm-modal-btn"
-                  style={{ background: "#F3F4F6", color: "var(--text)" }}
-                  onClick={() => setShowUpload(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="fm-modal-btn fm-modal-btn-approve"
-                  onClick={handleUploadSubmit}
-                  disabled={isUploading || !uploadFile}
-                >
-                  {isUploading ? "Uploading..." : "Upload"}
-                </button>
-              </div>
+                  <div className="fm-upload-zone-sub">
+                    PDF, DOCX up to 200 KB
+                  </div>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) =>
+                  e.target.files && setUploadFile(e.target.files[0])
+                }
+                style={{ display: "none" }}
+              />
             </div>
           </div>
-        )}
+        </NstpModal>
       </div>
     </>
   )
