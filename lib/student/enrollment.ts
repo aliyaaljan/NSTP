@@ -8,6 +8,9 @@ export type ActiveStudentEnrollment = {
   adviserName: string | null
   adviserEmail: string | null
   termEndDate: string | null
+  programName: string | null
+  classificationName: string | null
+  siteLocation: string | null
   section: {
     section_id: string
     label: string
@@ -40,6 +43,9 @@ export async function resolveActiveStudentEnrollment(
     .select(
       `
       enrollment_id,
+      program:program_id ( name ),
+      student_classification:student_classification_id ( name ),
+      geofence:assigned_geofence_id ( label ),
       section:section_id (
         section_id,
         course_code,
@@ -56,7 +62,18 @@ export async function resolveActiveStudentEnrollment(
   const candidates = (enrollments ?? [])
     .map((e) => {
       const sec = Array.isArray(e.section) ? e.section[0] : e.section
-      return { enrollmentId: e.enrollment_id, section: sec }
+      const program = Array.isArray(e.program) ? e.program[0] : e.program
+      const classification = Array.isArray(e.student_classification)
+        ? e.student_classification[0]
+        : e.student_classification
+      const geofence = Array.isArray(e.geofence) ? e.geofence[0] : e.geofence
+      return {
+        enrollmentId: e.enrollment_id,
+        section: sec,
+        programName: program?.name ?? null,
+        classificationName: classification?.name ?? null,
+        siteLocation: geofence?.label ?? null,
+      }
     })
     .filter(
       (e) =>
@@ -100,6 +117,9 @@ export async function resolveActiveStudentEnrollment(
     adviserName: adviser?.full_name ?? null,
     adviserEmail: adviser?.email ?? null,
     termEndDate: term?.end_date ?? null,
+    programName: primary.programName,
+    classificationName: primary.classificationName,
+    siteLocation: primary.siteLocation,
     section: {
       section_id: primary.section.section_id,
       label: formatClassLabel({

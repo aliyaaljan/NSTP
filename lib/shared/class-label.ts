@@ -7,6 +7,11 @@ export function extractSurname(fullName: string): string {
   return tokens[tokens.length - 1]
 }
 
+export function extractNstpType(courseCode: string | null | undefined): string {
+  const tokens = (courseCode ?? "").trim().split(/\s+/)
+  return tokens[tokens.length - 1] || ""
+}
+
 export interface ClassLabelParts {
   courseCode: string | null | undefined
   facilitatorName: string | null | undefined
