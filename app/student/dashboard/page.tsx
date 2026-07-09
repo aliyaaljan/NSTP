@@ -8,8 +8,7 @@ import QuickAccess from "@/components/student/QuickAccess";
 
 import { useState, useEffect } from "react"
 import { Montserrat } from "next/font/google"
-import Sidebar from "@/components/shared/StudentSidebar"
-import StudentLeaderSidebar from "@/components/shared/StudentLeaderSidebar"
+import Sidebar from "@/components/shared/ResponsiveStudentSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import type { StudentDashboardData } from "@/lib/student/dashboard-actions"
@@ -266,7 +265,7 @@ export default function StudentDashboardPage() {
   const percentage = totalStudents > 0 ? Math.round((scannedCount / totalStudents) * 100) : 0
 
   // Select sidebar based on role
-  const SidebarComponent = isLeader ? StudentLeaderSidebar : Sidebar
+  const SidebarComponent = () => <Sidebar isLeader={isLeader} />
 
   return (
     <div
