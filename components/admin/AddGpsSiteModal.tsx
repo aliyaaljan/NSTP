@@ -9,6 +9,11 @@ import {
 } from "@/lib/admin/site-edit"
 import type { SiteListSectionOption } from "@/lib/admin/site-list"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { Range } from 'react-range'
+
+//Map
+import dynamic from "next/dynamic"
+const Map = dynamic(() => import("@/components/admin/AdminMap"), { ssr: false })
 
 const COLORS = {
   textDark: "#2C2C2A",
@@ -52,13 +57,19 @@ function TextInput({
   onChange,
   placeholder,
   type = "text",
+  min,
+  max,
+  step,
 }: {
   id: string
   name: string
   value: string
   onChange: (value: string) => void
   placeholder?: string
-  type?: "text" | "number"
+  type?: "text" | "number" | "range"
+  min?: number
+  max?: number
+  step?: number
 }) {
   return (
     <input
@@ -68,6 +79,9 @@ function TextInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      min={min}  
+      max={max}  
+      step={step}
       style={{
         width: "100%",
         boxSizing: "border-box",
@@ -291,66 +305,87 @@ export default function AddGpsSiteModal({
               />
             </div>
           </FormField>
+          
+          <FormField label="Site Radius (meters):" htmlFor="gps_site_radius">
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <input
+                id="gps_site_radius"
+                name="site_radius"
+                type="range"
+                min={10}
+                max={1000}
+                step={10}
+                value={form.radiusMeters}
+                onChange={(e) => patchForm({ radiusMeters: parseInt(e.target.value, 10) || 0 })}
+                style={{
+                  accentColor: COLORS.headerGreen,
+                  width: "100%",
+                  cursor: "pointer",
+                  appearance: "none",
+                  WebkitAppearance: "none",
+                  height: "8px",
+                  borderRadius: "6px",
+                  outline: "none",
+                  background: form.radiusMeters >= 1000 
+                    ? COLORS.headerGreen  
+                    : `linear-gradient(to right, ${COLORS.headerGreen} 0%, ${COLORS.headerGreen} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} 100%)`,
+                }}
+              />
+              
+              <div style={{ 
+                display: "flex", 
+                justifyContent: "space-between", 
+                ...TYPE.caption, 
+                color: COLORS.textDark,
+                fontWeight: 600 
+              }}>
+                <span>Min: 10m</span>
+                <span style={{ color: COLORS.headerGreen, fontSize: "15px" }}>
+                  Selected: {form.radiusMeters} meters
+                </span>
+                <span>Max: 1000m</span>
+              </div>
 
-          <div>
-            <div
-              style={{
-                ...TYPE.bodyBold,
-                color: COLORS.textDark,
-                marginBottom: 8,
-              }}
-            >
-              Adviser:
             </div>
-            <p
-              style={{
-                ...TYPE.body,
-                color: COLORS.textDark,
-                fontWeight: 600,
-                margin: 0,
-                minHeight: 20,
-              }}
-            >
-              {selectedSupervisor || "—"}
-            </p>
-            <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
-              Assigned automatically from the selected section&apos;s adviser and cannot be
-              edited separately.
-            </p>
+          </FormField>
+
+          <div className="flex flex-row gap-6 w-full">
+            <div className="flex-1">
+              <FormField label="Latitude:" htmlFor="gps_center_latitude">
+              <TextInput
+                id="gps_center_latitude"
+                name="center_latitude"
+                type="number"
+                value={String(form.centerLatitude)}
+                onChange={(v) => patchForm({ centerLatitude: parseFloat(v) || 0 })}
+                placeholder="16.411100"
+              />
+            </FormField>
+            </div>
+            
+            <div className="flex-1">
+              <FormField label="Longitude:" htmlFor="gps_center_longitude">
+              <TextInput
+                id="gps_center_longitude"
+                name="center_longitude"
+                type="number"
+                value={String(form.centerLongitude)}
+                onChange={(v) => patchForm({ centerLongitude: parseFloat(v) || 0 })}
+                placeholder="120.596600"
+              />
+            </FormField>
+            </div>
           </div>
 
-          <FormField label="Site Radius (meters):" htmlFor="gps_site_radius">
-            <TextInput
-              id="gps_site_radius"
-              name="site_radius"
-              type="number"
-              value={String(form.radiusMeters)}
-              onChange={(v) => patchForm({ radiusMeters: parseInt(v, 10) || 0 })}
-              placeholder="200"
+          <div style={{ height: 300, borderRadius: 8, overflow: "hidden" }}>
+            <Map
+              center={[form.centerLatitude, form.centerLongitude]}
+              radius={form.radiusMeters}
+              onCenterChange={(lat, lng) =>
+                patchForm({ centerLatitude: lat, centerLongitude: lng })
+              }
             />
-          </FormField>
-
-          <FormField label="Latitude:" htmlFor="gps_center_latitude">
-            <TextInput
-              id="gps_center_latitude"
-              name="center_latitude"
-              type="number"
-              value={String(form.centerLatitude)}
-              onChange={(v) => patchForm({ centerLatitude: parseFloat(v) || 0 })}
-              placeholder="16.411100"
-            />
-          </FormField>
-
-          <FormField label="Longitude:" htmlFor="gps_center_longitude">
-            <TextInput
-              id="gps_center_longitude"
-              name="center_longitude"
-              type="number"
-              value={String(form.centerLongitude)}
-              onChange={(v) => patchForm({ centerLongitude: parseFloat(v) || 0 })}
-              placeholder="120.596600"
-            />
-          </FormField>
+          </div>
 
           {error && (
             <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{error}</p>
@@ -375,7 +410,7 @@ export default function AddGpsSiteModal({
                 opacity: canAdd ? 1 : 0.5,
               }}
             >
-              <i className="ti ti-plus" style={{ fontSize: 16 }} />
+              {/* <i className="ti ti-plus" style={{ fontSize: 16 }} /> */}
               {isPending ? "Adding…" : "Add"}
             </button>
           </div>

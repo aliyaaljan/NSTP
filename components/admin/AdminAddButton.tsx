@@ -14,14 +14,15 @@ export default function AdminAddButton({
 }) {
   return (
     <button
+      className="px-4 py-2 gap-1 capitalize"
       type="button"
       onClick={onClick}
       aria-label={label}
       title={label}
       style={{
-        width: BUTTON_SIZE,
-        height: BUTTON_SIZE,
-        borderRadius: "50%",
+        width: "auto",
+        height: "",
+        borderRadius: 999,
         border: "none",
         background: COLORS.green,
         color: "#fff",
@@ -32,7 +33,8 @@ export default function AdminAddButton({
         flexShrink: 0,
       }}
     >
-      <i className="ti ti-plus" style={{ fontSize: ICON_SIZE }} />
+      <i className="ti ti-plus " style={{ fontSize: ICON_SIZE }} />
+      {label}
     </button>
   )
 }
