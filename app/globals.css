@@ -22,3 +22,8 @@ html, body {
   color: #2C2C2A;
   -webkit-font-smoothing: antialiased;
 }
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}

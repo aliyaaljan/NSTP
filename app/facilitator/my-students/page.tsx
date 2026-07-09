@@ -18,7 +18,6 @@ import {
 } from "@tabler/icons-react"
 import { FaRegQuestionCircle } from "react-icons/fa";
 import { RiRoadMapLine } from "react-icons/ri";
-
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
@@ -33,18 +32,42 @@ import {
 } from "@/lib/facilitator/appeal-actions"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 
+//Map
+import dynamic from "next/dynamic"
+const Map = dynamic(() => import("@/components/shared/Map"), { ssr: false })
+
 // ── Data ──────────────────────────────────────────────────────────────
 type Status = "Completed" | "In Progress" | "Not Started"
 type studentClassification = "Freshman" | "Sophomore" | "Junior" | "Senior"
+
+interface StudentLocation {
+  eventType: string //time_in, time_out
+  eventSource: string // system_auto, self_leader, adviser_manual, self_student, qr_scan
+  recordedAt: string
+  recordedBy: string //scanner
+  generatedLat: number
+  generatedLong: number
+  scanLat: number
+  scanLong: number
+}
+
+interface Geofence {
+  label: string
+  centerLat: number
+  centerLong: number
+  radius: number
+}
 
 interface StudentSession {
   id: string
   date: string
   timeIn: string
-  timeOut: string
+  timeOut: string | null
   hours: number
   statusId:string
   status: string
+  locations: StudentLocation[] | null
+  geofence: Geofence[] | null
 }
 
 interface Student {
@@ -55,6 +78,7 @@ interface Student {
   student_number: string
   is_student_leader: boolean
   sais_id: number
+  section_geofence_id: number
   site_location: string
   program: string
   classification: string
@@ -121,7 +145,9 @@ function formatDateReadable(inputDate: string): string {
   return outputDate
 }
 
-function to24HourFormat(time12: string): string {
+function to24HourFormat(time12: string | null): string {
+  if (!time12) return ""
+
   const match = time12.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
   if (!match) return ""
 
@@ -318,6 +344,10 @@ const myStudentsStyles = `
     background: #F9FAFB;
     color: var(--green);
   }
+  .ms-session-action-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
   .ms-session-status-badge {
     text-align: center;
     display: inline-block;
@@ -461,6 +491,8 @@ function MyStudentsContent() {
     "site_location", "program", "classification", "status",
     "hours_logged", "total_hours", "completion_percentage", "is_student_leader"
   ])
+  //map
+  const [viewMap, setViewMap] = useState<{ studentName: string; session: StudentSession } | null>(null)
 
   // ── Pending unified filter ─────────────────────────────────────────
   type PendingFilterField = "appeal_type_name" | "status" | "section_name"
@@ -726,8 +758,14 @@ function MyStudentsContent() {
     },
   })
 
-  const currentData = statData.find((r) => r.section_name === selectedSection)
-  if (!currentData) return null
+  const currentData = statData.find((r) => r.section_name === selectedSection) ?? {
+    section_id: "",
+    section_name: selectedSection,
+    total: 0,
+    completed: 0,
+    in_progress: 0,
+    pending_request: 0,
+  }
 
   function buildStatCards() {
     return [
@@ -1887,7 +1925,11 @@ function MyStudentsContent() {
                           }}>
                             <IconPencil size={14} stroke={1.75}/>
                           </button>
-                          <button title="View Location" className="ms-session-action-btn">
+                          <button 
+                            title="View Location" 
+                            className="ms-session-action-btn" 
+                            // disabled={!sess.locations || sess.locations.length === 0}
+                            onClick={(e) => {e.stopPropagation(); setViewMap({ studentName: selectedStudent.student_name, session: sess }); console.log(selectedStudent)}}>
                             <RiRoadMapLine size={14}/>
                           </button>
                         </td>
@@ -2071,6 +2113,7 @@ function MyStudentsContent() {
               ))}
             </select>
           </ModalField>
+
           {isVoidedSelected && (
             <ModalField label="Reason for Voided Reason (Optional)">
               <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
@@ -2078,6 +2121,7 @@ function MyStudentsContent() {
                 rows={3} style={{ width: "100%", boxSizing: "border-box", marginTop: 6, padding: 10, border: "1px solid var(--border)", borderRadius: 8, outline: "none", resize: "none", fontSize: 13 }} />
           </ModalField>
           )}
+
           {editTimeError && (
             <div style={{ fontSize: 12.5, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "8px 12px" }}>{editTimeError}</div>
           )}
@@ -2088,6 +2132,35 @@ function MyStudentsContent() {
               Save
             </button>
           </div>
+        </NstpModal>
+
+        <NstpModal
+          open={!!viewMap}
+          onClose={() => setViewMap(null)}
+          title="View Location"
+          size="lg"
+        >
+          {viewMap && (() => {
+            const locations = viewMap.session.locations
+            const hasCoords = locations?.some((loc) => loc.scanLat != null && loc.scanLong != null)
+
+            if (hasCoords) {
+              return (
+                <div style={{ height: 550, borderRadius: 12, background: "#F3F4F6" }}>
+                  <Map student_name={viewMap.studentName} session={viewMap.session} />
+                </div>
+              )
+            }
+
+            const isManual = locations?.some((loc) => loc.eventSource === "adviser_manual")
+            return (
+              <div className="ms-session-empty">
+                {isManual
+                  ? "No location data available, this session was manually added by the facilitator."
+                  : "No location data recorded for this session."}
+              </div>
+            )
+          })()}
         </NstpModal>
       </div>
     </>
