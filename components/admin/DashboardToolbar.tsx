@@ -85,13 +85,11 @@ export default function DashboardToolbar({
           value: s.sectionId,
           label: s.label,
         })),
-        optionsPerColumn: 12,
       },
       {
         label: "Advisers",
         field: "adviser",
         options: filteredAdvisers.map((name) => ({ value: name, label: name })),
-        optionsPerColumn: 12,
       },
     ],
     [filteredSections, filteredAdvisers]
@@ -174,7 +172,6 @@ export default function DashboardToolbar({
             activeFilters={activeFilters}
             onChange={handleFiltersChange}
             onClear={clearFilters}
-            width={840}
           />
         )}
       </div>

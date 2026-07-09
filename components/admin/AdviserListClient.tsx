@@ -360,7 +360,6 @@ export default function AdviserListClient({
         label: "Class",
         field: "sectionId",
         options: sections.map((s) => ({ value: s.sectionId, label: s.label })),
-        optionsPerColumn: 7,
       },
     ],
     [sections]

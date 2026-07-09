@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from "react"
 import {
-  chunkFilterOptions,
+  ADMIN_FILTER_PANEL_OPTIONS_PER_COLUMN,
   countActiveFilters,
+  filterGroupMaxWidth,
+  resolveFilterPanelLayout,
   toggleFilterValue,
   type ActiveFilters,
   type FilterGroupDef,
@@ -59,49 +61,21 @@ export function AdminFilterPanel({
   activeFilters,
   onChange,
   onClear,
-  width,
+  width: maxWidthProp,
 }: {
   groups: FilterGroupDef[]
   activeFilters: ActiveFilters
   onChange: (next: ActiveFilters) => void
   onClear: () => void
-  /** Fixed panel width; enables a shorter, grouped layout for wide option lists. */
+  /** Override max panel width (defaults to dashboard cap). */
   width?: number
 }) {
+  const { maxWidth, groups: layoutGroups } = resolveFilterPanelLayout(groups)
+  const panelMaxWidth = maxWidthProp ?? maxWidth
   const totalActive = countActiveFilters(activeFilters)
 
   function toggle(field: string, value: string) {
     onChange(toggleFilterValue(activeFilters, field, value))
-  }
-
-  type FlatColumn = {
-    key: string
-    label?: string
-    field: string
-    options: { value: string; label: string }[]
-  }
-
-  const flatColumns: FlatColumn[] = []
-  for (const group of groups) {
-    if (group.options.length === 0) continue
-    if (group.optionsPerColumn) {
-      const chunks = chunkFilterOptions(group.options, group.optionsPerColumn)
-      chunks.forEach((chunk, index) => {
-        flatColumns.push({
-          key: `${group.field}-${index}`,
-          label: index === 0 ? group.label : undefined,
-          field: group.field,
-          options: chunk,
-        })
-      })
-    } else {
-      flatColumns.push({
-        key: group.field,
-        label: group.label,
-        field: group.field,
-        options: group.options,
-      })
-    }
   }
 
   return (
@@ -116,7 +90,9 @@ export function AdminFilterPanel({
         boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
         zIndex: 100,
         padding: 16,
-        ...(width ? { width, overflow: "hidden" } : {}),
+        width: "max-content",
+        maxWidth: panelMaxWidth,
+        minWidth: 220,
       }}
     >
       <div
@@ -159,106 +135,70 @@ export function AdminFilterPanel({
         )}
       </div>
 
-      {width ? (
-        <div
-          style={{
-            display: "flex",
-            gap: 28,
-            alignItems: "flex-start",
-          }}
-        >
-          {groups.map((group) => {
-            if (group.options.length === 0) return null
-            const checked = activeFilters[group.field] ?? []
-            const rowsPerColumn = group.optionsPerColumn ?? 5
-            const columnCount = Math.max(
-              1,
-              Math.ceil(group.options.length / rowsPerColumn)
-            )
-            return (
+      <div
+        style={{
+          display: "flex",
+          gap: 20,
+          alignItems: "flex-start",
+        }}
+      >
+        {layoutGroups.map((group) => {
+          if (group.options.length === 0) return null
+          const checked = activeFilters[group.field] ?? []
+          const rowsPerColumn =
+            group.optionsPerColumn ?? ADMIN_FILTER_PANEL_OPTIONS_PER_COLUMN
+          const columnCount = Math.max(
+            1,
+            Math.ceil(group.options.length / rowsPerColumn)
+          )
+          const groupMaxWidth = filterGroupMaxWidth(group.field)
+          return (
+            <div
+              key={group.field}
+              style={{
+                flex: "0 0 auto",
+                width: "max-content",
+                maxWidth: groupMaxWidth,
+                minWidth: 0,
+              }}
+            >
               <div
-                key={group.field}
                 style={{
-                  flex: group.field === "section" ? "1.65 1 0" : "1 1 0",
-                  minWidth: 0,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: COLORS.text,
+                  marginBottom: 8,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.4px",
+                  fontFamily: FONT_BODY,
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: COLORS.text,
-                    marginBottom: 8,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.4px",
-                    fontFamily: FONT_BODY,
-                  }}
-                >
-                  {group.label}
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
-                    gap: "6px 18px",
-                  }}
-                >
-                  {group.options.map(({ value, label: optLabel }) => (
-                    <FilterOptionLabel
-                      key={value}
-                      optLabel={optLabel}
-                      checked={checked.includes(value)}
-                      onToggle={() => toggle(group.field, value)}
-                      compact
-                    />
-                  ))}
-                </div>
+                {group.label}
               </div>
-            )
-          })}
-        </div>
-      ) : (
-        <div
-          style={{
-            display: "flex",
-            gap: 24,
-            flexWrap: "nowrap",
-            alignItems: "flex-start",
-          }}
-        >
-          {flatColumns.map(({ key, label, field, options }) => {
-            const checked = activeFilters[field] ?? []
-            return (
-              <div key={key} style={{ minWidth: 120, flexShrink: 0 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: COLORS.text,
-                    marginBottom: 8,
-                    minHeight: label ? undefined : 17,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.4px",
-                    fontFamily: FONT_BODY,
-                  }}
-                >
-                  {label ?? "\u00A0"}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {options.map(({ value, label: optLabel }) => (
-                    <FilterOptionLabel
-                      key={value}
-                      optLabel={optLabel}
-                      checked={checked.includes(value)}
-                      onToggle={() => toggle(field, value)}
-                    />
-                  ))}
-                </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    columnCount === 1
+                      ? "max-content"
+                      : `repeat(${columnCount}, minmax(0, 1fr))`,
+                  gap: "6px 16px",
+                }}
+              >
+                {group.options.map(({ value, label: optLabel }) => (
+                  <FilterOptionLabel
+                    key={value}
+                    optLabel={optLabel}
+                    checked={checked.includes(value)}
+                    onToggle={() => toggle(group.field, value)}
+                    compact
+                  />
+                ))}
               </div>
-            )
-          })}
-        </div>
-      )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
