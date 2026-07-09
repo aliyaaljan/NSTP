@@ -7,9 +7,7 @@ import {
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import DashboardToolbar from "@/components/admin/DashboardToolbar"
-import AdminCalendarPanel from "@/components/admin/AdminCalendarPanel"
 import SectionProgressPanel from "@/components/admin/SectionProgressPanel"
-import RemainingDaysChart from "@/components/admin/RemainingDaysChart"
 import CompletionDonutChart from "@/components/admin/CompletionDonutChart"
 import { lookupId } from "@/lib/lookups"
 import {
@@ -315,13 +313,6 @@ export default async function AdminDashboardPage({
   }
   const supabase = await createSupabaseServerClient()
 
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const todayStartISO = todayStart.toISOString()
-  const tomorrowStart = new Date(todayStart)
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
-  const tomorrowStartISO = tomorrowStart.toISOString()
-
   const today = new Date()
   const dayOfWeek = today.getDay()
   const distanceToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
@@ -442,14 +433,6 @@ export default async function AdminDashboardPage({
     .eq("enrollment.enrollment_status_id", activeStatusId)
     .gte("effective_at", mondayISO)
 
-  let todayTimeInLogsQuery = supabase
-    .from("attendance_event")
-    .select(timeInLogsSelect)
-    .eq("attendance_event_type_id", timeInTypeId)
-    .eq("enrollment.enrollment_status_id", activeStatusId)
-    .gte("effective_at", todayStartISO)
-    .lt("effective_at", tomorrowStartISO)
-
   let filesQuery = supabase
     .from("form")
     .select(filesSelect, { count: "exact", head: true })
@@ -487,10 +470,6 @@ export default async function AdminDashboardPage({
       "enrollment.section.section_id",
       selectedSection
     )
-    todayTimeInLogsQuery = todayTimeInLogsQuery.eq(
-      "enrollment.section.section_id",
-      selectedSection
-    )
     filesQuery = filesQuery.eq("section.section_id", selectedSection)
     appealsQuery = appealsQuery.eq(
       "enrollment.section.section_id",
@@ -514,10 +493,6 @@ export default async function AdminDashboardPage({
       filteredAdviserId
     )
     weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
-      "enrollment.section.adviser_user_id",
-      filteredAdviserId
-    )
-    todayTimeInLogsQuery = todayTimeInLogsQuery.eq(
       "enrollment.section.adviser_user_id",
       filteredAdviserId
     )
@@ -548,7 +523,6 @@ export default async function AdminDashboardPage({
     sectionsFilterRes,
     advisersFilterRes,
     recentActivityRes,
-    activeTermRes,
     appealStatusesRes,
     enrollmentStatusesRes,
     attendanceSessionStatusesRes,
@@ -562,11 +536,7 @@ export default async function AdminDashboardPage({
     // appeals query call
     appealsQuery,
     //attendance rate query call
-    Promise.all([
-      weeklyActiveCountQuery,
-      weeklyTimeInLogsQuery,
-      todayTimeInLogsQuery,
-    ]),
+    Promise.all([weeklyActiveCountQuery, weeklyTimeInLogsQuery]),
     //enrollment query call
     enrollmentQuery,
     // adviser workload query call
@@ -588,11 +558,6 @@ export default async function AdminDashboardPage({
       .order("created_at", { ascending: false })
       .limit(10),
 
-    supabase
-      .from("term")
-      .select("start_date, end_date")
-      .eq("is_active", true)
-      .maybeSingle(),
     // FETCH LOOKUP KEYS DYNAMICALLY
     supabase.from("appeal_status").select("appeal_status_id, name"),
     supabase.from("enrollment_status").select("enrollment_status_id, name"),
@@ -636,25 +601,10 @@ export default async function AdminDashboardPage({
   const uniqueScansThisWeek = new Set(
     attendanceRateRes[1]?.data?.map((e: any) => e.enrollment_id)
   ).size
-  const presentToday = new Set(
-    attendanceRateRes[2]?.data?.map((e: any) => e.enrollment_id)
-  ).size
   const computedAttendanceRate =
     totalActiveEnrollments > 0
       ? Math.round((uniqueScansThisWeek / totalActiveEnrollments) * 100)
       : 0
-
-  const totalToday = totalActiveEnrollments
-  const notYetToday = 0
-  const absentToday = Math.max(0, totalToday - presentToday - notYetToday)
-  const todayAttendance = {
-    present: presentToday,
-    absent: absentToday,
-    notYet: notYetToday,
-    total: totalToday,
-    presentPct:
-      totalToday > 0 ? Math.round((presentToday / totalToday) * 100) : 0,
-  }
 
   // processing enrollment data
 
@@ -849,9 +799,6 @@ export default async function AdminDashboardPage({
       }
     })
 
-  const nstpTermStart = activeTermRes.data?.start_date ?? "2025-08-11"
-  const nstpCompletionDeadline = "2026-07-17"
-
   const currentSemesterMeta = {
     academicYear: "2025-2026",
     semester: "2nd Semester",
@@ -897,7 +844,6 @@ export default async function AdminDashboardPage({
       label: "Average attendance rate",
       value: `${computedAttendanceRate}%`,
       note: "this week",
-      scrollTarget: "dashboard-calendar",
     },
     {
       icon: "ti-alert-triangle",
@@ -987,87 +933,32 @@ export default async function AdminDashboardPage({
         ))}
       </KpiStatCardGrid>
 
-      {/* Section progress progressbars bars panel + Completion donut */}
+      {/* Hours completion by section — full width */}
       <div
+        id="dashboard-hours-by-section"
         style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr",
-          gap: 20,
+          background: COLORS.cardBg,
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: COLORS.radius,
+          padding: "18px 20px",
+          boxShadow: COLORS.cardShadow,
+          scrollMarginTop: 24,
           marginBottom: 20,
         }}
       >
-        <div
-          id="dashboard-hours-by-section"
-          style={{
-            background: COLORS.cardBg,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: COLORS.radius,
-            padding: "18px 20px",
-            boxShadow: COLORS.cardShadow,
-            scrollMarginTop: 24,
-          }}
-        >
-          <div style={{ ...TYPE.h2, color: COLORS.textDark, marginBottom: 20 }}>
-            {selectedSection
-              ? `Student progress within ${selectedSectionLabel}`
-              : selectedAdviser
-              ? `Student progress under ${selectedAdviser}`
-              : "Hours completion by section"}
-          </div>
-          <SectionProgressPanel
-            rows={processedSectionProgress}
-            rowLabel={
-              selectedSection || selectedAdviser ? "students" : "sections"
-            }
-          />
+        <div style={{ ...TYPE.h2, color: COLORS.textDark, marginBottom: 20 }}>
+          {selectedSection
+            ? `Student progress within ${selectedSectionLabel}`
+            : selectedAdviser
+            ? `Student progress under ${selectedAdviser}`
+            : "Hours completion by section"}
         </div>
-
-        <div
-          id="dashboard-calendar"
-          style={{
-            background: COLORS.cardBg,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: COLORS.radius,
-            padding: "18px 20px",
-            boxShadow: COLORS.cardShadow,
-            display: "flex",
-            flexDirection: "column",
-            minHeight: "100%",
-            scrollMarginTop: 24,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <div style={{ ...TYPE.h2, color: COLORS.textDark }}>Calendar</div>
-            <div
-              style={{
-                fontFamily: FONT_BODY,
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.8px",
-                color: COLORS.textGray,
-                whiteSpace: "nowrap",
-              }}
-            >
-              TODAY ·{" "}
-              {new Date()
-                .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                .toUpperCase()}
-            </div>
-          </div>
-          <RemainingDaysChart
-            endDate={nstpCompletionDeadline}
-            startDate={nstpTermStart}
-          />
-          <AdminCalendarPanel attendance={todayAttendance} />
-        </div>
+        <SectionProgressPanel
+          rows={processedSectionProgress}
+          rowLabel={
+            selectedSection || selectedAdviser ? "students" : "sections"
+          }
+        />
       </div>
 
       {/* Completion status, at-risk, and adviser workload — 3 columns; recent activity full width below */}

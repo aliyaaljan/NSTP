@@ -6,7 +6,7 @@ import { ChartStyles } from "@/components/shared/ChartModule"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { TYPE } from "@/lib/admin-typography"
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 20
 
 interface SectionProgressRow {
   id: string
@@ -16,7 +16,7 @@ interface SectionProgressRow {
 
 const SECTION_PROGRESS_GRID = {
   display: "grid",
-  gridTemplateColumns: "150px 1fr auto",
+  gridTemplateColumns: "minmax(220px, 1fr) 2fr auto",
   columnGap: 14,
   alignItems: "center",
 } as const
