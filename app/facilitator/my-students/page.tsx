@@ -1911,7 +1911,7 @@ function MyStudentsContent() {
                           </span>
                         </td>
                         <td className="flex flex-row gap-1">
-                          <button title="Edit Session" className="ms-session-action-btn" onClick={async (e) => {
+                          <button title="Edit Session" className="ms-session-action-btn" disabled={sess.status === 'open'} onClick={async (e) => {
                             e.stopPropagation()
                             setEditingSession(sess)
                             setEditDate(formatDate(sess.date))
