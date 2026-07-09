@@ -180,7 +180,11 @@ function ListCard({
         }}
       >
         <span>{colLeft}</span>
-        <span>{colRight}</span>
+        {colRight ? (
+          <span style={{ minWidth: 72, textAlign: "center", flexShrink: 0 }}>
+            {colRight}
+          </span>
+        ) : null}
       </div>
 
       <div
@@ -241,7 +245,11 @@ function ListRow({
           </div>
         </div>
       </div>
-      {rightSlot && <div style={{ flexShrink: 0 }}>{rightSlot}</div>}
+      {rightSlot && (
+        <div style={{ flexShrink: 0, minWidth: 72, textAlign: "center" }}>
+          {rightSlot}
+        </div>
+      )}
     </div>
   )
 }
@@ -1057,11 +1065,9 @@ export default async function AdminDashboardPage({
                 subtitle={a.section}
                 isLast={i === processedAdviserWorkload.length - 1}
                 rightSlot={
-                  <Badge
-                    text={`${a.studentCount} students`}
-                    bg={COLORS.border}
-                    color={COLORS.textGray}
-                  />
+                  <span style={{ ...TYPE.body, fontWeight: 500, color: COLORS.textGray }}>
+                    {a.studentCount}
+                  </span>
                 }
               />
             ))
