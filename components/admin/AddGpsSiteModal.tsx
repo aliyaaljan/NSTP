@@ -9,7 +9,6 @@ import {
 } from "@/lib/admin/site-edit"
 import type { SiteListSectionOption } from "@/lib/admin/site-list"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
-import { Range } from 'react-range'
 
 //Map
 import dynamic from "next/dynamic"
