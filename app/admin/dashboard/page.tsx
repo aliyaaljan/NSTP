@@ -893,7 +893,7 @@ export default async function AdminDashboardPage({
       scrollTarget: "dashboard-hours-by-section",
     },
     {
-      icon: "ti-clock-check",
+      icon: "ti-calendar",
       label: "Average attendance rate",
       value: `${computedAttendanceRate}%`,
       note: "this week",
