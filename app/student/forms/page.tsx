@@ -35,6 +35,7 @@ import {
 } from "@/lib/forms/submission-actions"
 
 import { getTemplateDownloadUrl } from "@/lib/forms/requirement-actions"
+import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 
 const studentFilesStyles = `
   .sf-root { display: flex; min-height: 100vh; background: #F0F0F0; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; color: #111827; }
@@ -247,11 +248,19 @@ export default function StudentFilesPage() {
     } = await supabase.auth.getUser()
     if (user) {
       const parts = (user.user_metadata?.full_name || "").split(" ")
-      setStudent({
+      setStudent((prev) => ({
+        ...prev,
         initials: (parts[0]?.[0] || "") + (parts.at(-1)?.[0] || ""),
         displayName: user.user_metadata?.full_name || "Student",
-        section: "NSTP-H",
-      })
+      }))
+    }
+
+    const dashboardRes = await getStudentDashboard()
+    if (dashboardRes.ok) {
+      setStudent((prev) => ({
+        ...prev,
+        section: dashboardRes.data.sectionName ?? "",
+      }))
     }
 
     const enrollRes = await getStudentActiveEnrollmentId()

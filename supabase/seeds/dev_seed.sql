@@ -214,6 +214,10 @@ DECLARE
   -- Baguio City Library, Baguio Cathedral, Camp John Hay.
   v_lats numeric[] := ARRAY[16.411100, 16.410800, 16.412000, 16.411500, 16.412300, 16.413600, 16.401500];
   v_lngs numeric[] := ARRAY[120.596600, 120.596200, 120.597000, 120.595900, 120.596000, 120.594100, 120.606700];
+  -- GPS jitter: real device fixes never land on the exact landmark coordinate.
+  -- ~0.0003deg spread (+-~16m) is in line with the 10-18m accuracy_meter rolled below,
+  -- and is independently rolled for time-in/time-out and generated-vs-scan so points
+  -- fan out around each landmark instead of stacking on one dot on a map.
   dd int; s timestamptz; e timestamptz; sid uuid; li int; v_lat numeric; v_lng numeric;
 BEGIN
   FOR dd IN 0..p_n-1 LOOP
@@ -228,8 +232,12 @@ BEGIN
     INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id,
                                    generated_latitude, generated_longitude, generated_accuracy_meter,
                                    scan_latitude, scan_longitude, scan_accuracy_meter)
-    VALUES (gen_random_uuid(), p_enr, sid, v_time_in,  v_manual_src, s, p_adviser, v_lat, v_lng, 12.0, v_lat, v_lng, 12.0),
-           (gen_random_uuid(), p_enr, sid, v_time_out, v_manual_src, e, p_adviser, v_lat, v_lng, 12.0, v_lat, v_lng, 12.0);
+    VALUES (gen_random_uuid(), p_enr, sid, v_time_in,  v_manual_src, s, p_adviser,
+            v_lat + (random() - 0.5) * 0.0003, v_lng + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1),
+            v_lat + (random() - 0.5) * 0.0003, v_lng + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1)),
+           (gen_random_uuid(), p_enr, sid, v_time_out, v_manual_src, e, p_adviser,
+            v_lat + (random() - 0.5) * 0.0003, v_lng + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1),
+            v_lat + (random() - 0.5) * 0.0003, v_lng + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1));
   END LOOP;
 END;
 $$ LANGUAGE plpgsql;
@@ -384,7 +392,8 @@ BEGIN
     INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id,
                                    generated_latitude, generated_longitude, generated_accuracy_meter, scan_latitude, scan_longitude, scan_accuracy_meter)
     VALUES (gen_random_uuid(), '5eed4902-0000-0000-0000-000000000000', v_session_id, v_time_in, v_manual_src, v_start, v_adviser_test,
-            16.411100, 120.596600, 12.0, 16.411100, 120.596600, 12.0); -- UP Baguio Main Campus
+            16.411100 + (random() - 0.5) * 0.0003, 120.596600 + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1),
+            16.411100 + (random() - 0.5) * 0.0003, 120.596600 + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1)); -- UP Baguio Main Campus
   END IF;
 
   -- synthetic idx 21: 1 open session only (regular student, currently timed in)
@@ -395,7 +404,8 @@ BEGIN
   INSERT INTO attendance_event (attendance_event_id, enrollment_id, attendance_session_id, attendance_event_type_id, attendance_event_source_id, effective_at, recorded_by_user_id,
                                  generated_latitude, generated_longitude, generated_accuracy_meter, scan_latitude, scan_longitude, scan_accuracy_meter)
   VALUES (gen_random_uuid(), '5eed4021-0000-0000-0000-000000000000', v_session_id, v_time_in, v_manual_src, v_start, v_adviser_test,
-          16.412300, 120.596000, 12.0, 16.412300, 120.596000, 12.0); -- Baguio City Library
+          16.412300 + (random() - 0.5) * 0.0003, 120.596000 + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1),
+          16.412300 + (random() - 0.5) * 0.0003, 120.596000 + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1)); -- Baguio City Library
 
   -- synthetic idx 30: voided session (missed cutoff)
   INSERT INTO attendance_session (attendance_session_id, enrollment_id, attendance_session_status_id, started_at, ended_at, void_reason)
@@ -411,7 +421,8 @@ BEGIN
                                    generated_latitude, generated_longitude, generated_accuracy_meter, scan_latitude, scan_longitude, scan_accuracy_meter)
     VALUES (gen_random_uuid(), '5eed4080-0000-0000-0000-000000000000', v_session_id, v_time_in, v_manual_src,
             v_start, (SELECT id FROM auth.users WHERE email = 'rblopez@up.edu.ph'),
-            16.412000, 120.597000, 12.0, 16.412000, 120.597000, 12.0); -- UP Baguio Gymnasium
+            16.412000 + (random() - 0.5) * 0.0003, 120.597000 + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1),
+            16.412000 + (random() - 0.5) * 0.0003, 120.597000 + (random() - 0.5) * 0.0003, round((10 + random() * 8)::numeric, 1)); -- UP Baguio Gymnasium
   END IF;
 
   IF EXISTS (SELECT 1 FROM enrollment WHERE enrollment_id = '5eed4093-0000-0000-0000-000000000000') THEN
