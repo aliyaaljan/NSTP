@@ -54,7 +54,11 @@ export default function AdminMap({center, radius, onCenterChange}:AdminMapProps)
                 ref={markerRef}
                 
             >
-            <Popup>Drag me to change location</Popup>
+            <Popup>
+              <div className="flex flex-col p-1" style={{ minWidth: 160 }}>
+                <strong style={{margin: "0 0 4px 0", display: "block"}}>Drag me to change location</strong>
+              </div>
+            </Popup>
             </Marker>
             <Circle center={cen} pathOptions={{color: 'green'}} radius={radius}></Circle>
         </MapContainer>

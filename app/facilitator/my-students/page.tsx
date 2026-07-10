@@ -429,7 +429,7 @@ const myStudentsStyles = `
   .ms-modal-left { flex: 1; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
   .ms-modal-right { width: 430px; flex-shrink: 0; border-left: 1px solid var(--border); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
   .ms-modal-right-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
-  .ms-session-table-wrapper {overflow: auto; max-height:500px }
+  .ms-session-table-wrapper {overflow: auto; max-height:500px; scrollbar-width: thin; }
   .ms-session-table { width: 100%; border-collapse: collapse; table-layout: fixed;}
   .ms-session-table th:nth-child(1) { width: 23%; }
   .ms-session-table th:nth-child(2) { width: 17%; }
