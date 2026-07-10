@@ -9,7 +9,6 @@ import {
 } from "@/lib/admin/site-edit"
 import type { SiteListSectionOption } from "@/lib/admin/site-list"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
-import { Range } from 'react-range'
 
 //Map
 import dynamic from "next/dynamic"
@@ -343,7 +342,7 @@ export default function AddGpsSiteModal({
                 <span style={{ color: COLORS.headerGreen, fontSize: "15px" }}>
                   Selected: {form.radiusMeters} meters
                 </span>
-                <span>Max: 1000m</span>
+                <span>Max: 1km</span>
               </div>
 
             </div>

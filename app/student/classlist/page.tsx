@@ -337,7 +337,7 @@ const pages = []
         .search-box {
           width:320px;
           height:35px;
-          border:1.5px solid ${C.maroon};
+          border: 1.5px solid ${C.Green};
           border-radius:999px;
           display:flex;
           align-items:center;

@@ -4,6 +4,10 @@ import { useEffect, type ReactNode } from "react"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
+// Map
+import dynamic from "next/dynamic"
+const Map = dynamic(() => import("@/components/admin/AdminMapNoDrag"), { ssr: false })
+
 export type AdminDetailField = {
   label: string
   value: ReactNode
@@ -39,6 +43,7 @@ export default function AdminRecordDetailModal({
   title,
   subtitle,
   fields,
+  mapConfig,
   onClose,
   onEdit,
   onDelete,
@@ -59,6 +64,10 @@ export default function AdminRecordDetailModal({
   title: string
   subtitle?: string
   fields: AdminDetailField[]
+  mapConfig?: {
+    center: [number, number]
+    radius: number
+  }
   onClose: () => void
   onEdit?: () => void
   onDelete?: () => void
@@ -164,8 +173,8 @@ export default function AdminRecordDetailModal({
             <i className="ti ti-x" style={{ fontSize: 20 }} />
           </button>
         </div>
-
-        <div style={{ padding: "20px 22px" }}>
+        
+        <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
           <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 14 }}>
             {fields.map((field) => (
               <div
@@ -203,6 +212,16 @@ export default function AdminRecordDetailModal({
               </div>
             ))}
           </dl>
+
+          {mapConfig && (
+            <div style={{ height: 300, borderRadius: 8, overflow: "hidden", marginTop: 4 }}>
+              <Map
+                center={mapConfig.center}
+                radius={mapConfig.radius}
+                onCenterChange={() => {}} 
+              />
+            </div>
+          )}
         </div>
 
         {hasActions && (
