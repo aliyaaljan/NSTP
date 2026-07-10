@@ -321,7 +321,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
           gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 2fr" : "1fr 3fr",
           gap: isMobile ? "16px" : isTablet ? "20px" : "24px",
           flex: 1,
-          alignItems: "start", 
+          alignItems: "stretch", 
           fontFamily: "'Montserrat', 'Fallback Montserrat'",
           width: "100%",
         }}>
@@ -341,7 +341,6 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             position: "relative",
             transition: "all 0.2s ease",
             height: "auto", // Dynamic height
-            minHeight: isMobile ? "auto" : "516px", // Fixed height only on desktop/tablet
             flexShrink: 0,
             fontFamily: "'Montserrat', 'Fallback Montserrat'",
             width: "100%",
@@ -573,10 +572,8 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             flexDirection: "column",
             overflow: "hidden",
             height: "auto", // Dynamic height
-            minHeight: isMobile ? "300px" : "400px",
             fontFamily: "'Montserrat', 'Fallback Montserrat'",
-            width: "100%",
-            alignSelf: "start", 
+            width: "100%", 
           }}>
             {/* Header */}
             <div
@@ -946,58 +943,88 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                 >
                   &#8249;
                 </button>
-                {Array.from({ length: Math.min(totalPages, isSmallMobile ? 3 : 5) }, (_, i) => i + 1).map(p => (
-                  <button
-                    key={p}
-                    style={{
-                      minWidth: isSmallMobile ? "20px" : "28px",
-                      height: isSmallMobile ? "20px" : "28px",
-                      borderRadius: "4px",
-                      border: p === currentPage ? "1px solid #7B1D1D" : "1px solid #E5E7EB",
-                      background: p === currentPage ? "#7B1D1D" : "#FFFFFF",
-                      fontSize: isSmallMobile ? "9px" : "12px",
-                      fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                      fontWeight: p === currentPage ? 700 : 500,
-                      color: p === currentPage ? "#FFFFFF" : "#111827",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transition: "background 0.12s, border-color 0.12s",
-                      padding: 0,
-                    }}
-                    onClick={() => handlePageChange(p)}
-                  >
-                    {p}
-                  </button>
-                ))}
-                {totalPages > (isSmallMobile ? 3 : 5) && (
-                  <>
-                    <span style={{ color: "#6B7280", fontSize: isSmallMobile ? 8 : 12, fontFamily: "'Montserrat', 'Fallback Montserrat'", padding: "0 2px" }}>...</span>
-                    <button
-                      style={{
-                        minWidth: isSmallMobile ? "20px" : "28px",
-                        height: isSmallMobile ? "20px" : "28px",
-                        borderRadius: "4px",
-                        border: "1px solid #E5E7EB",
-                        background: "#FFFFFF",
-                        fontSize: isSmallMobile ? "9px" : "12px",
-                        fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                        fontWeight: 500,
-                        color: "#111827",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        transition: "background 0.12s, border-color 0.12s",
-                        padding: 0,
-                      }}
-                      onClick={() => handlePageChange(totalPages)}
-                    >
-                      {totalPages}
-                    </button>
-                  </>
-                )}
+                
+                {(() => {
+                  const maxVisible = isSmallMobile ? 3 : 5;
+                  let pages = [];
+                  
+                  if (totalPages <= maxVisible + 2) {
+                    for (let i = 1; i <= totalPages; i++) {
+                      pages.push(i);
+                    }
+                  } else {
+                    pages.push(1);
+                    
+                    let start = Math.max(2, currentPage - Math.floor(maxVisible / 2));
+                    let end = Math.min(totalPages - 1, currentPage + Math.floor(maxVisible / 2));
+                    
+                    if (currentPage <= Math.floor(maxVisible / 2) + 1) {
+                      end = maxVisible;
+                    }
+                    if (currentPage >= totalPages - Math.floor(maxVisible / 2)) {
+                      start = totalPages - maxVisible + 1;
+                    }
+                    
+                    if (start > 2) {
+                      pages.push(-1); 
+                    }
+                    
+                    for (let i = start; i <= end; i++) {
+                      if (i > 1 && i < totalPages) {
+                        pages.push(i);
+                      }
+                    }
+                    
+                    if (end < totalPages - 1) {
+                      pages.push(-2); 
+                    }
+                    
+                    if (totalPages > 1) {
+                      pages.push(totalPages);
+                    }
+                  }
+                  
+                  return pages.map((p, index) => {
+                    if (p === -1 || p === -2) {
+                      return (
+                        <span key={`ellipsis-${index}`} style={{ 
+                          color: "#6B7280", 
+                          fontSize: isSmallMobile ? 8 : 12, 
+                          fontFamily: "'Montserrat', 'Fallback Montserrat'", 
+                          padding: "0 2px" 
+                        }}>
+                          …
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        key={p}
+                        style={{
+                          minWidth: isSmallMobile ? "20px" : "28px",
+                          height: isSmallMobile ? "20px" : "28px",
+                          borderRadius: "4px",
+                          border: p === currentPage ? "1px solid #7B1D1D" : "1px solid #E5E7EB",
+                          background: p === currentPage ? "#7B1D1D" : "#FFFFFF",
+                          fontSize: isSmallMobile ? "9px" : "12px",
+                          fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                          fontWeight: p === currentPage ? 700 : 500,
+                          color: p === currentPage ? "#FFFFFF" : "#111827",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "background 0.12s, border-color 0.12s",
+                          padding: 0,
+                        }}
+                        onClick={() => handlePageChange(p)}
+                      >
+                        {p}
+                      </button>
+                    );
+                  });
+                })()}
+                
                 <button
                   style={{
                     minWidth: isSmallMobile ? "20px" : "28px",
@@ -1035,10 +1062,10 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                 flexShrink: 0,
                 whiteSpace: "nowrap",
               }}>
-              <span style={{
-                fontSize: isSmallMobile ? "7px" : isMobile ? "9px" : "12px",
-                fontFamily: "'Montserrat', 'Fallback Montserrat'",
-              }}>Rows per page:</span>
+                <span style={{
+                  fontSize: isSmallMobile ? "7px" : isMobile ? "9px" : "12px",
+                  fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                }}>Rows per page:</span>
                 <select
                   style={{
                     border: "1.5px solid #E5E7EB",
