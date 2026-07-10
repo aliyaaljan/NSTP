@@ -122,7 +122,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
 
   const getResponsivePadding = () => {
     if (isMobile) {
-      const bottomPadding = isSmallMobile ? 70 : 80
+      const bottomPadding = isSmallMobile ? 100 : 110 
       return {
         paddingLeft: '12px',
         paddingRight: '12px',
