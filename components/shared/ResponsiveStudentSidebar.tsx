@@ -671,7 +671,7 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
         >
           <div
             style={{
-              width: COLLAPSED_W - 28,
+              width: expanded ? 46 : COLLAPSED_W - 28,
               display: "flex",
               justifyContent: "center",
               flexShrink: 0,
