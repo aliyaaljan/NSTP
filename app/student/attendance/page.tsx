@@ -461,14 +461,14 @@ export default function QRGenerationPage() {
     if (isTablet) {
       const tabletRailWidth = Math.max(70, COLLAPSED_W * (window.innerWidth / 768))
       return {
-        paddingLeft: `${tabletRailWidth + RAIL_MARGIN * 2 + 12}px`,
+        paddingLeft: `${tabletRailWidth + RAIL_MARGIN * 2}px`,
         paddingRight: '24px',
         paddingTop: '24px',
         paddingBottom: '24px',
       }
     }
     return {
-      paddingLeft: `${COLLAPSED_W + RAIL_MARGIN * 2 + 16}px`,
+      paddingLeft: `${COLLAPSED_W + RAIL_MARGIN * 2}px`,
       paddingRight: '32px',
       paddingTop: '28px',
       paddingBottom: '28px',
