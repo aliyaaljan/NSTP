@@ -8,7 +8,7 @@ import { getMyClassmates } from "@/lib/student/classlist-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
 import { AdminFilterPanel } from "@/components/shared/AdminFilterPanel"
 import { IconChevronUp, IconChevronDown, IconFilter } from "@tabler/icons-react"
-import Sidebar from "@/components/shared/StudentSidebar"
+import Sidebar from "@/components/shared/ResponsiveStudentSidebar"
 
 const montserrat = Montserrat({
   subsets: ["latin"],

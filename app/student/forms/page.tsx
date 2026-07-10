@@ -17,7 +17,7 @@ import {
   IconEye,
   IconDownload,
 } from "@tabler/icons-react"
-import StudentSidebar from "@/components/shared/StudentSidebar"
+import StudentSidebar from "@/components/shared/ResponsiveStudentSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
 import {
   KpiStatCard,

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import Sidebar from "@/components/shared/StudentLeaderSidebar"
+import Sidebar from "@/components/shared/ResponsiveStudentSidebar"
 import { QrScanner } from "@/components/shared/QrScanner"
 import { fetchLeaderScanHistory } from "@/lib/student/leader/scanner-fetch"
 import {
