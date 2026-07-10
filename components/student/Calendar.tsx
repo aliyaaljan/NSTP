@@ -39,7 +39,7 @@ export interface CalendarEvent {
   day: number
   month: number
   title: string
-  type: "holiday" | "deadline" | "submitted"
+  type: "holiday" | "deadline" | "submitted" | "sem_end"
   note?: string
   status?: "submitted" | "pending"
 }
@@ -218,8 +218,8 @@ export default function CalendarOverview({
       day: semEndDate.day,
       month: semEndDate.month,
       title: semEndDate.title,
-      type: "deadline" as const,
-      note: "Official ending date for academic record tracking."
+      type: "sem_end" as const,
+      note: "Last Day of Semester"
     })
   }
 
@@ -329,6 +329,7 @@ export default function CalendarOverview({
     }
     if (event.type === 'submitted') return 'SUBMITTED'
     if (event.type === 'deadline') return 'PENDING'
+     if (event.type === 'sem_end') return 'END OF SEMESTER' 
     return ''
   }
 
@@ -337,6 +338,7 @@ export default function CalendarOverview({
     const isRenderedTime = event.title === "Rendered Time" && event.note
     const label = getEventLabel(event)
     const isHolidayEvent = event.type === 'holiday'
+    const isSemEndEvent = event.type === 'sem_end'
 
     return (
       <div style={styles.overlay} onClick={onClose}>
