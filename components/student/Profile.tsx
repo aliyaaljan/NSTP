@@ -679,10 +679,9 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                         <div>
                           <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Site:</span>
                           <span style={{
-                            display: "inline-block",
+                            display: "inline",
                             color: C.textDark,
                             fontSize: isSmallMobile ? "11px" : "12px",
-                            fontWeight: 500,
                             marginLeft: 3,
                             fontFamily: "'Montserrat', 'Fallback Montserrat'",
                             wordBreak: "break-word",
@@ -833,17 +832,16 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                         }}>
                           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                             <div>
-                              <span style={{ fontWeight: 500, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Generated: {row.qrGen}</span>
+                              <span style={{ fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Generated: {row.qrGen}</span>
                             </div>
                             <div>
-                              <span style={{ fontWeight: 500, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Scanned: {row.qrScan}</span>
+                              <span style={{ fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Scanned: {row.qrScan}</span>
                             </div>
                           </div>
                         </td>
                         <td style={{
                           padding: isTablet ? "10px 14px" : "14px 20px",
                           color: "#6B7280",
-                          fontWeight: 500,
                           textAlign: "center",
                           fontSize: isTablet ? "12px" : "13px",
                           fontFamily: "'Montserrat', 'Fallback Montserrat'",
