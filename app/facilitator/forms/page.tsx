@@ -88,13 +88,19 @@ function sortFormTypes(types: string[]): string[] {
   })
 }
 
-function countByField<T>(items: T[], getField: (item: T) => string): { type: string; count: number }[] {
+function countByField<T>(
+  items: T[],
+  getField: (item: T) => string
+): { type: string; count: number }[] {
   const counts: Record<string, number> = {}
   items.forEach((item) => {
     const key = getField(item)
     counts[key] = (counts[key] ?? 0) + 1
   })
-  return sortFormTypes(Object.keys(counts)).map((type) => ({ type, count: counts[type] }))
+  return sortFormTypes(Object.keys(counts)).map((type) => ({
+    type,
+    count: counts[type],
+  }))
 }
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
@@ -197,16 +203,20 @@ const formsStyles = `
 export default function FormsPage() {
   const router = useRouter()
   const supabase = createClient()
-  
-  const [userId, setUserId] = useState<string | null>(null)  
+
+  const [userId, setUserId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<FormTab>("repository")
 
   // Filters
   const [search, setSearch] = useState("")
   type SubmissionFilterField = "status" | "type"
-  type SubmissionActiveFilters = Partial<Record<SubmissionFilterField, string[]>>
-  const [activeFilters, setActiveFilters] = useState<SubmissionActiveFilters>({})
+  type SubmissionActiveFilters = Partial<
+    Record<SubmissionFilterField, string[]>
+  >
+  const [activeFilters, setActiveFilters] = useState<SubmissionActiveFilters>(
+    {}
+  )
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const filterPanelRef = useRef<HTMLDivElement>(null)
 
@@ -311,7 +321,9 @@ export default function FormsPage() {
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
     tables: ["form_submission", "form_requirement"],
-    onChange: () => {loadData()},
+    onChange: () => {
+      loadData()
+    },
   })
 
   async function handleSignOut() {
@@ -415,8 +427,16 @@ export default function FormsPage() {
     field: SubmissionFilterField
     values: () => string[]
   }[] = [
-    { label: "Status", field: "status", values: () => ["Submitted", "Not Yet Submitted"] },
-    { label: "Type", field: "type", values: () => submissionTypeCounts.map((c) => c.type) },
+    {
+      label: "Status",
+      field: "status",
+      values: () => ["Submitted", "Not Yet Submitted"],
+    },
+    {
+      label: "Type",
+      field: "type",
+      values: () => submissionTypeCounts.map((c) => c.type),
+    },
   ]
 
   const totalActiveFilters = Object.values(activeFilters).reduce(
@@ -815,65 +835,70 @@ export default function FormsPage() {
                                 )}
                               </div>
                               <div style={{ display: "flex", gap: 24 }}>
-                                {filterGroups.map(({ label, field, values }) => {
-                                  const opts = values()
-                                  if (opts.length === 0) return null
-                                  const checked = activeFilters[field] ?? []
-                                  return (
-                                    <div key={field} style={{ minWidth: 150 }}>
+                                {filterGroups.map(
+                                  ({ label, field, values }) => {
+                                    const opts = values()
+                                    if (opts.length === 0) return null
+                                    const checked = activeFilters[field] ?? []
+                                    return (
                                       <div
-                                        style={{
-                                          fontSize: 11,
-                                          fontWeight: 700,
-                                          color: "var(--text)",
-                                          marginBottom: 8,
-                                          textTransform: "uppercase",
-                                          letterSpacing: "0.4px",
-                                        }}
+                                        key={field}
+                                        style={{ minWidth: 150 }}
                                       >
-                                        {label}
-                                      </div>
-                                      <div
-                                        style={{
-                                          display: "flex",
-                                          flexDirection: "column",
-                                          gap: 6,
-                                        }}
-                                      >
-                                        {opts.map((v) => (
-                                          <label
-                                            key={v}
-                                            style={{
-                                              display: "flex",
-                                              alignItems: "center",
-                                              gap: 8,
-                                              cursor: "pointer",
-                                              fontSize: 13,
-                                              color: "var(--text)",
-                                              fontFamily: "var(--font)",
-                                            }}
-                                          >
-                                            <input
-                                              type="checkbox"
-                                              checked={checked.includes(v)}
-                                              onChange={() =>
-                                                toggleFilter(field, v)
-                                              }
+                                        <div
+                                          style={{
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                            color: "var(--text)",
+                                            marginBottom: 8,
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.4px",
+                                          }}
+                                        >
+                                          {label}
+                                        </div>
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: 6,
+                                          }}
+                                        >
+                                          {opts.map((v) => (
+                                            <label
+                                              key={v}
                                               style={{
-                                                accentColor: "var(--maroon)",
-                                                width: 14,
-                                                height: 14,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 8,
                                                 cursor: "pointer",
-                                                flexShrink: 0,
+                                                fontSize: 13,
+                                                color: "var(--text)",
+                                                fontFamily: "var(--font)",
                                               }}
-                                            />
-                                            {v}
-                                          </label>
-                                        ))}
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={checked.includes(v)}
+                                                onChange={() =>
+                                                  toggleFilter(field, v)
+                                                }
+                                                style={{
+                                                  accentColor: "var(--maroon)",
+                                                  width: 14,
+                                                  height: 14,
+                                                  cursor: "pointer",
+                                                  flexShrink: 0,
+                                                }}
+                                              />
+                                              {v}
+                                            </label>
+                                          ))}
+                                        </div>
                                       </div>
-                                    </div>
-                                  )
-                                })}
+                                    )
+                                  }
+                                )}
                               </div>
                             </div>
                           )}
@@ -991,7 +1016,11 @@ export default function FormsPage() {
                     </div>
                     <div className="adv-pagination">
                       <div
-                        style={{ display: "flex", alignItems: "center", gap: 18 }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 18,
+                        }}
                       >
                         <div className="adv-pagination-info">
                           Page {currentPage} of {totalPages}
@@ -1056,9 +1085,7 @@ export default function FormsPage() {
                               currentPage === totalPages || totalPages === 0
                             }
                             onClick={() =>
-                              setCurrentPage((c) =>
-                                Math.min(totalPages, c + 1)
-                              )
+                              setCurrentPage((c) => Math.min(totalPages, c + 1))
                             }
                           >
                             &#8250;
