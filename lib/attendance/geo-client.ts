@@ -1,7 +1,13 @@
-export type Geo = { latitude: number; longitude: number; accuracy_meter: number }
+export type Geo = {
+  latitude: number
+  longitude: number
+  accuracy_meter: number
+}
 
 export type GeoFailReason = "denied" | "timeout" | "unavailable" | "unsupported"
-export type GeoResult = { ok: true; geo: Geo } | { ok: false; reason: GeoFailReason }
+export type GeoResult =
+  | { ok: true; geo: Geo }
+  | { ok: false; reason: GeoFailReason }
 
 export function captureGeo(): Promise<GeoResult> {
   return new Promise((resolve) => {
