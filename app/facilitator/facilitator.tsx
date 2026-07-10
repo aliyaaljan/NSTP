@@ -139,7 +139,7 @@ export function DonutChart({ pct = 60 }: { pct?: number }) {
   );
 }
 
-export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
+export function Calendar({ semEndDate, holidays = [], }: { semEndDate?: string | Date, holidays?: { name: string; date: string;}[]}) {
   const today = new Date();
 
   const semEnd = typeof semEndDate === "string" 
@@ -148,6 +148,11 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
         return new Date(year, month - 1, day); 
       })()
     : semEndDate;
+  
+  const parsedHolidays = holidays.map((h) => {
+    const [year, month, day] = h.date.split("-").map(Number);
+    return { date: new Date(year, month - 1, day), name: h.name };
+  });
 
   const [current, setCurrent] = useState({ year: today.getFullYear(), month: today.getMonth() });
 
@@ -165,6 +170,11 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
     return d === semEnd.getDate() && current.month === semEnd.getMonth() && current.year === semEnd.getFullYear();
   }
 
+  const getHoliday = (d: number) =>
+    parsedHolidays.find(
+      (h) => h.date.getDate() === d && h.date.getMonth() === current.month && h.date.getFullYear() === current.year
+    );
+
   const prev = () => setCurrent(c => c.month === 0 ? { year: c.year - 1, month: 11 } : { year: c.year, month: c.month - 1 });
   const next = () => setCurrent(c => c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 });
 
@@ -180,7 +190,8 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
         {cells.map((d, i) => {
           const cellIsToday = d && isToday(d);
           const cellIsSemEnd = d && isSemEnd(d);
-          const hasLabel = cellIsToday || cellIsSemEnd;
+          const cellHoliday = d ? getHoliday(d) : undefined;
+          const hasLabel = cellIsToday || cellIsSemEnd || cellHoliday;
 
           return (
             <div 
@@ -190,13 +201,15 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
                 d === null ? "cal-empty" : "",
                 cellIsToday ? "cal-today" : "",
                 cellIsSemEnd ? "cal-sem-end": "",
+                cellHoliday && !cellIsToday && !cellIsSemEnd ? "cal-holiday" : "",
+                
               ].join(" ").trim()}
             >
               {d !== null ? <span className="cal-day-num">{d}</span> : null}
 
               {hasLabel && (
-                <span className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : "text-[var(--amber)]"}`}>
-                  {cellIsToday ? "Today" : "End of Semester"}
+                <span className={`capitalize absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : cellIsSemEnd ? "text-[var(--amber)]" : "text-[var(--green)]"}`}>
+                  {cellIsToday ? "Today" : cellIsSemEnd ? "End of Semester" : cellHoliday?.name}
                 </span>
               )}
             </div>
@@ -531,6 +544,19 @@ export const dashboardStyles = `
   }
   .cal-cell.cal-today::before { background: var(--maroon); }
   .cal-cell.cal-sem-end::before { background: var(--amber); }
+  .cal-cell.cal-holiday {color: #fff; font-weight: 700; }
+  .cal-cell.cal-holiday::after {
+    content: "";
+    position: absolute;
+    width: 88%;
+    height: 88%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    z-index: 0;
+    background: var(--green);
+  }
   
   /* ── Dashboard layout ── */
   .dashboard-layout { display: flex; gap: 16px; align-items: flex-start; flex: 1; align-items: stretch; }

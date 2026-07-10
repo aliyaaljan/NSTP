@@ -109,7 +109,7 @@ export default function DashboardPage() {
   const [sections, setSections] = useState<{ id: string; name: string; isActive: boolean; termStartDate: string | null }[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
   const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at_hours: string }[]>([])
-  const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string }[]>([])
+  const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string; holidays: { date: string; name: string }[] }[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [animKey, setAnimKey] = useState(0)
@@ -180,7 +180,7 @@ export default function DashboardPage() {
   // Debounce search input so filtering the student list doesn't run on
   // every keystroke — keeps typing smooth once a section has many students.
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearchVal(searchVal), 250)
+    const t = setTimeout(() => setDebouncedSearchVal(searchVal), 300)
     return () => clearTimeout(t)
   }, [searchVal])
 
@@ -376,7 +376,7 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
-                    <div className={`student-list ${filtered.length === 0 ? "student-list--empty" : ""}`} key={animKey}>
+                    <div className={`student-list ${filtered.length === 0 ? "student-list--empty" : "pb-2"}`} key={animKey}>
                       {filtered.length === 0 ? (
                         <div className="no-results">
                           No students match your search.
@@ -560,7 +560,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Calendar */}
-                  <Calendar semEndDate={currentSemData?.sem_end_date} />
+                  <Calendar semEndDate={currentSemData?.sem_end_date} holidays={currentSemData?.holidays ?? []} />
                   {/* Recent Activity */}
                   <div className={`activity-card ${recentActivity.length === 0 ? "flex-1" : ""}`} style={{ width: "100%" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, paddingRight: 20 }}>
