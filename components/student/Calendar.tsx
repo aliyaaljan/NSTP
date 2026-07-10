@@ -599,6 +599,16 @@ export default function CalendarOverview({
           }} />
           <span style={{ fontSize: 11, color: '#6B7280' }}>Rendered</span>
         </div>
+        <div style={styles.legendItem}>
+          <div style={{
+            width: 14,
+            height: 4,
+            borderRadius: 3,
+            backgroundColor: '#7B1D1D',
+            flexShrink: 0,
+          }} />
+          <span style={{ fontSize: 11, color: '#6B7280' }}>Last Day</span>
+        </div>
       </div>
     </div>
   )

@@ -185,7 +185,7 @@ function AttendanceDonut({ pct, present, total }: { pct: number; present: number
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="#1E40AF"
+            stroke="#EAB308"
             strokeWidth={stroke}
             strokeDasharray={dasharray}
             strokeLinecap="round"
@@ -242,6 +242,13 @@ function AttendanceDonut({ pct, present, total }: { pct: number; present: number
 const summaryStyles = `
   ${dashboardStyles}
 
+  .gs-stat-cards .db-kpi-card--interactive:hover {
+    transform: none !important;
+    box-shadow: none !important;
+    border-color: var(--border) !important;
+  }
+  .gs-kpi-completed .db-kpi-value { color: var(--text, #111827) !important; }
+
   .gs-body { flex: 1; overflow: auto; padding-top: 16px; display: flex; flex-direction: column; gap: 16px; }
 
   /* Section cards */
@@ -277,9 +284,6 @@ const summaryStyles = `
     background: #F9FAFB; border: 1px solid var(--border); border-radius: 14px;
     padding: 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 16px;
   }
-  .gs-legend { display: flex; flex-direction: column; gap: 7px; width: 100%; }
-  .gs-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
-  .gs-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
   .gs-student-table { flex: 1; min-width: 0; background: #F9FAFB; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
   .gs-student-table table { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -419,11 +423,13 @@ export default function GroupSummaryPage() {
                 <div className="overview-label">Class Overview</div>
               </div>
 
-              <div className="stat-cards">
+              <div className="stat-cards gs-stat-cards">
                 {statCards.map(({ label, value, Icon, filter }) => (
                   <button
                     key={label}
-                    className="db-kpi-card db-kpi-card--interactive"
+                    className={`db-kpi-card db-kpi-card--interactive${
+                      label === "Completed" ? " gs-kpi-completed" : ""
+                    }`}
                     onClick={() => setSummaryFilter(filter)}
                     aria-label={`${label}: ${value}`}
                     aria-pressed={summaryFilter === filter}
@@ -442,7 +448,7 @@ export default function GroupSummaryPage() {
                   const isOpen = expanded === section.id;
                   const miniCards = [
                     { label: "Avg Hours Rendered", value: `${section.avgHours} / ${section.totalHours}`, sub: "hrs per student", Icon: IconClock,         bg: "#FEF3C7", color: "#92400E" },
-                    { label: "Avg Attendance Rate", value: `${section.avgAttendanceRate}%`,              sub: "of sessions",     Icon: IconUsers,         bg: "#DBEAFE", color: "#1E40AF" },
+                    { label: "Avg Attendance Rate", value: `${section.avgAttendanceRate}%`,              sub: "of sessions",     Icon: IconUsers,         bg: "#FEF9C3", color: "#854D0E" },
                     { label: "Files Submitted",      value: section.filesSubmitted,                      sub: "total uploads",   Icon: IconFiles,         bg: "#F3E8FF", color: "#6B21A8" },
                     { label: "Forms Completion",     value: `${section.formsCompletionRate}%`,           sub: "completed",       Icon: IconClipboardCheck,bg: "#D1FAE5", color: "#065F46" },
                     { label: "Edit Requests",        value: section.editRequests,                        sub: "pending review",  Icon: IconEdit,          bg: "#FEE2E2", color: "#991B1B" },
@@ -471,7 +477,7 @@ export default function GroupSummaryPage() {
                             <div className="gs-section-stat-lbl">Not Started</div>
                           </div>
                           <div className="gs-section-stat" style={{ minWidth: 60 }}>
-                            <div className="gs-section-stat-val" style={{ color: "#1E40AF" }}>{section.completionPct}%</div>
+                            <div className="gs-section-stat-val" style={{ color: "var(--text)" }}>{section.completionPct}%</div>
                             <div className="gs-section-stat-lbl">Completion</div>
                           </div>
                           <IconChevronDown size={18} stroke={2} className={`gs-chevron${isOpen ? " open" : ""}`} />
@@ -507,11 +513,6 @@ export default function GroupSummaryPage() {
                                 inProgress={section.inProgress}
                                 notStarted={section.notStarted}
                               />
-                              <div className="gs-legend">
-                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#059669" }} />{section.completed} Completed</div>
-                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#D97706" }} />{section.inProgress} In Progress</div>
-                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#EF4444" }} />{section.notStarted} Not Started</div>
-                              </div>
                             </div>
 
                             <div className="gs-donut-panel">
@@ -521,10 +522,6 @@ export default function GroupSummaryPage() {
                                 present={section.totalStudents}
                                 total={section.totalStudents}
                               />
-                              <div className="gs-legend">
-                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#1E40AF" }} />{section.avgAttendanceRate}% avg rate</div>
-                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#E5E7EB" }} />{section.totalStudents} students tracked</div>
-                              </div>
                             </div>
 
                             <div className="gs-student-table">

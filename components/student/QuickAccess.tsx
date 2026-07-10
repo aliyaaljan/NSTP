@@ -422,7 +422,7 @@ export default function QuickAccess({
 
         {/* Files Card */}
         <Link
-          href="/student/files"
+          href="/student/forms"
           style={{
             display: "flex",
             alignItems: "center",
@@ -436,72 +436,78 @@ export default function QuickAccess({
           onMouseEnter={handleLinkMouseEnter}
           onMouseLeave={handleLinkMouseLeave}
         >
-          <div style={{ position: "relative", width: sizes.chartSize, height: sizes.chartSize, flexShrink: 0 }}>
-            <svg width="100%" height="100%" viewBox="0 0 72 72" style={{ transform: "rotate(-90deg)" }}>
-              <circle cx="36" cy="36" r={radius} fill="none" stroke={colors.border} strokeWidth="7" />
-              <circle
-                cx="36"
-                cy="36"
-                r={radius}
-                fill="none"
-                stroke={colors.maroon}
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={dashOffset}
-              />
-            </svg>
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: sizes.chartFontSize,
-                fontWeight: 700,
-                color: colors.textDark,
-                fontFamily: "Montserrat, 'Montserrat Fallback'",
-              }}
-            >
-              {completionPct}%
-            </div>
-          </div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "2px", flexWrap: "wrap" }}>
+          <div className="flex flex-col w-full gap-2">
+           <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
               <div style={{ 
                 fontSize: sizes.textSize, 
                 fontWeight: 700, 
                 color: colors.textDark,
                 fontFamily: "Montserrat, 'Montserrat Fallback'",
               }}>
-                Submission Completion Rate
+                Submission Completion
               </div>
               <InfoCircleWithTooltip tooltip="Percentage of submitted files out of total requirements." />
             </div>
-            <div style={{ 
-              fontSize: sizes.smallTextSize, 
-              color: colors.textGray, 
-              marginTop: "3px",
-              fontFamily: "Montserrat, 'Montserrat Fallback'",
-            }}>
-              {filesSubmitted}/{filesTotal} files submitted
-            </div>
-            <div 
-              style={{ 
-                fontSize: sizes.tinyTextSize, 
-                color: colors.textMuted, 
-                marginTop: "4px",
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontFamily: "Montserrat, 'Montserrat Fallback'",
-              }}
-            >
-              <IconChevronRight size={isMobile ? 10 : 12} stroke={sizes.iconStroke} />
-              Tap to view all files
+            <div className="flex flex-row gap-5">
+              <div style={{ position: "relative", width: sizes.chartSize, height: sizes.chartSize, flexShrink: 0 }}>
+                <svg width="100%" height="100%" viewBox="0 0 72 72" style={{ transform: "rotate(-90deg)" }}>
+                  <circle cx="36" cy="36" r={radius} fill="none" stroke={colors.border} strokeWidth="7" />
+                  <circle
+                    cx="36"
+                    cy="36"
+                    r={radius}
+                    fill="none"
+                    stroke={colors.maroon}
+                    strokeWidth="7"
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={dashOffset}
+                  />
+                </svg>
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: sizes.chartFontSize,
+                    fontWeight: 700,
+                    color: colors.textDark,
+                    fontFamily: "Montserrat, 'Montserrat Fallback'",
+                  }}
+                >
+                  {completionPct}%
+                </div>
+              </div>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%"}}>
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div style={{ 
+                    fontSize: sizes.smallTextSize, 
+                    color: colors.textGray, 
+                    marginTop: "3px",
+                    fontFamily: "Montserrat, 'Montserrat Fallback'",
+                    // marginBottom: "auto"
+                  }}>
+                    {filesSubmitted}/{filesTotal} files submitted
+                  </div>
+                  <div 
+                    style={{ 
+                      fontSize: sizes.tinyTextSize, 
+                      color: colors.textMuted, 
+                      marginTop: "4px",
+                      fontWeight: 500,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      fontFamily: "Montserrat, 'Montserrat Fallback'",
+                    }}
+                  >
+                    <IconChevronRight size={isMobile ? 10 : 12} stroke={sizes.iconStroke} />
+                    Tap to view all files
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </Link>
