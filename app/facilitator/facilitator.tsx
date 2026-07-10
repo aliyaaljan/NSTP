@@ -449,7 +449,7 @@ export const dashboardStyles = `
   .profile-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
   .profile-name { font-weight: 700; font-size: 13px; }
   .profile-sec { font-size: 11px; opacity: 0.75; margin-top: 1px; }
-  .body { flex: 1; overflow: auto; padding: 0 28px 28px; display: flex; flex-direction: column; gap: 8px; }
+  .body { flex: 1; overflow: auto; padding: 0 28px 28px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin;}
   .top-row { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; }
   .alert-banner { flex: 1; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius); padding: 13px 16px; display: flex; align-items: center; gap: 12px; }
   .alert-icon { display: flex; align-items: center; color: #D97706; flex-shrink: 0; }

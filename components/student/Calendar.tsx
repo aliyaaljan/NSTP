@@ -96,6 +96,7 @@ export default function CalendarOverview({
   //get holidays directly na lang sa component hehe 
   const supabase = createClient()
   const [holidays, setHolidays] = useState<CalendarEvent[]>([])
+  const [semEndDate, setSemEndDate] = useState<{ title: string; day: number; month: number } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -115,7 +116,33 @@ export default function CalendarOverview({
       } 
     }
 
+    const loadCalendarData = async () => {
+    try {
+      const { data: holidayData, error: holidayError } = await supabase.from("holiday").select(`name, holiday_date`)
+      if (holidayError) throw holidayError
+
+      const { data: semData, error: semError } = await supabase.from("term").select(`name, end_date`).eq("is_active", true).single()                  
+      if (semError) throw semError
+
+      if (!cancelled) {
+        setHolidays(mapHolidayRows(holidayData ?? []))
+
+        if (semData && semData.end_date) {
+          const { day, month } = parseDate(semData.end_date)
+          setSemEndDate({title: semData.name || "Semester End Date", day, month})
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load calendar configuration layout data:", err)
+      if (!cancelled) {
+        setHolidays([])
+        setSemEndDate(null)
+      }
+    } 
+  }
+
     loadHolidays()
+    loadCalendarData()
     return () => { cancelled = true }
   }, [currentYear])
 
@@ -185,6 +212,17 @@ export default function CalendarOverview({
   })
 
   const currentMonthEvents = holidays.filter(e => e.month === currentMonth)
+
+  if (semEndDate && semEndDate.month === currentMonth) {
+    currentMonthEvents.push({
+      day: semEndDate.day,
+      month: semEndDate.month,
+      title: semEndDate.title,
+      type: "deadline" as const,
+      note: "Official ending date for academic record tracking."
+    })
+  }
+
   const eventMap = new Map<number, CalendarEvent[]>()
   currentMonthEvents.forEach(e => {
     if (!eventMap.has(e.day)) {
@@ -475,7 +513,8 @@ export default function CalendarOverview({
             const isFuture = isFutureDate(cell.day)
             const isRendered = isClient && renderedDays.includes(cell.day) && !isFuture
             const hasRenderedTime = isRendered && renderedTime[cell.day]
-            const hasAnyContent = hasEvent || hasRenderedTime
+            const isSemEndDay = semEndDate && semEndDate.month === currentMonth && semEndDate.day === cell.day
+            const hasAnyContent = hasEvent || hasRenderedTime || isSemEndDay
 
             return (
               <div
@@ -516,7 +555,7 @@ export default function CalendarOverview({
                     width: 14,
                     height: 4,
                     borderRadius: 3,
-                    backgroundColor: isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
+                    backgroundColor: isSemEndDay ? '#7B1D1D' : isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
                     transition: 'all 0.2s ease',
                   }} />
                 )}
