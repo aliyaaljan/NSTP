@@ -456,6 +456,10 @@ declare
   v_session_id     uuid;
   v_effective_at   timestamptz;
   v_rows_closed    int;
+  v_section_id     uuid;
+  v_lat            numeric;
+  v_lng            numeric;
+  v_flag_reason    text;
 begin
   if p_source_code not in ('self_student', 'self_leader') then
     raise exception 'invalid source code: %', p_source_code;
@@ -490,10 +494,43 @@ begin
 
   v_effective_at := now();
 
+  -- Off-site advisory check (Business Rule #2): flag when the reported GPS point is
+  -- outside ALL of the section's active geofences. Advisory only — the session still
+  -- closes and counts toward hours. No GPS or no geofences → no flag.
+  v_lat := (p_meta->>'latitude')::numeric;
+  v_lng := (p_meta->>'longitude')::numeric;
+  if v_lat is not null and v_lng is not null then
+    select e.section_id into v_section_id
+    from   public.enrollment e
+    where  e.enrollment_id = p_enrollment_id;
+
+    select case
+             when count(*) > 0
+              and count(*) filter (where g.dist_m <= g.radius_meter) = 0
+             then 'Timed out ~' || round(min(g.dist_m))::int
+                  || ' m from the nearest site (' || (array_agg(g.label order by g.dist_m))[1] || ').'
+           end
+    into v_flag_reason
+    from (
+      select coalesce(sg.label, 'site') as label,
+             sg.radius_meter,
+             2 * 6371000 * asin(least(1.0, sqrt(
+               power(sin(radians(sg.center_latitude - v_lat) / 2), 2)
+               + cos(radians(v_lat)) * cos(radians(sg.center_latitude))
+               * power(sin(radians(sg.center_longitude - v_lng) / 2), 2)
+             ))) as dist_m
+      from public.section_geofence sg
+      where sg.section_id = v_section_id
+        and sg.is_active
+    ) g;
+  end if;
+
   -- CAS close: only succeeds if a session is currently open
   update public.attendance_session
   set    attendance_session_status_id = v_status_closed,
-         ended_at                     = v_effective_at
+         ended_at                     = v_effective_at,
+         is_flagged                   = is_flagged or (v_flag_reason is not null),
+         flag_reason                  = coalesce(v_flag_reason, flag_reason)
   where  enrollment_id               = p_enrollment_id
     and  attendance_session_status_id = v_status_open
   returning attendance_session_id into v_session_id;
@@ -944,43 +981,9 @@ begin
 end;
 $function$;
 
--- update_attendance_session — adviser correction of a session's in/out times
-create or replace function public.update_attendance_session(
-  p_attendance_session_id uuid,
-  p_adviser_user_id uuid,
-  p_session_date date,
-  p_time_in time without time zone,
-  p_time_out time without time zone
-)
-returns void
-language plpgsql security definer
-set search_path = public, pg_temp
-as $function$
-declare
-  v_enrollment_id uuid;
-begin
-  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
-    raise exception 'not authorized to edit this session';
-  end if;
-
-  select att.enrollment_id into v_enrollment_id
-  from attendance_session att
-  join enrollment e on e.enrollment_id = att.enrollment_id
-  join section s on s.section_id = e.section_id
-  where att.attendance_session_id = p_attendance_session_id
-    and s.adviser_user_id = p_adviser_user_id;
-
-  if v_enrollment_id is null then
-    raise exception 'Not authorized to edit this session';
-  end if;
-
-  update attendance_session
-  set
-    started_at = (p_session_date + p_time_in) at time zone 'Asia/Manila',
-    ended_at = (p_session_date + p_time_out) at time zone 'Asia/Manila'
-  where attendance_session_id = p_attendance_session_id;
-end;
-$function$;
+-- The old 5-arg update_attendance_session overload (no correction-event write) is dead:
+-- both callers use the 7-arg form. Dropped 2026-07-10 (Business Rule #5).
+drop function if exists public.update_attendance_session(uuid, uuid, date, time, time);
 
 -- Drop the dead 6-arg update overload (unused; the Edit Session UI always sends void_reason).
 drop function if exists public.update_attendance_session(uuid, uuid, date, time, time, uuid);
@@ -1023,6 +1026,14 @@ begin
     raise exception 'Not authorized to edit this session';
   end if;
 
+  if not exists (
+    select 1 from attendance_session_status
+    where attendance_session_status_id = p_attendance_session_status_id
+      and code in ('open', 'closed', 'voided', 'corrected')
+  ) then
+    raise exception 'invalid attendance session status';
+  end if;
+
   update attendance_session
   set
     started_at = (p_session_date + p_time_in) at time zone 'Asia/Manila',
@@ -1058,7 +1069,6 @@ begin
     'public.get_active_sem(uuid)',
     'public.get_students_stats(uuid)',
     'public.get_my_students(uuid)',
-    'public.update_attendance_session(uuid, uuid, date, time, time)',
     'public.update_attendance_session(uuid, uuid, date, time, time, uuid, text)'
   ] loop
     execute format('revoke execute on function %s from public;', fn);
@@ -1154,10 +1164,10 @@ begin
 
   insert into attendance_event (
     enrollment_id, attendance_session_id, attendance_event_type_id,
-    attendance_event_source_id, effective_at
+    attendance_event_source_id, effective_at, recorded_by_user_id
   )
   values (
-    p_enrollment_id, v_new_session_id, v_event_type_id, v_event_source_id, now()
+    p_enrollment_id, v_new_session_id, v_event_type_id, v_event_source_id, now(), auth.uid()
   );
 
   return v_new_session_id;

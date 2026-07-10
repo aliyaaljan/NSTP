@@ -101,16 +101,16 @@ export default function QRGenerationPage() {
 
   useEffect(() => {
     let cancelled = false
-    
+
     const loadUserData = async () => {
       const res = await getStudentDashboard()
       if (cancelled || !res.ok) return
-      
+
       setProfile({
         fullName: res.data.fullName,
         sectionName: res.data.sectionName ?? "",
       })
-      
+
       // Check if leader
       const supabase = createClient()
       const { data: userData } = await supabase
@@ -118,14 +118,14 @@ export default function QRGenerationPage() {
         .select('is_student_leader')
         .eq('enrollment_id', res.data.enrollmentId)
         .single()
-      
+
       if (userData) {
         setIsStudentLeader(userData.is_student_leader)
       }
     }
-    
+
     loadUserData()
-    
+
     return () => {
       cancelled = true
     }
@@ -298,8 +298,6 @@ export default function QRGenerationPage() {
     return () => clearInterval(id)
   }, [generated, runGenerate])
 
-  // Leader who timed in via the leader page (self_leader) and times out here
-  // records a self_student-source time-out — cosmetic source mismatch, not a functional bug.
   const handleTimeOut = async () => {
     if (timeoutPending) return
     setTimeoutPending(true)
@@ -384,8 +382,8 @@ export default function QRGenerationPage() {
   const sessionHelperText = hasOpenSession && sessionStartedAt
     ? `since ${manilaClock(sessionStartedAt)}`
     : !hasOpenSession
-      ? isStudentLeader 
-        ? "Time in to start your attendance session" 
+      ? isStudentLeader
+        ? "Time in to start your attendance session"
         : "Your leader scans your QR to time you in."
       : undefined
 
@@ -863,7 +861,7 @@ export default function QRGenerationPage() {
           {isStudentLeader && (
             <>
               <ChartStyles />
-              <div style={{ marginBottom: "1px" }}> 
+              <div style={{ marginBottom: "1px" }}>
                 <KpiStatCardGrid columns={2}>
                   {info.map((stat) => {
                     return (

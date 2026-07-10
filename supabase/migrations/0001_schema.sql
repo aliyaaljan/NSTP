@@ -201,6 +201,7 @@ create table attendance_session (
   void_reason                  text,
   is_flagged                   boolean not null default false,   -- advisory flag (e.g. off-site at time-out); session still counts
   flag_reason                  text,                             -- human-readable reason the session was flagged
+  resolution_note              text,
   created_at                   timestamptz not null default now(),
   updated_at                   timestamptz not null default now()
 );

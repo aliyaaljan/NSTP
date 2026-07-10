@@ -28,13 +28,14 @@ export function encryptQrPayload(obj: object): string {
 }
 
 export function decryptQrPayload(token: string): Record<string, unknown> | null {
+  const key = getEncryptionKey()
   try {
     const buf = Buffer.from(token, "base64url")
     if (buf.length < 30 || buf[0] !== VERSION) return null
     const iv = buf.subarray(1, 13)
     const tag = buf.subarray(13, 29)
     const ct = buf.subarray(29)
-    const decipher = createDecipheriv("aes-256-gcm", getEncryptionKey(), iv)
+    const decipher = createDecipheriv("aes-256-gcm", key, iv)
     decipher.setAuthTag(tag)
     const plain = Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8")
     return JSON.parse(plain)

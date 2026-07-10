@@ -21,7 +21,6 @@ import { WeekFilter } from "./_components/WeekFilter"
 import { ScanLogPanel } from "./_components/ScanLogPanel"
 import { filterScansByMonthAndWeek } from "@/lib/student/leader/scan-history"
 import { createClient } from "@/lib/client"
-import { create } from "domain"
 
 // Get week number from a date
 const getWeekNumber = (date: Date): string => {
