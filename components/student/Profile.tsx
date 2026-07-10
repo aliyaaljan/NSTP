@@ -54,18 +54,24 @@ interface ProfileProps {
 
 export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProps) {
   const [isMobile, setIsMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
+  const [isSmallMobile, setIsSmallMobile] = useState(false)
   const [dashboard, setDashboard] = useState<StudentDashboardData | null>(null)
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceHistoryRow[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
-  const [sortField, setSortField] = useState<SortField>("date")
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
+  const [sortField, setSortField] = useState<SortField>(null) 
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null) 
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
+      const width = window.innerWidth
+      setIsMobile(width < 768)
+      setIsTablet(width >= 768 && width < 1024)
+      setIsSmallMobile(width < 480)
     }
+    
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -88,10 +94,17 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
     load()
   }, [])
 
-  const fullName = dashboard?.fullName ?? "Mingyu Kim"
-  const initials = getInitials(fullName)
-  const sectionName = dashboard?.sectionName ?? "NSTP - H"
-  const studentNumber = dashboard?.studentNumber ?? "2023-137713"
+  // Get data
+  const fullName = dashboard?.fullName ?? ""
+  const initials = fullName ? getInitials(fullName) : ""
+  const sectionName = dashboard?.sectionName ?? ""
+  const studentNumber = dashboard?.studentNumber ?? ""
+  const email = dashboard?.email ?? ""
+  const course = dashboard?.programName ?? ""
+  const year = dashboard?.classificationName ?? ""
+  const classType = dashboard?.nstpType ?? ""
+  const location = dashboard?.siteLocation ?? ""
+  const adviser = dashboard?.adviserName ?? ""
 
   // Student data
   const student = {
@@ -99,22 +112,50 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
     fullName: fullName,
     section: sectionName,
     studentNumber: studentNumber,
-    email: dashboard?.email ?? "—",
-    course: dashboard?.programName ?? "—",
-    year: dashboard?.classificationName ?? "—",
-    classType: dashboard?.nstpType ?? "—",
-    location: dashboard?.siteLocation ?? "Unassigned",
-    adviser: dashboard?.adviserName ?? "—",
+    email: email,
+    course: course,
+    year: year,
+    classType: classType,
+    location: location,
+    adviser: adviser,
   }
 
-  const getLeftPadding = () => {
+  const getResponsivePadding = () => {
     if (isMobile) {
-      return '16px' 
+      const bottomPadding = isSmallMobile ? 70 : 80
+      return {
+        paddingLeft: '12px',
+        paddingRight: '12px',
+        paddingTop: isSmallMobile ? '12px' : '14px',
+        paddingBottom: `${bottomPadding}px`,
+        gap: isSmallMobile ? '12px' : '14px',
+      }
     }
-    return `${COLLAPSED_W + RAIL_MARGIN * 2}px`
+    
+    if (isTablet) {
+      const tabletRailWidth = Math.max(70, COLLAPSED_W * (window.innerWidth / 768))
+      return {
+        paddingLeft: `${tabletRailWidth + RAIL_MARGIN * 2 + 12}px`,
+        paddingRight: '24px',
+        paddingTop: '24px',
+        paddingBottom: '24px',
+        gap: '20px',
+      }
+    }
+    
+    return {
+      paddingLeft: `${COLLAPSED_W + RAIL_MARGIN * 2 + 16}px`,
+      paddingRight: '32px',
+      paddingTop: '28px',
+      paddingBottom: '28px',
+      gap: '24px',
+    }
   }
+
+  const responsivePadding = getResponsivePadding()
 
   const formatStudentNumber = (num: string) => {
+    if (!num) return ""
     if (num.length === 10) {
       return `${num.slice(0, 4)}-${num.slice(4, 6)}-${num.slice(6)}`
     }
@@ -166,7 +207,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
           style={{ 
             display: "block",
             transition: "all 0.2s ease",
-            opacity: isAsc ? 1 : 0.5,
+            opacity: isAsc ? 1 : 0.35,
             color: isAsc ? "#7B1D1D" : "#4A4A4A",
             marginBottom: -2
           }}
@@ -177,7 +218,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
           style={{ 
             display: "block",
             transition: "all 0.2s ease",
-            opacity: isDesc ? 1 : 0.5,
+            opacity: isDesc ? 1 : 0.35,
             color: isDesc ? "#7B1D1D" : "#4A4A4A",
             marginTop: -2
           }}
@@ -188,11 +229,8 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
 
   // Sort then paginate
   const sortedData = useMemo(() => {
-    // Default: descending (most recent fist)
     if (!sortField || !sortDirection) {
-      return [...attendanceHistory].sort((a, b) => {
-        return new Date(b.date).getTime() - new Date(a.date).getTime()
-      })
+      return [...attendanceHistory]
     }
 
     return [...attendanceHistory].sort((a, b) => {
@@ -220,6 +258,9 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
     setCurrentPage(1)
   }
 
+  // Check if data exists
+  const hasData = student.fullName || student.studentNumber
+
   return (
     <div
       className={montserrat.variable}
@@ -228,7 +269,8 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
         background: C.pageBg,
         minHeight: "100vh",
         display: "flex",
-        fontSize: "13px",
+        fontSize: isSmallMobile ? "12px" : "13px",
+        paddingBottom: isMobile ? 'env(safe-area-inset-bottom)' : 0,
       }}
     >
       <Sidebar />
@@ -236,17 +278,18 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
       <main
         style={{
           flex: 1,
-          paddingLeft: getLeftPadding(),
-          paddingRight: isMobile ? "16px" : "32px", 
-          paddingTop: isMobile ? "16px" : "28px",
-          paddingBottom: isMobile ? "16px" : "28px",
+          paddingLeft: responsivePadding.paddingLeft,
+          paddingRight: responsivePadding.paddingRight,
+          paddingTop: responsivePadding.paddingTop,
+          paddingBottom: responsivePadding.paddingBottom,
           display: "flex",
           flexDirection: "column",
-          gap: isMobile ? "16px" : "24px",
+          gap: responsivePadding.gap,
           minWidth: 0,
           width: "100%",
           maxWidth: "100%",
           transition: "padding 0.3s ease",
+          marginTop: isMobile ? '60px' : 0,
         }}
       >
         {/* Header */}
@@ -256,11 +299,11 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
           alignItems: "center",
           flexWrap: "wrap",
           gap: "12px",
-          marginBottom: isMobile ? "20px" : "32px",
+          marginBottom: isMobile ? "16px" : "32px",
         }}>
           <div>
             <h1 style={{
-              fontSize: "34px",
+              fontSize: isSmallMobile ? "24px" : isMobile ? "28px" : "34px",
               fontWeight: 800,
               color: C.maroon,
               margin: 0,
@@ -275,10 +318,12 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
         {/* Two rectangles */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1fr 3fr",
-          gap: isMobile ? "20px" : "24px",
+          gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 2fr" : "1fr 3fr",
+          gap: isMobile ? "16px" : isTablet ? "20px" : "24px",
           flex: 1,
-          alignItems: "start",
+          alignItems: "start", 
+          fontFamily: "'Montserrat', 'Fallback Montserrat'",
+          width: "100%",
         }}>
           {/* Left side (profile) */}
           <div style={{
@@ -289,25 +334,28 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            paddingTop: isMobile ? 40 : 50,
-            paddingLeft: isMobile ? 16 : 24,
-            paddingRight: isMobile ? 16 : 24,
-            paddingBottom: isMobile ? 20 : 28,
+            paddingTop: isSmallMobile ? 32 : isMobile ? 36 : 50,
+            paddingLeft: isSmallMobile ? 12 : isMobile ? 16 : 24,
+            paddingRight: isSmallMobile ? 12 : isMobile ? 16 : 24,
+            paddingBottom: isSmallMobile ? 16 : isMobile ? 18 : 28,
             position: "relative",
             transition: "all 0.2s ease",
-            height: isMobile ? "auto" : "520px",
+            height: "auto", // Dynamic height
+            minHeight: isMobile ? "auto" : "516px", // Fixed height only on desktop/tablet
             flexShrink: 0,
             fontFamily: "'Montserrat', 'Fallback Montserrat'",
+            width: "100%",
+            alignSelf: "start",
           }}>
             {/* Profile circle w/ initials */}
             <div
               style={{
                 position: "absolute",
-                top: isMobile ? -32 : -40,
+                top: isSmallMobile ? -24 : isMobile ? -28 : -40,
                 left: "50%",
                 transform: "translateX(-50%)",
-                width: isMobile ? 64 : 80,
-                height: isMobile ? 64 : 80,
+                width: isSmallMobile ? 52 : isMobile ? 60 : 80,
+                height: isSmallMobile ? 52 : isMobile ? 60 : 80,
                 borderRadius: "50%",
                 background: `linear-gradient(135deg, ${C.gold}, #D4B05C)`,
                 display: "flex",
@@ -320,7 +368,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             >
               <span
                 style={{
-                  fontSize: isMobile ? 24 : 30,
+                  fontSize: isSmallMobile ? 18 : isMobile ? 22 : 30,
                   fontWeight: 800,
                   color: C.maroon,
                   letterSpacing: "0.02em",
@@ -334,150 +382,185 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             {/* Name */}
             <h2
               style={{
-                fontSize: isMobile ? "16px" : "20px",
+                fontSize: isSmallMobile ? "14px" : isMobile ? "16px" : "20px",
                 fontWeight: 700,
                 color: C.maroon,
-                margin: isMobile ? "4px 0 4px 0" : "8px 0 4px 0",
+                margin: isSmallMobile ? "2px 0 2px 0" : isMobile ? "4px 0 4px 0" : "8px 0 4px 0",
                 textAlign: "center",
                 fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                wordBreak: "break-word", 
+                maxWidth: "100%",
               }}
             >
               {student.fullName}
             </h2>
             
             {/* Section badge */}
-            <div style={{
-              display: "inline-block",
-              background: C.hoursBg,
-              padding: isMobile ? "3px 12px" : "4px 14px",
-              borderRadius: 20,
-              fontSize: isMobile ? "11px" : "12px",
-              fontWeight: 600,
-              color: C.textSub,
-              marginBottom: isMobile ? 14 : 18,
-              fontFamily: "'Montserrat', 'Fallback Montserrat'",
-            }}>
-              {student.section}
-            </div>
+            {student.section && (
+              <div style={{
+                display: "inline-block",
+                background: C.hoursBg,
+                padding: isSmallMobile ? "2px 10px" : isMobile ? "3px 12px" : "4px 14px",
+                borderRadius: 20,
+                fontSize: isSmallMobile ? "10px" : isMobile ? "11px" : "12px",
+                fontWeight: 600,
+                color: C.textSub,
+                marginBottom: isSmallMobile ? 10 : isMobile ? 12 : 18,
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              }}>
+                {student.section}
+              </div>
+            )}
 
             {/* Student Information */}
-            <div style={{
-              width: "100%",
-              borderTop: `1px solid ${C.border}`,
-              paddingTop: isMobile ? 14 : 16,
-              marginBottom: isMobile ? 14 : 16,
-            }}>
+            {(student.studentNumber || student.email || student.course || student.year) && (
               <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 10,
+                width: "100%",
+                borderTop: `1px solid ${C.border}`,
+                paddingTop: isSmallMobile ? 10 : isMobile ? 12 : 16,
+                marginBottom: isSmallMobile ? 10 : isMobile ? 12 : 16,
               }}>
-                <IconUser size={isMobile ? 14 : 16} color={C.maroon} strokeWidth={2} />
-                <h3
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    color: C.textDark,
-                    margin: 0,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                  }}
-                >
-                  Student Information
-                </h3>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: isSmallMobile ? 6 : isMobile ? 8 : 10,
+                }}>
+                  <IconUser size={isSmallMobile ? 12 : isMobile ? 14 : 16} color={C.maroon} strokeWidth={2} />
+                  <h3
+                    style={{
+                      fontSize: isSmallMobile ? "10px" : "11px",
+                      fontWeight: 700,
+                      color: C.textDark,
+                      margin: 0,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                    }}
+                  >
+                    Student Information
+                  </h3>
+                </div>
+                
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: isSmallMobile ? "auto 1fr" : "auto 1fr",
+                  gap: isSmallMobile ? "1px 6px" : isMobile ? "2px 8px" : "4px 12px",
+                  fontSize: isSmallMobile ? "11px" : isMobile ? "12px" : "13px",
+                  color: C.textSub,
+                  lineHeight: isSmallMobile ? 1.4 : isMobile ? 1.5 : 1.8,
+                  fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                }}>
+                  {student.studentNumber && (
+                    <>
+                      <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>No.</span>
+                      <span style={{ fontSize: isSmallMobile ? "11px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'", wordBreak: "break-all" }}>
+                        {formatStudentNumber(student.studentNumber)}
+                      </span>
+                    </>
+                  )}
+                  
+                  {student.email && (
+                    <>
+                      <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Email</span>
+                      <span style={{ fontSize: isSmallMobile ? "11px" : "13px", wordBreak: "break-all", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.email}</span>
+                    </>
+                  )}
+                  
+                  {student.course && (
+                    <>
+                      <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Course</span>
+                      <span style={{ fontSize: isSmallMobile ? "11px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'", wordBreak: "break-word" }}>{student.course}</span>
+                    </>
+                  )}
+                  
+                  {student.year && (
+                    <>
+                      <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Year</span>
+                      <span style={{ fontSize: isSmallMobile ? "11px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.year}</span>
+                    </>
+                  )}
+                </div>
               </div>
-              
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "auto 1fr",
-                gap: isMobile ? "2px 8px" : "4px 12px",
-                fontSize: "13px",
-                color: C.textSub,
-                lineHeight: isMobile ? 1.6 : 1.8,
-                fontFamily: "'Montserrat', 'Fallback Montserrat'",
-              }}>
-                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>No.</span>
-                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
-                  {formatStudentNumber(student.studentNumber)}
-                </span>
-                
-                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Email</span>
-                <span style={{ fontSize: "13px", wordBreak: "break-all", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.email}</span>
-                
-                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Course</span>
-                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.course}</span>
-                
-                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Year</span>
-                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.year}</span>
-              </div>
-            </div>
+            )}
 
             {/* Class Information */}
-            <div style={{
-              width: "100%",
-              borderTop: `1px solid ${C.border}`,
-              paddingTop: isMobile ? 14 : 16,
-            }}>
+            {(student.classType || student.location || student.adviser) && (
               <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 10,
+                width: "100%",
+                borderTop: `1px solid ${C.border}`,
+                paddingTop: isSmallMobile ? 10 : isMobile ? 12 : 16,
               }}>
-                <IconBook size={isMobile ? 14 : 16} color={C.maroon} strokeWidth={2} />
-                <h3
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    color: C.textDark,
-                    margin: 0,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                  }}
-                >
-                  Class Information
-                </h3>
-              </div>
-              
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "auto 1fr",
-                gap: isMobile ? "2px 8px" : "4px 12px",
-                fontSize: "13px",
-                color: C.textSub,
-                lineHeight: isMobile ? 1.6 : 1.8,
-                fontFamily: "'Montserrat', 'Fallback Montserrat'",
-              }}>
-                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Type</span>
-                {classTypeBadge ? (
-                  <span>
-                    <span style={{
-                      display: "inline-block",
-                      background: C.goldBg,
-                      color: C.goldText,
-                      padding: "0px 8px",
-                      borderRadius: 4,
-                      fontSize: isMobile ? "10px" : "12px",
-                      fontWeight: 600,
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: isSmallMobile ? 6 : isMobile ? 8 : 10,
+                }}>
+                  <IconBook size={isSmallMobile ? 12 : isMobile ? 14 : 16} color={C.maroon} strokeWidth={2} />
+                  <h3
+                    style={{
+                      fontSize: isSmallMobile ? "10px" : "11px",
+                      fontWeight: 700,
+                      color: C.textDark,
+                      margin: 0,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
                       fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                    }}>
-                      {student.classType}
-                    </span>
-                  </span>
-                ) : (
-                  <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.classType}</span>
-                )}
+                    }}
+                  >
+                    Class Information
+                  </h3>
+                </div>
+                
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: isSmallMobile ? "auto 1fr" : "auto 1fr",
+                  gap: isSmallMobile ? "1px 6px" : isMobile ? "2px 8px" : "4px 12px",
+                  fontSize: isSmallMobile ? "11px" : isMobile ? "12px" : "13px",
+                  color: C.textSub,
+                  lineHeight: isSmallMobile ? 1.4 : isMobile ? 1.5 : 1.8,
+                  fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                }}>
+                  {student.classType && (
+                    <>
+                      <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Type</span>
+                      {classTypeBadge ? (
+                        <span>
+                          <span style={{
+                            display: "inline-block",
+                            background: C.goldBg,
+                            color: C.goldText,
+                            padding: "0px 6px",
+                            borderRadius: 4,
+                            fontSize: isSmallMobile ? "9px" : isMobile ? "10px" : "12px",
+                            fontWeight: 600,
+                            fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                          }}>
+                            {student.classType}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: isSmallMobile ? "11px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.classType}</span>
+                      )}
+                    </>
+                  )}
 
-                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Location</span>
-                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.location}</span>
+                  {/* Location field */}
+                  <>
+                    <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Location</span>
+                    <span style={{ fontSize: isSmallMobile ? "11px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'", wordBreak: "break-word" }}>{student.location || "—"}</span>
+                  </>
 
-                <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Adviser</span>
-                <span style={{ fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{student.adviser}</span>
+                  {student.adviser && (
+                    <>
+                      <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Adviser</span>
+                      <span style={{ fontSize: isSmallMobile ? "11px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'", wordBreak: "break-word" }}>{student.adviser}</span>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Right side (rendered services) */}
@@ -489,27 +572,29 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            height: isMobile ? "auto" : "520px",
-            minHeight: isMobile ? "400px" : "520px",
+            height: "auto", // Dynamic height
+            minHeight: isMobile ? "300px" : "400px",
             fontFamily: "'Montserrat', 'Fallback Montserrat'",
+            width: "100%",
+            alignSelf: "start", 
           }}>
             {/* Header */}
             <div
               style={{
-                padding: isMobile ? "12px 16px" : "16px 20px",
+                padding: isSmallMobile ? "10px 12px" : isMobile ? "12px 16px" : "16px 20px",
                 borderBottom: `1px solid #E5E7EB`,
                 background: "#FFFFFF",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 flexWrap: "wrap",
-                gap: 8,
+                gap: 6,
                 flexShrink: 0,
               }}
             >
               <div>
                 <div style={{
-                  fontSize: "15px",
+                  fontSize: isSmallMobile ? "13px" : isMobile ? "14px" : "15px",
                   fontWeight: 700,
                   color: "#111827",
                   fontFamily: "'Montserrat', 'Fallback Montserrat'",
@@ -517,9 +602,9 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                   Rendered Services
                 </div>
                 <div style={{
-                  fontSize: "12px",
+                  fontSize: isSmallMobile ? "10px" : isMobile ? "11px" : "12px",
                   color: "#6B7280",
-                  marginTop: 2,
+                  marginTop: 1,
                   fontFamily: "'Montserrat', 'Fallback Montserrat'",
                 }}>
                   {totalEntries} entries
@@ -530,19 +615,17 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             {/* Table */}
             <div style={{
               flex: 1,
-              overflow: "auto",
-              scrollbarWidth: "thin",
-              scrollbarColor: "#CFCFCB transparent",
+              overflow: "visible",
               minHeight: 0,
             }}>
               {isMobile ? (
-                <div style={{ padding: "8px" }}>
+                <div style={{ padding: isSmallMobile ? "6px" : "8px" }}>
                   {loadingHistory ? (
-                    <div style={{ padding: "24px", textAlign: "center", color: "#6B7280", fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
+                    <div style={{ padding: "20px", textAlign: "center", color: "#6B7280", fontSize: isSmallMobile ? "12px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
                       Loading attendance history…
                     </div>
                   ) : currentEntries.length === 0 ? (
-                    <div style={{ padding: "24px", textAlign: "center", color: "#6B7280", fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
+                    <div style={{ padding: "20px", textAlign: "center", color: "#6B7280", fontSize: isSmallMobile ? "12px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
                       No attendance records yet.
                     </div>
                   ) : currentEntries.map((row, index) => (
@@ -551,8 +634,8 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                       style={{
                         background: "#FAFAFA",
                         borderRadius: 8,
-                        padding: "12px",
-                        marginBottom: "8px",
+                        padding: isSmallMobile ? "10px" : "12px",
+                        marginBottom: "6px",
                         border: `1px solid ${C.border}`,
                         fontFamily: "'Montserrat', 'Fallback Montserrat'",
                       }}
@@ -561,17 +644,17 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        marginBottom: 8,
+                        marginBottom: 6,
                       }}>
                         <div>
-                          <span style={{ fontWeight: 700, color: C.textDark, fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
+                          <span style={{ fontWeight: 700, color: C.textDark, fontSize: isSmallMobile ? "12px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
                             {formatDate(row.date)}
                           </span>
                         </div>
                         <span style={{
                           fontWeight: 700,
                           color: C.maroon,
-                          fontSize: "14px",
+                          fontSize: isSmallMobile ? "13px" : "14px",
                           fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
                           {row.hours} hrs
@@ -579,32 +662,33 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                       </div>
                       <div style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: "4px 12px",
-                        fontSize: "13px",
+                        gridTemplateColumns: isSmallMobile ? "1fr 1fr" : "1fr 1fr",
+                        gap: "2px 8px",
+                        fontSize: isSmallMobile ? "11px" : "12px",
                         color: C.textSub,
                       }}>
                         <div>
-                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>QR Generated:</span>
-                          <span style={{ marginLeft: 4, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{row.qrGen}</span>
+                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>QR Generated:</span>
+                          <span style={{ marginLeft: 3, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{row.qrGen}</span>
                         </div>
                         <div>
-                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>QR Scanned:</span>
-                          <span style={{ marginLeft: 4, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{row.qrScan}</span>
+                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>QR Scanned:</span>
+                          <span style={{ marginLeft: 3, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{row.qrScan}</span>
                         </div>
                         <div>
-                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Time Out:</span>
-                          <span style={{ marginLeft: 4, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{row.timeOut}</span>
+                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Time Out:</span>
+                          <span style={{ marginLeft: 3, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>{row.timeOut}</span>
                         </div>
                         <div>
-                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Site:</span>
+                          <span style={{ fontWeight: 600, color: C.textDark, fontSize: isSmallMobile ? "10px" : "11px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Site:</span>
                           <span style={{
                             display: "inline-block",
                             color: C.textDark,
-                            fontSize: "12px",
+                            fontSize: isSmallMobile ? "11px" : "12px",
                             fontWeight: 500,
-                            marginLeft: 4,
+                            marginLeft: 3,
                             fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                            wordBreak: "break-word",
                           }}>
                             {row.site}
                           </span>
@@ -617,7 +701,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                 <table style={{
                   width: "100%",
                   borderCollapse: "collapse",
-                  fontSize: "13px",
+                  fontSize: isTablet ? "12px" : "13px",
                   tableLayout: "fixed",
                   fontFamily: "'Montserrat', 'Fallback Montserrat'",
                 }}>
@@ -625,16 +709,13 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                     <tr style={{
                       borderBottom: `1px solid #E5E7EB`,
                       background: "#F9FAFB",
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 2,
                     }}>
                       <th 
                         style={{
                           textAlign: "left",
-                          padding: "10px 20px",
+                          padding: isTablet ? "8px 14px" : "10px 20px",
                           fontWeight: 700,
-                          fontSize: "11px",
+                          fontSize: isTablet ? "10px" : "11px",
                           textTransform: "uppercase",
                           letterSpacing: "0.8px",
                           color: "#7B1D1D",
@@ -657,9 +738,9 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                       </th>
                       <th style={{
                         textAlign: "center",
-                        padding: "10px 20px",
+                        padding: isTablet ? "8px 14px" : "10px 20px",
                         fontWeight: 700,
-                        fontSize: "11px",
+                        fontSize: isTablet ? "10px" : "11px",
                         textTransform: "uppercase",
                         letterSpacing: "0.8px",
                         color: "#7B1D1D",
@@ -670,9 +751,9 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                       </th>
                       <th style={{
                         textAlign: "center",
-                        padding: "10px 20px",
+                        padding: isTablet ? "8px 14px" : "10px 20px",
                         fontWeight: 700,
-                        fontSize: "11px",
+                        fontSize: isTablet ? "10px" : "11px",
                         textTransform: "uppercase",
                         letterSpacing: "0.8px",
                         color: "#7B1D1D",
@@ -683,9 +764,9 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                       </th>
                       <th style={{
                         textAlign: "center",
-                        padding: "10px 20px",
+                        padding: isTablet ? "8px 14px" : "10px 20px",
                         fontWeight: 700,
-                        fontSize: "11px",
+                        fontSize: isTablet ? "10px" : "11px",
                         textTransform: "uppercase",
                         letterSpacing: "0.8px",
                         color: "#7B1D1D",
@@ -696,9 +777,9 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                       </th>
                       <th style={{
                         textAlign: "center",
-                        padding: "10px 20px",
+                        padding: isTablet ? "8px 14px" : "10px 20px",
                         fontWeight: 700,
-                        fontSize: "11px",
+                        fontSize: isTablet ? "10px" : "11px",
                         textTransform: "uppercase",
                         letterSpacing: "0.8px",
                         color: "#7B1D1D",
@@ -712,13 +793,13 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                   <tbody>
                     {loadingHistory ? (
                       <tr>
-                        <td colSpan={5} style={{ padding: "24px", textAlign: "center", color: "#6B7280", fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
+                        <td colSpan={5} style={{ padding: "20px", textAlign: "center", color: "#6B7280", fontSize: isTablet ? "12px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
                           Loading attendance history…
                         </td>
                       </tr>
                     ) : currentEntries.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ padding: "24px", textAlign: "center", color: "#6B7280", fontSize: "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
+                        <td colSpan={5} style={{ padding: "20px", textAlign: "center", color: "#6B7280", fontSize: isTablet ? "12px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
                           No attendance records yet.
                         </td>
                       </tr>
@@ -738,22 +819,22 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                         }}
                       >
                         <td style={{
-                          padding: "14px 20px",
+                          padding: isTablet ? "10px 14px" : "14px 20px",
                           fontWeight: 600,
                           color: "#111827",
-                          fontSize: "13px",
+                          fontSize: isTablet ? "12px" : "13px",
                           fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
                           {formatDate(row.date)}
                         </td>
                         <td style={{
-                          padding: "14px 20px",
+                          padding: isTablet ? "10px 14px" : "14px 20px",
                           color: "#6B7280",
                           textAlign: "center",
-                          fontSize: "13px",
+                          fontSize: isTablet ? "12px" : "13px",
                           fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                             <div>
                               <span style={{ fontWeight: 500, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Generated: {row.qrGen}</span>
                             </div>
@@ -763,26 +844,26 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                           </div>
                         </td>
                         <td style={{
-                          padding: "14px 20px",
+                          padding: isTablet ? "10px 14px" : "14px 20px",
                           color: "#6B7280",
                           fontWeight: 500,
                           textAlign: "center",
-                          fontSize: "13px",
+                          fontSize: isTablet ? "12px" : "13px",
                           fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
                           {row.timeOut}
                         </td>
                         <td style={{
-                          padding: "14px 20px",
+                          padding: isTablet ? "10px 14px" : "14px 20px",
                           fontWeight: 700,
                           color: "#7B1D1D",
                           textAlign: "center",
-                          fontSize: "13px",
+                          fontSize: isTablet ? "12px" : "13px",
                           fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         }}>
                           {row.hours}
                           <span style={{
-                            fontSize: "11px",
+                            fontSize: isTablet ? "10px" : "11px",
                             fontWeight: 400,
                             color: "#6B7280",
                             marginLeft: 2,
@@ -792,11 +873,12 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                           </span>
                         </td>
                         <td style={{
-                          padding: "14px 20px",
+                          padding: isTablet ? "10px 14px" : "14px 20px",
                           textAlign: "center",
-                          fontSize: "13px",
+                          fontSize: isTablet ? "12px" : "13px",
                           color: "#6B7280",
                           fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                          wordBreak: "break-word",
                         }}>
                           {row.site}
                         </td>
@@ -812,35 +894,42 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "14px 20px",
+              padding: isSmallMobile ? "8px 10px" : isMobile ? "10px 14px" : "14px 20px",
               borderTop: `1px solid #E5E7EB`,
-              flexWrap: "wrap",
-              gap: "12px",
+              gap: isSmallMobile ? "4px" : "8px",
               flexShrink: 0,
               background: "#FFFFFF",
               fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              flexWrap: "nowrap", 
+              overflow: "hidden", 
             }}>
+              {/* Showing entries */}
               <div style={{
-                fontSize: "12px",
+                fontSize: isSmallMobile ? "8px" : isMobile ? "10px" : "12px",
                 color: "#6B7280",
                 fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                flexShrink: 0,
+                whiteSpace: "nowrap",
               }}>
-                Showing {totalEntries === 0 ? 0 : startIndex + 1}–
-                {endIndex} of {totalEntries} entries
+                Showing {totalEntries === 0 ? "0" : `${startIndex + 1}–${endIndex}`} of {totalEntries}
               </div>
+
+              {/* Pagination */}
               <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
+                gap: isSmallMobile ? "1px" : "2px",
+                flexShrink: 0,
+                justifyContent: "center",
               }}>
                 <button
                   style={{
-                    minWidth: "28px",
-                    height: "28px",
-                    borderRadius: "6px",
+                    minWidth: isSmallMobile ? "20px" : "28px",
+                    height: isSmallMobile ? "20px" : "28px",
+                    borderRadius: "4px",
                     border: "1px solid #E5E7EB",
                     background: "#FFFFFF",
-                    fontSize: "12px",
+                    fontSize: isSmallMobile ? "9px" : "12px",
                     fontFamily: "'Montserrat', 'Fallback Montserrat'",
                     fontWeight: 500,
                     color: "#111827",
@@ -850,22 +939,23 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                     justifyContent: "center",
                     transition: "background 0.12s, border-color 0.12s",
                     opacity: currentPage === 1 ? 0.35 : 1,
+                    padding: 0,
                   }}
                   disabled={currentPage === 1}
                   onClick={() => handlePageChange(currentPage - 1)}
                 >
                   &#8249;
                 </button>
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
+                {Array.from({ length: Math.min(totalPages, isSmallMobile ? 3 : 5) }, (_, i) => i + 1).map(p => (
                   <button
                     key={p}
                     style={{
-                      minWidth: "28px",
-                      height: "28px",
-                      borderRadius: "6px",
+                      minWidth: isSmallMobile ? "20px" : "28px",
+                      height: isSmallMobile ? "20px" : "28px",
+                      borderRadius: "4px",
                       border: p === currentPage ? "1px solid #7B1D1D" : "1px solid #E5E7EB",
                       background: p === currentPage ? "#7B1D1D" : "#FFFFFF",
-                      fontSize: "12px",
+                      fontSize: isSmallMobile ? "9px" : "12px",
                       fontFamily: "'Montserrat', 'Fallback Montserrat'",
                       fontWeight: p === currentPage ? 700 : 500,
                       color: p === currentPage ? "#FFFFFF" : "#111827",
@@ -874,23 +964,24 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                       alignItems: "center",
                       justifyContent: "center",
                       transition: "background 0.12s, border-color 0.12s",
+                      padding: 0,
                     }}
                     onClick={() => handlePageChange(p)}
                   >
                     {p}
                   </button>
                 ))}
-                {totalPages > 5 && (
+                {totalPages > (isSmallMobile ? 3 : 5) && (
                   <>
-                    <span style={{ color: "#6B7280", fontSize: 12, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>...</span>
+                    <span style={{ color: "#6B7280", fontSize: isSmallMobile ? 8 : 12, fontFamily: "'Montserrat', 'Fallback Montserrat'", padding: "0 2px" }}>...</span>
                     <button
                       style={{
-                        minWidth: "28px",
-                        height: "28px",
-                        borderRadius: "6px",
+                        minWidth: isSmallMobile ? "20px" : "28px",
+                        height: isSmallMobile ? "20px" : "28px",
+                        borderRadius: "4px",
                         border: "1px solid #E5E7EB",
                         background: "#FFFFFF",
-                        fontSize: "12px",
+                        fontSize: isSmallMobile ? "9px" : "12px",
                         fontFamily: "'Montserrat', 'Fallback Montserrat'",
                         fontWeight: 500,
                         color: "#111827",
@@ -899,6 +990,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                         alignItems: "center",
                         justifyContent: "center",
                         transition: "background 0.12s, border-color 0.12s",
+                        padding: 0,
                       }}
                       onClick={() => handlePageChange(totalPages)}
                     >
@@ -908,12 +1000,12 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                 )}
                 <button
                   style={{
-                    minWidth: "28px",
-                    height: "28px",
-                    borderRadius: "6px",
+                    minWidth: isSmallMobile ? "20px" : "28px",
+                    height: isSmallMobile ? "20px" : "28px",
+                    borderRadius: "4px",
                     border: "1px solid #E5E7EB",
                     background: "#FFFFFF",
-                    fontSize: "12px",
+                    fontSize: isSmallMobile ? "9px" : "12px",
                     fontFamily: "'Montserrat', 'Fallback Montserrat'",
                     fontWeight: 500,
                     color: "#111827",
@@ -923,6 +1015,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                     justifyContent: "center",
                     transition: "background 0.12s, border-color 0.12s",
                     opacity: currentPage === totalPages ? 0.35 : 1,
+                    padding: 0,
                   }}
                   disabled={currentPage === totalPages}
                   onClick={() => handlePageChange(currentPage + 1)}
@@ -930,26 +1023,34 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                   &#8250;
                 </button>
               </div>
+
+              {/* Rows per page */}
               <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
-                fontSize: 12,
+                gap: isSmallMobile ? "2px" : "4px",
+                fontSize: isSmallMobile ? "8px" : isMobile ? "10px" : "12px",
                 color: "#6B7280",
                 fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                flexShrink: 0,
+                whiteSpace: "nowrap",
               }}>
-                <span>Rows per page:</span>
+              <span style={{
+                fontSize: isSmallMobile ? "7px" : isMobile ? "9px" : "12px",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              }}>Rows per page:</span>
                 <select
                   style={{
                     border: "1.5px solid #E5E7EB",
-                    borderRadius: 8,
-                    padding: "4px 8px",
-                    fontSize: 12,
+                    borderRadius: 4,
+                    padding: isSmallMobile ? "1px 4px" : "4px 8px",
+                    fontSize: isSmallMobile ? "8px" : isMobile ? "10px" : "12px",
                     fontFamily: "'Montserrat', 'Fallback Montserrat'",
                     color: "#111827",
                     background: "#FFFFFF",
                     cursor: "pointer",
                     outline: "none",
+                    minWidth: isSmallMobile ? "32px" : "auto",
                   }}
                   value={pageSize}
                   onChange={handlePageSizeChange}
