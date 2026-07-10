@@ -6,8 +6,7 @@
 
 import { useEffect, useState, useTransition, useRef } from "react"
 import { Montserrat } from "next/font/google"
-import StudentSidebar from "@/components/shared/StudentSidebar"
-import StudentLeaderSidebar from "@/components/shared/StudentLeaderSidebar"
+import StudentSidebar from "@/components/shared/ResponsiveStudentSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
@@ -183,11 +182,10 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
 }
 
 
-export default function RequestsView({ isLeader }: { isLeader: boolean }) {
- // The prop only selects which sidebar to render (preserving each route's look).
- // Whether "Leader Role Transfer" is offered keys off the user's REAL leader
- // status (isCurrentUserLeader below), not this prop — see the appeal-type filter.
- const Sidebar = isLeader ? StudentLeaderSidebar : StudentSidebar
+export default function RequestsView() {
+ // The sidebar and the "Leader Role Transfer" category both key off the user's
+ // real leader status (isCurrentUserLeader below, from getStudentDashboard) —
+ // the leader-specific route was removed, so a single dynamic page serves both.
  const [showModal, setShowModal] = useState(false)
  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(
    null
@@ -1419,7 +1417,7 @@ export default function RequestsView({ isLeader }: { isLeader: boolean }) {
 
 
      <div className={`${montserrat.variable} requests-page`}>
-       <Sidebar />
+       <StudentSidebar isLeader={isCurrentUserLeader} />
 
 
        <main className="requests-main">

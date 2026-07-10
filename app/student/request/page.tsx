@@ -1,8 +1,8 @@
 import RequestsView from "@/components/student/RequestsView"
 
-// The Requests UI is shared with the student-leader route; the only difference is
-// the sidebar. Whether "Leader Role Transfer" is offered keys off the user's real
-// leader status inside RequestsView, not this route.
+// Single request page for all students. Leader-specific behaviour (sidebar nav +
+// hiding "Leader Role Transfer") is decided by the user's real leader status
+// inside RequestsView, so there is no separate leader route.
 export default function StudentRequestPage() {
-  return <RequestsView isLeader={false} />
+  return <RequestsView />
 }

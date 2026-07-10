@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Montserrat } from "next/font/google"
 import { QRCodeSVG } from "qrcode.react"
-import Sidebar from "@/components/shared/StudentSidebar"
+import StudentSidebar from "@/components/shared/ResponsiveStudentSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
 import AttendanceSessionCard from "@/components/shared/AttendanceSessionCard"
-import { generateQrToken, getMyOpenSession, recordStudentTimeOut } from "@/lib/attendance/qr-actions"
+import { generateQrToken, getMyOpenSession, recordStudentTimeOut, recordLeaderTimeIn, recordLeaderTimeOut } from "@/lib/attendance/qr-actions"
 import type { QrDisplayInfo } from "@/lib/attendance/qr-actions"
 import { captureGeo, geoErrorMessage } from "@/lib/attendance/geo-client"
 import {
@@ -17,6 +17,14 @@ import { playSuccessSound, primeAudio } from "@/lib/attendance/sounds"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
 import { manilaClock } from "@/lib/student/leader/scan-history"
+import {
+  KpiStatCard,
+  KpiStatCardGrid,
+  ChartStyles,
+} from "@/components/shared/ChartModule"
+import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+import { IconCalendar, IconClock } from "@tabler/icons-react"
+import { createClient } from "@/lib/client"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -29,7 +37,16 @@ const C = {
   pageBg: "#F0F0F0",
   cardShadow: "0 3px 10px rgba(0,0,0,0.15)",
   qrBg: "#C8D6D0",
+  green: '#14492E',
+  greenBg: '#E8F5EF',
+  cardBg: "#FFFFFF",
+  border: "#EDE9E6",
+  textDark: "#1A1A1A",
+  textGray: "#8A8580",
 }
+
+const COLLAPSED_W = 88
+const RAIL_MARGIN = 16
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
@@ -44,6 +61,7 @@ function useIsMobile() {
 
 export default function QRGenerationPage() {
   const isMobile = useIsMobile()
+  const [isStudentLeader, setIsStudentLeader] = useState(false)
   const [generated, setGenerated] = useState(false)
   const [token, setToken] = useState<string | null>(null)
   const [display, setDisplay] = useState<QrDisplayInfo | null>(null)
@@ -68,6 +86,7 @@ export default function QRGenerationPage() {
   const [justTimedIn, setJustTimedIn] = useState(false)
   const [timeoutPending, setTimeoutPending] = useState(false)
   const [timeoutFeedback, setTimeoutFeedback] = useState<string | undefined>(undefined)
+  const [currentTime, setCurrentTime] = useState(new Date())
 
   const generatingRef = useRef(false)
   const displayRef = useRef<QrDisplayInfo | null>(null)
@@ -75,22 +94,48 @@ export default function QRGenerationPage() {
   const initialLoadedRef = useRef(false)
   const timedInTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadSeqRef = useRef(0)
+
   useEffect(() => {
     displayRef.current = display
   }, [display])
 
   useEffect(() => {
     let cancelled = false
-    getStudentDashboard().then((res) => {
+    
+    const loadUserData = async () => {
+      const res = await getStudentDashboard()
       if (cancelled || !res.ok) return
+      
       setProfile({
         fullName: res.data.fullName,
         sectionName: res.data.sectionName ?? "",
       })
-    })
+      
+      // Check if leader
+      const supabase = createClient()
+      const { data: userData } = await supabase
+        .from('enrollment')
+        .select('is_student_leader')
+        .eq('enrollment_id', res.data.enrollmentId)
+        .single()
+      
+      if (userData) {
+        setIsStudentLeader(userData.is_student_leader)
+      }
+    }
+    
+    loadUserData()
+    
     return () => {
       cancelled = true
     }
+  }, [])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    return () => clearInterval(interval)
   }, [])
 
   const loadSessionStatus = useCallback(async () => {
@@ -281,6 +326,42 @@ export default function QRGenerationPage() {
     setTimeoutPending(false)
   }
 
+  // Leader toggle
+  const handleLeaderToggle = async () => {
+    if (timeoutPending) return
+    setTimeoutPending(true)
+    setTimeoutFeedback(undefined)
+
+    const geoResult = await captureGeo()
+    const geo = geoResult.ok ? geoResult.geo : undefined
+
+    if (!geoResult.ok) {
+      setTimeoutFeedback(geoErrorMessage(geoResult.reason))
+    }
+
+    if (!hasOpenSession) {
+      const res = await recordLeaderTimeIn(geo)
+      if (res.ok) {
+        setHasOpenSession(true)
+        setTimeoutFeedback(undefined)
+        loadSessionStatus()
+      } else {
+        setTimeoutFeedback(res.error)
+      }
+    } else {
+      const res = await recordLeaderTimeOut(geo)
+      if (res.ok) {
+        setHasOpenSession(false)
+        setTimeoutFeedback(undefined)
+        loadSessionStatus()
+      } else {
+        setTimeoutFeedback(res.error)
+      }
+    }
+
+    setTimeoutPending(false)
+  }
+
   const timeLabel = display
     ? new Date(display.generatedAt).toLocaleString("en-PH", {
       dateStyle: "medium",
@@ -303,8 +384,58 @@ export default function QRGenerationPage() {
   const sessionHelperText = hasOpenSession && sessionStartedAt
     ? `since ${manilaClock(sessionStartedAt)}`
     : !hasOpenSession
-      ? "Your leader scans your QR to time you in."
+      ? isStudentLeader 
+        ? "Time in to start your attendance session" 
+        : "Your leader scans your QR to time you in."
       : undefined
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+
+  const info = [
+    {
+      id: 'date',
+      label: 'Date',
+      value: formatDate(currentTime),
+      icon: 'ti-calendar',
+      color: {
+        bg: "#C8D8C0",
+        text: "#2D5C3A",
+        border: "#8AAE8A",
+        icon: "#3A7A4A",
+      },
+    },
+    {
+      id: 'time',
+      label: 'Time',
+      value: formatTime(currentTime),
+      icon: 'ti-clock',
+      color: {
+        bg: "#F5E6C0",
+        text: "#8B5E1A",
+        border: "#D4A840",
+        icon: "#C8882A",
+      },
+    },
+  ]
+
+  const leftPadding = isMobile
+    ? `${COLLAPSED_W + RAIL_MARGIN * 2 + 8}px`
+    : `${COLLAPSED_W + RAIL_MARGIN * 2}px`
 
   return (
     <>
@@ -675,12 +806,42 @@ export default function QRGenerationPage() {
 
         }
 
+        .attendance-stat-card {
+          cursor: default !important;
+        }
+        .attendance-stat-card .db-kpi-card {
+          cursor: default !important;
+        }
+        .attendance-stat-card:hover {
+          border-color: ${COLORS.border} !important;
+          transform: none !important;
+        }
+        .attendance-stat-card:hover .db-kpi-card {
+          transform: none !important;
+        }
+        .db-kpi-value {
+          font-size: ${isMobile ? '11px' : '20px'} !important;
+          line-height: 1.2 !important;
+        }
+        .db-kpi-label {
+          font-size: ${isMobile ? '9px' : '15px'} !important;
+          line-height: 1.2 !important;
+        }
+        .db-kpi-icon {
+          font-size: ${isMobile ? '16px' : '20px'} !important;
+        }
+
       `}</style>
 
       <div className={`${montserrat.variable} qr-page`}>
-        <Sidebar />
+        <StudentSidebar isLeader={isStudentLeader} />
 
-        <main className="qr-main">
+        <main className="qr-main" style={{
+          paddingLeft: isStudentLeader ? leftPadding : undefined,
+          paddingRight: isStudentLeader && isMobile ? "16px" : undefined,
+          paddingTop: isStudentLeader && isMobile ? "16px" : undefined,
+          paddingBottom: isStudentLeader && isMobile ? "80px" : undefined,
+        }}>
           <div className="qr-header">
             <h1 className="qr-title">Attendance</h1>
 
@@ -698,6 +859,38 @@ export default function QRGenerationPage() {
               marginBottom: 24,
             }}
           />
+
+          {isStudentLeader && (
+            <>
+              <ChartStyles />
+              <div style={{ marginBottom: "1px" }}> 
+                <KpiStatCardGrid columns={2}>
+                  {info.map((stat) => {
+                    return (
+                      <div
+                        key={stat.id}
+                        className="attendance-stat-card"
+                        style={{
+                          cursor: "default",
+                          borderRadius: COLORS.radius,
+                          overflow: "hidden",
+                          background: COLORS.cardBg,
+                          color: "#000000",
+                          border: `2px solid ${COLORS.border}`,
+                        }}
+                      >
+                        <KpiStatCard
+                          icon={stat.icon}
+                          label={stat.label}
+                          value={stat.value}
+                        />
+                      </div>
+                    )
+                  })}
+                </KpiStatCardGrid>
+              </div>
+            </>
+          )}
 
           {justTimedIn && (
             <div
@@ -743,10 +936,19 @@ export default function QRGenerationPage() {
             </div>
           ) : hasOpenSession ? (
             <AttendanceSessionCard
-              mode="timeoutOnly"
+              mode={isStudentLeader ? "toggle" : "timeoutOnly"}
               isActive={hasOpenSession}
               pending={timeoutPending}
-              onPrimary={handleTimeOut}
+              onPrimary={isStudentLeader ? handleLeaderToggle : handleTimeOut}
+              isMobile={isMobile}
+              helperText={timeoutFeedback ?? sessionHelperText}
+            />
+          ) : isStudentLeader ? (
+            <AttendanceSessionCard
+              mode="toggle"
+              isActive={hasOpenSession}
+              pending={timeoutPending}
+              onPrimary={handleLeaderToggle}
               isMobile={isMobile}
               helperText={timeoutFeedback ?? sessionHelperText}
             />
