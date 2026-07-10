@@ -864,7 +864,7 @@ export default function RequestsView() {
 
        .requests-main{
        flex:1;
-       margin-left:120px;
+       margin-left:90px;
        padding:34px 40px;
        min-width:0;
        }
