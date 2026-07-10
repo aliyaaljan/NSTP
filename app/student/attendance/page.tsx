@@ -50,17 +50,26 @@ const RAIL_MARGIN = 16
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
+  const [isSmallMobile, setIsSmallMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
+  
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640)
+    const handleResize = () => {
+      const width = window.innerWidth
+      setIsMobile(width < 768)
+      setIsTablet(width >= 768 && width < 1024)
+      setIsSmallMobile(width < 480)
+    }
     handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
   }, [])
-  return isMobile
+  
+  return { isMobile, isSmallMobile, isTablet }
 }
 
 export default function QRGenerationPage() {
-  const isMobile = useIsMobile()
+  const { isMobile, isSmallMobile, isTablet } = useIsMobile()
   const [isStudentLeader, setIsStudentLeader] = useState(false)
   const [generated, setGenerated] = useState(false)
   const [token, setToken] = useState<string | null>(null)
@@ -431,9 +440,42 @@ export default function QRGenerationPage() {
     },
   ]
 
-  const leftPadding = isMobile
-    ? `${COLLAPSED_W + RAIL_MARGIN * 2 + 8}px`
-    : `${COLLAPSED_W + RAIL_MARGIN * 2}px`
+  // Responsive padding calculation
+  const getResponsivePadding = () => {
+    if (isSmallMobile) {
+      return {
+        paddingLeft: '12px',
+        paddingRight: '12px',
+        paddingTop: '12px',
+        paddingBottom: '70px',
+      }
+    }
+    if (isMobile) {
+      return {
+        paddingLeft: '16px',
+        paddingRight: '16px',
+        paddingTop: '16px',
+        paddingBottom: '75px',
+      }
+    }
+    if (isTablet) {
+      const tabletRailWidth = Math.max(70, COLLAPSED_W * (window.innerWidth / 768))
+      return {
+        paddingLeft: `${tabletRailWidth + RAIL_MARGIN * 2 + 12}px`,
+        paddingRight: '24px',
+        paddingTop: '24px',
+        paddingBottom: '24px',
+      }
+    }
+    return {
+      paddingLeft: `${COLLAPSED_W + RAIL_MARGIN * 2 + 16}px`,
+      paddingRight: '32px',
+      paddingTop: '28px',
+      paddingBottom: '28px',
+    }
+  }
+
+  const responsivePadding = getResponsivePadding()
 
   return (
     <>
@@ -447,16 +489,18 @@ export default function QRGenerationPage() {
 
         .qr-main {
           flex: 1;
-          margin-left: 120px;
-          padding: 28px 32px;
           min-width: 0;
+          width: 100%;
+          max-width: 100%;
+          transition: padding 0.3s ease;
         }
 
         .qr-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 20px;
+          gap: 12px;
+          flex-wrap: wrap;
         }
 
         .qr-title {
@@ -481,11 +525,13 @@ export default function QRGenerationPage() {
           display:flex;
           justify-content:center;
           align-items:center;
-      }
+          width: 100%;
+        }
 
 
       .qr-card {
         width:420px;
+        max-width: 100%;
         min-height:560px;
         background:#FFFFFF;
         border-radius:28px;
@@ -631,6 +677,7 @@ export default function QRGenerationPage() {
           align-items:center;
           gap:16px;
           text-align:center;
+          width: 100%;
         }
 
 
@@ -685,17 +732,23 @@ export default function QRGenerationPage() {
         @media(max-width: 900px){
 
           .qr-main {
-            margin-left: 100px;
             padding: 24px 20px;
           }
 
           .qr-title {
-            font-size: 34px;
+            font-size: 28px;
           }
 
           .qr-box {
             height:auto;
             min-height:520px;
+            padding: 24px;
+          }
+
+          .qr-card {
+            width: 100%;
+            min-height: 480px;
+            padding: 28px;
           }
 
         }
@@ -704,9 +757,8 @@ export default function QRGenerationPage() {
         @media(max-width: 600px){
 
           .qr-main {
-            margin-left: 0;
-            padding: 20px 12px;
-            padding-bottom: 110px;
+            padding: 16px 12px;
+            padding-bottom: 75px;
           }
 
 
@@ -724,17 +776,15 @@ export default function QRGenerationPage() {
           .qr-box{
             position: relative;
             overflow: hidden;
-
             background: white;
             border: 2px solid #D9DDD8;
             border-radius: 28px;
-            min-height: 650px;
-            padding: 40px;
-
+            min-height: 580px;
+            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-        }
+          }
 
           .qr-box::before{
             content: "";
@@ -744,14 +794,12 @@ export default function QRGenerationPage() {
             border-radius: 50%;
             background: rgba(127, 165, 143, 0.18);
             filter: blur(80px);
-
             top: -120px;
             left: -120px;
-
             z-index: 0;
-        }
+          }
 
-        .qr-box::after{
+          .qr-box::after{
             content: "";
             position: absolute;
             width: 280px;
@@ -759,17 +807,15 @@ export default function QRGenerationPage() {
             border-radius: 50%;
             background: rgba(123, 17, 19, 0.12);
             filter: blur(70px);
-
             bottom: -100px;
             right: -100px;
-
             z-index: 0;
-        }
+          }
 
 
           .qr-card {
             width: 100%;
-            min-height: 360px;
+            min-height: 400px;
             padding: 20px;
             border-radius: 22px;
             position: relative;
@@ -782,14 +828,32 @@ export default function QRGenerationPage() {
             height: 160px;
           }
 
+          .qr-generate-button {
+            padding: 14px 28px;
+            font-size: 18px;
+          }
+
+          .qr-button {
+            padding: 12px 24px;
+            font-size: 14px;
+          }
+
+          .qr-heading h2 {
+            font-size: 18px;
+          }
+
+          .qr-heading p {
+            font-size: 12px;
+          }
+
         }
 
 
         @media(max-width: 420px){
 
           .qr-main {
-            margin-left: 70px;
-            padding: 16px 10px;
+            padding: 12px 10px;
+            padding-bottom: 70px;
           }
 
 
@@ -797,9 +861,25 @@ export default function QRGenerationPage() {
             font-size: 20px;
           }
 
-
           .qr-card {
-            padding: 15px;
+            padding: 16px;
+            min-height: 360px;
+          }
+
+          .qr-code {
+            width: 130px;
+            height: 130px;
+          }
+
+          .qr-box {
+            min-height: 480px;
+            padding: 16px;
+            border-radius: 20px;
+          }
+
+          .qr-generate-button {
+            padding: 12px 20px;
+            font-size: 16px;
           }
 
         }
@@ -834,20 +914,30 @@ export default function QRGenerationPage() {
       <div className={`${montserrat.variable} qr-page`}>
         <StudentSidebar isLeader={isStudentLeader} />
 
-        <main className="qr-main" style={{
-          paddingLeft: isStudentLeader ? leftPadding : undefined,
-          paddingRight: isStudentLeader && isMobile ? "16px" : undefined,
-          paddingTop: isStudentLeader && isMobile ? "16px" : undefined,
-          paddingBottom: isStudentLeader && isMobile ? "80px" : undefined,
-        }}>
+        <main 
+          className="qr-main" 
+          style={{
+            paddingLeft: responsivePadding.paddingLeft,
+            paddingRight: responsivePadding.paddingRight,
+            paddingTop: responsivePadding.paddingTop,
+            paddingBottom: responsivePadding.paddingBottom,
+            marginTop: isMobile ? '60px' : 0,
+          }}
+        >
           <div className="qr-header">
-            <h1 className="qr-title">Attendance</h1>
+            <h1 className="qr-title" style={{
+              fontSize: isSmallMobile ? "20px" : isMobile ? "24px" : isTablet ? "28px" : "34px",
+            }}>
+              Attendance
+            </h1>
 
-            <ProfilePill
-              name={profile.fullName}
-              initials={getInitials(profile.fullName)}
-              section={profile.sectionName}
-            />
+            {!isMobile && (
+              <ProfilePill
+                name={profile.fullName}
+                initials={getInitials(profile.fullName)}
+                section={profile.sectionName}
+              />
+            )}
           </div>
 
           <div
@@ -905,8 +995,9 @@ export default function QRGenerationPage() {
                 padding: "14px 20px",
                 marginBottom: 20,
                 fontWeight: 800,
-                fontSize: 16,
+                fontSize: isSmallMobile ? 14 : 16,
                 textAlign: "center",
+                flexWrap: "wrap",
               }}
             >
               ✓ You&apos;ve been timed in!
@@ -921,7 +1012,7 @@ export default function QRGenerationPage() {
                   <div className="qr-spinner" />
                   <p
                     style={{
-                      fontSize: 14,
+                      fontSize: isSmallMobile ? 12 : 14,
                       fontWeight: 600,
                       color: C.maroon,
                       textAlign: "center",
@@ -954,14 +1045,15 @@ export default function QRGenerationPage() {
             <div className="qr-box">
               <div className="qr-card">
                 <div
+                  className="qr-heading"
                   style={{
                     textAlign: "center",
-                    marginBottom: 24,
+                    marginBottom: isSmallMobile ? 16 : isMobile ? 20 : 24,
                   }}
                 >
                   <h2
                     style={{
-                      fontSize: 22,
+                      fontSize: isSmallMobile ? 18 : isMobile ? 20 : 22,
                       fontWeight: 800,
                       color: C.maroon,
                       margin: 0,
@@ -972,9 +1064,9 @@ export default function QRGenerationPage() {
 
                   <p
                     style={{
-                      fontSize: 13,
+                      fontSize: isSmallMobile ? 11 : isMobile ? 12 : 13,
                       color: "#7A7A7A",
-                      marginTop: 8,
+                      marginTop: isSmallMobile ? 4 : 8,
                     }}
                   >
                     Scan this QR code to record attendance
@@ -986,7 +1078,7 @@ export default function QRGenerationPage() {
                     <div className="qr-spinner" />
                     <p
                       style={{
-                        fontSize: 14,
+                        fontSize: isSmallMobile ? 12 : 14,
                         fontWeight: 600,
                         color: C.maroon,
                         textAlign: "center",
@@ -1002,7 +1094,7 @@ export default function QRGenerationPage() {
                     {locationDenied && (
                       <p
                         style={{
-                          fontSize: 13,
+                          fontSize: isSmallMobile ? 11 : 13,
                           fontWeight: 600,
                           color: C.maroon,
                           textAlign: "center",
@@ -1018,6 +1110,10 @@ export default function QRGenerationPage() {
                       disabled={locationDenied}
                       className={`qr-button qr-generate-button ${locationDenied ? "qr-disabled" : ""
                         }`}
+                      style={{
+                        padding: isSmallMobile ? "12px 20px" : isMobile ? "14px 28px" : "18px 38px",
+                        fontSize: isSmallMobile ? 16 : isMobile ? 18 : 22,
+                      }}
                     >
                       Generate QR
                     </button>
@@ -1026,7 +1122,7 @@ export default function QRGenerationPage() {
                   <div className="qr-error">
                     <p
                       style={{
-                        fontSize: 14,
+                        fontSize: isSmallMobile ? 12 : 14,
                         fontWeight: 600,
                         color: C.maroon,
                         textAlign: "center",
@@ -1035,7 +1131,14 @@ export default function QRGenerationPage() {
                     >
                       {error}
                     </p>
-                    <button onClick={() => runGenerate()} className="qr-button">
+                    <button 
+                      onClick={() => runGenerate()} 
+                      className="qr-button"
+                      style={{
+                        padding: isSmallMobile ? "10px 18px" : isMobile ? "12px 22px" : "14px 28px",
+                        fontSize: isSmallMobile ? 12 : isMobile ? 14 : 16,
+                      }}
+                    >
                       REGENERATE QR
                     </button>
                   </div>
@@ -1043,11 +1146,17 @@ export default function QRGenerationPage() {
                   <div className="qr-display">
                     <div className="qr-active">● QR ACTIVE</div>
 
-                    <div className="qr-code">
+                    <div 
+                      className="qr-code" 
+                      style={{
+                        width: isSmallMobile ? 130 : isMobile ? 160 : 220,
+                        height: isSmallMobile ? 130 : isMobile ? 160 : 220,
+                      }}
+                    >
                       {token && !qrHidden && (
                         <QRCodeSVG
                           value={token}
-                          size={220}
+                          size={isSmallMobile ? 130 : isMobile ? 160 : 220}
                           level="M"
                           style={{
                             width: "100%",
@@ -1078,7 +1187,7 @@ export default function QRGenerationPage() {
                         </div>
                         <p
                           style={{
-                            fontSize: 12,
+                            fontSize: isSmallMobile ? 10 : 12,
                             fontWeight: 600,
                             marginTop: 6,
                             textAlign: "center",
@@ -1092,7 +1201,7 @@ export default function QRGenerationPage() {
                     <div>
                       <p
                         style={{
-                          fontSize: 14,
+                          fontSize: isSmallMobile ? 11 : isMobile ? 12 : 14,
                           fontWeight: 600,
                           marginBottom: "5px",
                         }}
@@ -1102,7 +1211,10 @@ export default function QRGenerationPage() {
                         {locationLabel || "—"}
                       </p>
 
-                      <p style={{ fontSize: 14, fontWeight: 600 }}>
+                      <p style={{ 
+                        fontSize: isSmallMobile ? 11 : isMobile ? 12 : 14, 
+                        fontWeight: 600 
+                      }}>
                         Time of Generation:
                         <br />
                         {timeLabel || "—"}
@@ -1112,6 +1224,10 @@ export default function QRGenerationPage() {
                     <button
                       onClick={() => runGenerate()}
                       className="qr-button qr-regenerate"
+                      style={{
+                        padding: isSmallMobile ? "10px 18px" : isMobile ? "12px 22px" : "14px 28px",
+                        fontSize: isSmallMobile ? 12 : isMobile ? 14 : 16,
+                      }}
                     >
                       REGENERATE QR
                     </button>
