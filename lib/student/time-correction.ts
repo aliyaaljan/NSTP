@@ -44,6 +44,33 @@ export function manilaIso(date: string, hm: string): string | null {
   return Number.isFinite(d.getTime()) ? d.toISOString() : null
 }
 
+// Reverse of manilaIso — client-safe Manila formatters for pre-filling the edit
+// form from stored ISO instants (mirror server-only manilaTime24/manilaDateKey).
+export function manilaHm(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ""
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d)
+}
+
+export function manilaYmd(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ""
+  // en-CA renders as YYYY-MM-DD, exactly what a <input type="date"> wants.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d)
+}
+
 // Which sessions are selectable for a given scenario.
 export function sessionsForScenario(
   scenario: TimeScenario,
@@ -132,4 +159,63 @@ export function buildStructuredCorrection(
     default:
       return { ok: false, error: "Select what kind of time problem you're reporting." }
   }
+}
+
+// Reverse of buildStructuredCorrection: reconstruct the editable form state from a
+// stored request. The DB keeps only session id + requested times (no scenario),
+// so the scenario is inferred from which of those are present — the exact inverse
+// of the mapping the builder produces above.
+export function inferTimeCorrectionState(
+  req: {
+    attendanceSessionId?: string | null
+    requestedTimeIn?: string | null
+    requestedTimeOut?: string | null
+  },
+  _sessions: RequestSessionOption[]
+): TimeCorrectionState {
+  const { attendanceSessionId, requestedTimeIn, requestedTimeOut } = req
+
+  // Missing session: no linked session, but requested in + out (a session to add).
+  if (!attendanceSessionId && requestedTimeIn && requestedTimeOut) {
+    return {
+      scenario: "missing",
+      sessionId: "",
+      date: manilaYmd(requestedTimeIn),
+      timeIn: manilaHm(requestedTimeIn),
+      timeOut: manilaHm(requestedTimeOut),
+    }
+  }
+
+  if (attendanceSessionId) {
+    // Wrong time: both requested times set on an existing session.
+    if (requestedTimeIn && requestedTimeOut) {
+      return {
+        scenario: "wrong_time",
+        sessionId: attendanceSessionId,
+        date: "",
+        timeIn: manilaHm(requestedTimeIn),
+        timeOut: manilaHm(requestedTimeOut),
+      }
+    }
+    // Restore: only a requested time-out (the voided session's time-in stands).
+    if (!requestedTimeIn && requestedTimeOut) {
+      return {
+        scenario: "restore",
+        sessionId: attendanceSessionId,
+        date: "",
+        timeIn: "",
+        timeOut: manilaHm(requestedTimeOut),
+      }
+    }
+    // Off-site flag: a linked session with no requested time change.
+    return {
+      scenario: "flag",
+      sessionId: attendanceSessionId,
+      date: "",
+      timeIn: "",
+      timeOut: "",
+    }
+  }
+
+  return { ...EMPTY_TIME_CORRECTION }
 }

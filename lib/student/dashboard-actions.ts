@@ -10,6 +10,7 @@ import { extractNstpType } from "@/lib/shared/class-label"
 
 export type StudentDashboardData = {
   enrollmentId: string | null
+  isLeader: boolean
   fullName: string
   studentNumber: string | null
   email: string | null
@@ -61,6 +62,7 @@ function emptyDashboard(
 ): StudentDashboardData {
   return {
     enrollmentId: null,
+    isLeader: false,
     fullName,
     studentNumber,
     email,
@@ -137,6 +139,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
         data: {
           ...emptyDashboard(fullName, studentNumber, email),
           enrollmentId: primary.enrollmentId,
+          isLeader: primary.isStudentLeader,
           sectionName: primary.section.label,
           adviserName: primary.adviserName,
           adviserEmail: primary.adviserEmail,
@@ -198,6 +201,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
       ok: true,
       data: {
         enrollmentId: primary.enrollmentId,
+        isLeader: primary.isStudentLeader,
         fullName,
         studentNumber,
         email,

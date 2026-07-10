@@ -157,7 +157,8 @@ export async function updateStudentRequest(
   appealTypeId: string,
   title: string,
   body: string,
-  structured?: StructuredCorrection
+  structured?: StructuredCorrection,
+  attachments?: { toInsert: RequestAttachment[]; removePaths: string[] }
 ): Promise<ActionResult<any>> {
   try {
     const supabase = await createSupabaseServerClient()
@@ -210,6 +211,54 @@ export async function updateStudentRequest(
       .eq("appeal_id", appealId)
 
     if (updateError) throw updateError
+
+    // Reconcile attachments (add / remove / replace). Runs on the service client,
+    // consistent with the ownership-checked update above.
+    if (attachments) {
+      const removePaths = attachments.removePaths ?? []
+      const toInsert = attachments.toInsert ?? []
+
+      if (removePaths.length > 0) {
+        const { error: deleteRowError } = await service
+          .from("appeal_attachment")
+          .delete()
+          .eq("appeal_id", appealId)
+          .in("storage_path", removePaths)
+        if (deleteRowError) throw deleteRowError
+
+        const { error: storageError } = await service.storage
+          .from("request-attachments")
+          .remove(removePaths)
+        if (storageError) throw storageError
+      }
+
+      if (toInsert.length > 0) {
+        const rows = toInsert.map((a) => ({
+          appeal_id: appealId,
+          storage_path: a.storage_path,
+          file_name: a.file_name,
+          content_type: a.content_type,
+          file_size_byte: a.file_size_byte,
+        }))
+        const { error: insertError } = await service
+          .from("appeal_attachment")
+          .insert(rows)
+        if (insertError) throw insertError
+      }
+
+      // Defense-in-depth: a request may never hold more than MAX_NUM_ATTACHMENT.
+      const { count } = await service
+        .from("appeal_attachment")
+        .select("appeal_attachment_id", { count: "exact", head: true })
+        .eq("appeal_id", appealId)
+      if ((count ?? 0) > MAX_NUM_ATTACHMENT) {
+        return {
+          ok: false,
+          error: `You can attach at most ${MAX_NUM_ATTACHMENT} file per request`,
+        }
+      }
+    }
+
     return { ok: true, data: null }
   } catch (err: any) {
     console.error("[updateStudentRequest] Error: ", err)

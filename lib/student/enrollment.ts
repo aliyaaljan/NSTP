@@ -5,6 +5,7 @@ import { formatClassLabel } from "@/lib/shared/class-label"
 
 export type ActiveStudentEnrollment = {
   enrollmentId: string
+  isStudentLeader: boolean
   adviserName: string | null
   adviserEmail: string | null
   termEndDate: string | null
@@ -43,6 +44,7 @@ export async function resolveActiveStudentEnrollment(
     .select(
       `
       enrollment_id,
+      is_student_leader,
       program:program_id ( name ),
       student_classification:student_classification_id ( name ),
       geofence:assigned_geofence_id ( label ),
@@ -69,6 +71,7 @@ export async function resolveActiveStudentEnrollment(
       const geofence = Array.isArray(e.geofence) ? e.geofence[0] : e.geofence
       return {
         enrollmentId: e.enrollment_id,
+        isStudentLeader: e.is_student_leader ?? false,
         section: sec,
         programName: program?.name ?? null,
         classificationName: classification?.name ?? null,
@@ -114,6 +117,7 @@ export async function resolveActiveStudentEnrollment(
     : primary.section.term
   return {
     enrollmentId: primary.enrollmentId,
+    isStudentLeader: primary.isStudentLeader,
     adviserName: adviser?.full_name ?? null,
     adviserEmail: adviser?.email ?? null,
     termEndDate: term?.end_date ?? null,
