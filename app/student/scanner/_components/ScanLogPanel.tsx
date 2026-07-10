@@ -298,9 +298,10 @@ export function ScanLogPanel({
         flexDirection: "column",
         overflow: "hidden",
         flex: 1,
-        minHeight: isMobile ? "200px" : "300px",
-        maxHeight: isMobile ? "calc(100vh - 400px)" : "calc(100vh - 380px)",
+        minHeight: isMobile ? "180px" : "300px",
+        maxHeight: isMobile ? "calc(100vh - 360px)" : "calc(100vh - 380px)",
         fontFamily: "'Montserrat', sans-serif",
+        paddingBottom: isMobile ? "60px" : "0",
       }}
     >
       {/* Header */}

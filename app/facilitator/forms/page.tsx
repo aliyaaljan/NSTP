@@ -16,12 +16,14 @@ import {
   IconTrash,
   IconFile,
   IconPlus,
+  IconX,
 } from "@tabler/icons-react"
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { createClient } from "@/lib/client"
 import { NstpModal } from "@/components/shared/Modal"
+import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
 
 import {
   getSubmissionsByForm,
@@ -69,6 +71,41 @@ const typeConfig: Record<string, { bg: string; color: string }> = {
   default: { bg: "#F3F4F6", color: "#374151" },
 }
 
+// The four standard NSTP form types, shown first; any other/custom form
+// type added later is appended after these, sorted alphabetically.
+const OFFICIAL_FORM_ORDER = [
+  "Daily Time Record",
+  "Accomplishment Report",
+  "Attendance Sheet",
+  "Incident Report",
+]
+
+function sortFormTypes(types: string[]): string[] {
+  return [...types].sort((a, b) => {
+    const ai = OFFICIAL_FORM_ORDER.indexOf(a)
+    const bi = OFFICIAL_FORM_ORDER.indexOf(b)
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return a.localeCompare(b)
+  })
+}
+
+function countByField<T>(
+  items: T[],
+  getField: (item: T) => string
+): { type: string; count: number }[] {
+  const counts: Record<string, number> = {}
+  items.forEach((item) => {
+    const key = getField(item)
+    counts[key] = (counts[key] ?? 0) + 1
+  })
+  return sortFormTypes(Object.keys(counts)).map((type) => ({
+    type,
+    count: counts[type],
+  }))
+}
+
 const formsStyles = `
   ${dashboardStyles}
   .fm-body { flex: 1; overflow: auto; padding-top: 16px; }
@@ -107,6 +144,18 @@ const formsStyles = `
   }
   .fm-icon-btn:hover { border-color: var(--maroon); color: var(--maroon); background: #FEF2F2; }
   .fm-icon-btn.danger:hover { border-color: #EF4444; color: #EF4444; background: #FEF2F2; }
+  .fm-kpi-active {
+    border-color: var(--maroon) !important;
+    box-shadow: 0 0 0 2px rgba(123, 29, 29, 0.14);
+  }
+  .fm-clear-filter-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: none; border: 1.5px solid var(--maroon);
+    color: var(--maroon); border-radius: 999px;
+    padding: 8px 14px; font-size: 12.5px; font-weight: 700;
+    font-family: var(--font); cursor: pointer; transition: background 0.13s;
+  }
+  .fm-clear-filter-btn:hover { background: #FEF2F2; }
   .fm-upload-zone {
     border: 2px dashed var(--border); border-radius: 12px;
     padding: 32px; text-align: center; cursor: pointer;
@@ -119,13 +168,16 @@ const formsStyles = `
 
 export default function FormsPage() {
   const router = useRouter()
+  const supabase = createClient()
+
+  const [userId, setUserId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<FormTab>("repository")
 
   // Filters
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<"All" | FormStatus>("All")
-  const [typeFilter, setTypeFilter] = useState<FormType | string>("All")
+  const [typeFilter, setTypeFilter] = useState<string>("All")
   const [sectionFilter, setSectionFilter] = useState("All")
 
   // Dropdown toggles
@@ -198,8 +250,17 @@ export default function FormsPage() {
       setFirstName(fName)
       setLastName(lName)
       setInitials((fName[0] ?? "") + (lName[0] ?? ""))
+      setUserId(user?.id ?? null)
     })
   }, [])
+
+  useAdviserBroadcast(supabase, {
+    adviserUserId: userId,
+    tables: ["form_submission", "form_requirement"],
+    onChange: () => {
+      loadData()
+    },
+  })
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -301,6 +362,25 @@ export default function FormsPage() {
     return `${(bytes / 1024).toFixed(1)} KB`
   }
 
+  // Total count per form type — Submission Bin
+  const submissionTypeCounts = countByField(realEntries, (e) => e.type)
+  const typeFilterOptions = ["All", ...submissionTypeCounts.map((c) => c.type)]
+
+  const submissionKpis = [
+    {
+      key: "All",
+      label: "All Submissions",
+      value: realEntries.length,
+      Icon: IconInbox,
+    },
+    ...submissionTypeCounts.map(({ type, count }) => ({
+      key: type,
+      label: type,
+      value: count,
+      Icon: IconFile,
+    })),
+  ]
+
   return (
     <>
       <style>{formsStyles}</style>
@@ -379,7 +459,8 @@ export default function FormsPage() {
                       <div>
                         <div className="adv-table-title">All Forms</div>
                         <div className="adv-table-count">
-                          Official NSTP Documents
+                          {repoForms.length} NSTP Form
+                          {repoForms.length !== 1 ? "s" : ""}
                         </div>
                       </div>
                       <div
@@ -506,6 +587,30 @@ export default function FormsPage() {
 
               {activeTab === "submissions" && (
                 <div className="fm-body">
+                  <div className="stat-cards">
+                    {submissionKpis.map(({ key, label, value, Icon }) => (
+                      <button
+                        key={key}
+                        className={`db-kpi-card db-kpi-card--interactive${
+                          typeFilter === key ? " fm-kpi-active" : ""
+                        }`}
+                        onClick={() => {
+                          setTypeFilter(key)
+                          setCurrentPage(1)
+                        }}
+                        aria-pressed={typeFilter === key}
+                        aria-label={`${label}: ${value}`}
+                      >
+                        <div className="db-kpi-header">
+                          <span className="db-kpi-label">{label}</span>
+                        </div>
+                        <div className="db-kpi-value">{value}</div>
+                        <div className="db-kpi-deco">
+                          <Icon size={110} stroke={1.2} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                   <div className="adv-table-card">
                     <div className="adv-table-toolbar">
                       <div>
@@ -640,15 +745,7 @@ export default function FormsPage() {
                                 overflow: "hidden",
                               }}
                             >
-                              {(
-                                [
-                                  "All",
-                                  "Daily Time Record",
-                                  "Accomplishment Report",
-                                  "Attendance Sheet",
-                                  "Incident Report",
-                                ] as const
-                              ).map((opt) => (
+                              {typeFilterOptions.map((opt) => (
                                 <button
                                   key={opt}
                                   onClick={() => {
@@ -680,6 +777,18 @@ export default function FormsPage() {
                             </div>
                           )}
                         </div>
+
+                        {typeFilter !== "All" && (
+                          <button
+                            className="fm-clear-filter-btn"
+                            onClick={() => {
+                              setTypeFilter("All")
+                              setCurrentPage(1)
+                            }}
+                          >
+                            <IconX size={13} stroke={2} /> Clear Filter
+                          </button>
+                        )}
                       </div>
                     </div>
 

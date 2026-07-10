@@ -109,13 +109,13 @@ export function StatsCards({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "8px",
+        gap: "6px",
         width: "100%",
       }}
     >
       <div
         style={{
-          fontSize: isMobile ? "11px" : "13px",
+          fontSize: isMobile ? "10px" : "13px",
           fontWeight: 500,
           color: "#6B7280",
           fontFamily: "'Montserrat', 'Fallback Montserrat'",
@@ -129,8 +129,8 @@ export function StatsCards({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)",
-          gap: isMobile ? "8px" : "20px",
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+          gap: isMobile ? "6px" : "20px",
           width: "100%",
         }}
       >
@@ -161,7 +161,7 @@ export function StatsCards({
                       : "#ECECEA"
                 }`,
                 borderRadius: "14px",
-                padding: "16px 18px",
+                padding: isMobile ? "10px 14px" : "16px 18px",
                 boxShadow: isActive 
                   ? "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
                   : isHovered 
@@ -181,14 +181,14 @@ export function StatsCards({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  marginBottom: "10px",
+                  marginBottom: isMobile ? "4px" : "10px",
                   position: "relative",
                   zIndex: 1,
                 }}
               >
                 <span
                   style={{
-                    fontSize: "11.5px",
+                    fontSize: isMobile ? "9px" : "11.5px",
                     fontWeight: 600,
                     color: isActive 
                       ? (isNotScanned ? "#000000" : stat.color.icon)
@@ -208,7 +208,7 @@ export function StatsCards({
               {/* Value */}
               <div
                 style={{
-                  fontSize: "34px",
+                  fontSize: isMobile ? "22px" : "34px",
                   fontWeight: 800,
                   lineHeight: 1.1,
                   fontFamily: "'Montserrat', 'Fallback Montserrat'",
@@ -249,7 +249,7 @@ export function StatsCards({
                   transform: isActive || isHovered ? "rotate(0deg) scale(1.08)" : "rotate(0deg) scale(1)",
                 }}
               >
-                {getIcon(stat.icon, 110, isActive ? (isNotScanned ? "#000000" : stat.color.icon) : isHovered ? (isNotScanned ? "#000000" : stat.color.icon) : defaultColor)}
+                {getIcon(stat.icon, isMobile ? 70 : 110, isActive ? (isNotScanned ? "#000000" : stat.color.icon) : isHovered ? (isNotScanned ? "#000000" : stat.color.icon) : defaultColor)}
               </div>
             </div>
           )

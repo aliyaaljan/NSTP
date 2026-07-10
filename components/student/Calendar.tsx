@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react"
+import { createClient } from "@/lib/client"
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -54,6 +55,25 @@ export interface CalendarOverviewProps {
   onRenderedDayClick?: (day: number) => void
 }
 
+function parseDate(dateStr: string): { day: number; month: number } {
+  const parts = dateStr.split("-")
+  const day = parseInt(parts[parts.length - 1], 10)
+  const month = parseInt(parts[parts.length - 2], 10) - 1
+  return { day, month }
+}
+
+function mapHolidayRows(rows: { name: string; holiday_date: string }[]): CalendarEvent[] {
+  return rows.map((row) => {
+    const { day, month } = parseDate(row.holiday_date)
+    return {
+      day,
+      month,
+      title: row.name,
+      type: "holiday" as const,
+    }
+  })
+}
+
 export default function CalendarOverview({
   month,
   year,
@@ -72,6 +92,32 @@ export default function CalendarOverview({
   const [selectedDayEvents, setSelectedDayEvents] = useState<{ events: CalendarEvent[]; day: number } | null>(null)
   const [selectedRenderedDay, setSelectedRenderedDay] = useState<number | null>(null)
   const [rowGap, setRowGap] = useState<number>(8)
+
+  //get holidays directly na lang sa component hehe 
+  const supabase = createClient()
+  const [holidays, setHolidays] = useState<CalendarEvent[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadHolidays = async () => {
+      try {
+        const { data: holidayData, error } = await supabase
+          .from("holiday")
+          .select(`name, holiday_date`)
+
+        if (error) throw error
+
+        if (!cancelled) setHolidays(mapHolidayRows(holidayData ?? []))
+      } catch (err) {
+        console.error("Failed to load holidays:", err)
+        if (!cancelled) setHolidays([])
+      } 
+    }
+
+    loadHolidays()
+    return () => { cancelled = true }
+  }, [currentYear])
 
   // Row gap calculation based on container height
   useEffect(() => {
@@ -138,8 +184,7 @@ export default function CalendarOverview({
     }
   })
 
-  const allEvents = [...HOLIDAYS]
-  const currentMonthEvents = allEvents.filter(e => e.month === currentMonth)
+  const currentMonthEvents = holidays.filter(e => e.month === currentMonth)
   const eventMap = new Map<number, CalendarEvent[]>()
   currentMonthEvents.forEach(e => {
     if (!eventMap.has(e.day)) {
@@ -175,7 +220,7 @@ export default function CalendarOverview({
   }
 
   const isHoliday = (day: number) => {
-    return HOLIDAYS.some(e => e.month === currentMonth && e.day === day && e.type === 'holiday')
+    return holidays.some(e => e.month === currentMonth && e.day === day && e.type === 'holiday')
   }
 
   const isFutureDate = (day: number) => {

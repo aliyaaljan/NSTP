@@ -429,7 +429,7 @@ const myStudentsStyles = `
   .ms-modal-left { flex: 1; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
   .ms-modal-right { width: 430px; flex-shrink: 0; border-left: 1px solid var(--border); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
   .ms-modal-right-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
-  .ms-session-table-wrapper {overflow: auto; max-height:500px }
+  .ms-session-table-wrapper {overflow: auto; max-height:500px; scrollbar-width: thin; }
   .ms-session-table { width: 100%; border-collapse: collapse; table-layout: fixed;}
   .ms-session-table th:nth-child(1) { width: 23%; }
   .ms-session-table th:nth-child(2) { width: 17%; }
@@ -871,6 +871,7 @@ function MyStudentsContent() {
   const selectedStudent = selectedStudentKey
   ? students.find(s => s.enrollment_id === selectedStudentKey) ?? null
   : null
+
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
     onChange: (payload) => {
@@ -881,13 +882,16 @@ function MyStudentsContent() {
       if (payload.table === "attendance_session" || payload.table === "enrollment") {
         Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
       }
+      if (payload.table === "form_submission" || payload.table === "form_requirement") {
+        Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
+      }
       if (payload.table === "section") {
         Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
         router.refresh()
       }
     },
   })
-
+  
   const currentData = statData.find((r) => r.section_name === selectedSection) ?? {
     section_id: "",
     section_name: selectedSection,

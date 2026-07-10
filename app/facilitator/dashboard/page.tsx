@@ -186,8 +186,13 @@ export default function DashboardPage() {
 
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
-    onChange: () => {
-      if (userId) fetchDashboardBundle(userId)
+    tables: ["appeal", "attendance_session", "enrollment"],
+    onChange: (payload) => {
+      if (!userId) return
+
+      if (payload.table === "attendance_session" || payload.table === "enrollment" || payload.table === "appeal") {
+        fetchDashboardBundle(userId)
+      }
     },
   })
 

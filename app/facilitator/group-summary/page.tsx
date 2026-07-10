@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type MouseEvent } from "react";
+import { useState, useEffect, type MouseEvent, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   IconSearch, IconChevronDown, IconUsers,
@@ -12,6 +12,7 @@ import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions";
 import { ChartStyles } from "@/components/shared/ChartModule";
 import { createClient } from "@/lib/client";
+import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface SectionSummary {
@@ -32,42 +33,6 @@ interface SectionSummary {
   avgAttendanceRate: number;
   students: { name: string; hoursLogged: number; totalHours: number; status: "Completed" | "In Progress" | "Not Started" }[];
 }
-
-// ── Mock Data ──────────────────────────────────────────────────────────
-const sections: SectionSummary[] = [
-  {
-    id: "s1", name: "NSTP-H", totalStudents: 10, completed: 3, inProgress: 5, notStarted: 2,
-    completionPct: 62, avgHours: 84, totalHours: 120, atRisk: 2,
-    filesSubmitted: 120, formsCompletionRate: 72, editRequests: 4, gpsCompliance: 94, avgAttendanceRate: 87,
-    students: [
-      { name: "Rhona Shayne Lopez",      hoursLogged: 105, totalHours: 120, status: "In Progress"  },
-      { name: "Jaerish Kyle Rabang",     hoursLogged: 120, totalHours: 120, status: "Completed"    },
-      { name: "Aliya Aljan Mendoza",     hoursLogged: 0,   totalHours: 120, status: "Not Started"  },
-      { name: "Saffi Limbaro",           hoursLogged: 60,  totalHours: 120, status: "In Progress"  },
-      { name: "Charles Ansbert Joaquin", hoursLogged: 120, totalHours: 120, status: "Completed"    },
-      { name: "Axel Xandrei Valido",     hoursLogged: 55,  totalHours: 120, status: "In Progress"  },
-      { name: "Janine Irish Tulic",      hoursLogged: 0,   totalHours: 120, status: "Not Started"  },
-      { name: "Marco Dela Cruz",         hoursLogged: 98,  totalHours: 120, status: "In Progress"  },
-      { name: "Patricia Santos",         hoursLogged: 72,  totalHours: 120, status: "In Progress"  },
-      { name: "Luis Miguel Reyes",       hoursLogged: 120, totalHours: 120, status: "Completed"    },
-    ],
-  },
-  {
-    id: "s2", name: "NSTP-I", totalStudents: 8, completed: 5, inProgress: 2, notStarted: 1,
-    completionPct: 78, avgHours: 101, totalHours: 120, atRisk: 1,
-    filesSubmitted: 83, formsCompletionRate: 88, editRequests: 3, gpsCompliance: 97, avgAttendanceRate: 91,
-    students: [
-      { name: "Anna Marie Cruz",    hoursLogged: 120, totalHours: 120, status: "Completed"   },
-      { name: "Brent Dela Torre",   hoursLogged: 90,  totalHours: 120, status: "In Progress" },
-      { name: "Carl Joseph Tan",    hoursLogged: 120, totalHours: 120, status: "Completed"   },
-      { name: "Diana Rose Flores",  hoursLogged: 0,   totalHours: 120, status: "Not Started" },
-      { name: "Eduardo Santos",     hoursLogged: 120, totalHours: 120, status: "Completed"   },
-      { name: "Faye Reyes",         hoursLogged: 110, totalHours: 120, status: "In Progress" },
-      { name: "Glenn Aquino",       hoursLogged: 120, totalHours: 120, status: "Completed"   },
-      { name: "Hannah Bautista",    hoursLogged: 120, totalHours: 120, status: "Completed"   },
-    ],
-  },
-];
 
 const statusColor: Record<string, { bg: string; color: string }> = {
   "Completed":   { bg: "#D1FAE5", color: "#065F46" },
@@ -283,9 +248,9 @@ const summaryStyles = `
   .gs-section-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
   .gs-section-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; cursor: pointer; transition: background 0.12s;
+    padding: 16px 20px; cursor: pointer; transition: background 0.12s; border-radius: var(--radius); 
   }
-  .gs-section-header:hover { background: #FAFAFA; }
+  .gs-section-header:hover { background: #FAFAFA; overflow: hidden; }
   .gs-section-name { font-size: 16px; font-weight: 700; color: var(--text); }
   .gs-section-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .gs-section-right { display: flex; align-items: center; gap: 20px; }
@@ -346,6 +311,8 @@ type SummaryFilter = "all" | "completed" | "atRisk" | "progress";
 
 export default function GroupSummaryPage() {
   const router = useRouter();
+  const supabase = createClient();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch]           = useState("");
   const [expanded, setExpanded]       = useState<string | null>(null);
@@ -353,10 +320,17 @@ export default function GroupSummaryPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [initials, setInitials] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [sections, setSections] = useState<SectionSummary[]>([]);
+
+  const fetchSummary = useCallback(async (userId: string) => {
+    const {data:summaryData, error:summaryError} = await supabase.rpc("get_summary", {p_adviser_user_id: userId})
+    if (summaryError) console.error("get_summary error: ", summaryError.message, summaryError.details)
+    if (summaryData) setSections(summaryData)
+  }, [supabase])
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async({ data: { user } }) => {
       const full: string = user?.user_metadata?.full_name ?? "";
       const parts = full.trim().split(" ");
       const fName = parts[0] ?? "";
@@ -364,8 +338,17 @@ export default function GroupSummaryPage() {
       setFirstName(fName);
       setLastName(lName);
       setInitials((fName[0] ?? "") + (lName[0] ?? ""));
+      setUserId(user?.id ?? null);
+      if (user?.id) await fetchSummary(user.id);
     });
-  }, []);
+  }, [supabase, fetchSummary]);
+
+  useAdviserBroadcast(supabase, {
+    adviserUserId: userId,
+    onChange: () => {
+      if (userId) fetchSummary(userId);
+    },
+  });
 
   async function handleSignOut() {
     await signOutWithAudit();
@@ -497,7 +480,7 @@ export default function GroupSummaryPage() {
 
                       {/* Expanded body */}
                       {isOpen && (
-                        <div style={{ padding: "20px", borderTop: "1px solid var(--border)" }}>
+                        <div style={{ padding: "20px", borderTop: "1px solid var(--border)" , overflowY: "auto"}}>
 
                           {/* 3-column mini metric cards */}
                           <div className="gs-mini-cards">

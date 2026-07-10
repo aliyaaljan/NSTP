@@ -76,7 +76,9 @@ export default function Map({ student_name, session }: MapProps) {
         {geofence !== null && geofence.centerLat != null && geofence.centerLong != null && (
             <Circle center={[geofence.centerLat, geofence.centerLong] } pathOptions={{color: 'green'}} radius={geofence.radius}> {/* radius in meters */}
                 <Popup>
-                    {geofence.label}
+                    <div className="flex flex-col p-1" style={{ minWidth: 160 }}>
+                        <strong style={{margin: "0 0 4px 0", display: "block"}}>{geofence.label}</strong>
+                    </div>
                 </Popup>
             </Circle>
         )}
@@ -86,10 +88,10 @@ export default function Map({ student_name, session }: MapProps) {
             {loc.generatedLat != null && loc.generatedLong != null && (
                 <Marker position={[loc.generatedLat, loc.generatedLong]} icon={redIcon}>
                 <Popup>
-                    <div className="flex flex-col p-4">
-                        <div>Student {student_name}</div>
-                        <div>Scanned by {loc.recordedBy}</div>
-                        <div>Recorded at {loc.recordedAt}</div>
+                    <div className="flex flex-col p-1" style={{ minWidth: 160 }}>
+                        <strong style={{margin: "0 0 4px 0", display: "block"}}>{student_name}</strong>
+                        <span style={{fontSize: "12px", color: "#555"}}>Scanned by: {loc.recordedBy}</span>
+                        <span style={{fontSize: "12px", color: "#555"}}>Recorded at: {loc.recordedAt}</span>
                     </div>
                 </Popup>
                 </Marker>
