@@ -871,6 +871,7 @@ function MyStudentsContent() {
   const selectedStudent = selectedStudentKey
   ? students.find(s => s.enrollment_id === selectedStudentKey) ?? null
   : null
+
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
     onChange: (payload) => {
@@ -881,13 +882,16 @@ function MyStudentsContent() {
       if (payload.table === "attendance_session" || payload.table === "enrollment") {
         Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
       }
+      if (payload.table === "form_submission" || payload.table === "form_requirement") {
+        Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
+      }
       if (payload.table === "section") {
         Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
         router.refresh()
       }
     },
   })
-
+  
   const currentData = statData.find((r) => r.section_name === selectedSection) ?? {
     section_id: "",
     section_name: selectedSection,

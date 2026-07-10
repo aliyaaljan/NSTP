@@ -22,6 +22,7 @@ import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { createClient } from "@/lib/client"
 import { NstpModal } from "@/components/shared/Modal"
+import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
 
 import {
   getSubmissionsByForm,
@@ -119,6 +120,9 @@ const formsStyles = `
 
 export default function FormsPage() {
   const router = useRouter()
+  const supabase = createClient()
+  
+  const [userId, setUserId] = useState<string | null>(null)  
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<FormTab>("repository")
 
@@ -195,8 +199,15 @@ export default function FormsPage() {
       setFirstName(fName)
       setLastName(lName)
       setInitials((fName[0] ?? "") + (lName[0] ?? ""))
+      setUserId(user?.id ?? null)
     })
   }, [])
+
+  useAdviserBroadcast(supabase, {
+    adviserUserId: userId,
+    tables: ["form_submission", "form_requirement"],
+    onChange: () => {loadData()},
+  })
 
   async function handleSignOut() {
     await signOutWithAudit()
