@@ -1,32 +1,45 @@
 import { google } from "googleapis"
 import { Readable } from "stream"
 
-const getAuth = () => {
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-    throw new Error("Missing GOOGLE_SERVICE_ACCOUNT_KEY environment variable")
+const getOAuthClient = () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error("Missing Google OAuth environment variables")
   }
 
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY)
+  const oauth2Client = new google.auth.OAuth2(
+    clientId,
+    clientSecret,
+    "https://developers.google.com/oauthplayground"
+  )
 
-  return new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/drive.file"],
+  oauth2Client.setCredentials({
+    refresh_token: refreshToken,
   })
+
+  return oauth2Client
 }
 
 /**
- * Uploads a Web API File to a specific Google Drive Folder
+ * direct file upload using personal account's 15GB GDrive quota via Oauthv2
  */
 export const uploadToGoogleDrive = async (file: File, folderId: string) => {
-  const auth = getAuth()
+  const auth = getOAuthClient()
   const drive = google.drive({ version: "v3", auth })
 
+  // convert browser-based file structure into a server-compatible readable stream
   const buffer = Buffer.from(await file.arrayBuffer())
   const stream = new Readable()
   stream.push(buffer)
   stream.push(null)
 
   try {
+    // using OAuthv2, direct file transfer to GDrive Folder
+    // no need for permissions
+
     const response = await drive.files.create({
       requestBody: {
         name: file.name,
@@ -42,9 +55,8 @@ export const uploadToGoogleDrive = async (file: File, folderId: string) => {
     return response.data
   } catch (error: any) {
     console.error("Google Drive API Error:", error)
-
     throw new Error(
-      `Google Drive API Error: ${error.message || JSON.stringify(error)}`
+      `Google Drive API Error: ${error.message || "Failed to upload file"}`
     )
   }
 }
