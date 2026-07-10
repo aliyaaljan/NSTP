@@ -904,10 +904,9 @@ export default function RequestsView() {
        background:white;
        border-radius:15px;
        border:1px solid #E2E2E2;
-       overflow:hidden;
+       overflow:visible;
        position:relative;
        box-shadow:0 10px 30px rgba(0,0,0,.06);
-       overflow-y: auto;
        }
 
 

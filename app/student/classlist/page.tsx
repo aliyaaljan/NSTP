@@ -293,7 +293,7 @@ const pages = []
         .class-card {
           background:white;
           border-radius:15px;
-          overflow:hidden;
+          overflow:visible;
           box-shadow: 0 15px 15px rgba(0, 0, 0, 0.08);
         }
 
@@ -849,7 +849,6 @@ const pages = []
                 {/* filter */}
                 {showFilters && (
                     <div
-                    ref={filterRef} 
                     style={{
                         position: "absolute",
                         top: "100%",

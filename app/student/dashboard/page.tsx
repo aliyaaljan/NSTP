@@ -102,7 +102,7 @@ function HoursCard({
           style={{
             fontWeight: 900,
             fontSize: "clamp(20px, 2vw, 26px)",
-            color: C.maroon,
+            color: C.gold,
             lineHeight: 1,
           }}
         >
