@@ -14,12 +14,14 @@ const goblin = Goblin_One({
 
 const C = {
   green: "#14492E",
-  greenHover: "rgba(255,255,255,0.10)",
-  activeBg: "#F2EEE6",
+  greenDark: "#0E3521",
+  greenHover: "rgba(255,255,255,0.08)",
+  activeBg: "rgba(232,232,232,0.92)",
   activeText: "#14492E",
-  idleText: "rgba(255,255,255,0.86)",
-  divider: "rgba(255,255,255,0.14)",
-  logout: "#D9534F",
+  idleText: "#FFFFFF",
+  idleTextHover: "rgba(255,255,255,0.8)",
+  divider: "rgba(255,255,255,0.25)",
+  logout: "#FCA5A5",
 }
 
 const COLLAPSED_W = 88
@@ -304,15 +306,14 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
           bottom: ${RAIL_MARGIN}px;
           width: ${COLLAPSED_W}px;
           background: ${C.green};
-          border-radius: 22px;
+          border-radius: 20px;
           display: flex;
           flex-direction: column;
           padding: 22px 0 18px;
           overflow: hidden;
           white-space: nowrap;
           z-index: 60;
-          transition: width 0.22s ease;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+          transition: width 0.25s ease;
         }
 
         .nstp-rail.expanded {
@@ -325,24 +326,27 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
 
         .nstp-expand {
           opacity: 0;
-          transition: opacity 0.18s ease;
+          transition: opacity 0.2s ease;
         }
 
         .nstp-link {
-          transition: background 0.15s;
-          border-radius: 50px;
+          transition: color 0.13s;
+          border-radius: 999px;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: flex-start;
+          color: ${C.idleText};
         }
 
-        .nstp-link:hover {
+        .nstp-link:hover:not(.active) {
+          color: ${C.idleTextHover};
           background: ${C.greenHover};
         }
 
         .nstp-link.active {
           background: ${C.activeBg};
+          color: ${C.greenDark};
         }
 
         .nstp-link.active:hover {
@@ -660,8 +664,9 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
           style={{
             display: "flex",
             alignItems: "center",
-            padding: "0 16px",
-            minHeight: 48,
+            justifyContent: expanded ? "flex-start" : "center",
+            padding: expanded ? "0 18px" : "0",
+            minHeight: 46,
           }}
         >
           <div
@@ -675,24 +680,34 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
             <Image
               src="/nstp-logo.jpg"
               alt="NSTP UP Baguio Logo"
-              width={44}
-              height={44}
+              width={46}
+              height={46}
               style={{
                 borderRadius: "50%",
                 objectFit: "cover",
+                border: "2px solid rgba(255,255,255,0.25)",
               }}
               priority
             />
           </div>
 
-          <div className="nstp-expand" style={{ marginLeft: 6 }}>
+          <div
+            className="nstp-expand"
+            style={{
+              marginLeft: expanded ? 10 : 0,
+              width: expanded ? "auto" : 0,
+              overflow: "hidden",
+              flexShrink: 0,
+            }}
+          >
             <div className={goblin.className}
               style={{
                 color: "#fff",
                 fontSize: 30,
                 fontWeight: 100,
-                letterSpacing: 1,
+                letterSpacing: 0.5,
                 lineHeight: 1,
+                whiteSpace: "nowrap",
               }}
             >
               NSTP
@@ -702,8 +717,10 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
               style={{
                 fontSize: 6,
                 fontWeight: 10,
-                color: "rgba(255,255,255,0.65)",
+                color: "rgba(255,255,255,0.9)",
                 lineHeight: 1.4,
+                marginTop: 4,
+                whiteSpace: "nowrap",
               }}
             >
               University of the Philippines Baguio
@@ -716,7 +733,7 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
           style={{
             height: 1,
             background: C.divider,
-            margin: "20px 16px 8px",
+            margin: "8px 18px 8px",
           }}
         />
 
@@ -742,10 +759,10 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
                   fontSize: 11,
                   fontWeight: 700,
                   color: "rgba(255,255,255,0.45)",
-                  letterSpacing: 1.5,
+                  letterSpacing: 1.2,
                   textTransform: "uppercase",
                   opacity: expanded ? 1 : 0,
-                  transition: "opacity 0.15s ease",
+                  transition: "opacity 0.2s ease",
                   whiteSpace: "nowrap",
                 }}
               >
@@ -845,27 +862,26 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
                 return (
                   <Link
                     key={item.href}
-                    href={expanded ? item.href : "#"}
+                    href={item.href}
                     onClick={(e) => {
-                      if (!expanded) {
-                        e.preventDefault()
-                        setExpanded(true)
-                      }
+                      e.stopPropagation()
                     }}
+                    title={!expanded ? item.label : undefined}
                     className={`nstp-link${active ? " active" : ""}`}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       height: 46,
-                      borderRadius: 50,
+                      width: expanded ? "auto" : 46,
+                      alignSelf: expanded ? "auto" : "center",
+                      borderRadius: 999,
                       textDecoration: "none",
                       overflow: "hidden",
-                      pointerEvents: expanded ? "auto" : "none",
                     }}
                   >
                     <span
                       style={{
-                        width: COLLAPSED_W - 16,
+                        width: expanded ? COLLAPSED_W - 16 : "100%",
                         flexShrink: 0,
                         display: "flex",
                         justifyContent: "center",
@@ -875,7 +891,7 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
                       <i
                         className={`ti ${item.icon}`}
                         style={{
-                          fontSize: 21,
+                          fontSize: 20,
                           color: active ? C.activeText : C.idleText,
                         }}
                       />
@@ -884,9 +900,9 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
                     <span
                       className="nstp-expand"
                       style={{
-                        fontSize: 13,
-                        fontWeight: active ? 700 : 500,
-                        color: active ? C.activeText : C.idleText,
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color: active ? C.greenDark : C.idleText,
                       }}
                     >
                       {item.label}
@@ -898,16 +914,28 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
           </div>
         </nav>
 
-        <div className="nstp-logout" style={{ padding: "8px 8px 0" }}>
+        <div
+          className="nstp-logout"
+          style={{
+            padding: "8px 8px 8px",
+            display: "flex",
+            justifyContent: expanded || isMobile ? "flex-start" : "center",
+          }}
+        >
           <button
-            onClick={handleSignOut}
+            onClick={(e) => {
+              e.stopPropagation()
+              handleSignOut()
+            }}
+            title={!expanded && !isMobile ? "Log Out" : undefined}
             className="nstp-link"
             style={{
               display: "flex",
               alignItems: "center",
               height: 46,
-              width: "100%",
-              borderRadius: 14,
+              width: expanded || isMobile ? "100%" : 46,
+              alignSelf: expanded || isMobile ? "auto" : "center",
+              borderRadius: 999,
               border: "none",
               background: "transparent",
               cursor: "pointer",
@@ -919,7 +947,7 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
           >
             <span
               style={{
-                width: COLLAPSED_W - 16,
+                width: expanded || isMobile ? COLLAPSED_W - 16 : "100%",
                 flexShrink: 0,
                 display: "flex",
                 justifyContent: "center",
@@ -929,7 +957,7 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
               <i
                 className="ti ti-logout"
                 style={{
-                  fontSize: 21,
+                  fontSize: 20,
                   color: C.logout,
                 }}
               />
@@ -938,7 +966,7 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
             <span
               className="nstp-expand"
               style={{
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: 500,
                 color: C.logout,
               }}
