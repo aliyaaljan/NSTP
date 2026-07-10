@@ -841,6 +841,40 @@ export default function RequestsView() {
      t.appeal_type_id === editTypeId
  )
 
+ useEffect(() => {
+  const updateKpiGrid = () => {
+    const grids = document.querySelectorAll(".db-kpi-grid")
+
+    grids.forEach((grid) => {
+      if (window.innerWidth <= 768) {
+        ;(grid as HTMLElement).style.gridTemplateColumns = "repeat(2, 1fr)"
+      } else {
+        ;(grid as HTMLElement).style.gridTemplateColumns = "repeat(4, 1fr)"
+      }
+    })
+  }
+
+  updateKpiGrid()
+
+  window.addEventListener("resize", updateKpiGrid)
+
+  return () => {
+    window.removeEventListener("resize", updateKpiGrid)
+  }
+}, [])
+
+
+const [isMobile, setIsMobile] = useState(false)
+
+useEffect(() => {
+  const check = () => setIsMobile(window.innerWidth <= 767)
+
+  check()
+  window.addEventListener("resize", check)
+
+  return () => window.removeEventListener("resize", check)
+}, [])
+
 
  return (
    <>
@@ -897,6 +931,7 @@ export default function RequestsView() {
          display:flex;
          gap:18px;
          margin-bottom:24px;
+         align-items:flex-start;
        }
 
 
@@ -1186,9 +1221,6 @@ export default function RequestsView() {
        margin-bottom:16px;
        }
 
-
-
-
        .request-header h2{
        margin:0;
        font-size:20px;
@@ -1224,105 +1256,7 @@ export default function RequestsView() {
        transform:scale(1.05);
    }
 
-
-       @media (max-width: 900px){
-
-
-       .requests-main{
-           margin-left: 0;
-           padding: 28px 20px;
-       }
-
-
-       .requests-maintitle{
-           font-size:34px;
-       }
-
-
-       .stats{
-           gap:14px;
-       }
-
-
-       .stats > div{
-           padding:18px !important;
-       }
-
-
-       }
-
-
-
-
-       @media (max-width:600px){
-
-
-       .requests-main{
-           margin-left:0;
-           padding:20px 16px;
-           padding-bottom:110px;
-       }
-
-
-       .requests-header{
-           gap:12px;
-           align-items:center;
-       }
-
-
-       .requests-maintitle{
-           font-size:24px;
-       }
-
-
-       .stats{
-           flex-direction:column;
-           gap:12px;
-       }
-
-
-       .request-header{
-           flex-direction:column;
-           align-items:stretch;
-           gap:14px;
-       }
-
-
-       .send-btn{
-           width:100%;
-           height:44px;
-       }
-
-
-       .request-item{
-           padding:20px 18px 20px 28px;
-       }
-
-
-       }
-
-
-
-
-       @media (max-width:420px){
-
-
-       .requests-main{
-           margin-left:0;
-           padding:16px 12px;
-           padding-bottom:90px;
-       }
-
-
-       .requests-maintitle{
-           font-size:21px;
-       }
-
-
-       }
-
-
-        .pagination-container {
+    .pagination-container {
        display:flex;
        justify-content:space-between;
        align-items:center;
@@ -1361,6 +1295,11 @@ export default function RequestsView() {
        align-items:center;
        justify-content:center;
        }
+
+       .request-status-bar{
+       --status-width: 6px;
+       --status-height: 20%;
+        }
 
 
        .pagination-btn.active {
@@ -1411,6 +1350,265 @@ export default function RequestsView() {
        border: 1.5px solid #14532D !important;
        }
 
+       .db-kpi-grid {
+          width:100%;
+        }
+
+
+
+       @media (max-width:1024px){
+
+        .requests-main{
+            padding:28px 20px;
+        }
+
+        .requests-maintitle{
+            font-size:34px;
+        }
+
+
+        .stats{
+            display:grid !important;
+            gap:14px;
+            width:100%;
+        }
+
+
+        .stats > *{
+            width:100% !important;
+            min-width:0 !important;
+        }
+
+
+        .stats > div{
+            padding:18px !important;
+            height:auto !important;
+            min-height:unset !important;
+        }
+
+    }
+
+      @media (max-width:768px){
+
+        .requests-main{
+            padding:28px 20px;
+        }
+
+        .requests-maintitle{
+            font-size:34px;
+        }
+
+
+        .stats{
+            display:grid !important;
+            grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+            gap:10px;
+            width:100%;
+        }
+
+
+        .stats > *{
+            width:100% !important;
+            min-width:0 !important;
+        }
+
+
+        .stats > div{
+            padding:18px !important;
+            height:auto !important;
+            min-height:unset !important;
+        }
+
+
+        .search-box{
+            width:220px;
+            height:38px;
+        }
+
+        .request-card{
+            margin-top: 30px;
+        }
+
+        .db-kpi-grid{
+          gap:12px !important;
+        }
+
+    }
+
+
+
+       @media (max-width:767px){
+
+
+       .requests-main{
+           margin-left:0;
+           padding:20px 16px;
+           padding-bottom:110px;
+       }
+
+
+       .requests-header{
+           gap:12px;
+           align-items:center;
+       }
+
+
+       .requests-maintitle{
+           font-size:24px;
+       }
+
+
+       .stats{
+           flex-direction:column;
+           gap:12px;
+       }
+
+
+       .request-header{
+           flex-direction:column;
+           align-items:stretch;
+           gap:14px;
+       }
+
+
+       .send-btn{
+           width:100%;
+           height:44px;
+       }
+
+
+       .request-item{
+           padding:20px 18px 20px 28px;
+       }
+
+       .divider {
+          background:#D9DDD8;
+          margin-top:1px;
+          margin-bottom:13px;
+        }
+
+        .search-area{
+            width:100%;
+        }
+
+        .search-box{
+            flex:1;
+            width:auto;
+            width:260px;
+            height:30px;
+        }
+
+        .filter{
+            width:46px;
+            height:30px;
+        }
+
+        .profile-pill-wrapper{
+            display:none;
+        }
+
+        .pagination-container{
+            gap:2px;
+            padding:12px 10px;
+        }
+
+        .pagination-info {
+            font-size: 7px;
+        }
+
+        .pagination-buttons {
+            gap:2px;
+        }
+
+        .pagination-btn{
+            font-size:9px;
+            font-weight: 100;
+            width:20px;
+            height:20px;
+            border-radius:5px;
+        }
+
+        .rows-page {
+            font-size: 7px;
+        }
+
+        .rows-select {
+            height:20px;
+            width:40px;
+            font-size: 8px;
+            padding:0 2px;
+        }
+
+        .profile-pill-wrapper{
+          display:none;
+      }
+
+      .requests-maintitle{
+          font-size:28px;
+          padding-top:clamp(43px, 0.5vw, 20px);
+     }
+
+     .db-kpi-grid{
+        gap:10px !important;
+      }
+
+      .request-card{
+            margin-top: 30px;
+        }
+
+      .request-title{
+        font-size:11px;
+        font-weight:600;
+        }
+
+        .request-body{
+        font-size:10px;
+        }
+
+       .request-note{
+         font-size:10px;
+       }
+
+       .request-type-pill{
+        padding: 3px 8px !important;
+        font-size: 9px !important;
+        margin-top: 3px !important;
+      }
+
+      .request-date{
+          font-size:9px !important;
+          margin-top:3px !important;
+      }
+
+      .request-note-box{
+        padding:5px 9px !important;
+        gap:4px !important;
+        border-radius:10px !important;
+        font-size:11px !important;
+        margin-top:4px !important;
+        max-width:100%;
+        overflow-wrap:break-word;
+        white-space:normal;
+    }
+
+    .request-status-bar{
+        --status-width: 4px;
+        --status-height: 18%;
+        top:12px !important;
+        border-radius:8px !important;
+    }
+
+    .status-badge{
+    font-size:9px !important;
+    padding:3px 8px !important;
+    gap:4px !important;
+    }
+
+    .send-btn{
+       height:20x !important; //wait lang po di nagwowork (keyword for bukas: send req)
+     }
+
+    }
 
      `}</style>
 
@@ -1423,12 +1621,13 @@ export default function RequestsView() {
          <div className="requests-header">
            <h1 className="requests-maintitle">Requests</h1>
 
-
+           <div className="profile-pill-wrapper">
            <ProfilePill
              name={profile.fullName}
              initials={getInitials(profile.fullName)}
              section={profile.sectionName}
            />
+         </div>
          </div>
 
 
@@ -1543,7 +1742,7 @@ export default function RequestsView() {
                >
                    <IconFilter size={18} stroke={1.75} />
                    {!!activeRequestFilters.type?.length && (
-                   <span
+                   <span className="status-badge"
                        style={{
                        position: "absolute",
                        top: -6,
@@ -1641,46 +1840,50 @@ export default function RequestsView() {
                  style={{ position: "relative", paddingLeft: 34, cursor: "pointer" }}
         >
                     <div
-                        style={{
-                        position: "absolute",
-                        left: 0,
-                        top: 15,
-                        width: 6,
-                        height: "20%",
-                        background: statusColor,
-                        borderRadius: 10,
-                        }}
+                      className="request-status-bar"
+                      style={{
+                          position: "absolute",
+                          left: 0,
+                          top: isMobile ? 12 : 15,
+                          width: isMobile ? 4 : 6,
+                          height: "20%",
+                          background: statusColor,
+                          borderRadius: 10,
+                      }}
                     />
-
                     <div className="request-top">
                         <div>
                         <div className="request-title">{request.title}</div>
 
                         <div
-                            style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            padding: "4px 10px",
-                            marginTop: 5,
-                            borderRadius: 999,
-                            background: "#cccc",
-                            color: C.green,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            border: `1px solid ${C.green}20`,
-                            }}
-                        >
-                            {request.type}
-                        </div>
+                          className="request-type-pill"
+                          style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              padding: "4px 10px",
+                              marginTop: 5,
+                              borderRadius: 999,
+                              background: "#cccc",
+                              color: C.green,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              border: `1px solid ${C.green}20`,
+                          }}
+                      >
+                          {request.type}
+                      </div>
 
-                        <div style={{ fontSize: 11, color: "#999", marginTop: 6 }}>
-                            Submitted{" "}
-                            {new Date(request.date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                            })}
-                        </div>
+                      <div
+                          className="request-date"
+                          style={{ fontSize: 11, color: "#999", marginTop: 6 }}
+                      >
+                          Submitted{" "}
+                          {new Date(request.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                          })}
+                      </div>
                         </div>
 
                         <StatusBadge status={request.status} />
@@ -1689,16 +1892,17 @@ export default function RequestsView() {
                     <div className="request-body">{request.body}</div>
 
                     <div
+                        className="request-note-box"
                         style={{
-                        marginTop: 5,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: "#F6F5EF",
-                        padding: "7px 12px",
-                        borderRadius: 12,
-                        fontSize: 13,
-                        color: C.textMuted,
+                            marginTop: 5,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            background: "#F6F5EF",
+                            padding: "7px 12px",
+                            borderRadius: 12,
+                            fontSize: 13,
+                            color: C.textMuted,
                         }}
                     >
                         {request.note}
@@ -1724,7 +1928,7 @@ export default function RequestsView() {
                currentPage * itemsPerPage,
                filteredRequests.length
            )}{" "}
-           of {filteredRequests.length} requests
+           of {filteredRequests.length}
            </div>
 
 
