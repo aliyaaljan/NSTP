@@ -31,6 +31,7 @@ import {
   getMyForms,
   saveDriveSubmission,
   getStudentActiveEnrollmentId,
+  getMySubmissionUrl,
   type StudentFormView,
 } from "@/lib/forms/submission-actions"
 
@@ -198,9 +199,18 @@ interface Form {
   deadline: string
   sortDate: Date | null
   status: "uploaded" | "pending"
+  realStatus: "missing" | "submitted" | "approved" | "rejected"
   hasTemplate: boolean
-  submittedFiles?: { name: string; type: string; size: string; url?: string }[]
+  submittedFiles?: {
+    name: string
+    type: string
+    size: string
+    url?: string
+    submissionId?: string
+  }[]
   submittedLinks?: string[]
+  reviewerComment?: string | null
+  submissionDate?: string
 }
 
 export default function StudentFilesPage() {
@@ -247,22 +257,26 @@ export default function StudentFilesPage() {
       setIsTablet(width >= 768 && width < 1024)
       setIsSmallMobile(width < 480)
     }
-    
+
     handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [])
 
   // Filter groups
-  const filterGroups: { label: string; field: FilterField; values: () => string[] }[] = [
+  const filterGroups: {
+    label: string
+    field: FilterField
+    values: () => string[]
+  }[] = [
     { label: "Status", field: "status", values: () => ["uploaded", "pending"] },
   ]
 
   function toggleFilter(field: FilterField, value: string) {
-    setActiveFilters(prev => {
+    setActiveFilters((prev) => {
       const current = prev[field] ?? []
       const updated = current.includes(value)
-        ? current.filter(v => v !== value)
+        ? current.filter((v) => v !== value)
         : [...current, value]
       const next = { ...prev }
       if (updated.length === 0) delete next[field]
@@ -279,13 +293,19 @@ export default function StudentFilesPage() {
     setCurrentPage(1)
   }
 
-  // Filter count 
-  const totalActiveFilters = Object.values(activeFilters).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)
+  // Filter count
+  const totalActiveFilters = Object.values(activeFilters).reduce(
+    (sum, arr) => sum + (arr?.length ?? 0),
+    0
+  )
 
   useEffect(() => {
     if (!showFilterPanel) return
     function handleClickOutside(e: MouseEvent) {
-      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)) {
+      if (
+        filterPanelRef.current &&
+        !filterPanelRef.current.contains(e.target as Node)
+      ) {
         setShowFilterPanel(false)
       }
     }
@@ -347,6 +367,7 @@ export default function StudentFilesPage() {
                 ? formatFileSize(req.submission.file_size_byte)
                 : "0 KB",
               url: path,
+              sumissionId: req.submission.form_submission_id,
             })
           }
         }
@@ -358,10 +379,10 @@ export default function StudentFilesPage() {
           const dateObj = new Date(req.due_date)
           if (!isNaN(dateObj.getTime())) {
             sortDate = dateObj
-            formattedDeadline = dateObj.toLocaleDateString('en-US', { 
-              month: 'long', 
-              day: 'numeric', 
-              year: 'numeric' 
+            formattedDeadline = dateObj.toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
             })
           }
         }
@@ -375,9 +396,17 @@ export default function StudentFilesPage() {
             req.status === "missing" || req.status === "rejected"
               ? "pending"
               : "uploaded",
+          realStatus: req.status,
           hasTemplate: req.has_template,
           submittedFiles,
           submittedLinks,
+          reviewerComment: req.submission?.reviewer_comment,
+          submissionDate: req.submission?.submitted_at
+            ? new Date(req.submission.submitted_at).toLocaleDateString(
+                "en-US",
+                { month: "short", day: "numeric", year: "numeric" }
+              )
+            : undefined,
         }
       })
       setForms(mappedForms)
@@ -474,7 +503,7 @@ export default function StudentFilesPage() {
     }
   }
 
-  // Table & Filter Logic 
+  // Table & Filter Logic
 
   const uploadedCount = forms.filter((f) => f.status === "uploaded").length
   const totalCount = forms.length
@@ -514,7 +543,9 @@ export default function StudentFilesPage() {
     if (searchQuery.trim() !== "")
       return form.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
 
-    const matchFilters = (Object.entries(activeFilters) as [FilterField, string[]][]).every(([field, values]) => {
+    const matchFilters = (
+      Object.entries(activeFilters) as [FilterField, string[]][]
+    ).every(([field, values]) => {
       if (!values || values.length === 0) return true
       if (field === "status") {
         return values.includes(form.status)
@@ -538,7 +569,7 @@ export default function StudentFilesPage() {
       } else if (sortField === "deadline") {
         const dateA = a.sortDate
         const dateB = b.sortDate
-        
+
         // Handle null dates
         if (dateA === null && dateB === null) comparison = 0
         else if (dateA === null) comparison = 1 // goes to end
@@ -604,21 +635,30 @@ export default function StudentFilesPage() {
     return <IconFile size={20} stroke={1.75} />
   }
 
+  const handleDirectFileDownload = async (submissionId: string | undefined) => {
+    if (!submissionId) return
+    const res = await getMySubmissionUrl(submissionId)
+    if (res.ok) window.open(res.url, "_blank")
+    else alert(`Download Error: ${res.error}`)
+  }
   const isUploadDisabled = () =>
     selectedFiles.length === 0 && links.length === 0
-  
+
   // URL Validation
   const isValidUrl = (url: string) => {
     if (!url || url.trim() === "") return false
-    
+
     try {
       const urlObj = new URL(url)
-      return urlObj.protocol === "http:" || 
-            urlObj.protocol === "https:" || 
-            urlObj.protocol === "ftp:" ||
-            urlObj.protocol === "ftps:"
+      return (
+        urlObj.protocol === "http:" ||
+        urlObj.protocol === "https:" ||
+        urlObj.protocol === "ftp:" ||
+        urlObj.protocol === "ftps:"
+      )
     } catch {
-      const urlPattern = /^(https?:\/\/|ftp:\/\/|ftps:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?(\/.*)?$/i
+      const urlPattern =
+        /^(https?:\/\/|ftp:\/\/|ftps:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?(\/.*)?$/i
       return urlPattern.test(url.trim())
     }
   }
@@ -632,31 +672,31 @@ export default function StudentFilesPage() {
   // Responsive padding calculation
   const getResponsivePadding = () => {
     if (isMobile) {
-      const bottomPadding = isSmallMobile ? 20 : 70 
+      const bottomPadding = isSmallMobile ? 20 : 70
       return {
-        paddingLeft: '12px',
-        paddingRight: '12px',
-        paddingTop: isSmallMobile ? '12px' : '14px',
+        paddingLeft: "12px",
+        paddingRight: "12px",
+        paddingTop: isSmallMobile ? "12px" : "14px",
         paddingBottom: `${bottomPadding}px`,
-        marginTop: isMobile ? '60px' : 0,
+        marginTop: isMobile ? "60px" : 0,
       }
     }
-    
+
     if (isTablet) {
       return {
-        paddingLeft: '24px',
-        paddingRight: '24px',
-        paddingTop: '24px',
-        paddingBottom: '24px',
+        paddingLeft: "24px",
+        paddingRight: "24px",
+        paddingTop: "24px",
+        paddingBottom: "24px",
         marginTop: 0,
       }
     }
-    
+
     return {
-      paddingLeft: '32px',
-      paddingRight: '32px',
-      paddingTop: '28px',
-      paddingBottom: '28px',
+      paddingLeft: "32px",
+      paddingRight: "32px",
+      paddingTop: "28px",
+      paddingBottom: "28px",
       marginTop: 0,
     }
   }
@@ -664,10 +704,10 @@ export default function StudentFilesPage() {
   const responsivePadding = getResponsivePadding()
 
   const getTitleSize = () => {
-    if (isSmallMobile) return '24px'
-    if (isMobile) return '28px'
-    if (isTablet) return '30px'
-    return '34px'
+    if (isSmallMobile) return "24px"
+    if (isMobile) return "28px"
+    if (isTablet) return "30px"
+    return "34px"
   }
 
   return (
@@ -675,8 +715,8 @@ export default function StudentFilesPage() {
       <style>{studentFilesStyles}</style>
       <div className="sf-root">
         <StudentSidebar />
-        <main 
-          className="sf-main" 
+        <main
+          className="sf-main"
           style={{
             paddingLeft: responsivePadding.paddingLeft,
             paddingRight: responsivePadding.paddingRight,
@@ -688,7 +728,7 @@ export default function StudentFilesPage() {
           {/* Header */}
           <div className="sf-header">
             <div className="sf-header-left">
-              <h1 
+              <h1
                 className="sf-header-title"
                 style={{
                   fontSize: getTitleSize(),
@@ -791,11 +831,13 @@ export default function StudentFilesPage() {
                 <div ref={filterPanelRef} style={{ position: "relative" }}>
                   <button
                     className="sf-adv-filter-btn"
-                    onClick={() => setShowFilterPanel(v => !v)}
+                    onClick={() => setShowFilterPanel((v) => !v)}
                     style={{
                       width: 60,
                       height: 38,
-                      border: `1.5px solid ${totalActiveFilters > 0 ? "#7B1D1D" : "#1B4332"}`,
+                      border: `1.5px solid ${
+                        totalActiveFilters > 0 ? "#7B1D1D" : "#1B4332"
+                      }`,
                       borderRadius: 999,
                       background: "white",
                       color: totalActiveFilters > 0 ? "#7B1D1D" : "#1B4332",
@@ -810,21 +852,23 @@ export default function StudentFilesPage() {
                   >
                     <IconFilter size={18} stroke={1.75} />
                     {totalActiveFilters > 0 && (
-                      <span style={{
-                        position: "absolute",
-                        top: -6,
-                        right: -6,
-                        background: "#7B1D1D",
-                        color: "#fff",
-                        borderRadius: "50%",
-                        width: 16,
-                        height: 16,
-                        fontSize: 9,
-                        fontWeight: 700,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}>
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: -6,
+                          right: -6,
+                          background: "#7B1D1D",
+                          color: "#fff",
+                          borderRadius: "50%",
+                          width: 16,
+                          height: 16,
+                          fontSize: 9,
+                          fontWeight: 700,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
                         {totalActiveFilters}
                       </span>
                     )}
@@ -832,31 +876,39 @@ export default function StudentFilesPage() {
 
                   {/* Filter Popup */}
                   {showFilterPanel && (
-                    <div style={{
-                      position: "absolute",
-                      top: "calc(100% + 8px)",
-                      right: 0,
-                      background: "#FFFFFF",
-                      border: "1px solid #E5E7EB",
-                      borderRadius: 14,
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                      zIndex: 100,
-                      padding: 16,
-                      minWidth: 180,
-                    }}>
-                      <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 12,
-                      }}>
-                        <span style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: "#6B7280",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                        }}>Filter</span>
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 8px)",
+                        right: 0,
+                        background: "#FFFFFF",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: 14,
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                        zIndex: 100,
+                        padding: 16,
+                        minWidth: 180,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: 12,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#6B7280",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          Filter
+                        </span>
                         {totalActiveFilters > 0 && (
                           <button
                             onClick={clearAllFilters}
@@ -867,7 +919,8 @@ export default function StudentFilesPage() {
                               fontSize: 11.5,
                               color: "#7B1D1D",
                               fontWeight: 600,
-                              fontFamily: "var(--font-montserrat, 'Montserrat', sans-serif)",
+                              fontFamily:
+                                "var(--font-montserrat, 'Montserrat', sans-serif)",
                               padding: 0,
                             }}
                           >
@@ -876,27 +929,40 @@ export default function StudentFilesPage() {
                         )}
                       </div>
 
-                      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+                      <div
+                        style={{ display: "flex", gap: 24, flexWrap: "wrap" }}
+                      >
                         {filterGroups.map(({ label, field, values }) => {
                           const opts = values()
                           if (opts.length === 0) return null
                           const checked = activeFilters[field] ?? []
                           return (
                             <div key={field} style={{ minWidth: 100 }}>
-                              <div style={{
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: "#111827",
-                                marginBottom: 8,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.4px",
-                              }}>{label}</div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                {opts.map(v => {
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: "#111827",
+                                  marginBottom: 8,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.4px",
+                                }}
+                              >
+                                {label}
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 6,
+                                }}
+                              >
+                                {opts.map((v) => {
                                   // Format display value
                                   let displayValue = v
                                   if (field === "status") {
-                                    displayValue = v === "uploaded" ? "Submitted" : "Pending"
+                                    displayValue =
+                                      v === "uploaded" ? "Submitted" : "Pending"
                                   }
                                   return (
                                     <label
@@ -908,7 +974,8 @@ export default function StudentFilesPage() {
                                         cursor: "pointer",
                                         fontSize: 13,
                                         color: "#111827",
-                                        fontFamily: "var(--font-montserrat, 'Montserrat', sans-serif)",
+                                        fontFamily:
+                                          "var(--font-montserrat, 'Montserrat', sans-serif)",
                                       }}
                                     >
                                       <input
@@ -972,17 +1039,37 @@ export default function StudentFilesPage() {
                             <span
                               className="sf-status-badge sf-status-badge-submitted"
                               onClick={() => handleViewClick(form)}
-                              style={{ minWidth: isSmallMobile ? '70px' : '80px', fontSize: isSmallMobile ? '10px' : '11px', padding: isSmallMobile ? '3px 10px' : '4px 12px' }}
+                              style={{
+                                minWidth: isSmallMobile ? "70px" : "80px",
+                                fontSize: isSmallMobile ? "10px" : "11px",
+                                padding: isSmallMobile
+                                  ? "3px 10px"
+                                  : "4px 12px",
+                              }}
                             >
-                              <IconEye size={isSmallMobile ? 10 : 12} stroke={2} /> Submitted
+                              <IconEye
+                                size={isSmallMobile ? 10 : 12}
+                                stroke={2}
+                              />{" "}
+                              Submitted
                             </span>
                           ) : (
                             <button
                               className="sf-upload-btn"
                               onClick={() => handleUploadClick(form)}
-                              style={{ minWidth: isSmallMobile ? '70px' : '80px', fontSize: isSmallMobile ? '10px' : '11px', padding: isSmallMobile ? '3px 10px' : '4px 12px' }}
+                              style={{
+                                minWidth: isSmallMobile ? "70px" : "80px",
+                                fontSize: isSmallMobile ? "10px" : "11px",
+                                padding: isSmallMobile
+                                  ? "3px 10px"
+                                  : "4px 12px",
+                              }}
                             >
-                              <IconUpload size={isSmallMobile ? 10 : 12} stroke={2.5} /> Upload
+                              <IconUpload
+                                size={isSmallMobile ? 10 : 12}
+                                stroke={2.5}
+                              />{" "}
+                              Upload
                             </button>
                           )}
                         </div>
@@ -1076,52 +1163,64 @@ export default function StudentFilesPage() {
                 {(() => {
                   const maxVisible = isSmallMobile ? 3 : 5
                   let pages = []
-                  
+
                   if (filteredTotalPages <= maxVisible + 2) {
                     for (let i = 1; i <= filteredTotalPages; i++) {
                       pages.push(i)
                     }
                   } else {
                     pages.push(1)
-                    
-                    let start = Math.max(2, currentPage - Math.floor(maxVisible / 2))
-                    let end = Math.min(filteredTotalPages - 1, currentPage + Math.floor(maxVisible / 2))
-                    
+
+                    let start = Math.max(
+                      2,
+                      currentPage - Math.floor(maxVisible / 2)
+                    )
+                    let end = Math.min(
+                      filteredTotalPages - 1,
+                      currentPage + Math.floor(maxVisible / 2)
+                    )
+
                     if (currentPage <= Math.floor(maxVisible / 2) + 1) {
                       end = maxVisible
                     }
-                    if (currentPage >= filteredTotalPages - Math.floor(maxVisible / 2)) {
+                    if (
+                      currentPage >=
+                      filteredTotalPages - Math.floor(maxVisible / 2)
+                    ) {
                       start = filteredTotalPages - maxVisible + 1
                     }
-                    
+
                     if (start > 2) {
                       pages.push(-1)
                     }
-                    
+
                     for (let i = start; i <= end; i++) {
                       if (i > 1 && i < filteredTotalPages) {
                         pages.push(i)
                       }
                     }
-                    
+
                     if (end < filteredTotalPages - 1) {
                       pages.push(-2)
                     }
-                    
+
                     if (filteredTotalPages > 1) {
                       pages.push(filteredTotalPages)
                     }
                   }
-                  
+
                   return pages.map((p, index) => {
                     if (p === -1 || p === -2) {
                       return (
-                        <span key={`ellipsis-${index}`} style={{ 
-                          color: "#6B7280", 
-                          fontSize: isSmallMobile ? 8 : 12, 
-                          fontFamily: "'Montserrat', 'Fallback Montserrat'", 
-                          padding: "0 2px" 
-                        }}>
+                        <span
+                          key={`ellipsis-${index}`}
+                          style={{
+                            color: "#6B7280",
+                            fontSize: isSmallMobile ? 8 : 12,
+                            fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                            padding: "0 2px",
+                          }}
+                        >
                           …
                         </span>
                       )
@@ -1129,12 +1228,14 @@ export default function StudentFilesPage() {
                     return (
                       <button
                         key={p}
-                        className={`sf-adv-page-btn${p === currentPage ? " sf-adv-page-btn-active" : ""}`}
+                        className={`sf-adv-page-btn${
+                          p === currentPage ? " sf-adv-page-btn-active" : ""
+                        }`}
                         onClick={() => setCurrentPage(p)}
                         style={{
-                          minWidth: isSmallMobile ? '20px' : '28px',
-                          height: isSmallMobile ? '20px' : '28px',
-                          fontSize: isSmallMobile ? '9px' : '12px',
+                          minWidth: isSmallMobile ? "20px" : "28px",
+                          height: isSmallMobile ? "20px" : "28px",
+                          fontSize: isSmallMobile ? "9px" : "12px",
                         }}
                       >
                         {p}
@@ -1169,8 +1270,10 @@ export default function StudentFilesPage() {
                     setCurrentPage(1)
                   }}
                 >
-                  {[5, 10, 20, 50].map(n => (
-                    <option key={n} value={n}>{n}</option>
+                  {[5, 10, 20, 50].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1201,13 +1304,23 @@ export default function StudentFilesPage() {
                       id="file-input"
                       type="file"
                       multiple
+                      accept=".pdf,.doc,.docx,.jpg,.png,.zip"
                       style={{ display: "none" }}
                       onChange={(e) => {
                         if (e.target.files) {
-                          setSelectedFiles((prev) => [
-                            ...prev,
-                            ...Array.from(e.target.files!),
-                          ])
+                          const files = Array.from(e.target.files)
+                          const MAX_SIZE = 10 * 1024 * 1024 // 10 MB limit
+                          const validFiles = files.filter(
+                            (f) => f.size <= MAX_SIZE
+                          )
+
+                          if (validFiles.length < files.length) {
+                            alert(
+                              "Some files were ignored because they exceed the 10MB limit."
+                            )
+                          }
+
+                          setSelectedFiles((prev) => [...prev, ...validFiles])
                           setIsDropdownOpen(false)
                         }
                       }}
@@ -1246,9 +1359,17 @@ export default function StudentFilesPage() {
                             }
                           }}
                           disabled={!isValidUrl(linkInput.trim())}
-                          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
                         >
-                          <IconPlus size={14} stroke={2} style={{ color: "#FFFFFF", flexShrink: 0 }} />
+                          <IconPlus
+                            size={14}
+                            stroke={2}
+                            style={{ color: "#FFFFFF", flexShrink: 0 }}
+                          />
                           <span style={{ whiteSpace: "nowrap" }}>Add</span>
                         </button>
                         <button
@@ -1270,7 +1391,10 @@ export default function StudentFilesPage() {
                           if (item.type === "file") {
                             const file = item.data
                             return (
-                              <div key={`file-${index}`} className="sf-file-preview-card">
+                              <div
+                                key={`file-${index}`}
+                                className="sf-file-preview-card"
+                              >
                                 <div className="sf-file-preview-icon-wrapper">
                                   {getFileIcon(file)}
                                 </div>
@@ -1302,7 +1426,10 @@ export default function StudentFilesPage() {
                           } else {
                             const link = item.data
                             return (
-                              <div key={`link-${index}`} className="sf-file-preview-card">
+                              <div
+                                key={`link-${index}`}
+                                className="sf-file-preview-card"
+                              >
                                 <div
                                   className="sf-file-preview-icon-wrapper"
                                   style={{
@@ -1313,7 +1440,9 @@ export default function StudentFilesPage() {
                                   <IconLink size={20} stroke={1.75} />
                                 </div>
                                 <div className="sf-file-preview-info">
-                                  <div className="sf-file-preview-name">{link}</div>
+                                  <div className="sf-file-preview-name">
+                                    {link}
+                                  </div>
                                   <div className="sf-file-preview-meta">
                                     <span
                                       className="sf-file-preview-type"
@@ -1326,7 +1455,9 @@ export default function StudentFilesPage() {
                                 <button
                                   className="sf-file-preview-remove"
                                   onClick={() =>
-                                    setLinks((p) => p.filter((_, i) => i !== index))
+                                    setLinks((p) =>
+                                      p.filter((_, i) => i !== index)
+                                    )
                                   }
                                 >
                                   <IconX size={18} stroke={2} />
@@ -1359,7 +1490,9 @@ export default function StudentFilesPage() {
                           <IconPlus
                             size={18}
                             stroke={2}
-                            className={isDropdownOpen ? "sf-add-icon-rotated" : ""}
+                            className={
+                              isDropdownOpen ? "sf-add-icon-rotated" : ""
+                            }
                             style={{ position: "absolute", left: "16px" }}
                           />
                           <span>Add File / Link</span>
@@ -1441,53 +1574,218 @@ export default function StudentFilesPage() {
                 </div>
                 <div className="sf-modal-body">
                   <div className="sf-modal-content">
-                    {/* Submitted Links / Drive Web View */}
-                    {viewingForm.submittedLinks &&
-                      viewingForm.submittedLinks.length > 0 && (
-                        <div className="sf-file-grid">
-                          {viewingForm.submittedLinks.map((link, index) => (
-                            <div key={index} className="sf-file-preview-card">
-                              <div
-                                className="sf-file-preview-icon-wrapper"
-                                style={{
-                                  background: "#E8EDE5",
-                                  color: "#1B4332",
-                                }}
-                              >
-                                <IconLink size={20} stroke={1.75} />
-                              </div>
-                              <div className="sf-file-preview-info">
-                                <div
-                                  className="sf-file-preview-name"
-                                  style={{
-                                    cursor: "pointer",
-                                    color: "#1B4332",
-                                    textDecoration: "underline",
-                                  }}
-                                  onClick={() => window.open(link, "_blank")}
-                                >
-                                  Open in Google Drive
-                                </div>
-                                <div className="sf-file-preview-meta">
-                                  <span
-                                    className="sf-file-preview-type"
-                                    style={{ background: "#1B4332" }}
-                                  >
-                                    DRIVE
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                    {/* Status & Adviser Note Section */}
+                    <div
+                      style={{
+                        marginBottom: 20,
+                        padding: 16,
+                        background: "#F9FAFB",
+                        borderRadius: 10,
+                        border: "1px solid #E5E7EB",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 12,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "#4B5563",
+                          }}
+                        >
+                          Status:
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            padding: "4px 12px",
+                            borderRadius: "20px",
+                            background:
+                              viewingForm.realStatus === "approved"
+                                ? "#D1FAE5"
+                                : viewingForm.realStatus === "rejected"
+                                ? "#FEE2E2"
+                                : "#E8EDE5",
+                            color:
+                              viewingForm.realStatus === "approved"
+                                ? "#065F46"
+                                : viewingForm.realStatus === "rejected"
+                                ? "#991B1B"
+                                : "#1B4332",
+                          }}
+                        >
+                          {viewingForm.realStatus.toUpperCase()}
+                        </span>
+                      </div>
+
+                      {viewingForm.submissionDate && (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: viewingForm.reviewerComment ? 12 : 0,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "#4B5563",
+                            }}
+                          >
+                            Submitted On:
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 13,
+                              color: "#111827",
+                              fontWeight: 500,
+                            }}
+                          >
+                            {viewingForm.submissionDate}
+                          </span>
                         </div>
                       )}
-                    {(!viewingForm.submittedLinks ||
-                      viewingForm.submittedLinks.length === 0) && (
-                      <div className="sf-empty-state">
-                        <IconFileText size={40} stroke={1.5} />
-                        <p>No files submitted</p>
-                      </div>
-                    )}
+
+                      {viewingForm.reviewerComment && (
+                        <div
+                          style={{
+                            marginTop: 12,
+                            paddingTop: 12,
+                            borderTop: "1px solid #E5E7EB",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#7B1D1D",
+                              display: "block",
+                              marginBottom: 6,
+                            }}
+                          >
+                            ADVISER'S NOTE:
+                          </span>
+                          <p
+                            style={{
+                              fontSize: 13,
+                              color: "#111827",
+                              margin: 0,
+                              fontStyle: "italic",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            "{viewingForm.reviewerComment}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <h4
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#111827",
+                        marginBottom: 12,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Attachments
+                    </h4>
+
+                    <div className="sf-file-grid">
+                      {/* Submitted Links / Drive Web View */}
+                      {viewingForm.submittedLinks?.map((link, index) => (
+                        <div
+                          key={`link-${index}`}
+                          className="sf-file-preview-card"
+                        >
+                          <div
+                            className="sf-file-preview-icon-wrapper"
+                            style={{ background: "#E8EDE5", color: "#1B4332" }}
+                          >
+                            <IconLink size={20} stroke={1.75} />
+                          </div>
+                          <div className="sf-file-preview-info">
+                            <div
+                              className="sf-file-preview-name"
+                              style={{
+                                cursor: "pointer",
+                                color: "#1B4332",
+                                textDecoration: "underline",
+                              }}
+                              onClick={() => window.open(link, "_blank")}
+                            >
+                              Open in Google Drive
+                            </div>
+                            <div className="sf-file-preview-meta">
+                              <span
+                                className="sf-file-preview-type"
+                                style={{ background: "#1B4332" }}
+                              >
+                                DRIVE
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Direct File Submissions (Supabase Storage) */}
+                      {viewingForm.submittedFiles?.map((file, index) => (
+                        <div
+                          key={`file-${index}`}
+                          className="sf-file-preview-card"
+                        >
+                          <div
+                            className="sf-file-preview-icon-wrapper"
+                            style={{ background: "#F3F4F6", color: "#4B5563" }}
+                          >
+                            <IconFileText size={20} stroke={1.75} />
+                          </div>
+                          <div className="sf-file-preview-info">
+                            <div
+                              className="sf-file-preview-name"
+                              style={{
+                                cursor: "pointer",
+                                color: "#1B4332",
+                                textDecoration: "underline",
+                              }}
+                              onClick={() =>
+                                handleDirectFileDownload(file.submissionId)
+                              }
+                            >
+                              {file.name}
+                            </div>
+                            <div className="sf-file-preview-meta">
+                              <span
+                                className="sf-file-preview-type"
+                                style={{ background: "#4B5563" }}
+                              >
+                                {file.type}
+                              </span>
+                              <span className="sf-file-preview-size">
+                                {file.size}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {!viewingForm.submittedLinks?.length &&
+                      !viewingForm.submittedFiles?.length && (
+                        <div className="sf-empty-state">
+                          <IconFileText size={40} stroke={1.5} />
+                          <p>No files submitted</p>
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
