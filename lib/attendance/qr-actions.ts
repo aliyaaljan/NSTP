@@ -122,6 +122,31 @@ export async function generateQrToken(
 
   const { device_type, browser, os, ip_address: ip } = await getRequestClientMeta()
 
+  const payload: QrTokenPayload = {
+    enrollmentId,
+    nonce,
+    generatedAt: generatedAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    latitude: geo.latitude,
+    longitude: geo.longitude,
+    accuracy_meter: geo.accuracy_meter ?? 0,
+    device_type,
+    browser,
+    os,
+    ip_address: ip,
+  }
+
+  let token: string
+  try {
+    token = encryptQrPayload(payload)
+  } catch (e) {
+    console.error("[generateQrToken] encryption failed", e)
+    return {
+      ok: false,
+      error: "QR is not configured on the server (encryption key missing). Contact the administrator.",
+    }
+  }
+
   const { error } = await service
     .from("qr_current_token")
     .upsert(
@@ -140,22 +165,6 @@ export async function generateQrToken(
     console.error("[generateQrToken] upsert failed", error)
     return { ok: false, error: "Failed to generate QR token" }
   }
-
-  const payload: QrTokenPayload = {
-    enrollmentId,
-    nonce,
-    generatedAt: generatedAt.toISOString(),
-    expiresAt: expiresAt.toISOString(),
-    latitude: geo.latitude,
-    longitude: geo.longitude,
-    accuracy_meter: geo.accuracy_meter ?? 0,
-    device_type,
-    browser,
-    os,
-    ip_address: ip,
-  }
-
-  const token = encryptQrPayload(payload)
 
   return {
     ok: true,
@@ -188,7 +197,17 @@ export async function recordScan(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not authenticated", code: "not_authenticated" }
 
-  const payload = decryptQrPayload(token)
+  let payload: Record<string, unknown> | null
+  try {
+    payload = decryptQrPayload(token)
+  } catch (e) {
+    console.error("[recordScan] QR key misconfigured", e)
+    return {
+      ok: false,
+      error: "QR scanning is not configured on the server. Contact the administrator.",
+      code: "unknown",
+    }
+  }
   if (!payload || !payload.enrollmentId || !payload.nonce) {
     return { ok: false, error: "Invalid or tampered QR", code: "invalid" }
   }

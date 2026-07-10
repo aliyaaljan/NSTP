@@ -1,27 +1,65 @@
 /**
- * CSV import contract for admin adviser list.
+ * Facilitator import contract — matches the NSTP office's real roster
+ * (e.g. "1252-Facilitators.xlsx"). Client-safe module.
  *
- * Backend devs: parse uploaded CSV into `AdviserCsvImportRow[]`, then upsert
- * `app_user` (role = adviser) and assign `section.adviser_user_id` in
- * `importAdvisersFromCsv`.
+ * Two-phase flow (implemented in lib/admin/adviser-list-actions.ts):
+ *   1. parseAdviserImport(formData) -> validated preview (no writes)
+ *   2. commitAdviserImportChunk({ rows }) with IMPORT_CHUNK_SIZE-row slices.
  */
 
-export const ADVISER_CSV_COLUMNS = [
-  "email",
-  "full_name",
-  "section_name",
-] as const
+import type { ImportColumnSpec, RowIssue } from "@/lib/admin/import/types"
 
-export type AdviserCsvColumn = (typeof ADVISER_CSV_COLUMNS)[number]
+export const ADVISER_IMPORT_COLUMNS: readonly ImportColumnSpec[] = [
+  { key: "full_name", aliases: ["Facilitator's Name"], required: true },
+  { key: "college", aliases: ["College"], required: false },
+  { key: "component", aliases: ["Component"], required: false },
+  { key: "partnership_type", aliases: ["Partnership Type"], required: false },
+  { key: "email", aliases: ["Email"], required: true },
+]
 
-/** One row from the import CSV after parsing. */
-export interface AdviserCsvImportRow {
+/** One validated row. Raw display values; lookups are resolved server-side at commit. */
+export interface AdviserImportRow {
+  rowNumber: number
+  fullName: string
+  college: string
+  component: string
+  partnershipType: string
+  /** Lowercased @up.edu.ph address. */
   email: string
-  full_name: string
-  /** Matches `section.name` for the active term. */
-  section_name: string
 }
 
-export type ImportAdvisersResult =
-  | { ok: true; imported: number; skipped: number }
+export type ParseAdviserImportResult =
+  | { ok: true; totalRows: number; validRows: AdviserImportRow[]; issues: RowIssue[] }
   | { ok: false; error: string }
+
+export function validateAdviserImportValues(
+  values: Record<string, string>,
+  rowNumber: number
+): { row: AdviserImportRow | null; issues: RowIssue[] } {
+  const issues: RowIssue[] = []
+  const fullName = (values.full_name ?? "").trim()
+  const email = (values.email ?? "").trim().toLowerCase()
+
+  if (!fullName) {
+    issues.push({ rowNumber, message: "Facilitator's Name is required." })
+  }
+  if (!email.endsWith("@up.edu.ph")) {
+    issues.push({
+      rowNumber,
+      message: `Email "${values.email ?? ""}" must be a UP email (@up.edu.ph).`,
+    })
+  }
+  if (issues.length > 0) return { row: null, issues }
+
+  return {
+    row: {
+      rowNumber,
+      fullName,
+      college: (values.college ?? "").trim(),
+      component: (values.component ?? "").trim(),
+      partnershipType: (values.partnership_type ?? "").trim(),
+      email,
+    },
+    issues: [],
+  }
+}

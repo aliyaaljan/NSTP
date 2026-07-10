@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   IconSearch,
   IconChevronDown,
+  IconFilter,
   IconUsers,
   IconCircleCheck,
   IconClock,
@@ -12,13 +13,15 @@ import {
   IconX,
   IconPaperclip,
   IconPencil,
-  IconDownload
+  IconDownload,
+  IconPlus
 } from "@tabler/icons-react"
 import { FaRegQuestionCircle } from "react-icons/fa";
-
+import { RiRoadMapLine } from "react-icons/ri";
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
+import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { parse, format } from "date-fns"
@@ -26,19 +29,47 @@ import {
   getAdviserPendingRequests,
   resolveStudentRequest,
   transitionToUnderReview,
+  approveRequestWithCorrection,
+  type ApproveCorrection,
 } from "@/lib/facilitator/appeal-actions"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
+
+//Map
+import dynamic from "next/dynamic"
+const Map = dynamic(() => import("@/components/shared/Map"), { ssr: false })
 
 // ── Data ──────────────────────────────────────────────────────────────
 type Status = "Completed" | "In Progress" | "Not Started"
 type studentClassification = "Freshman" | "Sophomore" | "Junior" | "Senior"
 
+interface StudentLocation {
+  eventType: string //time_in, time_out
+  eventSource: string // system_auto, self_leader, adviser_manual, self_student, qr_scan
+  recordedAt: string
+  recordedBy: string //scanner
+  generatedLat: number
+  generatedLong: number
+  scanLat: number
+  scanLong: number
+}
+
+interface Geofence {
+  label: string
+  centerLat: number
+  centerLong: number
+  radius: number
+}
+
 interface StudentSession {
   id: string
   date: string
   timeIn: string
-  timeOut: string
+  timeOut: string | null
   hours: number
+  statusId:string
+  status: string
+  locations: StudentLocation[] | null
+  geofence: Geofence[] | null
 }
 
 interface Student {
@@ -49,6 +80,7 @@ interface Student {
   student_number: string
   is_student_leader: boolean
   sais_id: number
+  section_geofence_id: number
   site_location: string
   program: string
   classification: string
@@ -69,6 +101,7 @@ interface Attachment {
 interface PendingRequest {
   section_id: string
   section_name: string
+  enrollment_id: string
   student_name: string
   student_number: string
   appeal_id: string
@@ -80,6 +113,117 @@ interface PendingRequest {
   status: string
   statusCode: string
   attachments: Attachment[]
+  // structured time-correction context (null for legacy/free-text requests)
+  attendanceSessionId: string | null
+  requestedTimeIn: string | null
+  requestedTimeOut: string | null
+  session: {
+    startedAt: string | null
+    endedAt: string | null
+    isFlagged: boolean
+    flagReason: string | null
+    statusCode: string | null
+  } | null
+}
+
+// ISO instant -> Manila local date / 24h time (for pre-filling the correction).
+function isoToManilaDate(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ""
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d)
+}
+function isoToManilaTime(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ""
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d)
+}
+
+type ApplyPlan = {
+  isTimeRequest: boolean
+  isFlagCase: boolean
+  action: ApproveCorrection["action"]
+  date: string
+  timeIn: string
+  timeOut: string
+  timeInLocked: boolean // restore keeps the existing time-in
+  summary: string
+}
+
+function deriveApplyPlan(r: PendingRequest | null): ApplyPlan {
+  const empty: ApplyPlan = {
+    isTimeRequest: false,
+    isFlagCase: false,
+    action: "none",
+    date: "",
+    timeIn: "",
+    timeOut: "",
+    timeInLocked: false,
+    summary: "",
+  }
+  if (!r) return empty
+  const hasTimes = !!r.requestedTimeIn || !!r.requestedTimeOut
+  const isTimeRequest = !!r.attendanceSessionId || hasTimes
+  if (!isTimeRequest) return empty
+
+  if (!r.attendanceSessionId) {
+    return {
+      isTimeRequest: true,
+      isFlagCase: false,
+      action: "add",
+      date: isoToManilaDate(r.requestedTimeIn) || isoToManilaDate(r.requestedTimeOut),
+      timeIn: isoToManilaTime(r.requestedTimeIn),
+      timeOut: isoToManilaTime(r.requestedTimeOut),
+      timeInLocked: false,
+      summary: "Add a new session for this student.",
+    }
+  }
+  if (r.session?.statusCode === "voided") {
+    return {
+      isTimeRequest: true,
+      isFlagCase: false,
+      action: "restore",
+      date: isoToManilaDate(r.session.startedAt),
+      timeIn: isoToManilaTime(r.session.startedAt),
+      timeOut: isoToManilaTime(r.requestedTimeOut) || isoToManilaTime(r.session.endedAt),
+      timeInLocked: true,
+      summary: "Restore this auto-timed-out session with the correct time-out.",
+    }
+  }
+  if (hasTimes) {
+    return {
+      isTimeRequest: true,
+      isFlagCase: false,
+      action: "edit",
+      date: isoToManilaDate(r.session?.startedAt) || isoToManilaDate(r.requestedTimeIn),
+      timeIn: isoToManilaTime(r.requestedTimeIn) || isoToManilaTime(r.session?.startedAt),
+      timeOut: isoToManilaTime(r.requestedTimeOut) || isoToManilaTime(r.session?.endedAt),
+      timeInLocked: false,
+      summary: "Correct the recorded time on this session.",
+    }
+  }
+  // session referenced, no requested times -> off-site flag explanation
+  return {
+    isTimeRequest: true,
+    isFlagCase: true,
+    action: "none",
+    date: "",
+    timeIn: "",
+    timeOut: "",
+    timeInLocked: false,
+    summary: "The student is explaining an off-site flag. The session still counts.",
+  }
 }
 
 const statusConfig: Record<
@@ -115,7 +259,9 @@ function formatDateReadable(inputDate: string): string {
   return outputDate
 }
 
-function to24HourFormat(time12: string): string {
+function to24HourFormat(time12: string | null): string {
+  if (!time12) return ""
+
   const match = time12.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
   if (!match) return ""
 
@@ -199,7 +345,7 @@ const myStudentsStyles = `
   .adv-table th:nth-child(4) { width: 13%; }
   .adv-table th:nth-child(5) { width: 14%; }
   .adv-table th:nth-child(6) { width: 20%; }
-  .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center; }
+  .ms-status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center; white-space: nowrap; }
   .ms-site-badge { display: inline-block; padding: 3px 0; font-size: 12px; font-weight: 500; color: var(--text); }
   .ms-role-badge {display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; min-width: 110px; text-align: center;}
   .ms-hours-cell { min-width: 160px; }
@@ -223,6 +369,7 @@ const myStudentsStyles = `
     cursor: pointer;
     transition: background 0.12s;
   }
+  .ms-request-row > div { min-width: 0; }
   .ms-request-row:last-child { border-bottom: none; }
   .ms-request-row:hover { background: #FAFAFA; }
   .ms-request-student { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -236,7 +383,7 @@ const myStudentsStyles = `
   .ms-request-meta  { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
   .ms-request-type  { font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; display: inline-block; }
   .ms-request-date  { font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .ms-request-note  { font-size: 12px; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ms-request-note  { font-size: 12px; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; word-break: break-word; }
   .ms-attachment-tag { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; color: var(--muted); }
 
   .ms-requests-thead {
@@ -258,7 +405,7 @@ const myStudentsStyles = `
   .ms-req-modal-note {
     font-size: 13px; color: var(--text); line-height: 1.6;
     background: #F9FAFB; border-radius: 10px; padding: 12px 14px;
-    margin-top: 4px;
+    margin-top: 4px; overflow-wrap: anywhere; word-break: break-word;
   }
   .ms-req-modal-attachment {
     display: flex; align-items: center; gap: 14px;
@@ -284,14 +431,15 @@ const myStudentsStyles = `
   .ms-modal-right-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
   .ms-session-table-wrapper {overflow: auto; max-height:500px }
   .ms-session-table { width: 100%; border-collapse: collapse; table-layout: fixed;}
-  .ms-session-table th:nth-child(1) { width: 28%; }
-  .ms-session-table th:nth-child(2) { width: 21%; }
-  .ms-session-table th:nth-child(3) { width: 21%; }
-  .ms-session-table th:nth-child(4) { width: 17%; }
-  .ms-session-table th:nth-child(5) { width: 17%; }
+  .ms-session-table th:nth-child(1) { width: 23%; }
+  .ms-session-table th:nth-child(2) { width: 17%; }
+  .ms-session-table th:nth-child(3) { width: 17%; }
+  .ms-session-table th:nth-child(4) { width: 12%; }
+  .ms-session-table th:nth-child(5) { width: 23%; }
+  .ms-session-table th:nth-child(6) { width: 15%; }
   .ms-session-table { width: 100%; border-collapse: collapse; }
-  .ms-session-table thead { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid var(--border);}
-  .ms-session-table th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid var(--border);}
+  .ms-session-table thead { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 0 8px 6px; border-bottom: 1px solid #F3F4F6; border-top: 1px solid #F3F4F6}
+  .ms-session-table th { position: sticky; top: 0; background: var(--white); text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; padding: 6px 8px 6px; border-bottom: 1px solid #F3F4F6;}
   .ms-session-table td { font-size: 12px; color: var(--text); padding: 8px; border-bottom: 1px solid #F3F4F6; }
   .ms-session-table tbody tr:last-child td { border-bottom: none; }
   .ms-session-table  tr:hover { background: #FAFAFA; }
@@ -299,8 +447,8 @@ const myStudentsStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     border-radius: 100%;
     background: var(--white);
     color: var(--muted);
@@ -309,7 +457,40 @@ const myStudentsStyles = `
   }
   .ms-session-action-btn:hover {
     background: #F9FAFB;
-    color: var(--maroon);
+    color: var(--green);
+  }
+  .ms-session-action-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .ms-session-status-badge {
+    text-align: center;
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 88px;
+    white-space: nowrap;
+  }
+  .ms-session-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 5px 12px;
+    border: none;
+    border-radius: 999px;
+    background: var(--green);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: opacity 0.12s;
+  }
+  .ms-session-add-btn:hover {
+    opacity: 0.9;
   }
   .ms-session-empty { font-size: 12.5px; color: var(--muted); padding: 12px 0; }
   .ms-modal-header {
@@ -379,6 +560,8 @@ const myStudentsStyles = `
     cursor: pointer;
   }
   .ms-edit-save-btn:hover { opacity: 0.9; }
+  .adv-filter-btn:hover { background: #F4F3F0 !important; filter: brightness(0.97); }
+  .adv-filter-btn:active { transform: scale(0.96); }
 `
 
 function AnimatedBar({ pct, color }: { pct: number; color: string }) {
@@ -402,6 +585,8 @@ function MyStudentsContent() {
   const supabase = createClient()
   const searchParams = useSearchParams()
 
+  const today = format(new Date(), "yyyy-MM-dd")
+
   const [userId, setUserId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>("list")
@@ -421,6 +606,8 @@ function MyStudentsContent() {
     "site_location", "program", "classification", "status",
     "hours_logged", "total_hours", "completion_percentage", "is_student_leader"
   ])
+  //map
+  const [viewMap, setViewMap] = useState<{ studentName: string; session: StudentSession } | null>(null)
 
   // ── Pending unified filter ─────────────────────────────────────────
   type PendingFilterField = "appeal_type_name" | "status" | "section_name"
@@ -458,7 +645,7 @@ function MyStudentsContent() {
   const pendingFilterGroups: { label: string; field: PendingFilterField; values: () => string[] }[] = [
     { label: "Type",    field: "appeal_type_name", values: () => requestType.map(t => t.name) },
     { label: "Status",  field: "status",            values: () => ["Pending Review", "Under Review", "Approved", "Rejected"] },
-    { label: "Section", field: "section_name",      values: () => [...new Set(pendingRequests.map(r => r.section_name).filter(Boolean))].sort() },
+    // { label: "Section", field: "section_name",      values: () => [...new Set(pendingRequests.map(r => r.section_name).filter(Boolean))].sort() },
   ]
 
   // ── Unified filter system ──────────────────────────────────────────
@@ -558,20 +745,46 @@ function MyStudentsContent() {
   const [selectedStudentKey, setSelectedStudentKey] = useState<string | null>(null)
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
-  const [editingSession, setEditingSession] = useState<StudentSession | null>(
-    null
-  )
+  const [editingSession, setEditingSession] = useState<StudentSession | null>(null)
   const [editDate, setEditDate] = useState("")
   const [editTimeIn, setEditTimeIn] = useState("")
   const [editTimeOut, setEditTimeOut] = useState("")
+  const [editStatus, setEditStatus] = useState("")
+  const [voidReason, setVoidReason] = useState("")
+  const [sessionStatusOptions, setSessionStatusOptions] = useState<{attendance_session_status_id: string; code: string; name: string}[]>([])
   const [editTermRange, setEditTermRange] = useState<{ start_date: string; end_date: string } | null>(null)  
   const [editTimeError, setEditTimeError] = useState<string>("")
   const [isPending, startTransition] = useTransition()
+
+  const [addingSession, setAddingSession] = useState(false)
+  const [newSessionDate, setNewSessionDate] = useState("")
+  const [newSessionTimeIn, setNewSessionTimeIn] = useState("")
+  const [newSessionTimeOut, setNewSessionTimeOut] = useState("")
+  const [newSessionStatus, setNewSessionStatus] = useState("")
+  const [newSessionError, setNewSessionError] = useState("")
+  
   const [resolutionNote, setResolutionNote] = useState("")
+  const [applyDate, setApplyDate] = useState("")
+  const [applyTimeIn, setApplyTimeIn] = useState("")
+  const [applyTimeOut, setApplyTimeOut] = useState("")
+  const [clearFlag, setClearFlag] = useState(false)
 
-  const isSaveDisabled = !editDate || !editTimeIn || !editTimeOut || !!editTimeError ||
-  (editingSession != null && editDate === formatDate(editingSession.date) && editTimeIn === to24HourFormat(editingSession.timeIn) && editTimeOut === to24HourFormat(editingSession.timeOut))
+  // Pre-fill the correction whenever a (time) request is opened for review.
+  useEffect(() => {
+    const plan = deriveApplyPlan(selectedRequest)
+    setApplyDate(plan.date)
+    setApplyTimeIn(plan.timeIn)
+    setApplyTimeOut(plan.timeOut)
+    setClearFlag(false)
+  }, [selectedRequest])
 
+  const applyPlan = deriveApplyPlan(selectedRequest)
+
+  const selectedStatusOption = sessionStatusOptions.find((opt) => opt.attendance_session_status_id === editStatus)
+  const isVoidedSelected = selectedStatusOption?.code === "voided"
+  const isSaveDisabled = !editDate || !editTimeIn || !editTimeOut || !editStatus || !!editTimeError ||
+  (editingSession != null && editDate === formatDate(editingSession.date) && editTimeIn === to24HourFormat(editingSession.timeIn) && editTimeOut === to24HourFormat(editingSession.timeOut) && editStatus === editingSession.statusId)
+  const isAddSaveDisabled = !newSessionDate || !newSessionTimeIn || !newSessionTimeOut || !!newSessionError
   // fetch student requests from database
   const refreshRequests = async () => {
     const res = await getAdviserPendingRequests()
@@ -589,6 +802,13 @@ function MyStudentsContent() {
     }, 600)
     return () => clearTimeout(timeoutId)
   }, [editDate, editTimeIn, editTimeOut, editTermRange])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setNewSessionError(validateEditTimeEdit(newSessionDate, newSessionTimeIn, newSessionTimeOut, editTermRange))
+    }, 600)
+    return () => clearTimeout(timeoutId)
+  }, [newSessionDate, newSessionTimeIn, newSessionTimeOut, editTermRange])
 
   const fetchStatsAndSections = useCallback(async (userId: string) => {
     const { data: statData, error: statError } = await supabase.rpc("get_students_stats", { p_adviser_user_id: userId })
@@ -634,7 +854,11 @@ function MyStudentsContent() {
         .select(`appeal_type_id, name`)
         .order("name")
       if (requestTypeData) setRequestTypes(requestTypeData)
-
+      
+      
+      // fetch session status
+      const {data: sessionStatusData } = await supabase.from("attendance_session_status").select(`*`).order("name")
+      if (sessionStatusData) setSessionStatusOptions(sessionStatusData)
       await Promise.all([
         fetchStatsAndSections(user.id),
         fetchStudents(user.id),
@@ -645,7 +869,7 @@ function MyStudentsContent() {
   }, [supabase, fetchStatsAndSections, fetchStudents])
 
   const selectedStudent = selectedStudentKey
-  ? students.find(s => `${s.section_id}-${s.student_number}` === selectedStudentKey) ?? null
+  ? students.find(s => s.enrollment_id === selectedStudentKey) ?? null
   : null
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
@@ -664,8 +888,14 @@ function MyStudentsContent() {
     },
   })
 
-  const currentData = statData.find((r) => r.section_name === selectedSection)
-  if (!currentData) return null
+  const currentData = statData.find((r) => r.section_name === selectedSection) ?? {
+    section_id: "",
+    section_name: selectedSection,
+    total: 0,
+    completed: 0,
+    in_progress: 0,
+    pending_request: 0,
+  }
 
   function buildStatCards() {
     return [
@@ -818,6 +1048,7 @@ function MyStudentsContent() {
       date: formatDateReadable(editDate),
       timeIn: to12HourFormat(editTimeIn),
       timeOut: to12HourFormat(editTimeOut),
+      statusId:editStatus
     }
 
     const updatedSessions = selectedStudent.sessions.map((s) =>
@@ -836,6 +1067,8 @@ function MyStudentsContent() {
       p_session_date: editDate,
       p_time_in: editTimeIn,
       p_time_out: editTimeOut,
+      p_attendance_session_status_id: editStatus,
+      p_void_reason: isVoidedSelected ? voidReason : null
     })
 
     if (error) {
@@ -849,14 +1082,36 @@ function MyStudentsContent() {
 
     setStudents((prev) =>
       prev.map((s) =>
-        s.section_id === updatedStudent.section_id &&
-        s.student_number === updatedStudent.student_number
+        s.enrollment_id === updatedStudent.enrollment_id
           ? updatedStudent
           : s
       )
     )
 
     setEditingSession(null)
+    await fetchStudents(userId)
+  }
+
+  async function handleAddSession() {
+    const validationError = validateEditTimeEdit(newSessionDate, newSessionTimeIn, newSessionTimeOut, editTermRange)
+    setNewSessionError(validationError)
+    if (validationError || !selectedStudent || !userId) return
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error } = await supabase.rpc("create_attendance_session", {
+      p_enrollment_id: selectedStudent.enrollment_id,
+      p_session_date: newSessionDate,
+      p_time_in: newSessionTimeIn,
+      p_time_out: newSessionTimeOut,
+    })
+
+    if (error) {
+      console.error("create_attendance_session error:", error.message, error.details)
+      return
+    }
+
+    setAddingSession(false)
     await fetchStudents(userId)
   }
 
@@ -867,6 +1122,10 @@ function MyStudentsContent() {
     termRange: { start_date: string; end_date: string } | null
   ): string {
     if (!date || !timeIn || !timeOut) return ""
+
+    if (date > today) {
+      return "Date cannot be in the future."
+    }
 
     if (termRange) {
       if (date < termRange.start_date || date > termRange.end_date) {
@@ -897,19 +1156,29 @@ function MyStudentsContent() {
     return map[type] ?? { bg: "#F3F4F6", color: "#374151" }
   }
 
+  function sessionStatusStyle(status: string): { bg: string; color: string } {
+    const map: Record<string, { bg: string; color: string }> = {
+      open:      { bg: "#DBEAFE", color: "#1E40AF" },
+      closed:    { bg: "#D1FAE5", color: "#065F46" },
+      voided:    { bg: "#F3F4F6", color: "#374151" },
+      corrected: { bg: "#FEF3C7", color: "#92400E" },
+    }
+    return map[status] ?? { bg: "#F3F4F6", color: "#374151" }
+  }
+
   const EXPORT_COLUMNS: {key: keyof Student; label: string}[] = [
+    {key: "section_name", label: "Course Code"},
     {key: "student_name", label: "Student Name"},
     {key: "student_number", label: "Student Number"},
     {key: "sais_id", label: "SAIS ID"},
-    {key: "section_name", label: "Section"},
     {key: "site_location", label: "Site Location"},
     {key: "program", label: "Program" },
     {key: "classification", label: "Classification"},
+    {key: "is_student_leader", label: "Role"},
     {key: "status", label: "Status" },
     {key: "hours_logged", label: "Hours Logged"},
     {key: "total_hours", label: "Total Hours"},
-    {key: "completion_percentage", label: "Completion Percentage"},
-    {key: "is_student_leader", label: "Role"}
+    {key: "completion_percentage", label: "Completion Percentage"}
   ]
 
   function toggleExportColumn(key: string) {
@@ -997,7 +1266,7 @@ function MyStudentsContent() {
             {/* Sections filter */}
             <div className="overview-header">
               <div className="overview-label">Class Overview</div>
-              <div style={{ position: "relative" }} onMouseLeave={() => setSectionDropdownOpen(false)}>
+              {/* <div style={{ position: "relative" }} onMouseLeave={() => setSectionDropdownOpen(false)}>
                 <button
                   className="sections-btn"
                   onClick={() => setSectionDropdownOpen((o) => !o)}
@@ -1047,7 +1316,7 @@ function MyStudentsContent() {
                     </div>
                   </div>
                 )}
-              </div>
+              </div> */}
             </div>
 
             {/* Stat cards */}
@@ -1116,20 +1385,24 @@ function MyStudentsContent() {
                           className="adv-filter-btn"
                           onClick={() => setShowFilterPanel(v => !v)}
                           style={{
+                            width: 60,
+                            height: 38,
                             border: `1.5px solid ${totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
-                            color: totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
                             borderRadius: 999,
-                            padding: "8px 18px",
-                            fontSize: 13.5,
+                            background: "white",
+                            color: totalActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
+                            fontSize: 22,
+                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
+                            justifyContent: "center",
+                            transition: "0.2s ease",
+                            position: "relative",
                           }}
                         >
-                          <IconChevronDown size={16} stroke={2} />
-                          Filter
+                          <IconFilter size={18} stroke={1.75} />
                           {totalActiveFilters > 0 && (
-                            <span style={{ background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>
+                            <span style={{ position: "absolute", top: -6, right: -6, background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                               {totalActiveFilters}
                             </span>
                           )}
@@ -1174,11 +1447,11 @@ function MyStudentsContent() {
                           </div>
                         )}
                       </div>
-                      {hasListFilters && (
+                      {/* {hasListFilters && (
                         <button className="adv-filter-btn" onClick={clearListFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
                         </button>
-                      )}
+                      )} */}
                       {/* Export button */}
                       <button
                         className="sections-btn"
@@ -1208,7 +1481,7 @@ function MyStudentsContent() {
                       </thead>
                       <tbody>
                         {filtered.length === 0 ? (
-                          <tr>
+                          <tr key="empty-row">
                             <td colSpan={6} className="adv-empty">
                               No students match your search.
                             </td>
@@ -1224,8 +1497,8 @@ function MyStudentsContent() {
                               .toUpperCase()
                             return (
                               <tr
-                                key={`${s.section_id}-${s.student_number}`}
-                                onClick={() => setSelectedStudentKey(`${s.section_id}-${s.student_number}`)}
+                                key={s.enrollment_id}
+                                onClick={() => setSelectedStudentKey(s.enrollment_id)}
                               >
                                 <td>
                                   {/* <div className="ms-student-name">{s.student_name}</div>
@@ -1419,20 +1692,24 @@ function MyStudentsContent() {
                           className="adv-filter-btn"
                           onClick={() => setShowPendingFilterPanel(v => !v)}
                           style={{
+                            width: 60,
+                            height: 38,
                             border: `1.5px solid ${totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)"}`,
-                            color: totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
                             borderRadius: 999,
-                            padding: "8px 18px",
-                            fontSize: 13.5,
+                            background: "white",
+                            color: totalPendingActiveFilters > 0 ? "var(--maroon)" : "var(--green)",
+                            fontSize: 22,
+                            cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
+                            justifyContent: "center",
+                            transition: "0.2s ease",
+                            position: "relative",
                           }}
                         >
-                          <IconChevronDown size={16} stroke={2} />
-                          Filter
+                          <IconFilter size={18} stroke={1.75} />
                           {totalPendingActiveFilters > 0 && (
-                            <span style={{ background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>
+                            <span style={{ position: "absolute", top: -6, right: -6, background: "var(--maroon)", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 9, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                               {totalPendingActiveFilters}
                             </span>
                           )}
@@ -1477,11 +1754,11 @@ function MyStudentsContent() {
                         )}
                       </div>
 
-                      {hasPendingFilters && (
+                      {/* {hasPendingFilters && (
                         <button className="adv-filter-btn" onClick={clearPendingFilters} style={{ color: "var(--maroon)", borderColor: "var(--maroon)" }}>
                           <IconX size={13} stroke={2} /> Clear
                         </button>
-                      )}
+                      )} */}
                     </div>
                   </div>
 
@@ -1588,11 +1865,10 @@ function MyStudentsContent() {
                               </div>
                               <div>
                                 <span
-                                  className="ms-request-type"
+                                  className="ms-status-badge"
                                   style={{
                                     background: badge.bg,
                                     color: badge.color,
-                                    borderRadius: "6px",
                                   }}
                                 >
                                   {r.status}
@@ -1660,550 +1936,404 @@ function MyStudentsContent() {
           </main>
         </div>
 
-        {/* Student detail modal */}
-        {selectedStudent && (
-          <div
-            className="ms-modal-backdrop"
-            onClick={() => setSelectedStudentKey(null)}
-          >
-            <div
-              className="ms-modal ms-modal-wide"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="ms-modal-header">
-                <div className="ms-modal-avatar">
-                  {selectedStudent.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
-                </div>
-                <div className="ms-modal-header-info">
-                  <div className="ms-modal-title">{selectedStudent.student_name}</div>
-                  <div className="ms-modal-subtitle">
-                    {selectedStudent.section_name} · {selectedStudent.site_location}
+        <NstpModal
+          open={!!selectedStudent}
+          onClose={() => setSelectedStudentKey(null)}
+          title={selectedStudent?.student_name ?? ""}
+          subtitle={selectedStudent ? `${selectedStudent.section_name} · ${selectedStudent.site_location ? selectedStudent.site_location : "Not Assigned to a Location Yet"}` : ""}
+          initials={selectedStudent?.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
+          size="wide"
+          twoCol
+          leftContent={selectedStudent && (
+            <>
+              <ModalRow>
+                <ModalField label="Student No." value={selectedStudent.student_number} />
+                <ModalField label="Sais ID" value={String(selectedStudent.sais_id)} />
+              </ModalRow>
+              <ModalRow>
+                <ModalField label="Program" value={selectedStudent.program} />
+                <ModalField label="Classification" value={selectedStudent.classification} />
+              </ModalRow>
+              <ModalRow>
+                <ModalField label="Site Location" value={selectedStudent.site_location ? selectedStudent.site_location : "Not Assigned to a Location Yet"} />
+                <ModalField label="Status">
+                  <span className="ms-status-badge" style={{ background: statusConfig[selectedStudent.status].bg, color: statusConfig[selectedStudent.status].color }}>
+                    {statusConfig[selectedStudent.status].label}
+                  </span>
+                </ModalField>
+              </ModalRow>
+              <ModalRow>
+                <ModalField label="Role">
+                  <div className="ms-role-badge" style={{ background: roleBadgeStyle(selectedStudent.is_student_leader).bg, color: roleBadgeStyle(selectedStudent.is_student_leader).color }}>
+                    {selectedStudent.is_student_leader ? "Student Leader" : "Student"}
                   </div>
+                </ModalField>
+                <ModalField label={selectedStudent.is_student_leader ? "Revert to Student" : "Assign as Leader"}>
+                  <button id="leader-toggle" type="button" role="switch" aria-checked={selectedStudent.is_student_leader} onClick={handleRoleChange}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${selectedStudent.is_student_leader ? "bg-[#a797e4]" : "bg-[#9fcae7]"}`}>
+                    <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${selectedStudent.is_student_leader ? "translate-x-5" : "translate-x-0"}`} />
+                  </button>
+                </ModalField>
+              </ModalRow>
+              <ModalField label="Progress">
+                <div className="ms-hours-label" style={{ marginTop: 6 }}>
+                  <span>{selectedStudent.hours_logged} / {selectedStudent.total_hours} hrs</span>
+                  <span>{selectedStudent.completion_percentage}%</span>
                 </div>
-                <button className="ms-modal-close" onClick={() => setSelectedStudentKey(null)}>
-                  <IconX size={20} stroke={2} />
+                <div className="ms-hours-track">
+                  <div className="ms-hours-fill" style={{ width: `${selectedStudent.completion_percentage}%`, background: progressColor(selectedStudent.status) }} />
+                </div>
+              </ModalField>
+            </>
+          )}
+          rightContent={selectedStudent && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div className="ms-modal-right-title">Daily Time Record</div>
+                <button
+                  className="ms-session-add-btn"
+                  onClick={async () => {
+                    setNewSessionDate("")
+                    setNewSessionTimeIn("")
+                    setNewSessionTimeOut("")
+                    setNewSessionStatus("")
+                    setNewSessionError("")
+                    setEditTermRange(null)
+                    const { data, error } = await supabase.rpc("get_section_term_range", { p_section_id: selectedStudent.section_id })
+                    if (!error && data && data.length > 0) setEditTermRange(data[0])
+                    setAddingSession(true)
+                  }}
+                >
+                  <IconPlus size={14} stroke={1.75} />
+                  Add Session
                 </button>
               </div>
-              <div className="ms-modal-flex">
-                <div className="ms-modal-left">
-                  <div className="ms-modal-row">
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Student No.</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.student_number}
-                      </div>
-                    </div>
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Sais ID</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.sais_id}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ms-modal-row">
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Program</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.program}
-                      </div>
-                    </div>
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Classification</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.classification}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ms-modal-row">
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Site Location</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.site_location}
-                      </div>
-                    </div>
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Status</div>
-                      <span
-                        className="ms-status-badge"
-                        style={{
-                          background: statusConfig[selectedStudent.status].bg,
-                          color: statusConfig[selectedStudent.status].color,
-                        }}
-                      >
-                        {statusConfig[selectedStudent.status].label}
-                      </span>
-                    </div>
-                    {/* <div className="ms-modal-field">
-                      <div className="ms-modal-label">Hours Logged</div>
-                      <div className="ms-modal-value">
-                        {selectedStudent.hours_logged} /{" "}
-                        {selectedStudent.total_hours} hrs
-                      </div>
-                    </div> */}
-                  </div>
 
-                  <div className="ms-modal-row">
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">Role</div>
-                      <div className="ms-role-badge" style={{background: roleBadgeStyle(selectedStudent.is_student_leader).bg, color: roleBadgeStyle(selectedStudent.is_student_leader).color}}>
-                        {selectedStudent.is_student_leader ? "Student Leader" : "Student"}
-                      </div>
-                    </div>
-                    <div className="ms-modal-field">
-                      <div className="ms-modal-label">{selectedStudent.is_student_leader ? "Revert to Student" : "Assign as Leader"}</div>
-                     <button
-                      id="leader-toggle"
-                      type="button"
-                      role="switch"
-                      aria-checked={selectedStudent.is_student_leader}
-                      onClick={handleRoleChange}
-                      className={`
-                        relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
-                        transition-colors duration-200 ease-in-out focus:outline-none 
-                        ${selectedStudent.is_student_leader ? "bg-[#a797e4]" : "bg-[#9fcae7]"} 
-                      `}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={`
-                          pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 
-                          transition duration-200 ease-in-out
-                          ${selectedStudent.is_student_leader ? 'translate-x-5' : 'translate-x-0'}
-                        `}
-                      />
-                      
+              {selectedStudent.sessions.length === 0 ? (
+                <div className="ms-session-empty">No sessions logged yet.</div>
+                ) : (
+              <div className="ms-session-table-wrapper">
+                <table className="ms-session-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Time In</th>
+                      <th>Time Out</th>
+                      <th>Hours</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedStudent.sessions.map((sess, i) => (
+                      <tr key={sess.id}>
+                        <td>{sess.date}</td>
+                        <td>{sess.timeIn}</td>
+                        <td>{sess.timeOut}</td>
+                        <td>{sess.hours}</td>
+                        <td>
+                          <span
+                            className="ms-session-status-badge"
+                            style={{background: sessionStatusStyle(sess.status).bg, color: sessionStatusStyle(sess.status).color}}
+                          >
+                            {sess.status.charAt(0).toUpperCase() + sess.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="flex flex-row gap-1">
+                          <button title="Edit Session" className="ms-session-action-btn" onClick={async (e) => {
+                            e.stopPropagation()
+                            setEditingSession(sess)
+                            setEditDate(formatDate(sess.date))
+                            setEditTimeIn(to24HourFormat(sess.timeIn))
+                            setEditTimeOut(to24HourFormat(sess.timeOut))
+                            setEditTermRange(null)
+                            setEditStatus(sess.statusId)
+                            setVoidReason("")
+                            const { data, error } = await supabase.rpc("get_section_term_range", { p_section_id: selectedStudent.section_id })
+                            if (!error && data && data.length > 0) setEditTermRange(data[0])
+                          }}>
+                            <IconPencil size={14} stroke={1.75}/>
+                          </button>
+                          <button 
+                            title="View Location" 
+                            className="ms-session-action-btn" 
+                            // disabled={!sess.locations || sess.locations.length === 0}
+                            onClick={(e) => {e.stopPropagation(); setViewMap({ studentName: selectedStudent.student_name, session: sess }); console.log(selectedStudent)}}>
+                            <RiRoadMapLine size={14}/>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            </div>
+          )}
+        />
+
+        <NstpModal
+          open={!!selectedRequest}
+          onClose={() => setSelectedRequest(null)}
+          title={selectedRequest?.student_name ?? ""}
+          subtitle={selectedRequest ? `${selectedRequest.student_number} · ${selectedRequest.section_name}` : ""}
+          initials={selectedRequest?.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
+          size="md"
+        >
+          {selectedRequest && (
+            <>
+              <ModalRow>
+                <ModalField label="Request Type">
+                  <span className="ms-request-type" style={{ background: requestTypeStyle(selectedRequest.appeal_type_name).bg, color: requestTypeStyle(selectedRequest.appeal_type_name).color, padding: "4px 12px" }}>
+                    {selectedRequest.appeal_type_name}
+                  </span>
+                </ModalField>
+                <ModalField label="Date Submitted" value={selectedRequest.date} />
+              </ModalRow>
+              <div>
+                <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14, marginBottom: 6, overflowWrap: "anywhere", wordBreak: "break-word" }}>{selectedRequest.title}</div>
+                <div className="nstp-modal-label">Details</div>
+                <div className="ms-req-modal-note">{selectedRequest.note}</div>
+              </div>
+              {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
+                <ModalField label={`Attachment${selectedRequest.attachments.length > 1 ? "s" : ""}`}>
+                  {selectedRequest.attachments.map((a, i) => (
+                    <button key={a.storage_path || i} onClick={() => handleViewAttachment(a.storage_path)} className="ms-req-modal-attachment">
+                      <IconPaperclip size={16} stroke={1.75} /> {a.file_name}
                     </button>
-                    </div>
-                    
-                  </div>
-                  <div className="ms-modal-field ms-modal-progress">
-                    <div className="ms-modal-label">Progress</div>
-                    <div className="ms-hours-label" style={{ marginTop: 6 }}>
-                      <span>
-                        {selectedStudent.hours_logged} /{" "}
-                        {selectedStudent.total_hours} hrs
-                      </span>
-                      <span>
-                        {Math.round(
-                          (selectedStudent.hours_logged /
-                            selectedStudent.total_hours) *
-                            100
-                        )}
-                        %
-                      </span>
-                    </div>
-                    <div className="ms-hours-track">
-                      <div
-                        className="ms-hours-fill"
-                        style={{
-                          width: `${Math.round(
-                            (selectedStudent.hours_logged /
-                              selectedStudent.total_hours) *
-                              100
-                          )}%`,
-                          background: progressColor(selectedStudent.status),
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="ms-modal-right">
-                  {/* <div className="ms-modal-right-title">Sessions</div> */}
-                  {selectedStudent.sessions.length === 0 ? (
-                    <div className="ms-session-empty">
-                      No sessions logged yet.
-                    </div>
+                  ))}
+                </ModalField>
+              )}
+              {applyPlan.isTimeRequest && (
+                <div style={{ padding: 12, borderRadius: 8, border: "1px solid var(--border)", background: "rgba(0,0,0,0.02)" }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Attendance correction</div>
+                  <div style={{ fontSize: 12, color: "var(--muted, #666)", marginBottom: 10 }}>{applyPlan.summary}</div>
+                  {applyPlan.isFlagCase ? (
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                      <input type="checkbox" checked={clearFlag} onChange={(e) => setClearFlag(e.target.checked)} />
+                      Clear the off-site flag on this session
+                    </label>
                   ) : (
-                    <div className="ms-session-table-wrapper">
-                      <table className="ms-session-table">
-                        <thead>
-                          <tr>
-                            <th>Date</th>
-                            <th>Time In</th>
-                            <th>Time Out</th>
-                            <th>Hours</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedStudent.sessions.map((sess, i) => (
-                            <tr key={i}>
-                              <td>{sess.date}</td>
-                              <td>{sess.timeIn}</td>
-                              <td>{sess.timeOut}</td>
-                              <td>{sess.hours}</td>
-                              <td>
-                                <button
-                                  className="ms-session-action-btn"
-                                  onClick={async (e) => {
-                                    e.stopPropagation()
-                                    setEditingSession(sess)
-                                    setEditDate(formatDate(sess.date))
-                                    setEditTimeIn(to24HourFormat(sess.timeIn))
-                                    setEditTimeOut(to24HourFormat(sess.timeOut))
-                                    setEditTermRange(null)
-
-                                    const { data, error } = await supabase.rpc("get_section_term_range", {
-                                      p_section_id: selectedStudent.section_id,
-                                    })
-                                    if (error) {
-                                      console.error("get_section_term_range error:", error.message)
-                                    } else if (data && data.length > 0) {
-                                      setEditTermRange(data[0])
-                                    }
-                                  }}
-                                >
-                                  <IconPencil size={14} stroke={1.75} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <div style={{ flex: "1 1 120px" }}>
+                        <label className="nstp-modal-label">Date</label>
+                        <input type="date" value={applyDate} onChange={(e) => setApplyDate(e.target.value)}
+                          style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid var(--border)", borderRadius: 8, fontSize: 13 }} />
+                      </div>
+                      <div style={{ flex: "1 1 100px" }}>
+                        <label className="nstp-modal-label">Time In</label>
+                        <input type="time" value={applyPlan.timeInLocked ? applyPlan.timeIn : applyTimeIn} disabled={applyPlan.timeInLocked}
+                          onChange={(e) => setApplyTimeIn(e.target.value)}
+                          style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, background: applyPlan.timeInLocked ? "#F3F4F6" : "#fff" }} />
+                      </div>
+                      <div style={{ flex: "1 1 100px" }}>
+                        <label className="nstp-modal-label">Time Out</label>
+                        <input type="time" value={applyTimeOut} onChange={(e) => setApplyTimeOut(e.target.value)}
+                          style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid var(--border)", borderRadius: 8, fontSize: 13 }} />
+                      </div>
                     </div>
                   )}
                 </div>
+              )}
+              <div>
+                <label className="nstp-modal-label">Review Comment / Notes</label>
+                <textarea value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)}
+                  placeholder="Provide context or a reason for the student regarding this evaluation..."
+                  rows={3} style={{ width: "100%", boxSizing: "border-box", marginTop: 6, padding: 10, border: "1px solid var(--border)", borderRadius: 8, outline: "none", resize: "none", fontSize: 13 }} />
               </div>
-            </div>
-          </div>
-        )}
+              <div style={{ display: "flex", gap: 10 }}>
+                <button disabled={isPending} onClick={() => startTransition(async () => { const res = await resolveStudentRequest(selectedRequest.appeal_id, "rejected", resolutionNote); if (res.ok) { await refreshRequests(); setSelectedRequest(null); setResolutionNote("") } else alert(res.error) })}
+                  className="nstp-modal-btn nstp-modal-btn-danger" style={{ opacity: isPending ? 0.6 : 1 }}>
+                  Reject Request
+                </button>
+                <button disabled={isPending} onClick={() => startTransition(async () => {
+                    const res = applyPlan.isTimeRequest
+                      ? await approveRequestWithCorrection(selectedRequest.appeal_id, {
+                          action: applyPlan.isFlagCase ? (clearFlag ? "clear_flag" : "none") : applyPlan.action,
+                          attendanceSessionId: selectedRequest.attendanceSessionId,
+                          sessionDate: applyDate,
+                          timeIn: applyPlan.timeInLocked ? applyPlan.timeIn : applyTimeIn,
+                          timeOut: applyTimeOut,
+                          resolutionNote,
+                        })
+                      : await resolveStudentRequest(selectedRequest.appeal_id, "approved", resolutionNote)
+                    if (res.ok) { await refreshRequests(); setSelectedRequest(null); setResolutionNote("") } else alert(res.error)
+                  })}
+                  className="nstp-modal-btn nstp-modal-btn-primary" style={{ opacity: isPending ? 0.6 : 1 }}>
+                  {applyPlan.isTimeRequest && !applyPlan.isFlagCase ? "Approve & Apply" : "Approve Request"}
+                </button>
+              </div>
+            </>
+          )}
+        </NstpModal>
 
-        {/* Request detail modal */}
-        {selectedRequest && (
-          <div
-            className="ms-modal-backdrop"
-            onClick={() => setSelectedRequest(null)}
-          >
-            <div
-              className="ms-modal ms-req-modal"
-              onClick={(e) => e.stopPropagation()}
+        <NstpModal
+          open={addingSession}
+          onClose={() => setAddingSession(false)}
+          title="Add Session"
+          size="sm"
+        >
+          <ModalField label="Date">
+            <input
+              type="date"
+              className="ms-edit-input"
+              value={newSessionDate}
+              max={today}
+              onChange={(e) => setNewSessionDate(e.target.value)}
+            />
+          </ModalField>
+          <ModalRow>
+            <ModalField label="Time In">
+              <input
+                type="time"
+                className="ms-edit-input"
+                value={newSessionTimeIn}
+                onChange={(e) => setNewSessionTimeIn(e.target.value)}
+              />
+            </ModalField>
+            <ModalField label="Time Out">
+              <input
+                type="time"
+                className="ms-edit-input"
+                value={newSessionTimeOut}
+                onChange={(e) => setNewSessionTimeOut(e.target.value)}
+              />
+            </ModalField>
+          </ModalRow>
+          {newSessionError && (
+            <div style={{ fontSize: 12.5, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "8px 12px" }}>
+              {newSessionError}
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button className="ms-edit-cancel-btn" onClick={() => setAddingSession(false)}>Cancel</button>
+            <button
+              className="ms-edit-save-btn"
+              onClick={handleAddSession}
+              disabled={isAddSaveDisabled}
+              style={{ opacity: isAddSaveDisabled ? 0.4 : 1, cursor: isAddSaveDisabled ? "not-allowed" : "pointer" }}
             >
-              <div className="ms-modal-header">
-                <div className="ms-modal-avatar">
-                  {selectedRequest.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
-                </div>
-                <div className="ms-modal-header-info">
-                  <div className="ms-modal-title">{selectedRequest.student_name}</div>
-                  <div className="ms-modal-subtitle">
-                    {selectedRequest.student_number} · {selectedRequest.section_name}
-                  </div>
-                </div>
-                <button className="ms-modal-close" onClick={() => setSelectedRequest(null)}>
-                  <IconX size={20} stroke={2} />
-                </button>
-              </div>
-              <div className="ms-modal-body">
-                <div className="ms-modal-row">
-                  <div className="ms-modal-field ms-req-modal-section">
-                    <div className="ms-modal-label">Request Type</div>
-                    <span
-                      className="ms-request-type"
-                      style={{
-                        background: requestTypeStyle(
-                          selectedRequest.appeal_type_name
-                        ).bg,
-                        color: requestTypeStyle(
-                          selectedRequest.appeal_type_name
-                        ).color,
-                        padding: "4px 12px",
-                      }}
-                    >
-                      {selectedRequest.appeal_type_name}
-                    </span>
-                  </div>
-                  <div className="ms-modal-field ms-req-modal-section">
-                    <div className="ms-modal-label">Date Submitted</div>
-                    <div className="ms-modal-value">{selectedRequest.date}</div>
-                  </div>
-                </div>
-                <div className="ms-req-modal-section">
-                  <div
-                    className="ms-modal-label"
-                    style={{
-                      fontWeight: 700,
-                      color: "var(--text)",
-                      fontSize: "14px",
-                      textTransform: "none",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    {selectedRequest.title}
-                  </div>
-                  <div className="ms-modal-label">Details</div>
-                  <div className="ms-req-modal-note">
-                    {selectedRequest.note}
-                  </div>
-                </div>
-                {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
-                  <div className="ms-req-modal-section">
-                    <div className="ms-modal-label">
-                      Attachment
-                      {selectedRequest.attachments.length > 1 ? "s" : ""}
-                    </div>
-                    {selectedRequest.attachments.map((a, i) => (
-                      <button
-                        key={a.storage_path || i}
-                        onClick={() => handleViewAttachment(a.storage_path)}
-                        className="ms-req-modal-attachment"
-                      >
-                        <IconPaperclip size={16} stroke={1.75} />
-                        {a.file_name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* RESOLUTION ACTIONS */}
-                <div
-                  className="ms-req-modal-section"
-                  style={{ marginTop: "14px" }}
-                >
-                  <label
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "var(--muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.6px",
-                    }}
-                  >
-                    Review Comment / Notes
-                  </label>
-                  <textarea
-                    value={resolutionNote}
-                    onChange={(e) => setResolutionNote(e.target.value)}
-                    placeholder="Provide context or a reason for the student regarding this evaluation..."
-                    rows={3}
-                    style={{
-                      width: "100%",
-                      boxSizing: "border-box",
-                      marginTop: "6px",
-                      padding: "10px",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                      outline: "none",
-                      resize: "none",
-                      fontSize: "13px",
-                    }}
-                  />
-                </div>
-
-                <div
-                  style={{ display: "flex", gap: "10px", marginTop: "18px" }}
-                >
-                  <button
-                    disabled={isPending}
-                    onClick={() => {
-                      startTransition(async () => {
-                        const res = await resolveStudentRequest(
-                          selectedRequest.appeal_id,
-                          "rejected",
-                          resolutionNote
-                        )
-                        if (res.ok) {
-                          await refreshRequests()
-                          setSelectedRequest(null)
-                          setResolutionNote("")
-                        } else {
-                          alert(res.error)
-                        }
-                      })
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: "10px",
-                      border: "none",
-                      borderRadius: "8px",
-                      fontWeight: 700,
-                      cursor: isPending ? "not-allowed" : "pointer",
-                      background: "var(--maroon)",
-                      color: "var(--white)",
-                      fontSize: "13px",
-                      opacity: isPending ? 0.6 : 1,
-                    }}
-                  >
-                    Reject Request
-                  </button>
-                  <button
-                    disabled={isPending}
-                    onClick={() => {
-                      startTransition(async () => {
-                        const res = await resolveStudentRequest(
-                          selectedRequest.appeal_id,
-                          "approved",
-                          resolutionNote
-                        )
-                        if (res.ok) {
-                          await refreshRequests()
-                          setSelectedRequest(null)
-                          setResolutionNote("")
-                        } else {
-                          alert(res.error)
-                        }
-                      })
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: "10px",
-                      border: "none",
-                      borderRadius: "8px",
-                      fontWeight: 700,
-                      cursor: isPending ? "not-allowed" : "pointer",
-                      background: "var(--green)",
-                      color: "var(--white)",
-                      fontSize: "13px",
-                      opacity: isPending ? 0.6 : 1,
-                    }}
-                  >
-                    Approve Request
-                  </button>
-                </div>
-              </div>
-            </div>
+              Add
+            </button>
           </div>
-        )}
-        {/* export as csv modal */}
-        {exportStudent && (
-          <div className="ms-modal-backdrop" onClick={() => setExportStudent(false)}>
-            <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="ms-modal-header">
-                <div className="ms-modal-title">Export Students</div>
-                <button className="ms-modal-close" onClick={() => setExportStudent(false)}>
-                  <IconX size={18} stroke={1.75} />
-                </button>
-              </div>
-              <div className="ms-modal-body">
-                <div className="ms-modal-field">
-                  <div className="ms-modal-label">Section</div>
-                  <select
-                    className="ms-edit-input"
-                    value={exportSection}
-                    onChange={(e) => setExportSection(e.target.value)}
-                  >
-                    {sections.map((s) => (
-                      <option key={s.id} value={s.name}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
+        </NstpModal>
 
-                <div className="ms-modal-field">
-                  <div className="ms-modal-label" style={{ marginBottom: 8 }}>Choose Columns</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    {EXPORT_COLUMNS.map((c) => (
-                      <label
-                        key={c.key}
-                        style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={exportColumns.includes(c.key)}
-                          onChange={() => toggleExportColumn(c.key)}
-                          style={{ accentColor: "var(--maroon)", width: 14, height: 14, cursor: "pointer" }}
-                        />
-                        {c.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
+        <NstpModal
+          open={exportStudent}
+          onClose={() => setExportStudent(false)}
+          title="Export Students"
+          size="md"
+        >
+          {/* <ModalField label="Section">
+            <select className="ms-edit-input" value={exportSection} onChange={(e) => setExportSection(e.target.value)}>
+              {sections.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+            </select>
+          </ModalField> */}
+          <ModalField label="Choose Columns">
+            <button
+              onClick={() => exportColumns.length > 0 ? setExportColumns([]) : setExportColumns(EXPORT_COLUMNS.map((col) => col.key))}
+              style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 11.5, color: "var(--maroon)", fontWeight: 600, fontFamily: "var(--font)", padding: 0 }}
+            >
+             {exportColumns.length > 0 ? "Deselect All" : "Select All"} 
+            </button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
+              {EXPORT_COLUMNS.map((c) => (
+                <label key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                  <input type="checkbox" checked={exportColumns.includes(c.key)} onChange={() => toggleExportColumn(c.key)}
+                    style={{ accentColor: "var(--maroon)", width: 14, height: 14, cursor: "pointer" }} />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          </ModalField>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button className="ms-edit-cancel-btn" onClick={() => setExportStudent(false)}>Cancel</button>
+            <button className="ms-edit-save-btn" onClick={handleExportCSV} disabled={exportColumns.length === 0}
+              style={{ opacity: exportColumns.length === 0 ? 0.4 : 1, cursor: exportColumns.length === 0 ? "not-allowed" : "pointer" }}>
+              Export CSV
+            </button>
+          </div>
+        </NstpModal>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
-                  <button className="ms-edit-cancel-btn" onClick={() => setExportStudent(false)}>
-                    Cancel
-                  </button>
-                  <button
-                    className="ms-edit-save-btn"
-                    onClick={handleExportCSV}
-                    disabled={exportColumns.length === 0}
-                    style={{ opacity: exportColumns.length === 0 ? 0.4 : 1, cursor: exportColumns.length === 0 ? "not-allowed" : "pointer" }}
-                  >
-                    Export CSV
-                  </button>
-                </div>
-              </div>
-            </div>
+        <NstpModal
+          open={!!editingSession}
+          onClose={() => { setEditingSession(null); setEditTermRange(null); setEditStatus(""); setVoidReason("")}}
+          title="Edit Session"
+          size="sm"
+        >
+          <ModalField label="Date">
+            <input type="date" max={today} className="ms-edit-input" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+          </ModalField>
+          <ModalRow>
+            <ModalField label="Time In">
+              <input type="time" className="ms-edit-input" value={editTimeIn} onChange={(e) => setEditTimeIn(e.target.value)} />
+            </ModalField>
+            <ModalField label="Time Out">
+              <input type="time" className="ms-edit-input" value={editTimeOut} onChange={(e) => setEditTimeOut(e.target.value)} />
+            </ModalField>
+          </ModalRow>
+          <ModalField label="Status">
+            <select
+              className="ms-edit-input"
+              value={editStatus}
+              onChange={(e) => setEditStatus(e.target.value)}
+            >
+              {sessionStatusOptions.filter((opt) => !["open", "corrected"].includes(opt.code) || opt.attendance_session_status_id === editStatus).map((opt) => (
+                <option key={opt.attendance_session_status_id} value={opt.attendance_session_status_id}>
+                  {opt.name}
+                </option>
+              ))}
+            </select>
+          </ModalField>
+
+          {isVoidedSelected && (
+            <ModalField label="Reason for Voided Reason (Optional)">
+              <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="Provide the student a justification for voiding this session..."
+                rows={3} style={{ width: "100%", boxSizing: "border-box", marginTop: 6, padding: 10, border: "1px solid var(--border)", borderRadius: 8, outline: "none", resize: "none", fontSize: 13 }} />
+          </ModalField>
+          )}
+
+          {editTimeError && (
+            <div style={{ fontSize: 12.5, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "8px 12px" }}>{editTimeError}</div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button className="ms-edit-cancel-btn" onClick={() => { setEditingSession(null); setEditTermRange(null); setEditStatus(""); setVoidReason("") }}>Cancel</button>
+            <button className="ms-edit-save-btn" onClick={handleSaveSession} disabled={isSaveDisabled}
+              style={{ opacity: isSaveDisabled ? 0.4 : 1, cursor: isSaveDisabled ? "not-allowed" : "pointer" }}>
+              Save
+            </button>
           </div>
-        )}
-        {/* edit Time modal */}
-        {editingSession && (
-          <div
-            className="ms-modal-backdrop"
-            onClick={() => {setEditingSession(null); setEditTermRange(null)}}
-          >
-            <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="ms-modal-header">
-                <div className="ms-modal-title">Edit Session</div>
-                <button
-                  className="ms-modal-close"
-                  onClick={() => {setEditingSession(null); setEditTermRange(null)}}
-                >
-                  <IconX size={18} stroke={1.75} />
-                </button>
+        </NstpModal>
+
+        <NstpModal
+          open={!!viewMap}
+          onClose={() => setViewMap(null)}
+          title="View Location"
+          size="lg"
+        >
+          {viewMap && (() => {
+            const locations = viewMap.session.locations
+            const hasCoords = locations?.some((loc) => loc.scanLat != null && loc.scanLong != null)
+
+            if (hasCoords) {
+              return (
+                <div style={{ height: 550, borderRadius: 12, background: "#F3F4F6" }}>
+                  <Map student_name={viewMap.studentName} session={viewMap.session} />
+                </div>
+              )
+            }
+
+            const isManual = locations?.some((loc) => loc.eventSource === "adviser_manual")
+            return (
+              <div className="ms-session-empty">
+                {isManual
+                  ? "No location data available, this session was manually added by the facilitator."
+                  : "No location data recorded for this session."}
               </div>
-              <div className="ms-modal-body">
-                <div className="ms-modal-field">
-                  <div className="ms-modal-label">Date</div>
-                  <input
-                    type="date"
-                    className="ms-edit-input"
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                  />
-                </div>
-                <div className="ms-modal-row">
-                  <div className="ms-modal-field">
-                    <div className="ms-modal-label">Time In</div>
-                    <input
-                      type="time"
-                      className="ms-edit-input"
-                      value={editTimeIn}
-                      onChange={(e) => setEditTimeIn(e.target.value)}
-                    />
-                  </div>
-                  <div className="ms-modal-field">
-                    <div className="ms-modal-label">Time Out</div>
-                    <input
-                      type="time"
-                      className="ms-edit-input"
-                      value={editTimeOut}
-                      onChange={(e) => setEditTimeOut(e.target.value)}
-                    />
-                  </div>
-                </div>
-                {editTimeError && (
-                  <div style={{ fontSize: 12.5, color: "#991B1B", background: "#FEE2E2", borderRadius: 8, padding: "8px 12px" }}>
-                    {editTimeError}
-                  </div>
-                )}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: 10,
-                    marginTop: 6,
-                  }}
-                >
-                  <button
-                    className="ms-edit-cancel-btn"
-                    onClick={() => {setEditingSession(null); setEditTermRange(null)}}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="ms-edit-save-btn"
-                    onClick={handleSaveSession}
-                    disabled={isSaveDisabled}
-                    style={{
-                      opacity: isSaveDisabled ? 0.4 : 1,
-                      cursor: isSaveDisabled ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+            )
+          })()}
+        </NstpModal>
       </div>
     </>
   )

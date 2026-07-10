@@ -139,7 +139,7 @@ export function DonutChart({ pct = 60 }: { pct?: number }) {
   );
 }
 
-export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
+export function Calendar({ semEndDate, holidays = [], }: { semEndDate?: string | Date, holidays?: { name: string; date: string;}[]}) {
   const today = new Date();
 
   const semEnd = typeof semEndDate === "string" 
@@ -148,6 +148,11 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
         return new Date(year, month - 1, day); 
       })()
     : semEndDate;
+  
+  const parsedHolidays = holidays.map((h) => {
+    const [year, month, day] = h.date.split("-").map(Number);
+    return { date: new Date(year, month - 1, day), name: h.name };
+  });
 
   const [current, setCurrent] = useState({ year: today.getFullYear(), month: today.getMonth() });
 
@@ -165,6 +170,11 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
     return d === semEnd.getDate() && current.month === semEnd.getMonth() && current.year === semEnd.getFullYear();
   }
 
+  const getHoliday = (d: number) =>
+    parsedHolidays.find(
+      (h) => h.date.getDate() === d && h.date.getMonth() === current.month && h.date.getFullYear() === current.year
+    );
+
   const prev = () => setCurrent(c => c.month === 0 ? { year: c.year - 1, month: 11 } : { year: c.year, month: c.month - 1 });
   const next = () => setCurrent(c => c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 });
 
@@ -180,7 +190,8 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
         {cells.map((d, i) => {
           const cellIsToday = d && isToday(d);
           const cellIsSemEnd = d && isSemEnd(d);
-          const hasLabel = cellIsToday || cellIsSemEnd;
+          const cellHoliday = d ? getHoliday(d) : undefined;
+          const hasLabel = cellIsToday || cellIsSemEnd || cellHoliday;
 
           return (
             <div 
@@ -190,13 +201,15 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
                 d === null ? "cal-empty" : "",
                 cellIsToday ? "cal-today" : "",
                 cellIsSemEnd ? "cal-sem-end": "",
+                cellHoliday && !cellIsToday && !cellIsSemEnd ? "cal-holiday" : "",
+                
               ].join(" ").trim()}
             >
               {d !== null ? <span className="cal-day-num">{d}</span> : null}
 
               {hasLabel && (
-                <span className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : "text-[var(--amber)]"}`}>
-                  {cellIsToday ? "Today" : "End of Semester"}
+                <span className={`capitalize absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : cellIsSemEnd ? "text-[var(--amber)]" : "text-[var(--green)]"}`}>
+                  {cellIsToday ? "Today" : cellIsSemEnd ? "End of Semester" : cellHoliday?.name}
                 </span>
               )}
             </div>
@@ -480,18 +493,25 @@ export const dashboardStyles = `
   font-weight: 600;
   border-radius: 999px;
 }  .bottom-row { display: flex; gap: 14px; align-items: flex-start; flex: 1; }
-  .progress-card { display:flex; flex-direction:column; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; align-items: stretch;}
+  .progress-card { display:flex; flex-direction:column; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 20px 18px; box-shadow: var(--shadow); min-width: 0; align-items: stretch;}
   .progress-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .view-all-btn { background: none; border: none; color: var(--maroon); font-weight: 700; cursor: pointer; font-size: 13px; font-family: var(--font); text-decoration: underline; text-underline-offset: 2px; padding: 0; }
   .student-list { display: flex; flex-direction: column; }
+  .student-list--empty { flex: 1; }
   .student-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F9FAFB; }
   .student-row:last-child { border-bottom: none; }
   .student-info { flex: 1; min-width: 0; }
   .student-name { font-size: 13px; font-weight: 500; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .student-pct { font-size: 12px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; font-weight: 600; }
-  .no-results { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 0; }
-  .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
-  .activity-card-scroll {overflow-y: auto; max-height: 235px; padding-right: 8px;}
+  .no-results { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 0; margin-bottom: auto; margin-top: auto; }
+  .activity-card { width: 255px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 0 18px 20px; box-shadow: var(--shadow); }
+  .activity-card-scroll {
+    overflow-y: auto; max-height: 235px;
+    scrollbar-width: thin; scrollbar-color: #CFCFCB transparent;
+    padding-right: 12px;
+  }
+  .activity-card-scroll::-webkit-scrollbar { width: 5px; }
+  .activity-card-scroll::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 999px; }
   .activity-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 0 12px; gap: 8px; }
   .activity-empty-icon { width: 36px; height: 36px; border-radius: 50%; background: #F3F4F6; display: flex; align-items: center; justify-content: center; color: var(--light); }
   .activity-empty-text { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.5; }
@@ -505,7 +525,7 @@ export const dashboardStyles = `
   .cal-nav-btn:hover { background: var(--border); color: var(--text); }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.28em; }
   .cal-day-label { display: flex; align-items: center; justify-content: center; font-size: 0.72em; font-weight: 700; color: var(--muted); padding: 0 0 0.2em; text-transform: uppercase; letter-spacing: 0.04em; }
-  .cal-cell { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 0.92em; color: var(--text); cursor: default; line-height: 1; }
+  .cal-cell { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 1.05em; color: var(--text); cursor: default; line-height: 1; }
   .cal-day-num { position: relative; z-index: 1; }
   .cal-cell.cal-empty { visibility: hidden; }
   .cal-cell.cal-today,
@@ -524,6 +544,19 @@ export const dashboardStyles = `
   }
   .cal-cell.cal-today::before { background: var(--maroon); }
   .cal-cell.cal-sem-end::before { background: var(--amber); }
+  .cal-cell.cal-holiday {color: #fff; font-weight: 700; }
+  .cal-cell.cal-holiday::after {
+    content: "";
+    position: absolute;
+    width: 88%;
+    height: 88%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    z-index: 0;
+    background: var(--green);
+  }
   
   /* ── Dashboard layout ── */
   .dashboard-layout { display: flex; gap: 16px; align-items: flex-start; flex: 1; align-items: stretch; }
@@ -535,6 +568,13 @@ export const dashboardStyles = `
   .ic-btn-active { color: var(--muted) !important; }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  /* ── Responsive dashboard layout ── */
+  @media (max-width: 980px) {
+    .dashboard-layout { flex-direction: column; }
+    .right-panel { width: 100%; }
+    .activity-card { width: 100%; }
+  }
 
   /* ── Sub-page shared layout (My Students, Forms, Group Summary) ── */
   button.db-kpi-card {

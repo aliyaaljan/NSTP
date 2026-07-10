@@ -1,12 +1,20 @@
 import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { lookupId } from "@/lib/lookups"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export type ActiveStudentEnrollment = {
   enrollmentId: string
+  isStudentLeader: boolean
+  adviserName: string | null
+  adviserEmail: string | null
+  termEndDate: string | null
+  programName: string | null
+  classificationName: string | null
+  siteLocation: string | null
   section: {
     section_id: string
-    name: string
+    label: string
     course_code: string
     required_hour_total: number
     section_status_id: string
@@ -17,7 +25,7 @@ export type ActiveStudentEnrollment = {
 // A student can have several active enrollments (past terms, multiple sections),
 // so a bare .limit(1) would bind the QR / time-out to an arbitrary section.
 // We filter to active-status sections, then prefer the active term and break ties
-// by course_code → name → enrollment_id so the choice is stable across calls.
+// by course_code → enrollment_id so the choice is stable across calls.
 // Pass the service client (this trusts server-side data and bypasses RLS).
 export async function resolveActiveStudentEnrollment(
   service: SupabaseClient,
@@ -36,13 +44,17 @@ export async function resolveActiveStudentEnrollment(
     .select(
       `
       enrollment_id,
+      is_student_leader,
+      program:program_id ( name ),
+      student_classification:student_classification_id ( name ),
+      geofence:assigned_geofence_id ( label ),
       section:section_id (
         section_id,
-        name,
         course_code,
         required_hour_total,
         section_status_id,
-        term:term_id ( is_active )
+        adviser:adviser_user_id ( full_name, email ),
+        term:term_id ( is_active, school_year, end_date )
       )
     `
     )
@@ -52,7 +64,19 @@ export async function resolveActiveStudentEnrollment(
   const candidates = (enrollments ?? [])
     .map((e) => {
       const sec = Array.isArray(e.section) ? e.section[0] : e.section
-      return { enrollmentId: e.enrollment_id, section: sec }
+      const program = Array.isArray(e.program) ? e.program[0] : e.program
+      const classification = Array.isArray(e.student_classification)
+        ? e.student_classification[0]
+        : e.student_classification
+      const geofence = Array.isArray(e.geofence) ? e.geofence[0] : e.geofence
+      return {
+        enrollmentId: e.enrollment_id,
+        isStudentLeader: e.is_student_leader ?? false,
+        section: sec,
+        programName: program?.name ?? null,
+        classificationName: classification?.name ?? null,
+        siteLocation: geofence?.label ?? null,
+      }
     })
     .filter(
       (e) =>
@@ -69,8 +93,6 @@ export async function resolveActiveStudentEnrollment(
         b.section.course_code ?? ""
       )
       if (byCourse !== 0) return byCourse
-      const byName = (a.section.name ?? "").localeCompare(b.section.name ?? "")
-      if (byName !== 0) return byName
       return a.enrollmentId.localeCompare(b.enrollmentId)
     })
 
@@ -87,11 +109,28 @@ export async function resolveActiveStudentEnrollment(
   }
 
   const primary = candidates[0]
+  const adviser = Array.isArray(primary.section.adviser)
+    ? primary.section.adviser[0]
+    : primary.section.adviser
+  const term = Array.isArray(primary.section.term)
+    ? primary.section.term[0]
+    : primary.section.term
   return {
     enrollmentId: primary.enrollmentId,
+    isStudentLeader: primary.isStudentLeader,
+    adviserName: adviser?.full_name ?? null,
+    adviserEmail: adviser?.email ?? null,
+    termEndDate: term?.end_date ?? null,
+    programName: primary.programName,
+    classificationName: primary.classificationName,
+    siteLocation: primary.siteLocation,
     section: {
       section_id: primary.section.section_id,
-      name: primary.section.name,
+      label: formatClassLabel({
+        courseCode: primary.section.course_code,
+        facilitatorName: adviser?.full_name,
+        schoolYear: term?.school_year,
+      }),
       course_code: primary.section.course_code,
       required_hour_total: primary.section.required_hour_total,
       section_status_id: primary.section.section_status_id,

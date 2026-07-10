@@ -11,6 +11,7 @@ import {
   formatAuditLogTimestamp,
   mapAuditLogDbRow,
 } from "@/lib/admin/audit-log"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export async function GET(request: Request) {
   try {
@@ -103,7 +104,7 @@ export async function GET(request: Request) {
             `
             full_name,
             email,
-            section!section_adviser_user_id_fkey(section_id, name)
+            section!section_adviser_user_id_fkey(section_id, course_code, term:term_id(school_year))
           `
           )
           .eq("role_id", adviserRoleId)
@@ -112,7 +113,7 @@ export async function GET(request: Request) {
         const { data: advData, error: advError } = await advQuery
         if (advError) throw new Error("Failed to fetch advisers")
 
-        headers = ["Adviser Name", "Email", "Assigned Sections"]
+        headers = ["Adviser Name", "Email", "Class"]
 
         advData.forEach((adv: any) => {
           const sections = adv.section || []
@@ -128,7 +129,15 @@ export async function GET(request: Request) {
             adv.full_name,
             adv.email,
             sections.length > 0
-              ? sections.map((s: any) => s.name).join(", ")
+              ? sections
+                  .map((s: any) =>
+                    formatClassLabel({
+                      courseCode: s.course_code,
+                      facilitatorName: adv.full_name,
+                      schoolYear: s.term?.school_year,
+                    })
+                  )
+                  .join(", ")
               : "Unassigned",
           ])
         })
@@ -142,8 +151,8 @@ export async function GET(request: Request) {
             `
             enrollment_id,
             app_user(full_name, email, student_number),
-            section!inner(name, required_hour_total, app_user(full_name)),
-            attendance_session(duration_minute)
+            section!inner(course_code, required_hour_total, term:term_id(school_year), app_user(full_name)),
+            attendance_session(duration_minute, attendance_session_status(code))
           `
           )
           .eq("enrollment_status_id", activeStatusId)
@@ -167,11 +176,16 @@ export async function GET(request: Request) {
 
         rawEnrollments.forEach((en: any) => {
           const targetHours = en.section?.required_hour_total || 60
+          // Count completed sessions only: 'closed' (normal/manual) + 'corrected' (edited).
           const totalMinutes =
-            en.attendance_session?.reduce(
-              (sum: number, s: any) => sum + (s.duration_minute || 0),
-              0
-            ) || 0
+            en.attendance_session?.reduce((sum: number, s: any) => {
+              const st = Array.isArray(s.attendance_session_status)
+                ? s.attendance_session_status[0]
+                : s.attendance_session_status
+              return st?.code === "closed" || st?.code === "corrected"
+                ? sum + (s.duration_minute || 0)
+                : sum
+            }, 0) || 0
           const hoursRendered = parseFloat((totalMinutes / 60).toFixed(1))
           const pct = Math.min(
             100,
@@ -185,7 +199,11 @@ export async function GET(request: Request) {
             en.app_user?.full_name || "Unkown",
             en.app_user?.email || "N/A",
             en.app_user?.student_number || "N/A",
-            `Section ${en.section?.name || ""}`,
+            formatClassLabel({
+              courseCode: en.section?.course_code,
+              facilitatorName: en.section?.app_user?.full_name,
+              schoolYear: en.section?.term?.school_year,
+            }),
             en.section?.app_user?.full_name || "Unassigned",
             hoursRendered,
             `${pct}%`,

@@ -26,6 +26,7 @@ import {
   type SiteUpdatePayload,
 } from "@/lib/admin/site-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 const SEMESTER_LABELS: Record<string, string> = {
   first: "1st Semester",
@@ -69,10 +70,9 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
     ? await supabase
         .from("section")
         .select(
-          "section_id, name, course_code, adviser_user_id, adviser:adviser_user_id(full_name)"
+          "section_id, course_code, adviser_user_id, adviser:adviser_user_id(full_name)"
         )
         .eq("term_id", activeTerm.term_id)
-        .order("name")
     : { data: null, error: null }
 
   const advisersRes = await supabase
@@ -93,13 +93,19 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
   const sites = dbSites.length > 0 ? dbSites : buildSampleSites()
 
   const dbSections: SiteListSectionOption[] =
-    sectionsRes.data?.map((row) => ({
-      sectionId: row.section_id as string,
-      label: `${row.course_code ?? ""} — ${row.name}`.trim(),
-      adviserUserId: (row.adviser_user_id as string | null) ?? "",
-      supervisorName:
-        (row.adviser as { full_name?: string } | null)?.full_name ?? "Unassigned",
-    })) ?? []
+    sectionsRes.data
+      ?.map((row) => ({
+        sectionId: row.section_id as string,
+        label: formatClassLabel({
+          courseCode: row.course_code as string,
+          facilitatorName: (row.adviser as { full_name?: string } | null)?.full_name,
+          schoolYear: activeTerm?.school_year,
+        }),
+        adviserUserId: (row.adviser_user_id as string | null) ?? "",
+        supervisorName:
+          (row.adviser as { full_name?: string } | null)?.full_name ?? "Unassigned",
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label)) ?? []
 
   const sections = dbSections.length > 0 ? dbSections : buildSampleSiteSections()
 

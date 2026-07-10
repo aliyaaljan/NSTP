@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from "react"
 import {
-  chunkFilterOptions,
+  ADMIN_FILTER_PANEL_OPTIONS_PER_COLUMN,
   countActiveFilters,
+  filterGroupMaxWidth,
+  resolveFilterPanelLayout,
   toggleFilterValue,
   type ActiveFilters,
   type FilterGroupDef,
@@ -11,51 +13,69 @@ import {
 import { FONT_BODY } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
+function FilterOptionLabel({
+  optLabel,
+  checked,
+  onToggle,
+  compact = false,
+}: {
+  optLabel: string
+  checked: boolean
+  onToggle: () => void
+  compact?: boolean
+}) {
+  return (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 8,
+        cursor: "pointer",
+        fontSize: 13,
+        color: COLORS.text,
+        fontFamily: FONT_BODY,
+        whiteSpace: compact ? "normal" : "nowrap",
+        lineHeight: 1.35,
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        style={{
+          accentColor: COLORS.maroon,
+          width: 14,
+          height: 14,
+          cursor: "pointer",
+          flexShrink: 0,
+          marginTop: 2,
+        }}
+      />
+      {optLabel}
+    </label>
+  )
+}
+
 export function AdminFilterPanel({
   groups,
   activeFilters,
   onChange,
   onClear,
+  width: maxWidthProp,
 }: {
   groups: FilterGroupDef[]
   activeFilters: ActiveFilters
   onChange: (next: ActiveFilters) => void
   onClear: () => void
+  /** Override max panel width (defaults to dashboard cap). */
+  width?: number
 }) {
+  const { maxWidth, groups: layoutGroups } = resolveFilterPanelLayout(groups)
+  const panelMaxWidth = maxWidthProp ?? maxWidth
   const totalActive = countActiveFilters(activeFilters)
 
   function toggle(field: string, value: string) {
     onChange(toggleFilterValue(activeFilters, field, value))
-  }
-
-  type FlatColumn = {
-    key: string
-    label?: string
-    field: string
-    options: { value: string; label: string }[]
-  }
-
-  const flatColumns: FlatColumn[] = []
-  for (const group of groups) {
-    if (group.options.length === 0) continue
-    if (group.optionsPerColumn) {
-      const chunks = chunkFilterOptions(group.options, group.optionsPerColumn)
-      chunks.forEach((chunk, index) => {
-        flatColumns.push({
-          key: `${group.field}-${index}`,
-          label: index === 0 ? group.label : undefined,
-          field: group.field,
-          options: chunk,
-        })
-      })
-    } else {
-      flatColumns.push({
-        key: group.field,
-        label: group.label,
-        field: group.field,
-        options: group.options,
-      })
-    }
   }
 
   return (
@@ -70,6 +90,9 @@ export function AdminFilterPanel({
         boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
         zIndex: 100,
         padding: 16,
+        width: "max-content",
+        maxWidth: panelMaxWidth,
+        minWidth: 220,
       }}
     >
       <div
@@ -115,58 +138,61 @@ export function AdminFilterPanel({
       <div
         style={{
           display: "flex",
-          gap: 24,
-          flexWrap: "nowrap",
+          gap: 20,
           alignItems: "flex-start",
         }}
       >
-        {flatColumns.map(({ key, label, field, options }) => {
-          const checked = activeFilters[field] ?? []
+        {layoutGroups.map((group) => {
+          if (group.options.length === 0) return null
+          const checked = activeFilters[group.field] ?? []
+          const rowsPerColumn =
+            group.optionsPerColumn ?? ADMIN_FILTER_PANEL_OPTIONS_PER_COLUMN
+          const columnCount = Math.max(
+            1,
+            Math.ceil(group.options.length / rowsPerColumn)
+          )
+          const groupMaxWidth = filterGroupMaxWidth(group.field)
           return (
-            <div key={key} style={{ minWidth: 120, flexShrink: 0 }}>
+            <div
+              key={group.field}
+              style={{
+                flex: "0 0 auto",
+                width: "max-content",
+                maxWidth: groupMaxWidth,
+                minWidth: 0,
+              }}
+            >
               <div
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
                   color: COLORS.text,
                   marginBottom: 8,
-                  minHeight: label ? undefined : 17,
                   textTransform: "uppercase",
                   letterSpacing: "0.4px",
                   fontFamily: FONT_BODY,
                 }}
               >
-                {label ?? "\u00A0"}
+                {group.label}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {options.map(({ value, label: optLabel }) => (
-                  <label
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    columnCount === 1
+                      ? "max-content"
+                      : `repeat(${columnCount}, minmax(0, 1fr))`,
+                  gap: "6px 16px",
+                }}
+              >
+                {group.options.map(({ value, label: optLabel }) => (
+                  <FilterOptionLabel
                     key={value}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      cursor: "pointer",
-                      fontSize: 13,
-                      color: COLORS.text,
-                      fontFamily: FONT_BODY,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked.includes(value)}
-                      onChange={() => toggle(field, value)}
-                      style={{
-                        accentColor: COLORS.maroon,
-                        width: 14,
-                        height: 14,
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
-                    />
-                    {optLabel}
-                  </label>
+                    optLabel={optLabel}
+                    checked={checked.includes(value)}
+                    onToggle={() => toggle(group.field, value)}
+                    compact
+                  />
                 ))}
               </div>
             </div>
@@ -174,6 +200,71 @@ export function AdminFilterPanel({
         })}
       </div>
     </div>
+  )
+}
+
+export function AdminIconFilterButton({
+  activeFilters,
+  onToggle,
+  open,
+  ariaLabel = "Filter",
+}: {
+  activeFilters: ActiveFilters
+  onToggle: () => void
+  open: boolean
+  ariaLabel?: string
+}) {
+  const totalActive = countActiveFilters(activeFilters)
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-haspopup="true"
+      aria-label={ariaLabel}
+      style={{
+        width: 60,
+        height: 38,
+        border: `1.5px solid ${
+          totalActive > 0 ? COLORS.maroon : COLORS.green
+        }`,
+        borderRadius: 999,
+        background: COLORS.white,
+        color: totalActive > 0 ? COLORS.maroon : COLORS.green,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        transition: "border-color 0.13s, color 0.13s",
+        padding: 0,
+        flexShrink: 0,
+      }}
+    >
+      <i className="ti ti-filter" style={{ fontSize: 18 }} />
+      {totalActive > 0 && (
+        <span
+          style={{
+            position: "absolute",
+            top: -6,
+            right: -6,
+            background: COLORS.maroon,
+            color: "#fff",
+            borderRadius: "50%",
+            width: 16,
+            height: 16,
+            fontSize: 9,
+            fontWeight: 700,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {totalActive}
+        </span>
+      )}
+    </button>
   )
 }
 

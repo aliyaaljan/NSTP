@@ -27,6 +27,7 @@ export default function CompletionDonutChart({ data }: { data: CompletionDonutDa
   ]
 
   const hovered = segments.find((seg) => seg.label === hoveredLabel) ?? null
+  const center = hovered ?? segments[0]
 
   let offsetAcc = 0
 
@@ -84,35 +85,38 @@ export default function CompletionDonutChart({ data }: { data: CompletionDonutDa
         })}
       </svg>
 
-      {hovered && (
-        <div
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+          gap: 4,
+        }}
+      >
+        <span
           style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            pointerEvents: "none",
-            gap: 4,
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            background: center.color,
           }}
-        >
-          <span
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: "50%",
-              background: hovered.color,
-            }}
-          />
-          <span style={{ ...TYPE.bodyBold, color: COLORS.textDark, textAlign: "center" }}>
-            {hovered.label}
+        />
+        <span style={{ ...TYPE.bodyBold, color: COLORS.textDark, textAlign: "center" }}>
+          {center.label}
+        </span>
+        <span style={{ ...TYPE.h2, color: center.color, lineHeight: 1 }}>
+          {center.pct}%
+        </span>
+        {!hovered && (
+          <span style={{ ...TYPE.caption, color: COLORS.textGray, textAlign: "center" }}>
+            of active students
           </span>
-          <span style={{ ...TYPE.h2, color: hovered.color, lineHeight: 1 }}>
-            {hovered.pct}%
-          </span>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

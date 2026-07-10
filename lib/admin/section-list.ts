@@ -6,6 +6,8 @@
  * Replace `filterSectionListRows()` with SQL filters when the list grows large.
  */
 
+import { formatClassLabel } from "@/lib/shared/class-label"
+
 export type SectionStatusCode = "active" | "completed" | "archived"
 
 export interface SectionListRow {
@@ -13,7 +15,7 @@ export interface SectionListRow {
   sectionId: string
   /** `section.term_id` */
   termId: string
-  /** `section.name` */
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   name: string
   /** `section.course_code` */
   courseCode: string
@@ -118,7 +120,6 @@ export const SECTION_LIST_SELECT = `
   section_id,
   term_id,
   course_code,
-  name,
   required_hour_total,
   daily_cutoff_time,
   created_at,
@@ -126,7 +127,8 @@ export const SECTION_LIST_SELECT = `
   adviser_user_id,
   section_status_id,
   adviser:adviser_user_id(app_user_id, full_name),
-  section_status:section_status_id(section_status_id, code, name)
+  section_status:section_status_id(section_status_id, code, name),
+  term:term_id(school_year)
 ` as const
 
 /** Raw row shape returned by `SECTION_LIST_SELECT`. */
@@ -134,7 +136,6 @@ export interface SectionListDbRow {
   section_id: string
   term_id: string
   course_code: string
-  name: string
   required_hour_total: number | null
   daily_cutoff_time: string | null
   created_at: string
@@ -147,6 +148,7 @@ export interface SectionListDbRow {
     code: string
     name: string
   } | null
+  term: { school_year: string } | null
 }
 
 export const SECTION_STATUS_FILTER_OPTIONS: ReadonlyArray<{
@@ -244,7 +246,11 @@ export function mapSectionDbRowToListRow(
   return {
     sectionId: row.section_id,
     termId: row.term_id,
-    name: row.name,
+    name: formatClassLabel({
+      courseCode: row.course_code,
+      facilitatorName: row.adviser?.full_name,
+      schoolYear: row.term?.school_year,
+    }),
     courseCode: row.course_code,
     adviserUserId: row.adviser_user_id,
     adviserName: row.adviser?.full_name ?? "Unassigned",

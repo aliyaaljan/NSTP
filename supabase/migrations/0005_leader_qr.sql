@@ -44,6 +44,39 @@ revoke execute on function public.app_leads_section(uuid) from public;
 revoke execute on function public.app_leads_section(uuid) from anon;
 grant  execute on function public.app_leads_section(uuid) to authenticated;
 
+create or replace function public.class_label_surname(p_full_name text)
+returns text language sql immutable as $$
+  select case
+    when position(',' in p_full_name) > 0 then trim(split_part(p_full_name, ',', 1))
+    else (regexp_split_to_array(trim(p_full_name), '\s+'))[
+           array_length(regexp_split_to_array(trim(p_full_name), '\s+'), 1)
+         ]
+  end;
+$$;
+
+drop function if exists public.class_label(text, text);
+
+create or replace function public.class_label(p_course_code text, p_facilitator_name text, p_school_year text)
+returns text language sql immutable as $$
+  select case
+    when coalesce(trim(p_course_code), '') <> '' and coalesce(trim(p_facilitator_name), '') <> ''
+      then trim(p_course_code) || ' — ' || public.class_label_surname(p_facilitator_name)
+           || case when coalesce(trim(p_school_year), '') <> '' then ' · A.Y. ' || trim(p_school_year) else '' end
+    when coalesce(trim(p_course_code), '') <> ''
+      then trim(p_course_code)
+           || case when coalesce(trim(p_school_year), '') <> '' then ' · A.Y. ' || trim(p_school_year) else '' end
+    when coalesce(trim(p_facilitator_name), '') <> '' then public.class_label_surname(p_facilitator_name)
+    else 'Unassigned class'
+  end;
+$$;
+
+revoke execute on function public.class_label(text, text, text) from public;
+revoke execute on function public.class_label(text, text, text) from anon;
+grant  execute on function public.class_label(text, text, text) to authenticated;
+revoke execute on function public.class_label_surname(text) from public;
+revoke execute on function public.class_label_surname(text) from anon;
+grant  execute on function public.class_label_surname(text) to authenticated;
+
 -- ============================================================
 -- 3. get_leader_section_dashboard() → table
 --    Roster + progress stats for the caller's led section.
@@ -68,10 +101,12 @@ declare
   v_active_status_id uuid;
   v_open_status_id   uuid;
   v_closed_status_id uuid;
+  v_corrected_status_id uuid;
 begin
   select enrollment_status_id         into v_active_status_id from public.enrollment_status         where code = 'active';
   select attendance_session_status_id into v_open_status_id   from public.attendance_session_status where code = 'open';
   select attendance_session_status_id into v_closed_status_id from public.attendance_session_status where code = 'closed';
+  select attendance_session_status_id into v_corrected_status_id from public.attendance_session_status where code = 'corrected';
 
   -- Resolve the one active section the caller leads
   select e.section_id into v_section_id
@@ -88,7 +123,7 @@ begin
   return query
   select
     s.section_id,
-    s.name                                                        as section_name,
+    public.class_label(s.course_code, au.full_name, t.school_year) as section_name,
     s.course_code,
     s.required_hour_total                                         as required_hours,
     count(e.enrollment_id)                                        as total_students,
@@ -112,11 +147,15 @@ begin
                               / nullif(s.required_hour_total * 60, 0) * 100,
                               1
                             ),
-        'has_open_session', open_sess.attendance_session_id is not null
+        'has_open_session', open_sess.attendance_session_id is not null,
+        'generated_at',     qct.generated_at,
+        'scanned_at',       open_sess.started_at
       )
       order by u.full_name
     )                                                             as students
   from        public.section s
+  join        public.app_user au on au.app_user_id = s.adviser_user_id
+  join        public.term t on t.term_id = s.term_id
   join        public.enrollment e
     on        e.section_id           = s.section_id
     and       e.enrollment_status_id = v_active_status_id
@@ -125,17 +164,22 @@ begin
     select coalesce(sum(sess.duration_minute), 0)::int as minutes_rendered
     from   public.attendance_session sess
     where  sess.enrollment_id               = e.enrollment_id
-      and  sess.attendance_session_status_id = v_closed_status_id
+      and  sess.attendance_session_status_id in (v_closed_status_id, v_corrected_status_id)
   ) hrs on true
   left join lateral (
-    select sess.attendance_session_id
+    select sess.attendance_session_id, sess.started_at
     from   public.attendance_session sess
     where  sess.enrollment_id               = e.enrollment_id
       and  sess.attendance_session_status_id = v_open_status_id
     limit 1
   ) open_sess on true
+  left join lateral (
+    select qc.generated_at
+    from   public.qr_current_token qc
+    where  qc.enrollment_id = e.enrollment_id
+  ) qct on true
   where s.section_id = v_section_id
-  group by s.section_id, s.name, s.course_code, s.required_hour_total;
+  group by s.section_id, au.full_name, s.course_code, s.required_hour_total, t.school_year;
 end;
 $$;
 
@@ -412,6 +456,10 @@ declare
   v_session_id     uuid;
   v_effective_at   timestamptz;
   v_rows_closed    int;
+  v_section_id     uuid;
+  v_lat            numeric;
+  v_lng            numeric;
+  v_flag_reason    text;
 begin
   if p_source_code not in ('self_student', 'self_leader') then
     raise exception 'invalid source code: %', p_source_code;
@@ -446,10 +494,43 @@ begin
 
   v_effective_at := now();
 
+  -- Off-site advisory check (Business Rule #2): flag when the reported GPS point is
+  -- outside ALL of the section's active geofences. Advisory only — the session still
+  -- closes and counts toward hours. No GPS or no geofences → no flag.
+  v_lat := (p_meta->>'latitude')::numeric;
+  v_lng := (p_meta->>'longitude')::numeric;
+  if v_lat is not null and v_lng is not null then
+    select e.section_id into v_section_id
+    from   public.enrollment e
+    where  e.enrollment_id = p_enrollment_id;
+
+    select case
+             when count(*) > 0
+              and count(*) filter (where g.dist_m <= g.radius_meter) = 0
+             then 'Timed out ~' || round(min(g.dist_m))::int
+                  || ' m from the nearest site (' || (array_agg(g.label order by g.dist_m))[1] || ').'
+           end
+    into v_flag_reason
+    from (
+      select coalesce(sg.label, 'site') as label,
+             sg.radius_meter,
+             2 * 6371000 * asin(least(1.0, sqrt(
+               power(sin(radians(sg.center_latitude - v_lat) / 2), 2)
+               + cos(radians(v_lat)) * cos(radians(sg.center_latitude))
+               * power(sin(radians(sg.center_longitude - v_lng) / 2), 2)
+             ))) as dist_m
+      from public.section_geofence sg
+      where sg.section_id = v_section_id
+        and sg.is_active
+    ) g;
+  end if;
+
   -- CAS close: only succeeds if a session is currently open
   update public.attendance_session
   set    attendance_session_status_id = v_status_closed,
-         ended_at                     = v_effective_at
+         ended_at                     = v_effective_at,
+         is_flagged                   = is_flagged or (v_flag_reason is not null),
+         flag_reason                  = coalesce(v_flag_reason, flag_reason)
   where  enrollment_id               = p_enrollment_id
     and  attendance_session_status_id = v_status_open
   returning attendance_session_id into v_session_id;
@@ -525,10 +606,14 @@ returns table(
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s dashboard';
   end if;
+
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
 
   return query
   with student_minutes as (
@@ -541,17 +626,18 @@ begin
       on att.enrollment_id = e.enrollment_id
       and att.attendance_session_status_id not in (
             select attendance_session_status_id from attendance_session_status
-            where code in ('voided', 'open', 'under_appeal')
+            where code in ('voided', 'open')
           )
-    where e.enrollment_status_id = (
-            select enrollment_status_id from enrollment_status where code = 'active'
+    where e.enrollment_status_id in (
+            select enrollment_status_id from enrollment_status where code in ('active', 'completed')
           )
     group by e.enrollment_id, e.section_id
   ),
   section_stats as (
     select
       s.section_id,
-      s.name as section_name,
+      public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
+      t.is_active as term_is_active,
       s.required_hour_total,
       count(sm.enrollment_id)::integer as total,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
@@ -564,11 +650,10 @@ begin
     join enrollment e on e.section_id = s.section_id and e.enrollment_id = sm.enrollment_id
     join app_user u on u.app_user_id = e.student_user_id
     where s.adviser_user_id = p_adviser_user_id
-      and t.is_active = true
-      and e.enrollment_status_id = (
-            select enrollment_status_id from enrollment_status where code = 'active'
+      and e.enrollment_status_id in (
+            select enrollment_status_id from enrollment_status where code in ('active', 'completed')
           )
-    group by s.section_id, s.name, s.required_hour_total
+    group by s.section_id, s.course_code, s.required_hour_total, t.school_year, t.is_active
   ),
   pending_appeals as (
     select
@@ -582,16 +667,16 @@ begin
             select appeal_status_id from appeal_status where code in ('pending', 'under_review')
           )
       and t.is_active = true
-      and appe.assigned_adviser_user_id = p_adviser_user_id
+      and s.adviser_user_id = p_adviser_user_id
       and e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
           )
     group by e.section_id
   ),
-  all_sections as (
+  all_classes as (
     select
       null::uuid as section_id,
-      'All Sections'::text as section_name,
+      'All Classes'::text as section_name,
       (select sum(ss.total) from section_stats ss)::integer as total,
       (select coalesce(sum(pa.pending), 0) from pending_appeals pa)::integer as pending,
       (select sum(ss.completed) from section_stats ss)::integer as completed,
@@ -599,6 +684,18 @@ begin
       (select sum(ss.on_track) from section_stats ss)::integer as on_track,
       (select sum(ss.at_risk) from section_stats ss)::integer as at_risk,
       (select jsonb_agg(student) from section_stats ss2, lateral jsonb_array_elements(ss2.students) as student) as students
+  ),
+  all_active_classes as (
+    select
+      null::uuid as section_id,
+      'All Active Classes'::text as section_name,
+      (select coalesce(sum(ss.total), 0) from section_stats ss where ss.term_is_active)::integer as total,
+      (select coalesce(sum(pa.pending), 0) from pending_appeals pa)::integer as pending,
+      (select coalesce(sum(ss.completed), 0) from section_stats ss where ss.term_is_active)::integer as completed,
+      least(round((select sum(ss.completed)::numeric from section_stats ss where ss.term_is_active) / nullif((select sum(ss.total) from section_stats ss where ss.term_is_active), 0) * 100, 2), 100) as completion_pct,
+      (select coalesce(sum(ss.on_track), 0) from section_stats ss where ss.term_is_active)::integer as on_track,
+      (select coalesce(sum(ss.at_risk), 0) from section_stats ss where ss.term_is_active)::integer as at_risk,
+      (select jsonb_agg(student) from section_stats ss2, lateral jsonb_array_elements(ss2.students) as student where ss2.term_is_active) as students
   )
   select
     ss.section_id,
@@ -613,7 +710,9 @@ begin
   from section_stats ss
   left join pending_appeals pa on pa.section_id = ss.section_id
   union all
-  select * from all_sections;
+  select * from all_classes
+  union all
+  select * from all_active_classes;
 end;
 $function$;
 
@@ -623,16 +722,21 @@ returns table(id uuid, name text)
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s sections';
   end if;
 
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
+
   return query
-  select s.section_id, s.name
+  select s.section_id, public.class_label(s.course_code, v_adviser_name, t.school_year)
   from section s
   join term t on t.term_id = s.term_id
-  where s.adviser_user_id = p_adviser_user_id and t.is_active = true;
+  where s.adviser_user_id = p_adviser_user_id
+  order by t.start_date desc;
 end;
 $function$;
 
@@ -675,15 +779,19 @@ returns table(section_id uuid, section_name text, sem_end_date date, remaining_d
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s active term';
   end if;
 
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
+
   return query
   select
     s.section_id,
-    s.name as section_name,
+    public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
     t.end_date as sem_end_date,
     case
       when floor(t.end_date - current_date) <= 0 then 'Semester ended'
@@ -696,8 +804,7 @@ begin
     end as remaining_days
   from section s
   join term t on t.term_id = s.term_id
-  where s.adviser_user_id = p_adviser_user_id
-    and t.is_active = true;
+  where s.adviser_user_id = p_adviser_user_id;
 end;
 $function$;
 
@@ -707,10 +814,14 @@ returns table(section_id uuid, section_name text, total integer, completed integ
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s student stats';
   end if;
+
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
 
   return query
   with student_minutes as (
@@ -723,7 +834,7 @@ begin
     where (att.attendance_session_status_id is null
            or att.attendance_session_status_id not in (
              select attendance_session_status_id from attendance_session_status
-             where code in ('voided', 'open', 'under_appeal')
+             where code in ('voided', 'open')
            ))
       and e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
@@ -748,7 +859,7 @@ begin
   section_stats as (
     select
       s.section_id,
-      s.name as section_name,
+      public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
       count(sm.enrollment_id)::integer as total,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric >= s.required_hour_total*60)::integer as completed,
       count(sm.enrollment_id) filter (where sm.total_minutes::numeric < s.required_hour_total*60)::integer as in_progress,
@@ -759,7 +870,7 @@ begin
     left join pending_requests pa on pa.section_id = s.section_id
     where s.adviser_user_id = p_adviser_user_id
       and t.is_active = true
-    group by s.section_id, s.name
+    group by s.section_id, s.course_code, t.school_year
   ),
   all_sections as (
     select
@@ -783,10 +894,14 @@ returns table(section_id uuid, section_name text, student_name text, student_num
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
+declare
+  v_adviser_name text;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to read this adviser''s students';
   end if;
+
+  select full_name into v_adviser_name from app_user where app_user_id = p_adviser_user_id;
 
   return query
   with student_minutes as (
@@ -798,7 +913,7 @@ begin
       on att.enrollment_id = e.enrollment_id
       and att.attendance_session_status_id not in (
             select attendance_session_status_id from attendance_session_status
-            where code in ('voided', 'open', 'under_appeal')
+            where code in ('voided', 'open')
           )
     where e.enrollment_status_id = (
             select enrollment_status_id from enrollment_status where code = 'active'
@@ -824,13 +939,13 @@ begin
     from attendance_session att
     where att.attendance_session_status_id not in (
             select attendance_session_status_id from attendance_session_status
-            where code in ('voided', 'open', 'under_appeal')
+            where code in ('voided', 'open')
           )
     group by att.enrollment_id
   )
   select
     s.section_id,
-    s.name as section_name,
+    public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
     u.full_name as student_name,
     u.student_number as student_number,
     u.sais_id::numeric as sais_id,
@@ -866,20 +981,35 @@ begin
 end;
 $function$;
 
--- update_attendance_session — adviser correction of a session's in/out times
+-- The old 5-arg update_attendance_session overload (no correction-event write) is dead:
+-- both callers use the 7-arg form. Dropped 2026-07-10 (Business Rule #5).
+drop function if exists public.update_attendance_session(uuid, uuid, date, time, time);
+
+-- Drop the dead 6-arg update overload (unused; the Edit Session UI always sends void_reason).
+drop function if exists public.update_attendance_session(uuid, uuid, date, time, time, uuid);
+
+-- update_attendance_session (7-arg) — the overload the Edit Session UI actually calls
+-- (status id + void reason). Reconciled from a live-only ad-hoc definition that had NO
+-- caller guard (trusted p_adviser_user_id -> IDOR) and no pinned search_path. Now guarded
+-- and search_path-pinned, and it writes an append-only correction/adviser_manual event so
+-- every time edit leaves an audit trail (Business Rule #5).
 create or replace function public.update_attendance_session(
   p_attendance_session_id uuid,
   p_adviser_user_id uuid,
   p_session_date date,
   p_time_in time without time zone,
-  p_time_out time without time zone
+  p_time_out time without time zone,
+  p_attendance_session_status_id uuid,
+  p_void_reason text
 )
 returns void
 language plpgsql security definer
 set search_path = public, pg_temp
 as $function$
 declare
-  v_enrollment_id uuid;
+  v_enrollment_id   uuid;
+  v_event_source_id uuid;
+  v_event_type_id   uuid;
 begin
   if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
     raise exception 'not authorized to edit this session';
@@ -896,11 +1026,35 @@ begin
     raise exception 'Not authorized to edit this session';
   end if;
 
+  if not exists (
+    select 1 from attendance_session_status
+    where attendance_session_status_id = p_attendance_session_status_id
+      and code in ('open', 'closed', 'voided', 'corrected')
+  ) then
+    raise exception 'invalid attendance session status';
+  end if;
+
   update attendance_session
   set
     started_at = (p_session_date + p_time_in) at time zone 'Asia/Manila',
-    ended_at = (p_session_date + p_time_out) at time zone 'Asia/Manila'
+    ended_at = (p_session_date + p_time_out) at time zone 'Asia/Manila',
+    attendance_session_status_id = p_attendance_session_status_id,
+    void_reason = p_void_reason
   where attendance_session_id = p_attendance_session_id;
+
+  select attt.attendance_event_type_id into v_event_type_id
+  from attendance_event_type attt where attt.code = 'correction' limit 1;
+  select atte.attendance_event_source_id into v_event_source_id
+  from attendance_event_source atte where atte.code = 'adviser_manual' limit 1;
+
+  insert into attendance_event (
+    enrollment_id, attendance_session_id, attendance_event_type_id,
+    attendance_event_source_id, effective_at, recorded_by_user_id
+  )
+  values (
+    v_enrollment_id, p_attendance_session_id, v_event_type_id,
+    v_event_source_id, now(), auth.uid()
+  );
 end;
 $function$;
 
@@ -915,7 +1069,7 @@ begin
     'public.get_active_sem(uuid)',
     'public.get_students_stats(uuid)',
     'public.get_my_students(uuid)',
-    'public.update_attendance_session(uuid, uuid, date, time, time)'
+    'public.update_attendance_session(uuid, uuid, date, time, time, uuid, text)'
   ] loop
     execute format('revoke execute on function %s from public;', fn);
     execute format('revoke execute on function %s from anon;', fn);
@@ -939,6 +1093,151 @@ begin
       and tablename = 'attendance_session'
   ) then
     alter publication supabase_realtime add table public.attendance_session;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Attendance corrections/manual-add + daily auto-void.
+-- These two functions previously existed ONLY on the live DB (schema drift) and
+-- were written against the drifted session-status codes. Captured here and
+-- reconciled to the canonical lifecycle (open/closed/voided/corrected).
+-- ---------------------------------------------------------------------------
+
+-- create_attendance_session — facilitator manually adds a completed session
+-- (e.g. overnight work auto-voided at cutoff, or a forgotten re-login after a break).
+-- Modelled append-only: a new session + a correction event sourced adviser_manual.
+-- Returns the new attendance_session_id so callers (e.g. approving a "missing session"
+-- request) can link the created session back to the request.
+drop function if exists public.create_attendance_session(uuid, date, time, time);
+create or replace function public.create_attendance_session(
+  p_enrollment_id uuid,
+  p_session_date date,
+  p_time_in time without time zone,
+  p_time_out time without time zone
+)
+returns uuid
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_status_id       uuid;
+  v_event_source_id uuid;
+  v_event_type_id   uuid;
+  v_new_session_id  uuid;
+begin
+  -- Authorization: only the enrollment's section adviser or an admin may add a session.
+  if not exists (
+    select 1
+    from enrollment e
+    join section s on s.section_id = e.section_id
+    where e.enrollment_id = p_enrollment_id
+      and (s.adviser_user_id = auth.uid() or public.app_is_admin())
+  ) then
+    raise exception 'not authorized to add a session for this enrollment';
+  end if;
+
+  select atts.attendance_session_status_id into v_status_id
+  from attendance_session_status atts where atts.code = 'closed' limit 1;
+  if v_status_id is null then
+    raise exception 'Status code "closed" not found.';
+  end if;
+
+  select atte.attendance_event_source_id into v_event_source_id
+  from attendance_event_source atte where atte.code = 'adviser_manual' limit 1;
+  if v_event_source_id is null then
+    raise exception 'Event source "adviser_manual" not found.';
+  end if;
+
+  select attt.attendance_event_type_id into v_event_type_id
+  from attendance_event_type attt where attt.code = 'correction' limit 1;
+
+  insert into attendance_session (
+    enrollment_id, started_at, ended_at, attendance_session_status_id
+  )
+  values (
+    p_enrollment_id,
+    (p_session_date + p_time_in)  at time zone 'Asia/Manila',
+    (p_session_date + p_time_out) at time zone 'Asia/Manila',
+    v_status_id
+  )
+  returning attendance_session_id into v_new_session_id;
+
+  insert into attendance_event (
+    enrollment_id, attendance_session_id, attendance_event_type_id,
+    attendance_event_source_id, effective_at, recorded_by_user_id
+  )
+  values (
+    p_enrollment_id, v_new_session_id, v_event_type_id, v_event_source_id, now(), auth.uid()
+  );
+
+  return v_new_session_id;
+end;
+$function$;
+
+-- automatic_cut_off_sessions — daily job: void sessions still 'open' past the
+-- section's daily cutoff (Business Rule #1). Voided = did not complete, does not
+-- count; ended_at is left null. Writes an append-only 'void'/'system_auto' event.
+-- (Rewritten: the previous live version referenced non-existent time_in/time_out
+--  columns, wrote to the generated duration_minute, and used undefined variables.)
+create or replace function public.automatic_cut_off_sessions()
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_voided_status_id uuid;
+  v_open_status_id   uuid;
+  v_source_id        uuid;
+  v_type_id          uuid;
+begin
+  select attendance_session_status_id into v_voided_status_id from attendance_session_status where code = 'voided' limit 1;
+  select attendance_session_status_id into v_open_status_id   from attendance_session_status where code = 'open'   limit 1;
+  select attendance_event_source_id   into v_source_id        from attendance_event_source   where code = 'system_auto' limit 1;
+  select attendance_event_type_id     into v_type_id          from attendance_event_type     where code = 'void' limit 1;
+
+  if v_voided_status_id is null or v_open_status_id is null then
+    raise exception 'automatic_cut_off_sessions: required session status codes (voided/open) missing';
+  end if;
+
+  with due as (
+    select att.attendance_session_id, att.enrollment_id
+    from   attendance_session att
+    join   enrollment e on e.enrollment_id = att.enrollment_id
+    join   section     s on s.section_id   = e.section_id
+    where  att.attendance_session_status_id = v_open_status_id
+      and  now() > ((att.started_at at time zone 'Asia/Manila')::date + s.daily_cutoff_time) at time zone 'Asia/Manila'
+  ),
+  voided as (
+    update attendance_session att
+    set    attendance_session_status_id = v_voided_status_id,
+           void_reason = 'Auto-voided: not timed out before the section daily cutoff.'
+    from   due
+    where  att.attendance_session_id = due.attendance_session_id
+    returning att.attendance_session_id, att.enrollment_id
+  )
+  insert into attendance_event (
+    enrollment_id, attendance_session_id, attendance_event_type_id,
+    attendance_event_source_id, effective_at
+  )
+  select v.enrollment_id, v.attendance_session_id, v_type_id, v_source_id, now()
+  from   voided v
+  where  v_type_id is not null and v_source_id is not null;
+end;
+$function$;
+
+-- Lock down the two functions' execute surface.
+revoke execute on function public.create_attendance_session(uuid, date, time, time) from public;
+revoke execute on function public.create_attendance_session(uuid, date, time, time) from anon;
+grant  execute on function public.create_attendance_session(uuid, date, time, time) to authenticated;
+revoke execute on function public.automatic_cut_off_sessions() from public;
+revoke execute on function public.automatic_cut_off_sessions() from anon;
+revoke execute on function public.automatic_cut_off_sessions() from authenticated;
+
+-- Re-affirm the daily cutoff cron (idempotent by job name) where pg_cron is available.
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('automatic-cut-off-sessions', '0 17 * * *', 'select public.automatic_cut_off_sessions();');
   end if;
 end $$;
 

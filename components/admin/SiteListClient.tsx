@@ -546,6 +546,10 @@ export default function SiteListClient({
               value: <SiteStatusBadge isActive={detailSite.isActive} />,
             },
           ]}
+          mapConfig={{
+            center: [detailSite.centerLatitude, detailSite.centerLongitude],
+            radius: detailSite.radiusMeters,
+          }}
           onClose={() => setDetailSite(null)}
           onEdit={() => {
             setEditSite(detailSite)

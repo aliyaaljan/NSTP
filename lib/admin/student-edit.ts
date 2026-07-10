@@ -15,6 +15,9 @@
 
 import type { StudentListRow } from "@/lib/admin/student-list"
 
+/** UP student numbers are exactly 9 digits (e.g. 201201234). */
+export const STUDENT_NUMBER_PATTERN = /^\d{9}$/
+
 export interface StudentEditPayload {
   /** `enrollment.enrollment_id` */
   enrollmentId: string
@@ -87,6 +90,10 @@ export function validateStudentEditPayload(
   if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
     return "Email must be a UP email (@up.edu.ph)."
   }
+  const studentNumber = payload.studentNumber?.trim()
+  if (studentNumber && !STUDENT_NUMBER_PATTERN.test(studentNumber)) {
+    return "Student number must be exactly 9 digits."
+  }
   if (!payload.sectionId.trim()) {
     return "Section is required."
   }
@@ -105,6 +112,10 @@ export function validateStudentCreatePayload(
   }
   if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
     return "Email must be a UP email (@up.edu.ph)."
+  }
+  const studentNumber = payload.studentNumber?.trim()
+  if (studentNumber && !STUDENT_NUMBER_PATTERN.test(studentNumber)) {
+    return "Student number must be exactly 9 digits."
   }
   if (!payload.sectionId.trim()) {
     return "Section is required."

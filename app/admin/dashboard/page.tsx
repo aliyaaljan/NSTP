@@ -6,11 +6,8 @@ import {
 } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
-import DashboardFilters from "@/components/shared/DashboardFilters"
-import DashboardExportButton from "@/components/admin/DashboardExportButton"
-import AdminCalendarPanel from "@/components/admin/AdminCalendarPanel"
+import DashboardToolbar from "@/components/admin/DashboardToolbar"
 import SectionProgressPanel from "@/components/admin/SectionProgressPanel"
-import RemainingDaysChart from "@/components/admin/RemainingDaysChart"
 import CompletionDonutChart from "@/components/admin/CompletionDonutChart"
 import { lookupId } from "@/lib/lookups"
 import {
@@ -24,6 +21,7 @@ import {
   mapAuditLogDbRow,
   formatAuditLogTimestamp,
 } from "@/lib/admin/audit-log"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export const revalidate = 0
 
@@ -182,7 +180,11 @@ function ListCard({
         }}
       >
         <span>{colLeft}</span>
-        <span>{colRight}</span>
+        {colRight ? (
+          <span style={{ minWidth: 72, textAlign: "center", flexShrink: 0 }}>
+            {colRight}
+          </span>
+        ) : null}
       </div>
 
       <div
@@ -243,7 +245,11 @@ function ListRow({
           </div>
         </div>
       </div>
-      {rightSlot && <div style={{ flexShrink: 0 }}>{rightSlot}</div>}
+      {rightSlot && (
+        <div style={{ flexShrink: 0, minWidth: 72, textAlign: "center" }}>
+          {rightSlot}
+        </div>
+      )}
     </div>
   )
 }
@@ -315,13 +321,6 @@ export default async function AdminDashboardPage({
   }
   const supabase = await createSupabaseServerClient()
 
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const todayStartISO = todayStart.toISOString()
-  const tomorrowStart = new Date(todayStart)
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
-  const tomorrowStartISO = tomorrowStart.toISOString()
-
   const today = new Date()
   const dayOfWeek = today.getDay()
   const distanceToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
@@ -360,38 +359,40 @@ export default async function AdminDashboardPage({
   // --- dynamic select strings for inner join ---
   const studentCountSelect =
     selectedSection || selectedAdviser
-      ? "app_user_id, enrollment!inner(section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name)))"
+      ? "app_user_id, enrollment!inner(section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name)))"
       : "app_user_id, enrollment(enrollment_status_id)"
 
   const adviserCountSelect = selectedSection
-    ? "app_user_id, section!inner(name)"
+    ? "app_user_id, section!inner(section_id)"
     : "app_user_id"
 
   const activeCountSelect =
     selectedSection || selectedAdviser
-      ? "student_user_id, section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name))"
+      ? "student_user_id, section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name))"
       : "student_user_id"
 
   const timeInLogsSelect =
     selectedSection || selectedAdviser
-      ? "enrollment_id, enrollment!inner(enrollment_status_id, section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name)))"
+      ? "enrollment_id, enrollment!inner(enrollment_status_id, section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name)))"
       : "enrollment_id, enrollment!inner(section_id, enrollment_status_id)"
 
   const filesSelect =
     selectedSection || selectedAdviser
-      ? "form_id, section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name))"
+      ? "form_id, section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name))"
       : "form_id"
 
   const appealsSelect =
     selectedSection || selectedAdviser
-      ? "appeal_id, enrollment!inner(section!inner(name, app_user!section_adviser_user_id_fkey!inner(full_name)))"
+      ? "appeal_id, enrollment!inner(section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name)))"
       : "appeal_id, enrollment!inner(section_id)"
 
   const workloadSelect = selectedSection
     ? `
           full_name,
           section!section_adviser_user_id_fkey!inner(
-            name,
+            section_id,
+            course_code,
+            term:term_id(school_year),
             enrollment(
               enrollment_id,
               enrollment_status_id
@@ -401,7 +402,9 @@ export default async function AdminDashboardPage({
     : `
           full_name,
           section!section_adviser_user_id_fkey(
-            name,
+            section_id,
+            course_code,
+            term:term_id(school_year),
             enrollment(
               enrollment_id,
               enrollment_status_id
@@ -411,8 +414,8 @@ export default async function AdminDashboardPage({
 
   const enrollmentSelect =
     selectedSection || selectedAdviser
-      ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, name, required_hour_total, app_user!inner(full_name)), attendance_session(duration_minute)`
-      : `student_user_id, app_user(full_name, student_number), section(section_id, name, required_hour_total, app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
+      ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, course_code, required_hour_total, term:term_id(school_year), app_user!inner(full_name)), attendance_session(duration_minute)`
+      : `student_user_id, app_user(full_name, student_number), section(section_id, course_code, required_hour_total, term:term_id(school_year), app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
 
   // ---  Base Queries ---
   let studentsQuery = supabase
@@ -438,14 +441,6 @@ export default async function AdminDashboardPage({
     .eq("enrollment.enrollment_status_id", activeStatusId)
     .gte("effective_at", mondayISO)
 
-  let todayTimeInLogsQuery = supabase
-    .from("attendance_event")
-    .select(timeInLogsSelect)
-    .eq("attendance_event_type_id", timeInTypeId)
-    .eq("enrollment.enrollment_status_id", activeStatusId)
-    .gte("effective_at", todayStartISO)
-    .lt("effective_at", tomorrowStartISO)
-
   let filesQuery = supabase
     .from("form")
     .select(filesSelect, { count: "exact", head: true })
@@ -470,27 +465,29 @@ export default async function AdminDashboardPage({
   // ---  Conditional Filters ---
 
   if (selectedSection) {
-    studentsQuery = studentsQuery.eq("enrollment.section.name", selectedSection)
-    advisersQuery = advisersQuery.eq("section.name", selectedSection)
+    studentsQuery = studentsQuery.eq(
+      "enrollment.section.section_id",
+      selectedSection
+    )
+    advisersQuery = advisersQuery.eq("section.section_id", selectedSection)
     weeklyActiveCountQuery = weeklyActiveCountQuery.eq(
-      "section.name",
+      "section.section_id",
       selectedSection
     )
     weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
-      "enrollment.section.name",
+      "enrollment.section.section_id",
       selectedSection
     )
-    todayTimeInLogsQuery = todayTimeInLogsQuery.eq(
-      "enrollment.section.name",
+    filesQuery = filesQuery.eq("section.section_id", selectedSection)
+    appealsQuery = appealsQuery.eq(
+      "enrollment.section.section_id",
       selectedSection
     )
-    filesQuery = filesQuery.eq("section.name", selectedSection)
-    appealsQuery = appealsQuery.eq("enrollment.section.name", selectedSection)
     adviserWorkloadQuery = adviserWorkloadQuery.eq(
-      "section.name",
+      "section.section_id",
       selectedSection
     )
-    enrollmentQuery = enrollmentQuery.eq("section.name", selectedSection)
+    enrollmentQuery = enrollmentQuery.eq("section.section_id", selectedSection)
   }
 
   if (selectedAdviser && filteredAdviserId) {
@@ -504,10 +501,6 @@ export default async function AdminDashboardPage({
       filteredAdviserId
     )
     weeklyTimeInLogsQuery = weeklyTimeInLogsQuery.eq(
-      "enrollment.section.adviser_user_id",
-      filteredAdviserId
-    )
-    todayTimeInLogsQuery = todayTimeInLogsQuery.eq(
       "enrollment.section.adviser_user_id",
       filteredAdviserId
     )
@@ -538,7 +531,6 @@ export default async function AdminDashboardPage({
     sectionsFilterRes,
     advisersFilterRes,
     recentActivityRes,
-    activeTermRes,
     appealStatusesRes,
     enrollmentStatusesRes,
     attendanceSessionStatusesRes,
@@ -552,17 +544,15 @@ export default async function AdminDashboardPage({
     // appeals query call
     appealsQuery,
     //attendance rate query call
-    Promise.all([
-      weeklyActiveCountQuery,
-      weeklyTimeInLogsQuery,
-      todayTimeInLogsQuery,
-    ]),
+    Promise.all([weeklyActiveCountQuery, weeklyTimeInLogsQuery]),
     //enrollment query call
     enrollmentQuery,
     // adviser workload query call
     adviserWorkloadQuery,
     //Filter Dropdown for section list lookup
-    supabase.from("section").select("section_id, name").order("name"),
+    supabase
+      .from("section")
+      .select("section_id, course_code, term:term_id(school_year), app_user:adviser_user_id(full_name)"),
     // Filter dropdown for advisers list lookup
     supabase
       .from("app_user")
@@ -576,11 +566,6 @@ export default async function AdminDashboardPage({
       .order("created_at", { ascending: false })
       .limit(10),
 
-    supabase
-      .from("term")
-      .select("start_date, end_date")
-      .eq("is_active", true)
-      .maybeSingle(),
     // FETCH LOOKUP KEYS DYNAMICALLY
     supabase.from("appeal_status").select("appeal_status_id, name"),
     supabase.from("enrollment_status").select("enrollment_status_id, name"),
@@ -589,13 +574,30 @@ export default async function AdminDashboardPage({
       .select("attendance_session_status_id, name"),
   ])
 
-  const availableSections = sectionsFilterRes.data?.map((s) => s.name) || []
-
-  const exportSections =
-    sectionsFilterRes.data?.map((s) => ({
+  const sectionFilterOptions: { sectionId: string; label: string }[] = (
+    (sectionsFilterRes.data ?? []) as unknown as {
+      section_id: string
+      course_code: string
+      term: { school_year: string } | null
+      app_user: { full_name: string } | null
+    }[]
+  )
+    .map((s) => ({
       sectionId: s.section_id,
-      name: s.name,
-    })) || []
+      label: formatClassLabel({
+        courseCode: s.course_code,
+        facilitatorName: s.app_user?.full_name,
+        schoolYear: s.term?.school_year,
+      }),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  const availableSections = sectionFilterOptions
+  const selectedSectionLabel =
+    sectionFilterOptions.find((s) => s.sectionId === selectedSection)?.label ??
+    selectedSection
+
+  const exportSections = sectionFilterOptions
 
   const availableAdvisers =
     advisersFilterRes.data?.map((a) => a.full_name) || []
@@ -607,25 +609,10 @@ export default async function AdminDashboardPage({
   const uniqueScansThisWeek = new Set(
     attendanceRateRes[1]?.data?.map((e: any) => e.enrollment_id)
   ).size
-  const presentToday = new Set(
-    attendanceRateRes[2]?.data?.map((e: any) => e.enrollment_id)
-  ).size
   const computedAttendanceRate =
     totalActiveEnrollments > 0
       ? Math.round((uniqueScansThisWeek / totalActiveEnrollments) * 100)
       : 0
-
-  const totalToday = totalActiveEnrollments
-  const notYetToday = 0
-  const absentToday = Math.max(0, totalToday - presentToday - notYetToday)
-  const todayAttendance = {
-    present: presentToday,
-    absent: absentToday,
-    notYet: notYetToday,
-    total: totalToday,
-    presentPct:
-      totalToday > 0 ? Math.round((presentToday / totalToday) * 100) : 0,
-  }
 
   // processing enrollment data
 
@@ -653,6 +640,11 @@ export default async function AdminDashboardPage({
     if (!sectionData) return
 
     const sectionId = sectionData.section_id
+    const sectionLabel = formatClassLabel({
+      courseCode: sectionData.course_code,
+      facilitatorName: sectionData.app_user?.full_name,
+      schoolYear: sectionData.term?.school_year,
+    })
     const targetHours = sectionData.required_hour_total || 60
     const studentMinutes =
       en.attendance_session?.reduce(
@@ -671,11 +663,11 @@ export default async function AdminDashboardPage({
     else {
       atRiskCount++
 
-      let refinedSubtitle = `Section ${sectionData.name} under ${
+      let refinedSubtitle = `${sectionLabel} under ${
         sectionData.app_user?.full_name || "No Adviser"
       }`
       if (selectedAdviser) {
-        refinedSubtitle = `Section ${sectionData.name}`
+        refinedSubtitle = sectionLabel
       } else if (selectedSection) {
         refinedSubtitle = `Assigned to: ${
           sectionData.app_user?.full_name || "Unassigned"
@@ -692,7 +684,7 @@ export default async function AdminDashboardPage({
     // metrics for completion rows
     if (!sectionAggregationMap[sectionId]) {
       sectionAggregationMap[sectionId] = {
-        name: sectionData.name,
+        name: sectionLabel,
         totalHoursCompleted: 0,
         totalHoursRequired: 0,
         studentCount: 0,
@@ -769,8 +761,12 @@ export default async function AdminDashboardPage({
         },
         0
       )
-      const primarySectionLabel = sectionRosters[0]?.name
-        ? `Section ${sectionRosters[0].name}`
+      const primarySectionLabel = sectionRosters[0]?.course_code
+        ? formatClassLabel({
+            courseCode: sectionRosters[0].course_code,
+            facilitatorName: adv.full_name,
+            schoolYear: sectionRosters[0]?.term?.school_year,
+          })
         : "Floating"
       return {
         name: adv.full_name,
@@ -810,9 +806,6 @@ export default async function AdminDashboardPage({
         timeAgo: formatAuditLogTimestamp(activity.createdAt),
       }
     })
-
-  const nstpTermStart = activeTermRes.data?.start_date ?? "2025-08-11"
-  const nstpCompletionDeadline = "2026-07-17"
 
   const currentSemesterMeta = {
     academicYear: "2025-2026",
@@ -855,11 +848,10 @@ export default async function AdminDashboardPage({
       scrollTarget: "dashboard-hours-by-section",
     },
     {
-      icon: "ti-clock-check",
+      icon: "ti-calendar",
       label: "Average attendance rate",
       value: `${computedAttendanceRate}%`,
       note: "this week",
-      scrollTarget: "dashboard-calendar",
     },
     {
       icon: "ti-alert-triangle",
@@ -935,23 +927,12 @@ export default async function AdminDashboardPage({
         <ProfilePill user={currentUserMeta} />
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          flexWrap: "wrap",
-          marginBottom: 12,
-        }}
-      >
-        <DashboardFilters
-          currentFilter={currentFilter}
-          sections={availableSections}
-          advisers={availableAdvisers}
-        />
-        <DashboardExportButton sections={exportSections} />
-      </div>
+      <DashboardToolbar
+        currentFilter={currentFilter}
+        sections={availableSections}
+        advisers={availableAdvisers}
+        exportSections={exportSections}
+      />
 
       <ChartStyles />
       <KpiStatCardGrid columns={4}>
@@ -960,87 +941,32 @@ export default async function AdminDashboardPage({
         ))}
       </KpiStatCardGrid>
 
-      {/* Section progress progressbars bars panel + Completion donut */}
+      {/* Hours completion by section — full width */}
       <div
+        id="dashboard-hours-by-section"
         style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr",
-          gap: 20,
+          background: COLORS.cardBg,
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: COLORS.radius,
+          padding: "18px 20px",
+          boxShadow: COLORS.cardShadow,
+          scrollMarginTop: 24,
           marginBottom: 20,
         }}
       >
-        <div
-          id="dashboard-hours-by-section"
-          style={{
-            background: COLORS.cardBg,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: COLORS.radius,
-            padding: "18px 20px",
-            boxShadow: COLORS.cardShadow,
-            scrollMarginTop: 24,
-          }}
-        >
-          <div style={{ ...TYPE.h2, color: COLORS.textDark, marginBottom: 20 }}>
-            {selectedSection
-              ? `Student progress within Section ${selectedSection}`
-              : selectedAdviser
-              ? `Student progress under ${selectedAdviser}`
-              : "Hours completion by section"}
-          </div>
-          <SectionProgressPanel
-            rows={processedSectionProgress}
-            rowLabel={
-              selectedSection || selectedAdviser ? "students" : "sections"
-            }
-          />
+        <div style={{ ...TYPE.h2, color: COLORS.textDark, marginBottom: 20 }}>
+          {selectedSection
+            ? `Student progress within ${selectedSectionLabel}`
+            : selectedAdviser
+            ? `Student progress under ${selectedAdviser}`
+            : "Hours completion by section"}
         </div>
-
-        <div
-          id="dashboard-calendar"
-          style={{
-            background: COLORS.cardBg,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: COLORS.radius,
-            padding: "18px 20px",
-            boxShadow: COLORS.cardShadow,
-            display: "flex",
-            flexDirection: "column",
-            minHeight: "100%",
-            scrollMarginTop: 24,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <div style={{ ...TYPE.h2, color: COLORS.textDark }}>Calendar</div>
-            <div
-              style={{
-                fontFamily: FONT_BODY,
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.8px",
-                color: COLORS.textGray,
-                whiteSpace: "nowrap",
-              }}
-            >
-              TODAY ·{" "}
-              {new Date()
-                .toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                .toUpperCase()}
-            </div>
-          </div>
-          <RemainingDaysChart
-            endDate={nstpCompletionDeadline}
-            startDate={nstpTermStart}
-          />
-          <AdminCalendarPanel attendance={todayAttendance} />
-        </div>
+        <SectionProgressPanel
+          rows={processedSectionProgress}
+          rowLabel={
+            selectedSection || selectedAdviser ? "students" : "sections"
+          }
+        />
       </div>
 
       {/* Completion status, at-risk, and adviser workload — 3 columns; recent activity full width below */}
@@ -1139,11 +1065,9 @@ export default async function AdminDashboardPage({
                 subtitle={a.section}
                 isLast={i === processedAdviserWorkload.length - 1}
                 rightSlot={
-                  <Badge
-                    text={`${a.studentCount} students`}
-                    bg={COLORS.border}
-                    color={COLORS.textGray}
-                  />
+                  <span style={{ ...TYPE.body, fontWeight: 500, color: COLORS.textGray }}>
+                    {a.studentCount}
+                  </span>
                 }
               />
             ))

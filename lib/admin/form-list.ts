@@ -11,6 +11,8 @@
  *   - Section-specific requirements produce one row for that section.
  */
 
+import { formatClassLabel } from "@/lib/shared/class-label"
+
 export interface FormListRow {
   /** Stable UI key — `${formRequirementId}:${sectionId}` */
   rowId: string
@@ -22,7 +24,7 @@ export interface FormListRow {
   sectionId: string
   /** `form_requirement.title` */
   formName: string
-  /** `section.name` */
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   sectionName: string
   /** `section.adviser_user_id` → `app_user.full_name` */
   adviserName: string
@@ -49,7 +51,8 @@ export interface FormListRow {
 export interface FormListSectionOption {
   /** `section.section_id` */
   sectionId: string
-  name: string
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
+  label: string
 }
 
 export type FormListSortKey = "name" | "section" | "deadline" | "analytics"
@@ -117,8 +120,9 @@ export const FORM_REQUIREMENT_LIST_SELECT = `
   template_storage_path,
   section:section_id(
     section_id,
-    name,
+    course_code,
     adviser_user_id,
+    term:term_id(school_year),
     app_user:adviser_user_id(full_name)
   )
 ` as const
@@ -136,16 +140,18 @@ export interface FormRequirementListDbRow {
   template_storage_path: string | null
   section: {
     section_id: string
-    name: string
+    course_code: string
     adviser_user_id: string
+    term: { school_year: string } | null
     app_user: { full_name: string } | null
   } | null
 }
 
 export interface FormListSectionDbRow {
   section_id: string
-  name: string
+  course_code: string
   adviser_user_id: string
+  term: { school_year: string } | null
   app_user: { full_name: string } | null
 }
 
@@ -248,7 +254,11 @@ export function buildFormListRows(
         requirementSectionId: requirement.section_id,
         sectionId: section.section_id,
         formName: requirement.title,
-        sectionName: section.name,
+        sectionName: formatClassLabel({
+          courseCode: section.course_code,
+          facilitatorName: section.app_user?.full_name,
+          schoolYear: section.term?.school_year,
+        }),
         adviserName: section.app_user?.full_name ?? "Unassigned",
         submittedCount: submissionCounts.get(countKey) ?? 0,
         totalStudents: enrollmentCounts.get(section.section_id) ?? 0,

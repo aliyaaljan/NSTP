@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   IconSearch, IconChevronDown, IconUsers,
@@ -8,7 +8,7 @@ import {
   IconChartBar, IconClock, IconFiles,
   IconClipboardCheck, IconEdit, IconMapPin,
 } from "@tabler/icons-react";
-import { Sidebar, dashboardStyles, navRoutes, DonutChart } from "../facilitator";
+import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions";
 import { ChartStyles } from "@/components/shared/ChartModule";
 import { createClient } from "@/lib/client";
@@ -81,6 +81,199 @@ function progressBarColor(status: string) {
   return "#EF4444";
 }
 
+// Progress ring showing only how many students have completed —
+// the rest of the ring is the neutral "remaining" track.
+function CompletionDonut({
+  completed,
+  inProgress,
+  notStarted,
+}: {
+  completed: number;
+  inProgress: number;
+  notStarted: number;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  const total = completed + inProgress + notStarted;
+  const size = 140;
+  const stroke = 16;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const pctCompleted = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const arcLength = (completed / Math.max(total, 1)) * circumference;
+  const dasharray = `${arcLength} ${circumference}`;
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  return (
+    <div
+      style={{ position: "relative", width: size, height: size }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#E5E7EB"
+          strokeWidth={stroke}
+        />
+        {total > 0 && completed > 0 && (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="#059669"
+            strokeWidth={stroke}
+            strokeDasharray={dasharray}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            style={{ cursor: "pointer" }}
+            onMouseEnter={() => setHovered(true)}
+          />
+        )}
+      </svg>
+
+      {/* Center label */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ fontSize: 22, fontWeight: 600, color: "var(--text)" }}>{pctCompleted}%</div>
+        <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--muted)", marginTop: 2 }}>
+          Completed
+        </div>
+      </div>
+
+      {/* Tooltip that follows the cursor while hovering the completed arc */}
+      {hovered && (
+        <div
+          style={{
+            position: "absolute",
+            left: mousePos.x + 12,
+            top: mousePos.y + 12,
+            background: "var(--text)",
+            color: "#fff",
+            fontSize: 11.5,
+            fontWeight: 600,
+            padding: "5px 9px",
+            borderRadius: 6,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            zIndex: 10,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+          }}
+        >
+          Completed: {completed} of {total} ({pctCompleted}%)
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Attendance ring: a single-value progress ring for average attendance
+// rate. Complements CompletionDonut with a second at-a-glance health
+// metric, shown in its own separate box rather than sharing one panel.
+function AttendanceDonut({ pct, present, total }: { pct: number; present: number; total: number }) {
+  const [hovered, setHovered] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  const size = 140;
+  const stroke = 16;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const arcLength = (pct / 100) * circumference;
+  const dasharray = `${arcLength} ${circumference}`;
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  return (
+    <div
+      style={{ position: "relative", width: size, height: size }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E5E7EB" strokeWidth={stroke} />
+        {pct > 0 && (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="#1E40AF"
+            strokeWidth={stroke}
+            strokeDasharray={dasharray}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            style={{ cursor: "pointer" }}
+            onMouseEnter={() => setHovered(true)}
+          />
+        )}
+      </svg>
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ fontSize: 22, fontWeight: 600, color: "var(--text)" }}>{pct}%</div>
+        <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--muted)", marginTop: 2 }}>
+          Attendance
+        </div>
+      </div>
+
+      {hovered && (
+        <div
+          style={{
+            position: "absolute",
+            left: mousePos.x + 12,
+            top: mousePos.y + 12,
+            background: "var(--text)",
+            color: "#fff",
+            fontSize: 11.5,
+            fontWeight: 600,
+            padding: "5px 9px",
+            borderRadius: 6,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            zIndex: 10,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+          }}
+        >
+          Attendance: {pct}% avg across {total} students
+        </div>
+      )}
+    </div>
+  );
+}
+
 const summaryStyles = `
   ${dashboardStyles}
 
@@ -112,7 +305,7 @@ const summaryStyles = `
   .gs-mini-value { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.2; margin-top: 2px; }
   .gs-mini-sub { font-size: 10.5px; color: var(--light); margin-top: 1px; }
 
-  /* Bottom layout: donut left, table right */
+  /* Bottom layout: two donut boxes left, table right */
   .gs-bottom-row { display: flex; gap: 16px; align-items: stretch; }
   .gs-donut-panel {
     flex-shrink: 0; width: 190px;
@@ -155,7 +348,7 @@ export default function GroupSummaryPage() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch]           = useState("");
-  const [expanded, setExpanded]       = useState<string | null>("s1");
+  const [expanded, setExpanded]       = useState<string | null>(null);
   const [summaryFilter, setSummaryFilter] = useState<SummaryFilter>("all");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -322,15 +515,32 @@ export default function GroupSummaryPage() {
                             ))}
                           </div>
 
-                          {/* Bottom: donut panel left, student table right */}
+                          {/* Bottom: two donut boxes left, student table right */}
                           <div className="gs-bottom-row">
                             <div className="gs-donut-panel">
-                              <div className="gs-donut-label">Progress Tracker</div>
-                              <DonutChart pct={section.completionPct} />
+                              <div className="gs-donut-label">Completion</div>
+                              <CompletionDonut
+                                completed={section.completed}
+                                inProgress={section.inProgress}
+                                notStarted={section.notStarted}
+                              />
                               <div className="gs-legend">
                                 <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#059669" }} />{section.completed} Completed</div>
                                 <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#D97706" }} />{section.inProgress} In Progress</div>
                                 <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#EF4444" }} />{section.notStarted} Not Started</div>
+                              </div>
+                            </div>
+
+                            <div className="gs-donut-panel">
+                              <div className="gs-donut-label">Attendance</div>
+                              <AttendanceDonut
+                                pct={section.avgAttendanceRate}
+                                present={section.totalStudents}
+                                total={section.totalStudents}
+                              />
+                              <div className="gs-legend">
+                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#1E40AF" }} />{section.avgAttendanceRate}% avg rate</div>
+                                <div className="gs-legend-item"><div className="gs-legend-dot" style={{ background: "#E5E7EB" }} />{section.totalStudents} students tracked</div>
                               </div>
                             </div>
 

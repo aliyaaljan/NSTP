@@ -7,6 +7,7 @@
  */
 
 import { completionPct } from "@/lib/admin/student-progress"
+import { formatClassLabel } from "@/lib/shared/class-label"
 
 export interface AdviserListRow {
   /** `app_user.app_user_id` */
@@ -17,9 +18,9 @@ export interface AdviserListRow {
   initials: string
   /** Public URL for adviser photo when backend storage is wired. */
   photoUrl: string | null
-  /** `section.section_id` values for sections this adviser facilitates. */
+  /** `section.section_id` — at most one per (adviser, term). */
   sectionIds: string[]
-  /** `section.name` values for sections this adviser facilitates. */
+  /** Derived class label(s) — at most one per (adviser, term); sections have no name. */
   sectionNames: string[]
   /** Active enrollments across all facilitated sections. */
   studentCount: number
@@ -33,7 +34,8 @@ export interface AdviserListRow {
 export interface AdviserListSectionOption {
   /** `section.section_id` */
   sectionId: string
-  name: string
+  /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
+  label: string
 }
 
 export const ADVISER_LIST_ALL_SECTIONS = "all"
@@ -92,12 +94,13 @@ export const ADVISER_LIST_SELECT = `
   is_active,
   section:section_adviser_user_id_fkey(
     section_id,
-    name,
+    course_code,
     required_hour_total,
+    term:term_id(school_year),
     enrollment(
       enrollment_id,
       enrollment_status_id,
-      attendance_session(duration_minute)
+      attendance_session(duration_minute, attendance_session_status(code))
     )
   )
 ` as const
@@ -111,12 +114,16 @@ export interface AdviserListDbRow {
   section:
     | Array<{
         section_id: string
-        name: string
+        course_code: string
         required_hour_total: number | null
+        term: { school_year: string } | null
         enrollment: Array<{
           enrollment_id: string
           enrollment_status_id: string
-          attendance_session: Array<{ duration_minute: number | null }> | null
+          attendance_session: Array<{
+            duration_minute: number | null
+            attendance_session_status: { code: string } | { code: string }[] | null
+          }> | null
         }> | null
       }>
     | null
@@ -125,7 +132,6 @@ export interface AdviserListDbRow {
 /** Raw row for pending-appeal aggregation. */
 export interface AdviserPendingAppealDbRow {
   appeal_id: string
-  assigned_adviser_user_id: string | null
   enrollment: {
     section: { adviser_user_id: string } | null
   } | null
@@ -145,11 +151,15 @@ export function mapAdviserDbRowToListRow(
   pendingCount: number
 ): AdviserListRow {
   const sections = row.section ?? []
-  const sortedSections = [...sections].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  )
+  const classLabel = formatClassLabel({
+    // At most one class per (adviser, term); course_code is uniform across it.
+    courseCode: sections[0]?.course_code,
+    facilitatorName: row.full_name,
+    schoolYear: sections[0]?.term?.school_year,
+  })
+  const sortedSections = [...sections]
   const sectionIds = sortedSections.map((s) => s.section_id)
-  const sectionNames = sortedSections.map((s) => s.name)
+  const sectionNames = sortedSections.map(() => classLabel)
 
   let studentCount = 0
   let completionSum = 0
@@ -161,11 +171,16 @@ export function mapAdviserDbRowToListRow(
 
     for (const enrollment of enrollments) {
       studentCount += 1
+      // Count completed sessions only: 'closed' (normal/manual) + 'corrected' (edited).
       const minutes =
-        enrollment.attendance_session?.reduce(
-          (sum, session) => sum + (session.duration_minute ?? 0),
-          0
-        ) ?? 0
+        enrollment.attendance_session?.reduce((sum, session) => {
+          const st = Array.isArray(session.attendance_session_status)
+            ? session.attendance_session_status[0]
+            : session.attendance_session_status
+          return st?.code === "closed" || st?.code === "corrected"
+            ? sum + (session.duration_minute ?? 0)
+            : sum
+        }, 0) ?? 0
       const hoursCompleted = Math.round(minutes / 60)
       completionSum += completionPct(hoursCompleted, hoursRequired)
     }
@@ -214,10 +229,8 @@ export function buildPendingAppealCounts(
   const counts = new Map<string, number>()
 
   for (const row of rows) {
-    const adviserId =
-      row.assigned_adviser_user_id ??
-      row.enrollment?.section?.adviser_user_id ??
-      null
+    // The section adviser is the authoritative owner of a request.
+    const adviserId = row.enrollment?.section?.adviser_user_id ?? null
     if (!adviserId) continue
     counts.set(adviserId, (counts.get(adviserId) ?? 0) + 1)
   }
@@ -283,7 +296,7 @@ export function filterAdviserListRowsBySection(
 
   if (query.sectionId === ADVISER_LIST_ALL_SECTIONS) return searchFiltered
 
-  const sectionName = sections.find((s) => s.sectionId === query.sectionId)?.name
+  const sectionName = sections.find((s) => s.sectionId === query.sectionId)?.label
   if (!sectionName) return searchFiltered
 
   return searchFiltered.filter((adviser) =>

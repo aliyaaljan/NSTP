@@ -10,13 +10,18 @@ import { captureGeo, geoErrorMessage } from "@/lib/attendance/geo-client"
 interface QrGeneratorProps {
   onClose: () => void
   onGenerateSuccess?: () => void
+  studentName?: string 
 }
 
-export function QrGenerator({ onClose, onGenerateSuccess }: QrGeneratorProps) {
+export function QrGenerator({ onClose, onGenerateSuccess, studentName }: QrGeneratorProps) {
   const generatingRef = useRef(false)
   const [generated, setGenerated] = useState(false)
   const [token, setToken] = useState<string | null>(null)
   const [display, setDisplay] = useState<QrDisplayInfo | null>(null)
+  const displayRef = useRef(display)
+  useEffect(() => {
+    displayRef.current = display
+  }, [display])
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [qrHidden, setQrHidden] = useState(false)
@@ -127,19 +132,20 @@ export function QrGenerator({ onClose, onGenerateSuccess }: QrGeneratorProps) {
 
   // Auto-refresh
   useEffect(() => {
-    if (!generated || !display) return
+    if (!generated) return
     const id = setInterval(() => {
       setNow(Date.now())
+      const d = displayRef.current
       if (
-        display &&
-        new Date(display.expiresAt).getTime() <= Date.now() &&
+        d &&
+        new Date(d.expiresAt).getTime() <= Date.now() &&
         !generatingRef.current
       ) {
         runGenerate()
       }
     }, 1000)
     return () => clearInterval(id)
-  }, [generated, display, runGenerate])
+  }, [generated, runGenerate])
 
   const remainingMs = display
     ? Math.max(0, new Date(display.expiresAt).getTime() - now)
@@ -273,6 +279,13 @@ export function QrGenerator({ onClose, onGenerateSuccess }: QrGeneratorProps) {
                 </div>
 
                 <div className="qr-info-grid">
+                  {/* Student name */}
+                  {studentName && (
+                    <div className="qr-info-item">
+                      <span className="qr-info-label">Student:</span>
+                      <span className="qr-info-value">{studentName}</span>
+                    </div>
+                  )}
                   <div className="qr-info-item">
                     <span className="qr-info-label">Location:</span>
                     <span className="qr-info-value">{locationLabel || "—"}</span>
@@ -303,7 +316,7 @@ export function QrGenerator({ onClose, onGenerateSuccess }: QrGeneratorProps) {
             ? "Tap 'Try Again' to generate a new QR code"
             : generated
             ? "QR code refreshes automatically every minute"
-            : "Generate a QR code for students to scan"}
+            : "Have your QR code ready to scan"}
         </p>
       </div>
 

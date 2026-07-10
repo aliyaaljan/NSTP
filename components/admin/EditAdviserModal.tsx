@@ -223,7 +223,7 @@ export default function EditAdviserModal({
           }}
         >
           <h2 id="edit-adviser-title" style={{ ...TYPE.h2, color: "#fff", margin: 0 }}>
-            Edit Adviser
+            Edit Facilitator
           </h2>
           <button
             type="button"
@@ -283,7 +283,7 @@ export default function EditAdviserModal({
             <TextInput
               value={form.fullName}
               onChange={(fullName) => patchForm({ fullName })}
-              placeholder="Adviser full name"
+              placeholder="Facilitator full name"
             />
           </FormField>
 

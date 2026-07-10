@@ -100,6 +100,7 @@ alter table program                   enable row level security;
 alter table student_classification    enable row level security;
 alter table appeal_type               enable row level security;
 alter table enlistment_status         enable row level security;
+alter table nstp_component             enable row level security;
 
 create policy lookup_read on role                      for select to authenticated using (true);
 create policy lookup_read on enrollment_status         for select to authenticated using (true);
@@ -113,6 +114,7 @@ create policy lookup_read on program                   for select to authenticat
 create policy lookup_read on student_classification    for select to authenticated using (true);
 create policy lookup_read on appeal_type               for select to authenticated using (true);
 create policy lookup_read on enlistment_status         for select to authenticated using (true);
+create policy lookup_read on nstp_component             for select to authenticated using (true);
 
 -- ============================================================
 -- Identity & organization
@@ -139,6 +141,31 @@ create policy section_read on section for select to authenticated
 alter table section_geofence enable row level security;
 create policy section_geofence_read on section_geofence for select to authenticated
   using (public.app_can_read_section(section_id));
+
+create policy section_geofence_insert on section_geofence 
+  for insert to authenticated
+  with check (
+    public.app_is_admin() 
+    or public.app_advises_section(section_id)
+  );
+
+create policy section_geofence_update on section_geofence 
+  for update to authenticated
+  using (
+    public.app_is_admin() 
+    or public.app_advises_section(section_id)
+  )
+  with check (
+    public.app_is_admin() 
+    or public.app_advises_section(section_id)
+  );
+
+create policy section_geofence_delete on section_geofence 
+  for delete to authenticated
+  using (
+    public.app_is_admin() 
+    or public.app_advises_section(section_id)
+  );
 
 alter table enrollment enable row level security;
 create policy enrollment_read on enrollment for select to authenticated
@@ -173,7 +200,6 @@ create policy appeal_insert_self on appeal for insert to authenticated
     requester_user_id = (select auth.uid())
     and exists (select 1 from public.enrollment e
                 where e.enrollment_id = appeal.enrollment_id and e.student_user_id = (select auth.uid()))
-    and assigned_adviser_user_id is null
     and resolved_by_user_id is null
     and resolved_at is null
     and resolution_note is null
@@ -187,14 +213,37 @@ create policy appeal_insert_self on appeal for insert to authenticated
       )
     )
   );
--- appeal_resolve_adviser intentionally omitted: adviser resolution goes through a server route
--- using the service role key, not a direct client UPDATE.
+-- appeal_resolve_adviser intentionally omitted: adviser resolution (and under-review
+-- transitions) go through a server route using the service role key, not a direct
+-- client UPDATE.
 
 alter table appeal_message enable row level security;
 create policy appeal_message_read on appeal_message for select to authenticated
   using (public.app_can_read_appeal(appeal_id));
 create policy appeal_message_insert on appeal_message for insert to authenticated
   with check (sender_user_id = (select auth.uid()) and public.app_can_read_appeal(appeal_id));
+
+-- ============================================================
+-- Appeal attachments — student manages own; adviser/admin read (scoped to appeal)
+-- ============================================================
+alter table appeal_attachment enable row level security;
+create policy appeal_attachment_read on appeal_attachment for select to authenticated
+  using (public.app_can_read_appeal(appeal_id));
+create policy appeal_attachment_insert_self on appeal_attachment for insert to authenticated
+  with check (exists (
+    select 1 from public.appeal a
+    join public.enrollment e on e.enrollment_id = a.enrollment_id
+    where a.appeal_id = appeal_attachment.appeal_id and e.student_user_id = (select auth.uid())
+  ));
+create policy appeal_attachment_delete_own_pending on appeal_attachment for delete to authenticated
+  using (exists (
+    select 1 from public.appeal a
+    join public.enrollment e on e.enrollment_id = a.enrollment_id
+    join public.appeal_status ast on ast.appeal_status_id = a.appeal_status_id
+    where a.appeal_id = appeal_attachment.appeal_id
+      and e.student_user_id = (select auth.uid())
+      and ast.code = 'pending'
+  ));
 
 -- ============================================================
 -- Forms — global (section_id null) visible to all; section forms scoped

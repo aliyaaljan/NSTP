@@ -64,13 +64,51 @@ export default function CalendarOverview({
   onRenderedDayClick,
 }: CalendarOverviewProps) {
   const today = new Date()
+  const containerRef = useRef<HTMLDivElement>(null)
   const [isClient, setIsClient] = useState(false)
   const [currentYear, setCurrentYear] = useState(year ?? today.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(month ?? today.getMonth())
   const [selectedEvent, setSelectedEvent] = useState<{ event: CalendarEvent; day: number } | null>(null)
   const [selectedDayEvents, setSelectedDayEvents] = useState<{ events: CalendarEvent[]; day: number } | null>(null)
   const [selectedRenderedDay, setSelectedRenderedDay] = useState<number | null>(null)
-  const [isTodaySelected, setIsTodaySelected] = useState(false)
+  const [rowGap, setRowGap] = useState<number>(8)
+
+  // Row gap calculation based on container height
+  useEffect(() => {
+    const calculateRowGap = () => {
+      if (!containerRef.current) return
+      
+      const container = containerRef.current
+      const containerHeight = container.clientHeight
+      
+      // Fixed heights
+      const headerHeight = 45 
+      const legendHeight = 50 
+      const dayLabelsHeight = 30
+      const padding = 56 
+      const cellMinHeight = 32 
+      const totalRows = 6 
+      
+      const availableHeight = containerHeight - headerHeight - legendHeight - dayLabelsHeight - padding
+      const maxRowGap = (availableHeight - (cellMinHeight * totalRows)) / (totalRows - 1)
+      setRowGap(Math.max(4, Math.min(40, maxRowGap)))
+    }
+    
+    // Immediate calculation
+    calculateRowGap()
+    
+    const resizeObserver = new ResizeObserver(() => {
+      calculateRowGap()
+    })
+    
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+    
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [currentMonth, currentYear])
 
   useEffect(() => {
     setIsClient(true)
@@ -134,15 +172,6 @@ export default function CalendarOverview({
     setCurrentMonth(m)
     setCurrentYear(y)
     onMonthChange?.(y, m)
-  }
-
-  const goToToday = () => {
-    const d = new Date()
-    setCurrentYear(d.getFullYear())
-    setCurrentMonth(d.getMonth())
-    setIsTodaySelected(true)
-    onMonthChange?.(d.getFullYear(), d.getMonth())
-    setTimeout(() => setIsTodaySelected(false), 300)
   }
 
   const isHoliday = (day: number) => {
@@ -319,32 +348,7 @@ export default function CalendarOverview({
   }
 
   return (
-    <div className="cal-wrap" style={styles.container}>
-      {/* Today Button */}
-      <div style={styles.todayContainer}>
-        <button
-          onClick={goToToday}
-          style={{
-            ...styles.todayButton,
-            ...(isTodaySelected ? styles.todayButtonSelected : {}),
-          }}
-          onMouseEnter={(e) => {
-            if (!isTodaySelected) {
-              e.currentTarget.style.backgroundColor = '#F5F5F5'
-              e.currentTarget.style.borderColor = '#9CA3AF'
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isTodaySelected) {
-              e.currentTarget.style.backgroundColor = '#FFFFFF'
-              e.currentTarget.style.borderColor = '#E5E7EB'
-            }
-          }}
-        >
-          Today
-        </button>
-      </div>
-
+    <div className="cal-wrap" ref={containerRef} style={styles.container}>
       {/* Month and Navigation */}
       <div style={styles.calHeader}>
         <button style={styles.calNavBtn} onClick={() => navigate(-1)}>
@@ -398,72 +402,83 @@ export default function CalendarOverview({
         </div>
       )}
 
-      <div style={styles.calGrid}>
-        {DAYS.map(d => (
-          <div key={d} style={styles.calDayLabel}>{d}</div>
-        ))}
-        {cells.map((cell, idx) => {
-          if (!cell.inMonth) {
-            return <div key={idx} style={styles.calCellEmpty} />
-          }
+      {/* Calendar Grid */}
+      <div style={styles.calendarWrapper}>
+        {/* Weekday Labels */}
+        <div style={styles.weekdayRow}>
+          {DAYS.map(d => (
+            <div key={d} style={styles.calDayLabel}>{d}</div>
+          ))}
+        </div>
 
-          const dayEvents = eventMap.get(cell.day) || []
-          const hasEvent = dayEvents.length > 0
-          const isToday = currentYear === today.getFullYear() &&
-            currentMonth === today.getMonth() &&
-            cell.day === today.getDate()
-          const isHolidayDay = isHoliday(cell.day)
-          const isFuture = isFutureDate(cell.day)
-          const isRendered = isClient && renderedDays.includes(cell.day) && !isFuture
-          const hasRenderedTime = isRendered && renderedTime[cell.day]
-          const hasAnyContent = hasEvent || hasRenderedTime
+        {/* Dynamic Grid */}
+        <div style={{
+          ...styles.calGrid,
+          rowGap: rowGap,
+        }}>
+          {cells.map((cell, idx) => {
+            if (!cell.inMonth) {
+              return <div key={idx} style={styles.calCellEmpty} />
+            }
 
-          return (
-            <div
-              key={idx}
-              onClick={() => {
-                if (hasAnyContent) {
-                  handleDayClick(cell.day, dayEvents)
-                }
-              }}
-              style={{
-                ...styles.calCell,
-                cursor: hasAnyContent ? 'pointer' : 'default',
-                backgroundColor: isToday ? '#7B1D1D' : 'transparent',
-                color: isToday ? '#FFFFFF' : '#111827',
-                fontWeight: isToday ? 700 : 500,
-                borderRadius: isToday ? '50%' : '6px',
-                position: 'relative' as const,
-              }}
-              onMouseEnter={(e) => {
-                if (hasAnyContent && !isToday) {
-                  e.currentTarget.style.backgroundColor = '#F5F5F5'
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isToday) {
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                }
-              }}
-            >
-              {cell.day}
+            const dayEvents = eventMap.get(cell.day) || []
+            const hasEvent = dayEvents.length > 0
+            const isToday = currentYear === today.getFullYear() &&
+              currentMonth === today.getMonth() &&
+              cell.day === today.getDate()
+            const isHolidayDay = isHoliday(cell.day)
+            const isFuture = isFutureDate(cell.day)
+            const isRendered = isClient && renderedDays.includes(cell.day) && !isFuture
+            const hasRenderedTime = isRendered && renderedTime[cell.day]
+            const hasAnyContent = hasEvent || hasRenderedTime
 
-              {hasAnyContent && !isToday && (
-                <span style={{
-                  position: 'absolute',
-                  bottom: -2,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 14,
-                  height: 4,
-                  borderRadius: 3,
-                  backgroundColor: isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
-                  transition: 'all 0.2s ease',
-                }} />
-              )}
-            </div>
-          )
-        })}
+            return (
+              <div
+                key={idx}
+                onClick={() => {
+                  if (hasAnyContent) {
+                    handleDayClick(cell.day, dayEvents)
+                  }
+                }}
+                style={{
+                  ...styles.calCell,
+                  cursor: hasAnyContent ? 'pointer' : 'default',
+                  backgroundColor: isToday ? '#7B1D1D' : 'transparent',
+                  color: isToday ? '#FFFFFF' : '#111827',
+                  fontWeight: isToday ? 700 : 500,
+                  borderRadius: isToday ? '50%' : '6px',
+                  position: 'relative' as const,
+                }}
+                onMouseEnter={(e) => {
+                  if (hasAnyContent && !isToday) {
+                    e.currentTarget.style.backgroundColor = '#F5F5F5'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isToday) {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                  }
+                }}
+              >
+                {cell.day}
+
+                {hasAnyContent && !isToday && (
+                  <span style={{
+                    position: 'absolute',
+                    bottom: -2,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 14,
+                    height: 4,
+                    borderRadius: 3,
+                    backgroundColor: isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
+                    transition: 'all 0.2s ease',
+                  }} />
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Legend */}
@@ -513,44 +528,17 @@ const styles = {
     padding: '28px 24px',
     width: '100%',
     height: '100%',
+    maxHeight: '100%',
     boxSizing: 'border-box' as const,
     fontFamily: 'var(--font-content, sans-serif)',
     display: 'flex',
     flexDirection: 'column' as const,
   },
-  todayContainer: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    marginBottom: '12px',
-    flexShrink: 0,
-  },
-  todayButton: {
-    padding: '4px 14px',
-    borderWidth: '1.5px',
-    borderStyle: 'solid',
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '11px',
-    fontWeight: 600,
-    color: '#111827',
-    transition: 'all 0.15s ease',
-    fontFamily: 'var(--font-content, sans-serif)',
-    whiteSpace: 'nowrap' as const,
-  },
-  todayButtonSelected: {
-    backgroundColor: '#7B1D1D',
-    borderColor: '#7B1D1D',
-    color: '#FFFFFF',
-    opacity: 0.85,
-    transform: 'scale(0.98)',
-  },
   calHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '8px',
+    marginBottom: '16px',
     flexShrink: 0,
   },
   calNavBtn: {
@@ -569,12 +557,18 @@ const styles = {
     fontWeight: 700,
     color: '#111827',
   },
-  calGrid: {
+  calendarWrapper: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    minHeight: 0,
+  },
+  weekdayRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(7, 1fr)',
     gap: '8px',
-    flex: 1,
-    alignContent: 'start' as const,
+    flexShrink: 0,
+    marginBottom: '4px',
   },
   calDayLabel: {
     textAlign: 'center' as const,
@@ -584,6 +578,13 @@ const styles = {
     padding: '3px 0',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.4px',
+  },
+  calGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: '8px',
+    flex: 1,
+    alignContent: 'center',
   },
   calCell: {
     position: 'relative' as const,

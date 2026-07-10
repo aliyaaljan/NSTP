@@ -118,9 +118,12 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
       }
 
       playSuccessSound()
+      const verb = res.result.event_type === "time_out" ? "timed out" : "timed in"
       setFeedback({
         kind: "success",
-        text: res.studentName ? `✓ ${res.studentName} timed in` : "✓ Timed in",
+        text: res.studentName
+          ? `✓ ${res.studentName} ${verb}`
+          : `✓ ${verb === "timed out" ? "Timed out" : "Timed in"}`,
       })
       if (onScanSuccess) onScanSuccess()
 

@@ -293,6 +293,7 @@ export default function AdviserListClient({
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string
     name: string
+    sectionCount: number
   } | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
@@ -356,10 +357,9 @@ export default function AdviserListClient({
         })),
       },
       {
-        label: "Section",
+        label: "Class",
         field: "sectionId",
-        options: sections.map((s) => ({ value: s.sectionId, label: s.name })),
-        optionsPerColumn: 7,
+        options: sections.map((s) => ({ value: s.sectionId, label: s.label })),
       },
     ],
     [sections]
@@ -406,7 +406,11 @@ export default function AdviserListClient({
 
   function openDeleteConfirm(adviser: AdviserListRow) {
     setDeleteError(null)
-    setDeleteTarget({ id: adviser.adviserUserId, name: adviser.fullName })
+    setDeleteTarget({
+      id: adviser.adviserUserId,
+      name: adviser.fullName,
+      sectionCount: adviser.sectionNames.length,
+    })
   }
 
   function closeDeleteConfirm() {
@@ -439,7 +443,7 @@ export default function AdviserListClient({
   const statCards: KpiStatCardProps[] = [
     {
       icon: "ti-user-cog",
-      label: "Total Advisers",
+      label: "Total Facilitators",
       value: summary.total,
       note: "registered accounts",
       onClick: () => setStatusFilter(null),
@@ -447,14 +451,14 @@ export default function AdviserListClient({
     },
     {
       icon: "ti-circle-check",
-      label: "Active Advisers",
+      label: "Active Facilitators",
       value: summary.active,
       badge: {
         text: pctOfTotal(summary.active),
         bg: COLORS.greenBgLight,
         color: COLORS.green,
       },
-      note: "of all advisers",
+      note: "of all facilitators",
       onClick: () => setStatusFilter("active"),
       isActive: activeFilters.status?.includes("active") ?? false,
     },
@@ -496,7 +500,7 @@ export default function AdviserListClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Adviser List</h1>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Facilitator List</h1>
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
@@ -514,11 +518,11 @@ export default function AdviserListClient({
 
       <div className="admin-table-card">
         <AdminTableToolbar
-          title="All Advisers"
-          count={`${totalCount} adviser${totalCount !== 1 ? "s" : ""} found`}
+          title="All Facilitators"
+          count={`${totalCount} facilitator${totalCount !== 1 ? "s" : ""} found`}
           searchValue={searchInput}
           onSearchChange={setSearchInput}
-          searchPlaceholder="Search advisers"
+          searchPlaceholder="Search facilitators"
           filterGroups={filterGroups}
           activeFilters={activeFilters}
           onFiltersChange={(next) => {
@@ -530,7 +534,7 @@ export default function AdviserListClient({
             pushParams({ sectionId: null, status: null, page: "1" })
           }}
           actions={
-            <AdminAddButton label="Add adviser" onClick={() => setAddChoiceOpen(true)} />
+            <AdminAddButton label="Add facilitator" onClick={() => setAddChoiceOpen(true)} />
           }
         />
 
@@ -539,7 +543,7 @@ export default function AdviserListClient({
           style={{ padding: "16px 20px" }}
         >
           {pageAdvisers.length === 0 ? (
-            <div className="admin-table-empty">No advisers match your filters.</div>
+            <div className="admin-table-empty">No facilitators match your filters.</div>
           ) : (
             <div
               key={animKey}
@@ -574,8 +578,8 @@ export default function AdviserListClient({
       <AddChoiceModal
         open={addChoiceOpen}
         onClose={() => setAddChoiceOpen(false)}
-        title="Add Adviser"
-        entityLabel="adviser"
+        title="Add Facilitator"
+        entityLabel="facilitator"
         onAddManually={() => setAddManualOpen(true)}
         onImport={() => setImportOpen(true)}
       />
@@ -650,9 +654,14 @@ export default function AdviserListClient({
       />
       <ConfirmDeleteModal
         open={deleteTarget !== null}
-        title="Remove Adviser"
+        title="Deactivate Facilitator"
         subjectName={deleteTarget?.name}
-        message="Remove this adviser? This action cannot be undone."
+        message={
+          deleteTarget && deleteTarget.sectionCount > 0
+            ? `This facilitator still advises ${deleteTarget.sectionCount} section${deleteTarget.sectionCount !== 1 ? "s" : ""}. The account will be deactivated and can no longer sign in; reassign the section${deleteTarget.sectionCount !== 1 ? "s" : ""} in Section List.`
+            : "The account will be deactivated and can no longer sign in. History is kept."
+        }
+        confirmLabel="Deactivate"
         isPending={isDeleting}
         error={deleteError}
         onClose={closeDeleteConfirm}
