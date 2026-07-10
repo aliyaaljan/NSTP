@@ -146,9 +146,9 @@ export function WeekFilter({
   const pillTextColor = '#6B7280'
   const pillHoverBg = '#F5F5F5'
   const pillHoverBorder = '#6B7280'
-  const pillHeight = '38px'
+  const pillHeight = isMobile ? '32px' : '38px'
   const pillRadius = '999px'
-  const pillPaddingX = isMobile ? "14px" : "20px"
+  const pillPaddingX = isMobile ? "10px" : "20px"
 
   return (
     <div
@@ -173,7 +173,7 @@ export function WeekFilter({
           onClick={onGeneralAllClick}
           style={{
             height: pillHeight,
-            fontSize: isMobile ? "10px" : "12px",
+            fontSize: isMobile ? "9px" : "12px",
             fontWeight: 600,
             padding: `0 ${pillPaddingX}`,
             borderRadius: pillRadius,
@@ -212,7 +212,7 @@ export function WeekFilter({
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             style={{
               height: pillHeight,
-              fontSize: isMobile ? "10px" : "12px",
+              fontSize: isMobile ? "9px" : "12px",
               fontWeight: 600,
               padding: `0 ${pillPaddingX}`,
               borderRadius: pillRadius,
@@ -239,7 +239,7 @@ export function WeekFilter({
           >
             <span
               style={{
-                fontSize: isMobile ? "10px" : "12px",
+                fontSize: isMobile ? "9px" : "12px",
               }}
             >
               {selectedMonth || "Select Month"}
@@ -268,7 +268,7 @@ export function WeekFilter({
                 border: `1px solid ${pillBorderColor}`,
                 borderRadius: "12px",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.10)",
-                padding: isMobile ? "10px" : "12px",
+                padding: isMobile ? "8px" : "12px",
                 zIndex: 1000,
                 maxHeight: "80vh",
                 overflowY: "auto",
@@ -280,7 +280,7 @@ export function WeekFilter({
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: isMobile ? "8px" : "10px",
+                  marginBottom: isMobile ? "6px" : "10px",
                   padding: "0 2px",
                 }}
               >
@@ -314,7 +314,7 @@ export function WeekFilter({
                 <span
                   style={{
                     fontWeight: 700,
-                    fontSize: isMobile ? "12px" : "13px",
+                    fontSize: isMobile ? "11px" : "13px",
                     color: '#111827',
                     fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
                   }}
@@ -355,7 +355,7 @@ export function WeekFilter({
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: isMobile ? "4px" : "6px",
+                  gap: isMobile ? "3px" : "6px",
                 }}
               >
                 {MONTHS_SHORT.map((monthName, idx) => {
@@ -367,8 +367,8 @@ export function WeekFilter({
                       key={idx}
                       onClick={() => handleMonthSelect(idx)}
                       style={{
-                        padding: isMobile ? "4px 2px" : "6px 2px",
-                        fontSize: isMobile ? "10px" : "11px",
+                        padding: isMobile ? "3px 2px" : "6px 2px",
+                        fontSize: isMobile ? "9px" : "11px",
                         fontWeight: isSelected ? 700 : isCurrent ? 700 : 500,
                         border: `2px solid ${
                           isSelected ? pillActiveColor : 'transparent'
@@ -420,7 +420,7 @@ export function WeekFilter({
         <div
           style={{
             display: "flex",
-            gap: isMobile ? "6px" : "8px",
+            gap: isMobile ? "4px" : "8px",
             flexWrap: "wrap",
             width: "100%",
           }}
@@ -430,7 +430,7 @@ export function WeekFilter({
             onClick={handleWeekAllClick}
             style={{
               height: pillHeight,
-              fontSize: isMobile ? "10px" : "12px",
+              fontSize: isMobile ? "9px" : "12px",
               fontWeight: 600,
               padding: `0 ${pillPaddingX}`,
               borderRadius: pillRadius,
@@ -473,7 +473,7 @@ export function WeekFilter({
                 onClick={() => handleWeekSelect(weekNum)}
                 style={{
                   height: pillHeight,
-                  fontSize: isMobile ? "10px" : "12px",
+                  fontSize: isMobile ? "9px" : "12px",
                   fontWeight: 600,
                   padding: `0 ${pillPaddingX}`,
                   borderRadius: pillRadius,

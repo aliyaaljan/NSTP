@@ -31,7 +31,7 @@ const getWeekNumber = (date: Date): string => {
 }
 
 export default function LeaderScannerPage() {
-  const { isMobile } = useIsMobile()
+  const { isMobile, isSmallMobile, isTablet } = useIsMobile()
   const [scannerOpen, setScannerOpen] = useState(false)
   const [selectedWeek, setSelectedWeek] = useState<string>("all")
   const [selectedMonth, setSelectedMonth] = useState<string>("")
@@ -146,9 +146,42 @@ export default function LeaderScannerPage() {
     }
   }
 
-  const leftPadding = isMobile
-    ? `${COLLAPSED_W + RAIL_MARGIN * 2 + 8}px`
-    : `${COLLAPSED_W + RAIL_MARGIN * 2}px`
+  // Responsive padding calculation
+  const getResponsivePadding = () => {
+    if (isSmallMobile) {
+      return {
+        paddingLeft: '12px',
+        paddingRight: '12px',
+        paddingTop: '12px',
+        paddingBottom: '90px',
+      }
+    }
+    if (isMobile) {
+      return {
+        paddingLeft: '16px',
+        paddingRight: '16px',
+        paddingTop: '16px',
+        paddingBottom: '100px',
+      }
+    }
+    if (isTablet) {
+      const tabletRailWidth = Math.max(70, COLLAPSED_W * (window.innerWidth / 768))
+      return {
+        paddingLeft: `${tabletRailWidth + RAIL_MARGIN * 2 + 12}px`,
+        paddingRight: '24px',
+        paddingTop: '24px',
+        paddingBottom: '24px',
+      }
+    }
+    return {
+      paddingLeft: `${COLLAPSED_W + RAIL_MARGIN * 2 + 16}px`,
+      paddingRight: '32px',
+      paddingTop: '28px',
+      paddingBottom: '28px',
+    }
+  }
+
+  const responsivePadding = getResponsivePadding()
 
   // Filter by month and week
   let filteredScans = filterScansByMonthAndWeek(
@@ -262,20 +295,24 @@ export default function LeaderScannerPage() {
       <main
         style={{
           flex: 1,
-          paddingLeft: leftPadding,
-          paddingRight: isMobile ? "12px" : "32px",
-          paddingTop: isMobile ? "12px" : "28px",
-          paddingBottom: isMobile ? "80px" : "28px",
+          paddingLeft: responsivePadding.paddingLeft,
+          paddingRight: responsivePadding.paddingRight,
+          paddingTop: responsivePadding.paddingTop,
+          paddingBottom: responsivePadding.paddingBottom,
           display: "flex",
           flexDirection: "column",
-          gap: isMobile ? "12px" : "24px",
+          gap: isSmallMobile ? "10px" : isMobile ? "12px" : "24px",
           minWidth: 0,
           width: "100%",
           maxWidth: "100%",
           transition: "padding 0.3s ease",
+          marginTop: isMobile ? '60px' : 0,
         }}
       >
-        <PageHeader isMobile={isMobile} profile={profile ?? undefined} />
+        <PageHeader 
+          isMobile={isMobile} 
+          profile={profile ?? undefined} 
+        />
 
         <StatsCards
           isMobile={isMobile}
