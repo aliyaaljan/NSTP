@@ -71,7 +71,7 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
         { icon: "ti-presentation", label: "Class", href: "/student/classlist" },
         { icon: "ti-scan", label: "Scanner", href: "/student/leader/scanner" },
         { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
-        { icon: "ti-clipboard-check", label: "Files", href: "/student/forms" },
+        { icon: "ti-clipboard-check", label: "Forms", href: "/student/forms" },
         { icon: "ti-pencil", label: "Request", href: "/student/request" },
       ]
     }
