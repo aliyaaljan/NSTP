@@ -72,7 +72,7 @@ const studentFilesStyles = `
   
   .sf-form-name { font-weight: 500; color: #111827; }
   .sf-form-deadline { color: #6B7280; font-size: 13px; }
-  .sf-status-cell { text-align: right; }
+  .sf-status-cell { text-align: center; }
   .sf-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; background: #E8EDE5; color: #1B4332; min-width: 100px; justify-content: center; cursor: pointer; }
   .sf-status-badge-submitted { background: #D1FAE5; color: #065F46; }
   .sf-upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #1B4332; color: #FFFFFF; border: none; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); min-width: 100px; justify-content: center; }
@@ -1007,7 +1007,7 @@ export default function StudentFilesPage() {
                       >
                         Deadline {getSortIcons("deadline")}
                       </th>
-                      <th style={{ width: "25%", textAlign: "right" }}>
+                      <th style={{ width: "25%", textAlign: "center" }}>
                         Status
                       </th>
                     </tr>
