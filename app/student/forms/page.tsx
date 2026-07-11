@@ -101,36 +101,92 @@ const studentFilesStyles = `
   .sf-mobile-card-status { flex-shrink: 0; }
   
   /* Modal */
-  .sf-modal-backdrop { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 100; background: rgba(0,0,0,0.35); backdrop-filter: blur(2px); padding: 16px; }
-  .sf-modal { width: 100%; max-width: 480px; max-height: 90vh; background: #FFFFFF; borderRadius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: flex; flex-direction: column; }
-  .sf-modal-header { padding: 16px 24px; background: #1B4332; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-  .sf-modal-title { color: #FFFFFF; font-size: 13px; font-weight: 700; word-break: break-word; }
-  .sf-modal-close { background: transparent; border: none; cursor: pointer; color: #FFFFFF; flex-shrink: 0; }
-  .sf-modal-body { padding: 24px; overflow-y: auto; display: flex; flex-direction: column; flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-  .sf-modal-body::-webkit-scrollbar { width: 4px; }
-  .sf-modal-body::-webkit-scrollbar-track { background: transparent; }
-  .sf-modal-body::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 4px; }
-  .sf-modal-footer { padding-top: 16px; border-top: 1px solid #E5E7EB; margin-top: 16px; flex-shrink: 0; }
-
-  /* Add Button & Upload Submit */
-  .sf-add-btn-wrapper { display: flex; flex-direction: column; gap: 10px; width: 100%; }
-  .sf-add-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 20px; background: transparent; border: 2px solid #1B4332; border-radius: 10px; color: #1B4332; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); position: relative; }
-  .sf-add-btn:hover { background: rgba(27, 67, 50, 0.05); }
-  .sf-upload-submit-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 20px; background: #1B4332; border: 2px solid #1B4332; border-radius: 10px; color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); position: relative; }
-  .sf-upload-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .sf-upload-submit-btn:hover:not(:disabled) { background: #14532D; }
-
-  /* Dropdown container */
-  .sf-add-dropdown { position: relative; width: 100%; }
-  .sf-dropdown-menu { position: absolute; bottom: calc(100% + 4px); left: 0; right: 0; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 10; overflow: hidden;}
-  .sf-dropdown-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; background: none; border: none; font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; }
-  .sf-dropdown-item:hover { background: #F5F5F7; }
-
-  /* File Preview Cards */
-  .sf-file-grid { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; margin-bottom: 16px; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-  .sf-file-grid::-webkit-scrollbar { width: 4px; }
-  .sf-file-grid::-webkit-scrollbar-track { background: transparent; }
-  .sf-file-grid::-webkit-scrollbar-thumb { background: #CFCFCB; border-radius: 4px; }
+  .sf-modal-backdrop { 
+    position: fixed; 
+    inset: 0; 
+    background: rgba(0, 0, 0, 0.45); 
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 200; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    padding: 24px; 
+    animation: sfFadeIn 0.18s ease; 
+  }
+  @keyframes sfFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes sfSlideUp {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .sf-modal { 
+    width: 100%; 
+    max-width: 480px; 
+    max-height: 90vh; 
+    background: #FFFFFF; 
+    border-radius: 20px; 
+    overflow: hidden; 
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28); 
+    display: flex; 
+    flex-direction: column; 
+    animation: sfSlideUp 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sf-modal-header { 
+    background: #1A3C2D; 
+    padding: 20px 22px; 
+    display: flex; 
+    align-items: center; 
+    gap: 14px; 
+    justify-content: space-between; 
+    flex-shrink: 0; 
+  }
+  .sf-modal-title { 
+    font-weight: 700; 
+    font-size: 17px; 
+    color: #FFFFFF; 
+    word-break: break-word; 
+  }
+  .sf-modal-close { 
+    background: none; 
+    border: none; 
+    cursor: pointer; 
+    color: #FFFFFF; 
+    display: flex; 
+    align-items: center; 
+    padding: 6px; 
+    border-radius: 8px; 
+    transition: background 0.13s; 
+    flex-shrink: 0; 
+  }
+  .sf-modal-close:hover { background: rgba(255, 255, 255, 0.18); }
+  .sf-modal-body { 
+    padding: 22px; 
+    overflow-y: auto; 
+    display: flex; 
+    flex-direction: column; 
+    flex: 1; 
+    min-height: 0; 
+    scrollbar-width: thin; 
+    scrollbar-color: #D1D5DB transparent; 
+  }
+  .sf-modal-body::-webkit-scrollbar { width: 5px; }
+  .sf-modal-body::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 99px; }
+  .sf-modal-footer { 
+    display: flex; 
+    flex-direction: column;
+    gap: 10px; 
+    padding: 14px 22px 20px; 
+    flex-shrink: 0; 
+    border-top: 1px solid #E5E7EB; 
+  }
+  
+  .sf-modal-content { display: flex; flex-direction: column; gap: 14px; }
+  .sf-file-grid { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; margin-bottom: 16px; scrollbar-width: thin; scrollbar-color: #D1D5DB transparent; }
+  .sf-file-grid::-webkit-scrollbar { width: 5px; }
+  .sf-file-grid::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 99px; }
   .sf-file-preview-card { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: #F9FAFB; border-radius: 10px; border: 1px solid #E5E7EB; flex-shrink: 0; }
   .sf-file-preview-icon-wrapper { width: 40px; height: 40px; border-radius: 8px; background: #E8EDE5; display: flex; align-items: center; justify-content: center; color: #1B4332; flex-shrink: 0; }
   .sf-file-preview-info { flex: 1; min-width: 0; }
@@ -152,6 +208,48 @@ const studentFilesStyles = `
   .sf-link-cancel-btn:hover { background: #F5F5F5; }
 
   .sf-toolbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .sf-add-btn-wrapper { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .sf-add-btn { 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 20px;
+    background: transparent;
+    border: 2px solid #1B4332;
+    border-radius: 10px;
+    color: #1B4332;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font-montserrat, 'Montserrat', sans-serif);
+    position: relative;
+  }
+  .sf-add-btn:hover { background: rgba(27, 67, 50, 0.05); }
+  .sf-upload-submit-btn { 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 20px;
+    background: #1B4332;
+    border: 2px solid #1B4332;
+    border-radius: 10px;
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font-montserrat, 'Montserrat', sans-serif);
+    position: relative;
+  }
+  .sf-upload-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .sf-upload-submit-btn:hover:not(:disabled) { background: #14532D; }
+  .sf-add-dropdown { position: relative; width: 100%; }
+  .sf-dropdown-menu { position: absolute; bottom: calc(100% + 4px); left: 0; right: 0; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 10; overflow: hidden;}
+  .sf-dropdown-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; background: none; border: none; font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; }
+  .sf-dropdown-item:hover { background: #F5F5F7; }
   
   /* Responsive adjustments */
   @media (max-width: 767px) {
@@ -174,6 +272,8 @@ const studentFilesStyles = `
     .sf-modal { max-width: 95%; margin: 8px; }
     .sf-modal-body { padding: 16px; }
     .sf-modal-header { padding: 12px 16px; }
+    .sf-modal-title { font-size: 15px; }
+    .sf-modal-footer { padding: 10px 16px 16px; }
   }
   
   @media (min-width: 768px) and (max-width: 1023px) {
@@ -1296,20 +1396,14 @@ export default function StudentFilesPage() {
 
           {/* Upload Modal */}
           {showModal && selectedForm && (
-            <div
-              className="sf-modal-backdrop"
-              onClick={() => setShowModal(false)}
-            >
+            <div className="sf-modal-backdrop" onClick={() => setShowModal(false)}>
               <div className="sf-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="sf-modal-header">
                   <span className="sf-modal-title">
                     Upload: {selectedForm.name}
                   </span>
-                  <button
-                    className="sf-modal-close"
-                    onClick={() => setShowModal(false)}
-                  >
-                    <IconX size={18} stroke={2} />
+                  <button className="sf-modal-close" onClick={() => setShowModal(false)}>
+                    <IconX size={20} stroke={2} />
                   </button>
                 </div>
                 <div className="sf-modal-body">
@@ -1323,15 +1417,11 @@ export default function StudentFilesPage() {
                       onChange={(e) => {
                         if (e.target.files) {
                           const files = Array.from(e.target.files)
-                          const MAX_SIZE = 10 * 1024 * 1024 // 10 MB limit
-                          const validFiles = files.filter(
-                            (f) => f.size <= MAX_SIZE
-                          )
+                          const MAX_SIZE = 10 * 1024 * 1024
+                          const validFiles = files.filter((f) => f.size <= MAX_SIZE)
 
                           if (validFiles.length < files.length) {
-                            alert(
-                              "Some files were ignored because they exceed the 10MB limit."
-                            )
+                            alert("Some files were ignored because they exceed the 10MB limit.")
                           }
 
                           setSelectedFiles((prev) => [...prev, ...validFiles])
@@ -1379,11 +1469,7 @@ export default function StudentFilesPage() {
                             gap: "6px",
                           }}
                         >
-                          <IconPlus
-                            size={14}
-                            stroke={2}
-                            style={{ color: "#FFFFFF", flexShrink: 0 }}
-                          />
+                          <IconPlus size={14} stroke={2} style={{ color: "#FFFFFF", flexShrink: 0 }} />
                           <span style={{ whiteSpace: "nowrap" }}>Add</span>
                         </button>
                         <button
@@ -1405,21 +1491,14 @@ export default function StudentFilesPage() {
                           if (item.type === "file") {
                             const file = item.data
                             return (
-                              <div
-                                key={`file-${index}`}
-                                className="sf-file-preview-card"
-                              >
+                              <div key={`file-${index}`} className="sf-file-preview-card">
                                 <div className="sf-file-preview-icon-wrapper">
                                   {getFileIcon(file)}
                                 </div>
                                 <div className="sf-file-preview-info">
-                                  <div className="sf-file-preview-name">
-                                    {file.name}
-                                  </div>
+                                  <div className="sf-file-preview-name">{file.name}</div>
                                   <div className="sf-file-preview-meta">
-                                    <span className="sf-file-preview-type">
-                                      FILE
-                                    </span>
+                                    <span className="sf-file-preview-type">FILE</span>
                                     <span className="sf-file-preview-size">
                                       {formatFileSize(file.size)}
                                     </span>
@@ -1428,9 +1507,7 @@ export default function StudentFilesPage() {
                                 <button
                                   className="sf-file-preview-remove"
                                   onClick={() =>
-                                    setSelectedFiles((p) =>
-                                      p.filter((_, i) => i !== index)
-                                    )
+                                    setSelectedFiles((p) => p.filter((_, i) => i !== index))
                                   }
                                 >
                                   <IconX size={18} stroke={2} />
@@ -1440,39 +1517,24 @@ export default function StudentFilesPage() {
                           } else {
                             const link = item.data
                             return (
-                              <div
-                                key={`link-${index}`}
-                                className="sf-file-preview-card"
-                              >
+                              <div key={`link-${index}`} className="sf-file-preview-card">
                                 <div
                                   className="sf-file-preview-icon-wrapper"
-                                  style={{
-                                    background: "#E8EDE5",
-                                    color: "#1B4332",
-                                  }}
+                                  style={{ background: "#E8EDE5", color: "#1B4332" }}
                                 >
                                   <IconLink size={20} stroke={1.75} />
                                 </div>
                                 <div className="sf-file-preview-info">
-                                  <div className="sf-file-preview-name">
-                                    {link}
-                                  </div>
+                                  <div className="sf-file-preview-name">{link}</div>
                                   <div className="sf-file-preview-meta">
-                                    <span
-                                      className="sf-file-preview-type"
-                                      style={{ background: "#1B4332" }}
-                                    >
+                                    <span className="sf-file-preview-type" style={{ background: "#1B4332" }}>
                                       LINK
                                     </span>
                                   </div>
                                 </div>
                                 <button
                                   className="sf-file-preview-remove"
-                                  onClick={() =>
-                                    setLinks((p) =>
-                                      p.filter((_, i) => i !== index)
-                                    )
-                                  }
+                                  onClick={() => setLinks((p) => p.filter((_, i) => i !== index))}
                                 >
                                   <IconX size={18} stroke={2} />
                                 </button>
@@ -1487,13 +1549,12 @@ export default function StudentFilesPage() {
                       <div className="sf-empty-state">
                         <IconPlus size={40} stroke={1.5} />
                         <p>Click "Add" to get started</p>
-                        <p className="sf-empty-sub">
-                          Choose to upload a file or add a link
-                        </p>
+                        <p className="sf-empty-sub">Choose to upload a file or add a link</p>
                       </div>
                     )}
                   </div>
 
+                  {/* Footer */}
                   <div className="sf-modal-footer">
                     <div className="sf-add-btn-wrapper">
                       <div className="sf-add-dropdown" ref={dropdownRef}>
@@ -1504,9 +1565,7 @@ export default function StudentFilesPage() {
                           <IconPlus
                             size={18}
                             stroke={2}
-                            className={
-                              isDropdownOpen ? "sf-add-icon-rotated" : ""
-                            }
+                            className={isDropdownOpen ? "sf-add-icon-rotated" : ""}
                             style={{ position: "absolute", left: "16px" }}
                           />
                           <span>Add File / Link</span>
@@ -1534,10 +1593,7 @@ export default function StudentFilesPage() {
                                 setShowLinkInput(true)
                                 setLinkInput("")
                                 setTimeout(
-                                  () =>
-                                    document
-                                      .getElementById("link-input-field")
-                                      ?.focus(),
+                                  () => document.getElementById("link-input-field")?.focus(),
                                   50
                                 )
                               }}
@@ -1570,20 +1626,14 @@ export default function StudentFilesPage() {
 
           {/* View Submitted Modal */}
           {showViewModal && viewingForm && (
-            <div
-              className="sf-modal-backdrop"
-              onClick={() => setShowViewModal(false)}
-            >
+            <div className="sf-modal-backdrop" onClick={() => setShowViewModal(false)}>
               <div className="sf-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="sf-modal-header">
                   <span className="sf-modal-title">
                     Submitted: {viewingForm.name}
                   </span>
-                  <button
-                    className="sf-modal-close"
-                    onClick={() => setShowViewModal(false)}
-                  >
-                    <IconX size={18} stroke={2} />
+                  <button className="sf-modal-close" onClick={() => setShowViewModal(false)}>
+                    <IconX size={20} stroke={2} />
                   </button>
                 </div>
                 <div className="sf-modal-body">
@@ -1606,13 +1656,7 @@ export default function StudentFilesPage() {
                           marginBottom: 12,
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: "#4B5563",
-                          }}
-                        >
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#4B5563" }}>
                           Status:
                         </span>
                         <span
@@ -1647,22 +1691,10 @@ export default function StudentFilesPage() {
                             marginBottom: viewingForm.reviewerComment ? 12 : 0,
                           }}
                         >
-                          <span
-                            style={{
-                              fontSize: 13,
-                              fontWeight: 600,
-                              color: "#4B5563",
-                            }}
-                          >
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "#4B5563" }}>
                             Submitted On:
                           </span>
-                          <span
-                            style={{
-                              fontSize: 13,
-                              color: "#111827",
-                              fontWeight: 500,
-                            }}
-                          >
+                          <span style={{ fontSize: 13, color: "#111827", fontWeight: 500 }}>
                             {viewingForm.submissionDate}
                           </span>
                         </div>
@@ -1717,10 +1749,7 @@ export default function StudentFilesPage() {
                     <div className="sf-file-grid">
                       {/* Submitted Links / Drive Web View */}
                       {viewingForm.submittedLinks?.map((link, index) => (
-                        <div
-                          key={`link-${index}`}
-                          className="sf-file-preview-card"
-                        >
+                        <div key={`link-${index}`} className="sf-file-preview-card">
                           <div
                             className="sf-file-preview-icon-wrapper"
                             style={{ background: "#E8EDE5", color: "#1B4332" }}
@@ -1740,10 +1769,7 @@ export default function StudentFilesPage() {
                               Open in Google Drive
                             </div>
                             <div className="sf-file-preview-meta">
-                              <span
-                                className="sf-file-preview-type"
-                                style={{ background: "#1B4332" }}
-                              >
+                              <span className="sf-file-preview-type" style={{ background: "#1B4332" }}>
                                 DRIVE
                               </span>
                             </div>
@@ -1753,10 +1779,7 @@ export default function StudentFilesPage() {
 
                       {/* Direct File Submissions (Supabase Storage) */}
                       {viewingForm.submittedFiles?.map((file, index) => (
-                        <div
-                          key={`file-${index}`}
-                          className="sf-file-preview-card"
-                        >
+                        <div key={`file-${index}`} className="sf-file-preview-card">
                           <div
                             className="sf-file-preview-icon-wrapper"
                             style={{ background: "#F3F4F6", color: "#4B5563" }}
@@ -1771,22 +1794,15 @@ export default function StudentFilesPage() {
                                 color: "#1B4332",
                                 textDecoration: "underline",
                               }}
-                              onClick={() =>
-                                handleDirectFileDownload(file.submissionId)
-                              }
+                              onClick={() => handleDirectFileDownload(file.submissionId)}
                             >
                               {file.name}
                             </div>
                             <div className="sf-file-preview-meta">
-                              <span
-                                className="sf-file-preview-type"
-                                style={{ background: "#4B5563" }}
-                              >
+                              <span className="sf-file-preview-type" style={{ background: "#4B5563" }}>
                                 {file.type}
                               </span>
-                              <span className="sf-file-preview-size">
-                                {file.size}
-                              </span>
+                              <span className="sf-file-preview-size">{file.size}</span>
                             </div>
                           </div>
                         </div>
