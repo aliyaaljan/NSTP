@@ -25,6 +25,7 @@ import {
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { IconCalendar, IconClock } from "@tabler/icons-react"
 import { createClient } from "@/lib/client"
+import LoadingPage from "@/components/shared/LoadingPage"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -96,6 +97,7 @@ export default function QRGenerationPage() {
   const [timeoutPending, setTimeoutPending] = useState(false)
   const [timeoutFeedback, setTimeoutFeedback] = useState<string | undefined>(undefined)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [loading, setLoading] = useState(true)
 
   const generatingRef = useRef(false)
   const displayRef = useRef<QrDisplayInfo | null>(null)
@@ -131,6 +133,7 @@ export default function QRGenerationPage() {
       if (userData) {
         setIsStudentLeader(userData.is_student_leader)
       }
+      setLoading(false)
     }
 
     loadUserData()
@@ -476,6 +479,10 @@ export default function QRGenerationPage() {
   }
 
   const responsivePadding = getResponsivePadding()
+
+  if (loading) {
+    return <LoadingPage Sidebar={() => <StudentSidebar isLeader={isStudentLeader} />} />
+  }
 
   return (
     <>

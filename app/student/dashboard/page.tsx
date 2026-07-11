@@ -18,6 +18,7 @@ import { getStudentRequests } from "@/lib/student/appeal-actions"
 import { createClient } from "@/lib/client"
 import { getInitials, formsToDocuments, formsToCalendarEvents } from "@/lib/student/dashboard-view"
 import { manilaClock } from "@/lib/student/leader/scan-history"
+import LoadingPage from "@/components/shared/LoadingPage"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -176,6 +177,7 @@ export default function StudentDashboardPage() {
     { title: string; status: string; time: string }[]
   >([])
   const [isLeader, setIsLeader] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const accepted = localStorage.getItem("privacyAccepted")
@@ -196,7 +198,10 @@ export default function StudentDashboardPage() {
   useEffect(() => {
     async function load() {
       const res = await getStudentDashboard()
-      if (!res.ok) return
+      if (!res.ok) {
+        setLoading(false)
+        return
+      }
       setDashboard(res.data)
       
       // Check if leader
@@ -240,6 +245,7 @@ export default function StudentDashboardPage() {
         )
         setRosterStudents(students)
       }
+      setLoading(false)
     }
     load()
   }, [])
@@ -266,6 +272,10 @@ export default function StudentDashboardPage() {
 
   // Select sidebar based on role
   const SidebarComponent = () => <Sidebar isLeader={isLeader} />
+
+  if (loading) {
+    return <LoadingPage Sidebar={SidebarComponent} />
+  }
 
   return (
     <div

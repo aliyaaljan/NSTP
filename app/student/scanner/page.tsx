@@ -11,6 +11,7 @@ import {
 } from "@/lib/student/leader/scan-history"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
+import LoadingPage from "@/components/shared/LoadingPage"
 
 import { montserrat, C, COLLAPSED_W, RAIL_MARGIN } from "./_components/theme"
 import { useIsMobile } from "./_components/useIsMobile"
@@ -40,6 +41,7 @@ export default function LeaderScannerPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [classRoster, setClassRoster] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState<'on-time' | 'late' | 'not-scanned' | null>(null) 
+  const [loading, setLoading] = useState(true)
 
   const [profile, setProfile] = useState<{
     name: string
@@ -56,6 +58,7 @@ export default function LeaderScannerPage() {
         initials: getInitials(res.data.fullName),
         section: res.data.sectionName ?? "",
       })
+      setLoading(false)
     })
     return () => {
       cancelled = true
@@ -279,6 +282,10 @@ export default function LeaderScannerPage() {
       return dateB.getTime() - dateA.getTime()
     })
   }, [scans])
+
+  if (loading) {
+    return <LoadingPage Sidebar={() => <Sidebar />} />
+  }
 
   return (
     <div

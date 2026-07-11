@@ -26,6 +26,7 @@ import {
 } from "@/components/shared/ChartModule"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createClient } from "@/lib/client"
+import LoadingPage from "@/components/shared/LoadingPage"
 
 import {
   getMyForms,
@@ -100,7 +101,7 @@ const studentFilesStyles = `
   
   /* Modal */
   .sf-modal-backdrop { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 100; background: rgba(0,0,0,0.35); backdrop-filter: blur(2px); padding: 16px; }
-  .sf-modal { width: 100%; max-width: 480px; max-height: 90vh; background: #FFFFFF; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: flex; flex-direction: column; }
+  .sf-modal { width: 100%; max-width: 480px; max-height: 90vh; background: #FFFFFF; borderRadius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: flex; flex-direction: column; }
   .sf-modal-header { padding: 16px 24px; background: #1B4332; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
   .sf-modal-title { color: #FFFFFF; font-size: 13px; font-weight: 700; word-break: break-word; }
   .sf-modal-close { background: transparent; border: none; cursor: pointer; color: #FFFFFF; flex-shrink: 0; }
@@ -216,6 +217,7 @@ interface Form {
 export default function StudentFilesPage() {
   const [forms, setForms] = useState<Form[]>([])
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const [showModal, setShowModal] = useState(false)
   const [selectedForm, setSelectedForm] = useState<Form | null>(null)
@@ -344,7 +346,10 @@ export default function StudentFilesPage() {
     }
 
     const enrollRes = await getStudentActiveEnrollmentId()
-    if (!enrollRes.ok) return
+    if (!enrollRes.ok) {
+      setLoading(false)
+      return
+    }
     setEnrollmentId(enrollRes.data)
 
     const formsRes = await getMyForms(enrollRes.data)
@@ -367,7 +372,7 @@ export default function StudentFilesPage() {
                 ? formatFileSize(req.submission.file_size_byte)
                 : "0 KB",
               url: path,
-              sumissionId: req.submission.form_submission_id,
+              submissionId: req.submission.form_submission_id,
             })
           }
         }
@@ -411,6 +416,7 @@ export default function StudentFilesPage() {
       })
       setForms(mappedForms)
     }
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -708,6 +714,10 @@ export default function StudentFilesPage() {
     if (isMobile) return "28px"
     if (isTablet) return "30px"
     return "34px"
+  }
+
+  if (loading) {
+    return <LoadingPage Sidebar={() => <StudentSidebar />} />
   }
 
   return (
