@@ -90,10 +90,12 @@ export default function LoadingPage({
       style={{
         fontFamily: "'Montserrat', 'Fallback Montserrat'",
         background: C.pageBg,
-        minHeight: "100vh",
+        height: "100vh", 
         display: "flex",
         fontSize: isSmallMobile ? "12px" : "13px",
         paddingBottom: isMobile ? 'env(safe-area-inset-bottom)' : 0,
+        overflow: "hidden", 
+        position: "relative", 
       }}
     >
       <Sidebar />
@@ -107,6 +109,8 @@ export default function LoadingPage({
           paddingBottom: responsivePadding.paddingBottom,
           display: "flex",
           flexDirection: "column",
+          justifyContent: "center", 
+          alignItems: "center", 
           gap: responsivePadding.gap,
           minWidth: 0,
           width: "100%",
@@ -115,27 +119,13 @@ export default function LoadingPage({
           marginTop: isMobile ? '60px' : 0,
         }}
       >
-        {/* Header */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "12px",
-          marginBottom: isMobile ? "16px" : "32px",
-        }}>
-          <div>
-          </div>
-        </div>
 
         {/* Loading Content */}
         <div style={{
-          flex: 1,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          minHeight: "50vh",
           gap: isSmallMobile ? "16px" : isMobile ? "20px" : "24px",
         }}>
           {/* NSTP Logo */}
@@ -147,7 +137,6 @@ export default function LoadingPage({
             alignItems: "center",
             justifyContent: "center",
           }}>
-            {/* Logo container */}
             <div style={{
               width: "100%",
               height: "100%",
@@ -196,11 +185,11 @@ export default function LoadingPage({
             <div className={goblin.className}
               style={{
                 fontSize: isSmallMobile ? "10px" : isMobile ? "12px" : "14px",
-                fontWeight: 600,
+                fontWeight: 900,
                 color: C.maroon,
                 opacity: 0.7,
                 letterSpacing: 0.5,
-                fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                fontFamily: "'Cormorant', 'Fallback Cormorant'",
               }}
             >
               University of the Philippines Baguio
