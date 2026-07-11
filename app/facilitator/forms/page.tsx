@@ -1363,7 +1363,10 @@ export default function FormsPage() {
               label: isUploading ? "Uploading..." : "Upload",
               onClick: handleUploadSubmit,
               variant: "approve",
-              disabled: isUploading || (!uploadFile && !uploadTitle),
+              disabled:
+                isUploading ||
+                !uploadFile ||
+                (uploadTitle === "Other" && !customTitle.trim()),
             },
           ]}
         >
