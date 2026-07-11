@@ -81,7 +81,6 @@ function StudentProgressBar({
           fontSize: 12,
           color: COLORS.textDark,
           marginBottom: 4,
-          fontWeight: 700,
         }}
       >
         {clamped}%
@@ -518,8 +517,7 @@ export default function StudentListClient({
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <div style={{ color: COLORS.textDark }}>
-                          <span style={{ fontWeight: 700 }}>{student.hoursCompleted}</span>
-                          /<span style={{ fontWeight: 700 }}>{student.hoursRequired}</span>
+                          {student.hoursCompleted}/{student.hoursRequired}
                         </div>
                       </td>
                       <td style={{ textAlign: "center" }}>

@@ -448,7 +448,6 @@ export default function FormListClient({
                             style={{
                               fontSize: "14px",
                               color: COLORS.textDark,
-                              fontWeight: 700,
                             }}
                           >
                             {form.submittedCount}
@@ -457,7 +456,6 @@ export default function FormListClient({
                             style={{
                               fontSize: 12,
                               color: COLORS.textGray,
-                              fontWeight: 700,
                             }}
                           >
                             /{form.totalStudents}
@@ -524,9 +522,7 @@ export default function FormListClient({
               label: "Submissions",
               value: (
                 <>
-                  <span style={{ fontWeight: 700 }}>{detailForm.submittedCount}</span>
-                  {" of "}
-                  <span style={{ fontWeight: 700 }}>{detailForm.totalStudents}</span>
+                  {detailForm.submittedCount} of {detailForm.totalStudents}
                   {" students"}
                 </>
               ),

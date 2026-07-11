@@ -28,10 +28,15 @@ const COLLAPSED_W = 88
 const EXPANDED_W = 256
 const RAIL_MARGIN = 16
 
-interface NavItem {
+export interface NavItem {
   label: string
   href: string
   icon: string
+}
+
+export interface NavGroup {
+  heading: string
+  items: NavItem[]
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -44,9 +49,19 @@ const NAV_ITEMS: NavItem[] = [
 
 interface StudentSidebarProps {
   isLeader?: boolean
+  navGroups?: NavGroup[]
+  children?: React.ReactNode
+  mainClassName?: string
+  pageBg?: string
 }
 
-export default function StudentSidebar({ isLeader = false }: StudentSidebarProps) {
+export default function StudentSidebar({
+  isLeader = false,
+  navGroups,
+  children,
+  mainClassName,
+  pageBg = "#F0F0F0",
+}: StudentSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
@@ -242,15 +257,30 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
     return () => window.removeEventListener("resize", calculateSizes)
   }, [])
 
-  // Navigation items based on role
-  const navItems = isLeader ? [
-    { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
-    { icon: "ti-presentation", label: "Class", href: "/student/classlist" },
-    { icon: "ti-scan", label: "Scanner", href: "/student/scanner" },
-    { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
-    { icon: "ti-clipboard-check", label: "Forms", href: "/student/forms" },
-    { icon: "ti-pencil", label: "Request", href: "/student/request" },
-  ] : NAV_ITEMS
+  const isAdminMode = Boolean(navGroups?.length)
+
+  // Navigation items based on role or admin nav groups
+  const navItems = navGroups
+    ? navGroups.flatMap((group) => group.items)
+    : isLeader
+      ? [
+          { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
+          { icon: "ti-presentation", label: "Class", href: "/student/classlist" },
+          { icon: "ti-scan", label: "Scanner", href: "/student/scanner" },
+          { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
+          { icon: "ti-clipboard-check", label: "Forms", href: "/student/forms" },
+          { icon: "ti-pencil", label: "Request", href: "/student/request" },
+        ]
+      : NAV_ITEMS
+
+  function isItemActive(item: NavItem) {
+    return (
+      pathname === item.href ||
+      (!isAdminMode &&
+        item.label === "Dashboard" &&
+        (pathname === "/student/dashboard" || pathname === "/student"))
+    )
+  }
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -296,7 +326,121 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
     ? Math.max(200, EXPANDED_W * (windowWidth / 768))
     : EXPANDED_W
 
-  return (
+  const renderMobileNavLink = (item: NavItem) => {
+    const active = isItemActive(item)
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={`nstp-link${active ? " active" : ""}`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          height: 46,
+          borderRadius: 50,
+          textDecoration: "none",
+          overflow: "hidden",
+          ...mobileItemStyles,
+        }}
+      >
+        <span
+          style={{
+            width: COLLAPSED_W - 16,
+            flexShrink: 0,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <i
+            className={`ti ${item.icon}`}
+            style={{
+              fontSize: sizes.mobileIconSize,
+              color: active ? C.activeText : C.idleText,
+            }}
+          />
+        </span>
+
+        <span
+          className="nstp-expand"
+          style={{
+            fontSize: sizes.label,
+            fontWeight: active ? 700 : 500,
+            color: active ? C.activeText : C.idleText,
+          }}
+        >
+          {item.label}
+        </span>
+
+        <span
+          className="nstp-label"
+          style={{
+            display: "none",
+          }}
+        >
+          {item.label}
+        </span>
+      </Link>
+    )
+  }
+
+  const renderDesktopNavLink = (item: NavItem) => {
+    const active = isItemActive(item)
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={(e) => {
+          e.stopPropagation()
+        }}
+        title={!expanded ? item.label : undefined}
+        className={`nstp-link${active ? " active" : ""}`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          height: 46,
+          width: expanded ? "auto" : 46,
+          alignSelf: expanded ? "auto" : "center",
+          borderRadius: 999,
+          textDecoration: "none",
+          overflow: "hidden",
+        }}
+      >
+        <span
+          style={{
+            width: expanded ? COLLAPSED_W - 16 : "100%",
+            flexShrink: 0,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <i
+            className={`ti ${item.icon}`}
+            style={{
+              fontSize: 20,
+              color: active ? C.activeText : C.idleText,
+            }}
+          />
+        </span>
+
+        <span
+          className="nstp-expand"
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: active ? C.greenDark : C.idleText,
+          }}
+        >
+          {item.label}
+        </span>
+      </Link>
+    )
+  }
+
+  const sidebarContent = (
     <>
       <style>{`
         .nstp-rail {
@@ -512,9 +656,19 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
           .nstp-avatar-link.active .nstp-avatar-label {
             color: ${C.activeText};
           }
+
+          .nstp-menu.admin-mobile-menu {
+            justify-content: flex-start !important;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+
+          .nstp-menu.admin-mobile-menu::-webkit-scrollbar {
+            display: none;
+          }
         }
 
-        /* Tablet styles (481px - 768px) */
         @media(min-width:481px) and (max-width:768px) {
           .nstp-rail {
             width: ${tabletRailWidth}px;
@@ -540,6 +694,18 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
           .nstp-header img {
             width: ${Math.max(30, 44)}px;
             height: ${Math.max(30, 44)}px;
+          }
+        }
+
+        .nstp-layout-main {
+          flex: 1;
+          min-width: 0;
+        }
+
+        @media (max-width: 480px) {
+          .nstp-layout-main.with-responsive-sidebar {
+            padding-top: ${sizes.mobileTopHeight + 12}px !important;
+            padding-bottom: ${sizes.mobileHeight + 24}px !important;
           }
         }
       `}</style>
@@ -746,170 +912,101 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
             padding: "6px 8px",
           }}
         >
-          <div className="nstp-menu" style={{ position: "relative" }}>
-            <div
-              style={{
-                margin: "4px 12px 2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <span
+          <div
+            className={`nstp-menu${isAdminMode && isMobile ? " admin-mobile-menu" : ""}`}
+            style={{ position: "relative" }}
+          >
+            {!isAdminMode && (
+              <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "rgba(255,255,255,0.45)",
-                  letterSpacing: 1.2,
-                  textTransform: "uppercase",
-                  opacity: expanded ? 1 : 0,
-                  transition: "opacity 0.2s ease",
-                  whiteSpace: "nowrap",
+                  margin: "4px 12px 2px",
+                  display: "flex",
+                  alignItems: "center",
                 }}
               >
-                MAIN
-              </span>
-            </div>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "rgba(255,255,255,0.45)",
+                    letterSpacing: 1.2,
+                    textTransform: "uppercase",
+                    opacity: expanded ? 1 : 0,
+                    transition: "opacity 0.2s ease",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  MAIN
+                </span>
+              </div>
+            )}
 
             {isMobile ? (
-              // If mobile, show nav items w/ profile
               <>
-                {navItems.map((item) => {
-                  const active =
-                    pathname === item.href ||
-                    (item.label === "Dashboard" &&
-                      (pathname === "/student/dashboard" ||
-                        pathname === "/student"))
+                {navItems.map(renderMobileNavLink)}
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`nstp-link${active ? " active" : ""}`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        height: 46,
-                        borderRadius: 50,
-                        textDecoration: "none",
-                        overflow: "hidden",
-                        ...mobileItemStyles,
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: COLLAPSED_W - 16,
-                          flexShrink: 0,
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                        }}
-                      >
-                        <i
-                          className={`ti ${item.icon}`}
-                          style={{
-                            fontSize: sizes.mobileIconSize,
-                            color: active ? C.activeText : C.idleText,
-                          }}
-                        />
-                      </span>
-
-                      <span
-                        className="nstp-expand"
-                        style={{
-                          fontSize: sizes.label,
-                          fontWeight: active ? 700 : 500,
-                          color: active ? C.activeText : C.idleText,
-                        }}
-                      >
-                        {item.label}
-                      </span>
-
-                      <span className="nstp-label" style={{
-                        display: "none",
-                      }}>
-                        {item.label}
-                      </span>
-                    </Link>
-                  )
-                })}
-
-                {/* Mobile Profile with Avatar */}
-                <Link
-                  href="/student/profile"
-                  className={`nstp-avatar-link${pathname === "/student/profile" ? " active" : ""}`}
-                >
-                  <Image
-                    src="/nstp-logo.jpg"
-                    alt="Profile"
-                    width={sizes.mobileAvatarSize}
-                    height={sizes.mobileAvatarSize}
-                    className="nstp-avatar-image"
-                  />
-                  <span className="nstp-avatar-label">
-                    Profile
-                  </span>
-                </Link>
-              </>
-            ) : (
-              // If desktop, keep OG
-              navItems.map((item) => {
-                const active =
-                  pathname === item.href ||
-                  (item.label === "Dashboard" &&
-                    (pathname === "/student/dashboard" ||
-                      pathname === "/student"))
-
-                return (
+                {!isAdminMode && (
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                    }}
-                    title={!expanded ? item.label : undefined}
-                    className={`nstp-link${active ? " active" : ""}`}
+                    href="/student/profile"
+                    className={`nstp-avatar-link${pathname === "/student/profile" ? " active" : ""}`}
+                  >
+                    <Image
+                      src="/nstp-logo.jpg"
+                      alt="Profile"
+                      width={sizes.mobileAvatarSize}
+                      height={sizes.mobileAvatarSize}
+                      className="nstp-avatar-image"
+                    />
+                    <span className="nstp-avatar-label">Profile</span>
+                  </Link>
+                )}
+              </>
+            ) : navGroups ? (
+              navGroups.map((group, groupIndex) => (
+                <div
+                  key={group.heading}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    marginTop: groupIndex > 0 ? 8 : 0,
+                  }}
+                >
+                  {groupIndex > 0 && (
+                    <div
+                      style={{
+                        height: 1,
+                        background: C.divider,
+                        margin: expanded ? "12px 12px 10px" : "8px 18px",
+                      }}
+                    />
+                  )}
+                  {expanded && (
+                  <div
                     style={{
+                      margin: "4px 12px 2px",
                       display: "flex",
                       alignItems: "center",
-                      height: 46,
-                      width: expanded ? "auto" : 46,
-                      alignSelf: expanded ? "auto" : "center",
-                      borderRadius: 999,
-                      textDecoration: "none",
-                      overflow: "hidden",
                     }}
                   >
                     <span
                       style={{
-                        width: expanded ? COLLAPSED_W - 16 : "100%",
-                        flexShrink: 0,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "rgba(255,255,255,0.45)",
+                        letterSpacing: 1.2,
+                        textTransform: "uppercase",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      <i
-                        className={`ti ${item.icon}`}
-                        style={{
-                          fontSize: 20,
-                          color: active ? C.activeText : C.idleText,
-                        }}
-                      />
+                      {group.heading}
                     </span>
-
-                    <span
-                      className="nstp-expand"
-                      style={{
-                        fontSize: 15,
-                        fontWeight: 600,
-                        color: active ? C.greenDark : C.idleText,
-                      }}
-                    >
-                      {item.label}
-                    </span>
-                  </Link>
-                )
-              })
+                  </div>
+                  )}
+                  {group.items.map(renderDesktopNavLink)}
+                </div>
+              ))
+            ) : (
+              navItems.map(renderDesktopNavLink)
             )}
           </div>
         </nav>
@@ -977,5 +1074,34 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
         </div>
       </aside>
     </>
+  )
+
+  if (children == null) {
+    return sidebarContent
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        background: pageBg,
+        fontFamily: "var(--font, 'Helvetica Neue', Arial, sans-serif)",
+        fontSize: 14,
+      }}
+    >
+      {sidebarContent}
+      <main
+        className={`nstp-layout-main with-responsive-sidebar ${mainClassName ?? ""}`.trim()}
+        style={{
+          flex: 1,
+          marginLeft: isMobile ? 0 : COLLAPSED_W + RAIL_MARGIN * 2,
+          padding: isMobile ? "16px" : "36px 28px",
+          minWidth: 0,
+        }}
+      >
+        {children}
+      </main>
+    </div>
   )
 }

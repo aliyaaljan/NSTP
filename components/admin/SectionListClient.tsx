@@ -465,7 +465,7 @@ export default function SectionListClient({
                         </div>
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                        <div style={{ color: COLORS.textDark }}>
                           {section.studentCount}
                         </div>
                       </td>

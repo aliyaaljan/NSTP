@@ -150,7 +150,7 @@ function AvgCompletionBar({ pct, wide = false }: { pct: number; wide?: boolean }
         )}
         <span
           style={{
-            ...TYPE.bodyBold,
+            ...TYPE.body,
             color: COLORS.textDark,
             marginLeft: wide ? 0 : "auto",
           }}
@@ -261,7 +261,7 @@ function StatRow({
       }}
     >
       <span style={{ ...TYPE.body, color: COLORS.textGray }}>{label}</span>
-      <span style={{ ...TYPE.bodyBold, color: COLORS.textDark, textAlign: "right" }}>
+      <span style={{ ...TYPE.body, color: COLORS.textDark, textAlign: "right" }}>
         {value}
       </span>
     </div>

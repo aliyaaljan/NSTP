@@ -123,7 +123,7 @@ export default function FormDetailModal({
             >
               Description
             </div>
-            <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 500 }}>
+            <div style={{ ...TYPE.body, color: COLORS.textDark }}>
               {form.description?.trim() || "No description provided."}
             </div>
           </div>
@@ -142,7 +142,7 @@ export default function FormDetailModal({
               >
                 Class
               </div>
-              <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 600 }}>
+              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
                 {form.sectionName}
               </div>
             </div>
@@ -159,7 +159,7 @@ export default function FormDetailModal({
               >
                 Adviser
               </div>
-              <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 600 }}>
+              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
                 {form.adviserName}
               </div>
             </div>
@@ -179,7 +179,7 @@ export default function FormDetailModal({
               >
                 Deadline
               </div>
-              <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 600 }}>
+              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
                 {deadline.date}
                 {deadline.time ? ` at ${deadline.time}` : ""}
               </div>
@@ -197,7 +197,7 @@ export default function FormDetailModal({
               >
                 Scope
               </div>
-              <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 600 }}>
+              <div style={{ ...TYPE.body, color: COLORS.textDark }}>
                 {form.isGlobal ? "Global default" : "Class-specific"}
               </div>
             </div>
@@ -238,7 +238,6 @@ export default function FormDetailModal({
                     style={{
                       ...TYPE.body,
                       color: COLORS.textDark,
-                      fontWeight: 600,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",

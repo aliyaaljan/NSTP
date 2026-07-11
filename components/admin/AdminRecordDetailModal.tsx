@@ -215,7 +215,6 @@ export default function AdminRecordDetailModal({
                     ...TYPE.body,
                     color: COLORS.textDark,
                     margin: 0,
-                    fontWeight: 600,
                     display: field.align === "center" ? "flex" : undefined,
                     justifyContent: field.align === "center" ? "center" : undefined,
                   }}
