@@ -8,7 +8,6 @@ import {
   IconClock,
   IconDownload,
   IconFilter,
-  IconFolder,
   IconInbox,
   IconUpload,
   IconTrash,
@@ -17,7 +16,6 @@ import {
   IconChevronUp,
   IconChevronDown,
   IconSelector,
-  IconEdit,
 } from "@tabler/icons-react"
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
@@ -25,8 +23,6 @@ import { ChartStyles } from "@/components/shared/ChartModule"
 import { createClient } from "@/lib/client"
 import { NstpModal } from "@/components/shared/Modal"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
-import Link from "next/link"
-import LoadingPage from "@/components/shared/LoadingPage"
 
 import {
   getSubmissionsByForm,
@@ -39,12 +35,10 @@ import {
   deleteSectionRequirement,
   uploadRequirementFromData,
   getTemplateDownloadUrl,
-  updateRequirementFromData,
   type FormRequirement,
 } from "@/lib/forms/requirement-actions"
 
 // ── Types ──────────────────────────────────────────────────────────────
-type FormTab = "repository" | "submissions"
 type FormStatus = "Submitted" | "Not Yet Submitted"
 type FormType =
   | "Daily Time Record"
@@ -93,21 +87,6 @@ function sortFormTypes(types: string[]): string[] {
     if (bi !== -1) return 1
     return a.localeCompare(b)
   })
-}
-
-function countByField<T>(
-  items: T[],
-  getField: (item: T) => string
-): { type: string; count: number }[] {
-  const counts: Record<string, number> = {}
-  items.forEach((item) => {
-    const key = getField(item)
-    counts[key] = (counts[key] ?? 0) + 1
-  })
-  return sortFormTypes(Object.keys(counts)).map((type) => ({
-    type,
-    count: counts[type],
-  }))
 }
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
@@ -186,6 +165,8 @@ const formsStyles = `
     transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
   }
   .fm-repo-card:hover { border-color: var(--maroon); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+  .fm-repo-card--clickable { cursor: pointer; }
+  .fm-repo-card--clickable:focus-visible { outline: 2px solid var(--maroon); outline-offset: 2px; }
   .fm-repo-card-top { display: flex; align-items: flex-start; gap: 12px; }
   .fm-repo-info { min-width: 0; flex: 1; }
   .fm-repo-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #F3E8FF; }
@@ -220,11 +201,14 @@ export default function FormsPage() {
 
   const [userId, setUserId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<FormTab>("repository")
-  const [isPageLoading, setIsPageLoading] = useState(true)
+
+  // Whether the Submission Bin table (merged into Repository) is visible.
+  // Becomes true once the user clicks a KPI card.
+  const [showSubmissionBin, setShowSubmissionBin] = useState(false)
 
   // Filters
   const [search, setSearch] = useState("")
+  const [binSearch, setBinSearch] = useState("")
   type SubmissionFilterField = "status" | "type"
   type SubmissionActiveFilters = Partial<
     Record<SubmissionFilterField, string[]>
@@ -299,21 +283,8 @@ export default function FormsPage() {
   const [showUpload, setShowUpload] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadTitle, setUploadTitle] = useState("Daily Time Record")
-  const [customTitle, setCustomTitle] = useState("")
-  const [uploadDescription, setUploadDescription] = useState("")
-  const [uploadDueDate, setUploadDueDate] = useState("")
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Edit Modal States
-  const [showEdit, setShowEdit] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editReqId, setEditReqId] = useState("")
-  const [editTitle, setEditTitle] = useState("Daily Time Record")
-  const [editCustomTitle, setEditCustomTitle] = useState("")
-  const [editDescription, setEditDescription] = useState("")
-  const [editDueDate, setEditDueDate] = useState("")
-  const [editFile, setEditFile] = useState<File | null>(null)
 
   const loadData = async () => {
     const secRes = await getFacilitatorSectionId()
@@ -375,15 +346,11 @@ export default function FormsPage() {
   }
 
   const handleUploadSubmit = async () => {
-    const finalTitle = uploadTitle === "Other" ? customTitle : uploadTitle
-    if (!finalTitle.trim() || !sectionId) return
-
+    if (!uploadTitle.trim() || !sectionId) return
     setIsUploading(true)
+
     const formData = new FormData()
-    formData.append("title", finalTitle.trim())
-    if (uploadDescription.trim())
-      formData.append("description", uploadDescription.trim())
-    if (uploadDueDate) formData.append("dueDate", uploadDueDate)
+    formData.append("title", uploadTitle)
     if (uploadFile) formData.append("file", uploadFile)
 
     const res = await uploadRequirementFromData(formData, sectionId)
@@ -392,59 +359,9 @@ export default function FormsPage() {
     if (res.ok) {
       setShowUpload(false)
       setUploadFile(null)
-      setUploadTitle("Daily Time Record")
-      setCustomTitle("")
-      setUploadDescription("")
-      setUploadDueDate("")
       loadData()
     } else {
       alert(`Upload Failed: ${res.error}`)
-    }
-  }
-
-  const openEditModal = (form: FormRequirement) => {
-    setEditReqId(form.form_requirement_id)
-    const standardTitles = [
-      "Daily Time Record",
-      "Accomplishment Report",
-      "Attendance Sheet",
-      "Incident Report",
-    ]
-
-    if (standardTitles.includes(form.title)) {
-      setEditTitle(form.title)
-      setEditCustomTitle("")
-    } else {
-      setEditTitle("Other")
-      setEditCustomTitle(form.title)
-    }
-
-    setEditDescription(form.description || "")
-    setEditDueDate(form.due_date ? form.due_date.split("T")[0] : "")
-    setEditFile(null)
-    setShowEdit(true)
-  }
-
-  const handleEditSubmit = async () => {
-    const finalTitle = editTitle === "Other" ? editCustomTitle : editTitle
-    if (!finalTitle.trim() || !sectionId || !editReqId) return
-
-    setIsEditing(true)
-    const formData = new FormData()
-    formData.append("title", finalTitle.trim())
-    if (editDescription.trim())
-      formData.append("description", editDescription.trim())
-    if (editDueDate) formData.append("dueDate", editDueDate)
-    if (editFile) formData.append("file", editFile)
-
-    const res = await updateRequirementFromData(editReqId, sectionId, formData)
-    setIsEditing(false)
-
-    if (res.ok) {
-      setShowEdit(false)
-      loadData()
-    } else {
-      alert(`Update Failed: ${res.error}`)
     }
   }
 
@@ -479,7 +396,7 @@ export default function FormsPage() {
   )
 
   const filteredSubmissions = realEntries.filter((f) => {
-    const q = search.trim().toLowerCase()
+    const q = binSearch.trim().toLowerCase()
     const matchSearch =
       !q ||
       f.full_name.toLowerCase().includes(q) ||
@@ -550,9 +467,6 @@ export default function FormsPage() {
     return `${(bytes / 1024).toFixed(1)} KB`
   }
 
-  // Total count per form type — Submission Bin
-  const submissionTypeCounts = countByField(realEntries, (e) => e.type)
-
   const filterGroups: {
     label: string
     field: SubmissionFilterField
@@ -563,24 +477,12 @@ export default function FormsPage() {
       field: "status",
       values: () => ["Submitted", "Not Yet Submitted"],
     },
-    {
-      label: "Type",
-      field: "type",
-      values: () => submissionTypeCounts.map((c) => c.type),
-    },
   ]
 
   const totalActiveFilters = Object.values(activeFilters).reduce(
     (sum, arr) => sum + (arr?.length ?? 0),
     0
   )
-
-  const submissionKpis = submissionTypeCounts.map(({ type, count }) => ({
-    key: type,
-    label: type,
-    value: count,
-    Icon: IconFile,
-  }))
 
   return (
     <>
@@ -609,14 +511,14 @@ export default function FormsPage() {
           <main className="main">
             <header className="header">
               <h1 className="header-greeting">Forms</h1>
-              <Link href={"/facilitator/profile"} className="profile-pill">
-                <div className="profile-avatar">{initials}</div>
+              <div className="profile-pill">
+                <div className="profile-avatar">{initials || "A"}</div>
                 <div>
                   <div className="profile-name">
                     {lastName ? `${lastName}, ${firstName}` : "Adviser"}
                   </div>
                 </div>
-              </Link>
+              </div>
             </header>
 
             {errorMsg && (
@@ -634,186 +536,57 @@ export default function FormsPage() {
             )}
 
             <div className="body">
-              <div className="page-tabs">
-                <button
-                  className={`page-tab${
-                    activeTab === "repository" ? " page-tab-active" : ""
-                  }`}
-                  onClick={() => setActiveTab("repository")}
-                >
-                  <IconFolder size={16} stroke={1.75} /> Repository
-                </button>
-                <button
-                  className={`page-tab${
-                    activeTab === "submissions" ? " page-tab-active" : ""
-                  }`}
-                  onClick={() => setActiveTab("submissions")}
-                >
-                  <IconInbox size={16} stroke={1.75} /> Submission Bin
-                </button>
-              </div>
-
-              {activeTab === "repository" && (
-                <div className="fm-body">
-                  <div className="adv-table-card">
-                    <div className="adv-table-toolbar">
-                      <div>
-                        <div className="adv-table-title">All Forms</div>
-                        <div className="adv-table-count">
-                          {repoForms.length} NSTP Form
-                          {repoForms.length !== 1 ? "s" : ""}
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          marginLeft: "auto",
-                        }}
-                      >
-                        <div className="adv-search-bar">
-                          <IconSearch
-                            size={16}
-                            stroke={1.75}
-                            color="var(--muted)"
-                          />
-                          <input
-                            className="adv-search-input"
-                            placeholder="Search forms..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                          />
-                        </div>
-                        <button
-                          className="fm-upload-btn"
-                          onClick={() => setShowUpload(true)}
-                        >
-                          <IconPlus size={15} stroke={2.5} /> Upload Form
-                        </button>
+              <div className="fm-body">
+                <div className="adv-table-card">
+                  <div className="adv-table-toolbar">
+                    <div>
+                      <div className="adv-table-title">All Forms</div>
+                      <div className="adv-table-count">
+                        {repoForms.length} NSTP Form
+                        {repoForms.length !== 1 ? "s" : ""} · Click a card to
+                        view its submissions
                       </div>
                     </div>
-
-                    <div className="fm-repo-grid">
-                      {filteredForms.map((f) => {
-                        const tc = typeConfig[f.title] || typeConfig.default
-                        return (
-                          <div
-                            key={f.form_requirement_id}
-                            className="fm-repo-card"
-                          >
-                            <div className="fm-repo-card-top">
-                              <div
-                                className="fm-repo-icon"
-                                style={{ background: tc.bg }}
-                              >
-                                <IconFile
-                                  size={22}
-                                  stroke={1.5}
-                                  color={tc.color}
-                                />
-                              </div>
-                              <div className="fm-repo-info">
-                                <div className="fm-repo-name" title={f.title}>
-                                  {f.title}
-                                </div>
-                                <div
-                                  className="fm-repo-meta"
-                                  title={f.template_file_name || undefined}
-                                >
-                                  {f.template_file_name ||
-                                    "No template attached"}
-                                  {f.template_file_size_byte
-                                    ? ` · ${formatBytes(
-                                        f.template_file_size_byte
-                                      )}`
-                                    : ""}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="fm-repo-card-bottom">
-                              {f.section_id === null ? (
-                                <span
-                                  style={{
-                                    fontSize: "11px",
-                                    color: "var(--muted)",
-                                    fontWeight: "bold",
-                                  }}
-                                >
-                                  GLOBAL TEMPLATE
-                                </span>
-                              ) : (
-                                <div style={{ width: "10px" }}></div>
-                              )}
-                              <div className="fm-repo-actions">
-                                {f.template_storage_path && (
-                                  <button
-                                    className="fm-icon-btn"
-                                    title="Download"
-                                    onClick={() =>
-                                      handleDownload(f.form_requirement_id)
-                                    }
-                                  >
-                                    <IconDownload size={14} stroke={1.75} />
-                                  </button>
-                                )}
-
-                                {f.section_id !== null && (
-                                  <button
-                                    className="fm-icon-btn"
-                                    title="Edit"
-                                    onClick={() => openEditModal(f)}
-                                    disabled={isLoading}
-                                  >
-                                    <IconEdit size={14} stroke={1.75} />
-                                  </button>
-                                )}
-
-                                {f.section_id !== null && (
-                                  <button
-                                    className="fm-icon-btn danger"
-                                    title="Delete"
-                                    onClick={() =>
-                                      handleDelete(f.form_requirement_id)
-                                    }
-                                    disabled={isLoading}
-                                  >
-                                    <IconTrash size={14} stroke={1.75} />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                      {filteredForms.length === 0 && (
-                        <div
-                          style={{
-                            gridColumn: "1 / -1",
-                            textAlign: "center",
-                            padding: "40px",
-                            color: "var(--muted)",
-                          }}
-                        >
-                          No templates found.
-                        </div>
-                      )}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        marginLeft: "auto",
+                      }}
+                    >
+                      <div className="adv-search-bar">
+                        <IconSearch
+                          size={16}
+                          stroke={1.75}
+                          color="var(--muted)"
+                        />
+                        <input
+                          className="adv-search-input"
+                          placeholder="Search forms..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                        />
+                      </div>
+                      <button
+                        className="fm-upload-btn"
+                        onClick={() => setShowUpload(true)}
+                      >
+                        <IconPlus size={15} stroke={2.5} /> Upload Form
+                      </button>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {activeTab === "submissions" && (
-                <div className="fm-body">
-                  <div className="stat-cards">
-                    {submissionKpis.map(({ key, label, value }) => {
+                  <div className="fm-repo-grid">
+                    {filteredForms.map((f) => {
+                      const tc = typeConfig[f.title] || typeConfig.default
                       const isActive =
                         (activeFilters.type ?? []).length === 1 &&
-                        activeFilters.type?.[0] === key
+                        activeFilters.type?.[0] === f.title
                       return (
-                        <button
-                          key={key}
-                          className={`db-kpi-card db-kpi-card--interactive${
+                        <div
+                          key={f.form_requirement_id}
+                          className={`fm-repo-card fm-repo-card--clickable${
                             isActive ? " fm-kpi-active" : ""
                           }`}
                           onClick={() => {
@@ -822,27 +595,139 @@ export default function FormsPage() {
                               if (isActive) {
                                 delete next.type
                               } else {
-                                next.type = [key]
+                                next.type = [f.title]
                               }
                               return next
                             })
                             setCurrentPage(1)
+                            setShowSubmissionBin(!isActive)
                           }}
+                          role="button"
+                          tabIndex={0}
                           aria-pressed={isActive}
-                          aria-label={`${label}: ${value}`}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              e.currentTarget.click()
+                            }
+                          }}
                         >
-                          <div className="db-kpi-header">
-                            <span className="db-kpi-label">{label}</span>
+                          <div className="fm-repo-card-top">
+                            <div
+                              className="fm-repo-icon"
+                              style={{ background: tc.bg }}
+                            >
+                              <IconFile
+                                size={22}
+                                stroke={1.5}
+                                color={tc.color}
+                              />
+                            </div>
+                            <div className="fm-repo-info">
+                              <div className="fm-repo-name" title={f.title}>
+                                {f.title}
+                              </div>
+                              <div
+                                className="fm-repo-meta"
+                                title={f.template_file_name || undefined}
+                              >
+                                {f.template_file_name || "No template attached"}
+                                {f.template_file_size_byte
+                                  ? ` · ${formatBytes(
+                                      f.template_file_size_byte
+                                    )}`
+                                  : ""}
+                              </div>
+                            </div>
                           </div>
-                          <div className="db-kpi-value">{value}</div>
-                        </button>
+                          <div className="fm-repo-card-bottom">
+                            {f.section_id === null ? (
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  color: "var(--muted)",
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                GLOBAL TEMPLATE
+                              </span>
+                            ) : (
+                              <div style={{ width: "10px" }}></div>
+                            )}
+                            <div className="fm-repo-actions">
+                              {f.template_storage_path && (
+                                <button
+                                  className="fm-icon-btn"
+                                  title="Download"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDownload(f.form_requirement_id)
+                                  }}
+                                >
+                                  <IconDownload size={14} stroke={1.75} />
+                                </button>
+                              )}
+                              {f.section_id !== null && (
+                                <button
+                                  className="fm-icon-btn danger"
+                                  title="Delete"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDelete(f.form_requirement_id)
+                                  }}
+                                  disabled={isLoading}
+                                >
+                                  <IconTrash size={14} stroke={1.75} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       )
                     })}
+                    {filteredForms.length === 0 && (
+                      <div
+                        style={{
+                          gridColumn: "1 / -1",
+                          textAlign: "center",
+                          padding: "40px",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        No templates found.
+                      </div>
+                    )}
                   </div>
-                  <div className="adv-table-card">
+                </div>
+
+                {showSubmissionBin && (
+                  <div className="adv-table-card" style={{ marginTop: 20 }}>
                     <div className="adv-table-toolbar">
                       <div>
-                        <div className="adv-table-title">All Submissions</div>
+                        <div className="adv-table-title">
+                          <IconInbox
+                            size={15}
+                            stroke={1.75}
+                            style={{ verticalAlign: "-2px", marginRight: 6 }}
+                          />
+                          Submission Bin
+                          {(activeFilters.type ?? []).length === 1 && (
+                            <span
+                              style={{
+                                marginLeft: 8,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: "var(--maroon)",
+                                background: "#FEF2F2",
+                                padding: "2px 8px",
+                                borderRadius: 999,
+                                verticalAlign: "2px",
+                              }}
+                            >
+                              {activeFilters.type?.[0]}
+                            </span>
+                          )}
+                        </div>
                         <div className="adv-table-count">
                           {filteredSubmissions.length} record(s) found
                         </div>
@@ -856,6 +741,32 @@ export default function FormsPage() {
                           marginLeft: "auto",
                         }}
                       >
+                        {(activeFilters.type ?? []).length > 0 && (
+                          <button
+                            onClick={() => {
+                              setActiveFilters((prev) => {
+                                const next = { ...prev }
+                                delete next.type
+                                return next
+                              })
+                              setCurrentPage(1)
+                            }}
+                            style={{
+                              border: "1.5px solid var(--border)",
+                              borderRadius: 999,
+                              background: "var(--white)",
+                              color: "var(--text)",
+                              fontSize: 12.5,
+                              fontWeight: 600,
+                              fontFamily: "var(--font)",
+                              padding: "8px 14px",
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Reset Filter
+                          </button>
+                        )}
                         <div className="adv-search-bar">
                           <IconSearch
                             size={16}
@@ -864,9 +775,9 @@ export default function FormsPage() {
                           />
                           <input
                             className="adv-search-input"
-                            value={search}
+                            value={binSearch}
                             onChange={(e) => {
-                              setSearch(e.target.value)
+                              setBinSearch(e.target.value)
                               setCurrentPage(1)
                             }}
                             placeholder="Search student..."
@@ -1344,8 +1255,8 @@ export default function FormsPage() {
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </main>
         </div>
@@ -1366,285 +1277,64 @@ export default function FormsPage() {
               label: isUploading ? "Uploading..." : "Upload",
               onClick: handleUploadSubmit,
               variant: "approve",
-              disabled:
-                isUploading ||
-                !uploadFile ||
-                (uploadTitle === "Other" && !customTitle.trim()),
+              disabled: isUploading || !uploadFile,
             },
           ]}
         >
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
-          >
-            <div>
-              <div className="nstp-modal-label">Form Type</div>
-              <select
-                value={uploadTitle}
-                onChange={(e) => setUploadTitle(e.target.value)}
-                style={{
-                  width: "100%",
-                  border: "1.5px solid var(--border)",
-                  borderRadius: 10,
-                  padding: "9px 12px",
-                  fontSize: 13,
-                  fontFamily: "var(--font)",
-                  color: "var(--text)",
-                  background: "var(--white)",
-                  outline: "none",
-                  marginTop: 4,
-                }}
-              >
-                <option>Daily Time Record</option>
-                <option>Accomplishment Report</option>
-                <option>Attendance Sheet</option>
-                <option>Incident Report</option>
-                <option>Other</option>
-              </select>
-            </div>
-
-            {uploadTitle === "Other" && (
-              <div>
-                <div className="nstp-modal-label">Custom Form Title</div>
-                <input
-                  type="text"
-                  value={customTitle}
-                  onChange={(e) => setCustomTitle(e.target.value)}
-                  placeholder="Enter custom form title"
-                  style={{
-                    width: "100%",
-                    border: "1.5px solid var(--border)",
-                    borderRadius: 10,
-                    padding: "9px 12px",
-                    fontSize: 13,
-                    fontFamily: "var(--font)",
-                    outline: "none",
-                    marginTop: 4,
-                  }}
-                />
-              </div>
-            )}
-
-            <div>
-              <div className="nstp-modal-label">Due Date (Optional)</div>
-              <input
-                type="date"
-                value={uploadDueDate}
-                onChange={(e) => setUploadDueDate(e.target.value)}
-                style={{
-                  width: "100%",
-                  border: "1.5px solid var(--border)",
-                  borderRadius: 10,
-                  padding: "9px 12px",
-                  fontSize: 13,
-                  fontFamily: "var(--font)",
-                  color: "var(--text)",
-                  outline: "none",
-                  marginTop: 4,
-                }}
-              />
-            </div>
-
-            <div>
-              <div className="nstp-modal-label">
-                Description / Instructions (Optional)
-              </div>
-              <textarea
-                value={uploadDescription}
-                onChange={(e) => setUploadDescription(e.target.value)}
-                placeholder="Add helpful instructions for your students..."
-                rows={3}
-                style={{
-                  width: "100%",
-                  border: "1.5px solid var(--border)",
-                  borderRadius: 10,
-                  padding: "9px 12px",
-                  fontSize: 13,
-                  fontFamily: "var(--font)",
-                  color: "var(--text)",
-                  outline: "none",
-                  marginTop: 4,
-                  resize: "none",
-                }}
-              />
-            </div>
-
-            <div>
-              <div className="nstp-modal-label">Template File (Optional)</div>
-              <div
-                className="fm-upload-zone"
-                onClick={() => fileInputRef.current?.click()}
-                style={{ marginTop: 4 }}
-              >
-                {uploadFile ? (
-                  <div style={{ color: "var(--green)", fontWeight: "bold" }}>
-                    {uploadFile.name}
-                  </div>
-                ) : (
-                  <>
-                    <IconUpload size={28} stroke={1.5} color="var(--muted)" />
-                    <div className="fm-upload-zone-text">
-                      Click to browse or drag & drop
-                    </div>
-                    <div className="fm-upload-zone-sub">
-                      PDF, DOCX up to 200 KB
-                    </div>
-                  </>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) =>
-                    e.target.files && setUploadFile(e.target.files[0])
-                  }
-                  style={{ display: "none" }}
-                />
-              </div>
-            </div>
+          <div>
+            <div className="nstp-modal-label">Form Type</div>
+            <select
+              value={uploadTitle}
+              onChange={(e) => setUploadTitle(e.target.value)}
+              style={{
+                width: "100%",
+                border: "1.5px solid var(--border)",
+                borderRadius: 10,
+                padding: "9px 12px",
+                fontSize: 13,
+                fontFamily: "var(--font)",
+                color: "var(--text)",
+                background: "var(--white)",
+                outline: "none",
+                marginTop: 4,
+              }}
+            >
+              <option>Daily Time Record</option>
+              <option>Accomplishment Report</option>
+              <option>Attendance Sheet</option>
+              <option>Incident Report</option>
+            </select>
           </div>
-        </NstpModal>
-
-        {/* Edit modal */}
-        <NstpModal
-          open={showEdit}
-          onClose={() => setShowEdit(false)}
-          title="Edit Form Template"
-          size="md"
-          actions={[
-            {
-              label: "Cancel",
-              onClick: () => setShowEdit(false),
-              variant: "secondary",
-            },
-            {
-              label: isEditing ? "Saving..." : "Save Changes",
-              onClick: handleEditSubmit,
-              variant: "approve",
-              disabled: isEditing || !editTitle,
-            },
-          ]}
-        >
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
-          >
-            <div>
-              <div className="nstp-modal-label">Form Type</div>
-              <select
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                style={{
-                  width: "100%",
-                  border: "1.5px solid var(--border)",
-                  borderRadius: 10,
-                  padding: "9px 12px",
-                  fontSize: 13,
-                  fontFamily: "var(--font)",
-                  color: "var(--text)",
-                  background: "var(--white)",
-                  outline: "none",
-                  marginTop: 4,
-                }}
-              >
-                <option>Daily Time Record</option>
-                <option>Accomplishment Report</option>
-                <option>Attendance Sheet</option>
-                <option>Incident Report</option>
-                <option>Other</option>
-              </select>
-            </div>
-
-            {editTitle === "Other" && (
-              <div>
-                <div className="nstp-modal-label">Form Title</div>
-                <input
-                  type="text"
-                  value={editCustomTitle}
-                  onChange={(e) => setEditCustomTitle(e.target.value)}
-                  placeholder="Enter custom form title"
-                  style={{
-                    width: "100%",
-                    border: "1.5px solid var(--border)",
-                    borderRadius: 10,
-                    padding: "9px 12px",
-                    fontSize: 13,
-                    fontFamily: "var(--font)",
-                    outline: "none",
-                    marginTop: 4,
-                  }}
-                />
-              </div>
-            )}
-
-            <div>
-              <div className="nstp-modal-label">Due Date (Optional)</div>
-              <input
-                type="date"
-                value={editDueDate}
-                onChange={(e) => setEditDueDate(e.target.value)}
-                style={{
-                  width: "100%",
-                  border: "1.5px solid var(--border)",
-                  borderRadius: 10,
-                  padding: "9px 12px",
-                  fontSize: 13,
-                  fontFamily: "var(--font)",
-                  color: "var(--text)",
-                  outline: "none",
-                  marginTop: 4,
-                }}
-              />
-            </div>
-
-            <div>
-              <div className="nstp-modal-label">Description / Instructions</div>
-              <textarea
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                rows={3}
-                style={{
-                  width: "100%",
-                  border: "1.5px solid var(--border)",
-                  borderRadius: 10,
-                  padding: "9px 12px",
-                  fontSize: 13,
-                  fontFamily: "var(--font)",
-                  color: "var(--text)",
-                  outline: "none",
-                  marginTop: 4,
-                  resize: "none",
-                }}
-              />
-            </div>
-
-            <div>
-              <div className="nstp-modal-label">
-                Replace Template File (Optional)
-              </div>
-              <div
-                className="fm-upload-zone"
-                onClick={() => fileInputRef.current?.click()}
-                style={{ marginTop: 4, padding: "20px" }}
-              >
-                {editFile ? (
-                  <div style={{ color: "var(--green)", fontWeight: "bold" }}>
-                    {editFile.name}
-                  </div>
-                ) : (
+          <div>
+            <div className="nstp-modal-label">File</div>
+            <div
+              className="fm-upload-zone"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadFile ? (
+                <div style={{ color: "var(--green)", fontWeight: "bold" }}>
+                  {uploadFile.name}
+                </div>
+              ) : (
+                <>
+                  <IconUpload size={28} stroke={1.5} color="var(--muted)" />
                   <div className="fm-upload-zone-text">
-                    Click to upload a new file (Leave empty to keep current
-                    file)
+                    Click to browse or drag & drop
                   </div>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) =>
-                    e.target.files && setEditFile(e.target.files[0])
-                  }
-                  style={{ display: "none" }}
-                />
-              </div>
+                  <div className="fm-upload-zone-sub">
+                    PDF, DOCX up to 200 KB
+                  </div>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) =>
+                  e.target.files && setUploadFile(e.target.files[0])
+                }
+                style={{ display: "none" }}
+              />
             </div>
           </div>
         </NstpModal>

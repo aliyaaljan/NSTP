@@ -90,48 +90,6 @@ function ExportSelect({
   )
 }
 
-function escapeCsvCell(value: string): string {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
-}
-
-function buildCsv(rows: AuditLogRow[]): string {
-  const header = [
-    "Timestamp",
-    "Action",
-    "Title",
-    "Actor",
-    "Table",
-    "Record ID",
-    "Summary",
-  ]
-  const lines = rows.map((row) =>
-    [
-      row.createdAt,
-      row.action,
-      row.title,
-      row.actorName,
-      row.tableLabel,
-      row.recordId,
-      row.summary,
-    ]
-      .map((cell) => escapeCsvCell(String(cell ?? "")))
-      .join(",")
-  )
-  return [header.join(","), ...lines].join("\r\n")
-}
-
-function downloadBlob(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement("a")
-  anchor.href = url
-  anchor.download = fileName
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
-
 export default function AuditLogExportButton({
   entries,
   search,
@@ -198,22 +156,29 @@ export default function AuditLogExportButton({
       return
     }
 
-    if (request.fileType === "csv") {
-      const csv = buildCsv(exportRows)
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
-      const stamp = new Date().toISOString().slice(0, 10)
-      downloadBlob(blob, `audit-log-${stamp}.csv`)
-      close()
-      return
+    // Offload export generation completely to the server (supports CSV, XLSX, PDF)
+    const params = new URLSearchParams({
+      content: "activity",
+      fileType: request.fileType,
+    })
+
+    if (request.action && request.action !== "all") {
+      params.set("action", request.action)
+    }
+    if (request.dateRange && request.dateRange !== "all") {
+      params.set("dateRange", request.dateRange)
+    }
+    if (search && search.trim()) {
+      params.set("q", search.trim())
     }
 
-    // TODO(backend): wire PDF / XLSX to `/api/export/audit-log` when ready
-    setError(
-      `${request.fileType.toUpperCase()} export is not available yet. Use CSV or implement the server endpoint.`
-    )
+    window.location.href = `/api/export?${params.toString()}`
+    close()
   }
 
-  const canExport = Boolean(fileType && action && dateRange && exportRows.length > 0)
+  const canExport = Boolean(
+    fileType && action && dateRange && exportRows.length > 0
+  )
 
   return (
     <>
@@ -312,9 +277,7 @@ export default function AuditLogExportButton({
                 value={action}
                 placeholder="Select Action"
                 onChange={(value) => {
-                  setAction(
-                    value as AuditLogQuery["action"]
-                  )
+                  setAction(value as AuditLogQuery["action"])
                   setError(null)
                 }}
               >
@@ -344,8 +307,12 @@ export default function AuditLogExportButton({
               <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: 0 }}>
                 {exportRows.length === 0
                   ? "No events match the selected filters."
-                  : `${exportRows.length} event${exportRows.length === 1 ? "" : "s"} will be exported`}
-                {search.trim() ? ` (includes current search: "${search.trim()}")` : ""}
+                  : `${exportRows.length} event${
+                      exportRows.length === 1 ? "" : "s"
+                    } will be exported`}
+                {search.trim()
+                  ? ` (includes current search: "${search.trim()}")`
+                  : ""}
               </p>
 
               {error && (

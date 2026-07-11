@@ -28,6 +28,11 @@ export async function GET(request: Request) {
       | "xlsx"
       | "pdf"
 
+    // Audit Log Filters
+    const filterAction = searchParams.get("action")
+    const filterDateRange = searchParams.get("dateRange")
+    const filterQ = searchParams.get("q")
+
     // Use Server Client so RLS and security contexts are maintained
     const supabase = await createSupabaseServerClient()
     const activeStatusId = await lookupId("enrollment_status", "active")
@@ -39,18 +44,39 @@ export async function GET(request: Request) {
     // DYNAMIC DATA FETCHING AND FILTERING
     switch (content) {
       case "activity": {
+        let auditQuery = supabase
+          .from("audit_log_readable")
+          .select(AUDIT_LOG_SELECT)
+          .order("created_at", { ascending: false })
+          .limit(1000)
+
+        if (filterAction && filterAction !== "all") {
+          auditQuery = auditQuery.eq("action", filterAction)
+        }
+
+        if (filterDateRange && filterDateRange !== "all") {
+          const days = parseInt(filterDateRange.replace("d", ""), 10)
+          if (!isNaN(days)) {
+            const startDate = new Date()
+            startDate.setDate(startDate.getDate() - days)
+            auditQuery = auditQuery.gte("created_at", startDate.toISOString())
+          }
+        }
+
+        if (filterQ) {
+          auditQuery = auditQuery.or(
+            `actor_name.ilike.%${filterQ}%,summary.ilike.%${filterQ}%,table_label.ilike.%${filterQ}%`
+          )
+        }
+
         // fetch translation dictionaries
         const [
-          { data: auditData },
+          { data: auditData, error: auditError },
           { data: appealStatus },
           { data: enrollmentStatus },
           { data: sessionStatus },
         ] = await Promise.all([
-          supabase
-            .from("audit_log_readable")
-            .select(AUDIT_LOG_SELECT)
-            .order("created_at", { ascending: false })
-            .limit(800),
+          auditQuery,
           supabase.from("appeal_status").select("appeal_status_id, name"),
           supabase
             .from("enrollment_status")
@@ -60,6 +86,8 @@ export async function GET(request: Request) {
             .select("attendance_session_status_id, name"),
         ])
 
+        if (auditError)
+          throw new Error(`Failed to fetch audit log: ${auditError.message}`)
         if (!auditData) throw new Error("Failed to fetch audit log")
 
         // compile the fetched dictionary
@@ -262,32 +290,59 @@ export async function GET(request: Request) {
 
     // PDF GENERATION
     if (fileType === "pdf") {
-      const doc = new jsPDF(headers.length > 5 ? "landscape" : "portrait")
-      doc.text(`NSTP 2 Analytics Report: ${content.toUpperCase()}`, 14, 15)
-      doc.setFontSize(10)
+      // Force Landscape orientation for dense reports like audit logs (activity) to provide breathing room
+      const isLandscape = headers.length > 5 || content === "activity"
+      const doc = new jsPDF({
+        orientation: isLandscape ? "landscape" : "portrait",
+        unit: "mm",
+        format: "a4",
+      })
 
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(14)
+      doc.text(`NSTP 2 Analytics Report: ${content.toUpperCase()}`, 14, 15)
+
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(9)
       const printDate = new Date().toLocaleString("en-US", {
         timeZone: "Asia/Manila",
       })
-      doc.text(`Generated: ${printDate} (PHT)`, 14, 22)
+      doc.text(`Generated: ${printDate} (PHT)`, 14, 21)
 
       autoTable(doc, {
-        startY: 28,
+        startY: 26,
         head: [headers],
         body: rows,
-        headStyles: { fillColor: [123, 17, 19] },
+        headStyles: { fillColor: [123, 17, 19], fontStyle: "bold" },
         theme: "striped",
+        styles: {
+          font: "helvetica",
+          fontSize: 8.5,
+          overflow: "linebreak",
+          cellPadding: 4,
+          valign: "middle",
+        },
+        columnStyles:
+          content === "activity"
+            ? {
+                0: { cellWidth: 38 }, // Date column
+                1: { cellWidth: 35 }, // Actor column
+                2: { cellWidth: 22 }, // Action column
+                3: { cellWidth: 25 }, // Table column
+                4: { cellWidth: "auto" }, // Summary column takes up all remaining landscape space cleanly
+              }
+            : {},
       })
 
-      const pdfBuffer = Buffer.from(doc.output("arraybuffer"))
-      return new NextResponse(pdfBuffer, {
+      // Standardize binary output stream without string character corruption
+      const uint8Array = new Uint8Array(doc.output("arraybuffer"))
+      return new NextResponse(uint8Array, {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="${filename}"`,
         },
       })
     }
-
     // CSV GENERATION (default)
     const csvContent = [
       headers.join(","),

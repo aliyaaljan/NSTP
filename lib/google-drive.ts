@@ -52,7 +52,22 @@ export const uploadToGoogleDrive = async (file: File, folderId: string) => {
       fields: "id, webViewLink, webContentLink",
       supportsAllDrives: true, // allow to write into workspace shared drive
     })
+    const fileId = response.data.id
 
+    if (fileId) {
+      try {
+        await drive.permissions.create({
+          fileId: fileId,
+          supportsAllDrives: true, // Crucial for Shared Drives
+          requestBody: {
+            type: "anyone", // Allows the student who holds the link to view it
+            role: "reader", // Restricts them to Read-Only so they can't delete or modify it after submission
+          },
+        })
+      } catch (permError) {
+        console.warn("Non-blocking Permission Error:", permError)
+      }
+    }
     return response.data
   } catch (error: any) {
     console.error("Google Drive API Error:", error)
