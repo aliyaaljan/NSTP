@@ -648,7 +648,7 @@ export default async function AdminDashboardPage({
   const currentSemesterMeta = activeTerm
     ? {
         academicYear: activeTerm.school_year,
-        semester: activeTerm.semester,
+        semester: `${activeTerm.semester} semester`,
       }
     : { academicYear: "N/A", semester: "N/A" }
 
@@ -657,8 +657,8 @@ export default async function AdminDashboardPage({
     name: currentUserRes?.data?.full_name || "Admin",
     role: roleData?.name || "Administrator",
   }
-  // processing enrollment data
 
+  // processing enrollment data
   const rawEnrollments = enrollmentsRes.data || []
   const sectionAggregationMap: Record<
     string,
@@ -701,8 +701,12 @@ export default async function AdminDashboardPage({
 
     const studentCompletionPct = Math.round((studentHours / targetHours) * 100)
 
-    if (studentCompletionPct >= 60) onTrackCount++
-    else if (studentCompletionPct >= 45) inProgressCount++
+    // applying time-aware logic
+
+    const status = progressStatusFromPct(studentCompletionPct, daysLeft)
+
+    if (status === "on_track") onTrackCount++
+    else if (status === "in_progress") inProgressCount++
     else {
       atRiskCount++
 
