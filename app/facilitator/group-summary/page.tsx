@@ -13,6 +13,7 @@ import { signOutWithAudit } from "@/lib/auth-actions";
 import { ChartStyles } from "@/components/shared/ChartModule";
 import { createClient } from "@/lib/client";
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
+import Link from "next/link";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface SectionSummary {
@@ -410,12 +411,14 @@ export default function GroupSummaryPage() {
                   aria-label="Search section or student"
                 />
               </div>
-              <div className="profile-pill">
-                <div className="profile-avatar">{initials || "A"}</div>
+              <Link href={"/facilitator/profile"} className="profile-pill">
+                <div className="profile-avatar">{initials}</div>
                 <div>
-                  <div className="profile-name">{lastName ? `${lastName}, ${firstName}` : "Adviser"}</div>
+                  <div className="profile-name">
+                    {lastName ? `${lastName}, ${firstName}` : "Adviser"}
+                  </div>
                 </div>
-              </div>
+              </Link>
             </header>
 
             <div className="body">

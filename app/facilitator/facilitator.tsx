@@ -12,6 +12,8 @@ import {
   IconCircleCheck,
   IconChevronLeft,
   IconChevronRight,
+  IconUser,
+  IconBook,
 } from "@tabler/icons-react";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -139,7 +141,7 @@ export function DonutChart({ pct = 60 }: { pct?: number }) {
   );
 }
 
-export function Calendar({ semEndDate, holidays = [], deadlines = []}: { semEndDate?: string | Date, holidays?: { name: string; date: string;}[], deadlines?: {name:string; date:string}[]}) {
+export function Calendar({ semEndDate, holidays = [], deadlines = []}: { semEndDate?: string | Date, holidays?: { name: string; date: string | null }[], deadlines?: { name: string; date: string | null }[]}) {
   const today = new Date();
 
   const semEnd = typeof semEndDate === "string" 
@@ -149,12 +151,12 @@ export function Calendar({ semEndDate, holidays = [], deadlines = []}: { semEndD
       })()
     : semEndDate;
   
-  const parsedHolidays = holidays.map((h) => {
+  const parsedHolidays = holidays.filter((h): h is { name: string; date: string } => !!h.date).map((h) => {
     const [year, month, day] = h.date.split("-").map(Number);
     return { date: new Date(year, month - 1, day), name: h.name };
   });
 
-  const parsedDeadlines = deadlines.map((d) => {
+  const parsedDeadlines = deadlines.filter((d): d is { name: string; date: string } => !!d.date).map((d) => {
     const [year, month, day] = d.date.split("-").map(Number);
     return { date: new Date(year, month - 1, day), name: d.name };
   });
@@ -409,6 +411,36 @@ export function Sidebar({ open, activeNav, onToggle, onNavClick, onSignOut }: Si
           </button>
         </div>
       </aside>
+    </div>
+  );
+}
+
+export interface ProfileCardProps {
+  fullName?: string;
+  email?: string;
+  college?: string;
+  component?: string;
+}
+
+export function ProfileCard({ fullName = "", email = "", college = "", component = "" }: ProfileCardProps) {
+  const initials = fullName ? getInitials(fullName) : "";
+
+  return (
+    <div className="pc-page">
+      <div className="pc-card">
+        <div className="pc-avatar">
+          <span className="pc-avatar-text">{initials}</span>
+        </div>
+        <h2 className="pc-name">{fullName}</h2>
+        <div className="pc-info">
+          <span className="pc-label">Email</span>
+          <span className="pc-value">{email || "—"}</span>
+          <span className="pc-label">College</span>
+          <span className="pc-value">{college || "—"}</span>
+          <span className="pc-label">Component</span>
+          <span className="pc-value">{component || "—"}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -688,4 +720,14 @@ export const dashboardStyles = `
   .adv-page-btn:hover:not(.adv-page-btn-active):not(:disabled) { background: #F9FAFB; border-color: #9CA3AF; }
   .adv-page-btn.adv-page-btn-active { background: var(--maroon); color: #fff; border-color: var(--maroon); font-weight: 700; }
   .adv-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .pc-page { display: flex; flex-direction: column; gap: 24px; padding: 56px 32px 28px; flex: 1; background: var(--bg); font-family: var(--font); }  
+  .pc-title { font-size: 34px; font-weight: 800; color: var(--maroon); margin: 0; letter-spacing: -0.01em; }
+  .pc-card { position: relative; width: 100%; max-width: 480px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; padding: 50px 24px 28px; }
+  .pc-avatar { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--gold, #C8A84B), #D4B05C); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(123, 17, 19, 0.2); border: 3px solid var(--white); }
+  .pc-avatar-text { font-size: 30px; font-weight: 800; color: var(--maroon); letter-spacing: 0.02em; }
+  .pc-name { font-size: 20px; font-weight: 700; color: var(--maroon); margin: 8px 0 18px; text-align: center; word-break: break-word; }
+  .pc-info { width: 100%; border-top: 1px solid var(--border); padding-top: 16px; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; color: var(--text); line-height: 1.8; }
+  .pc-label { font-weight: 600; color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .pc-value { color: var(--muted); word-break: break-word; }
 `;
