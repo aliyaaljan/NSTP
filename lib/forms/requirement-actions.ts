@@ -651,3 +651,34 @@ export async function uploadRequirementFromData(
     templateFile
   )
 }
+export async function updateRequirementFromData(
+  requirementId: string,
+  sectionId: string,
+  formData: FormData
+) {
+  const title = formData.get("title") as string | null
+  const description = formData.get("description") as string | null
+  const dueDate = formData.get("dueDate") as string | null
+  const file = formData.get("file") as File | null
+
+  const updates: any = {}
+  if (title) updates.title = title
+  if (description !== null) updates.description = description
+  if (dueDate !== null) updates.dueDate = dueDate
+
+  let newTemplate = undefined
+  if (file && file.size > 0) {
+    const arrayBuffer = await file.arrayBuffer()
+    newTemplate = {
+      buffer: Buffer.from(arrayBuffer),
+      fileName: file.name,
+    }
+  }
+
+  return await updateSectionRequirement(
+    requirementId,
+    sectionId,
+    updates,
+    newTemplate
+  )
+}
