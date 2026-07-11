@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { Goblin_One } from "next/font/google"
+import { useStudent } from "@/app/student/StudentContext"
 
 const goblin = Goblin_One({
   subsets: ["latin"],
@@ -42,11 +43,17 @@ const NAV_ITEMS: NavItem[] = [
   { icon: "ti-pencil", label: "Request", href: "/student/request" },
 ]
 
-interface StudentSidebarProps {
-  isLeader?: boolean
-}
+const LEADER_ITEMS: NavItem[] = [
+  { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
+  { icon: "ti-presentation", label: "Class", href: "/student/classlist" },
+  { icon: "ti-scan", label: "Scanner", href: "/student/scanner" },
+  { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
+  { icon: "ti-clipboard-check", label: "Forms", href: "/student/forms" },
+  { icon: "ti-pencil", label: "Request", href: "/student/request" },
+]
 
-export default function StudentSidebar({ isLeader = false }: StudentSidebarProps) {
+export default function StudentSidebar() {
+  const { isLeader, isLoading } = useStudent()
   const pathname = usePathname()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
@@ -72,6 +79,9 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
   })
   const [windowWidth, setWindowWidth] = useState(0)
   const [windowHeight, setWindowHeight] = useState(0)
+
+  // Navigation items based on role
+  const navItems = isLeader ? LEADER_ITEMS : NAV_ITEMS
 
   useEffect(() => {
     const calculateSizes = () => {
@@ -241,16 +251,6 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
     window.addEventListener("resize", calculateSizes)
     return () => window.removeEventListener("resize", calculateSizes)
   }, [])
-
-  // Navigation items based on role
-  const navItems = isLeader ? [
-    { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
-    { icon: "ti-presentation", label: "Class", href: "/student/classlist" },
-    { icon: "ti-scan", label: "Scanner", href: "/student/scanner" },
-    { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
-    { icon: "ti-clipboard-check", label: "Forms", href: "/student/forms" },
-    { icon: "ti-pencil", label: "Request", href: "/student/request" },
-  ] : NAV_ITEMS
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -562,6 +562,7 @@ export default function StudentSidebar({ isLeader = false }: StudentSidebarProps
             backdropFilter: "blur(18px)",
             WebkitBackdropFilter: "blur(18px)",
             borderBottom: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: "0 0 7px 7px",
           }}
         >
           {/* Logo and NSTP text */}
