@@ -626,10 +626,8 @@ function SessionRow({
   formatDate: (d: string) => string
 }) {
   const rowRef = useRef<HTMLTableRowElement>(null)
-const [flagCoords, setFlagCoords] = useState<{ top: number; left: number } | null>(null)
-const latestFlag = sess.flagReasons?.at(-1)
-const flagText = latestFlag ? `${latestFlag.code}: ${latestFlag.message}` : "Flagged for review"
-console.log('flagReason for', sess.id, ':', sess.flagReasons)
+  const [flagCoords, setFlagCoords] = useState<{ top: number; left: number } | null>(null)
+  const latestFlag = sess.flagReasons?.at(-1)
   return (
     <tr
       ref={rowRef}
@@ -716,7 +714,11 @@ console.log('flagReason for', sess.id, ':', sess.flagReasons)
         maxWidth: 475,
       }}
     >
-      {flagText}
+      {latestFlag ? (
+        <>
+          <strong>{latestFlag.code}</strong>: {latestFlag.message}
+        </>
+      ) : ""}
     </span>,
     document.body
   )}
