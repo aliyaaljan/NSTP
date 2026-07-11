@@ -19,9 +19,6 @@ interface NstpModalProps {
   subtitle?: string
   initials?: string
   size?: ModalSize
-  // Optional pixel override for cases that need a bit more room than the
-  // largest preset ("wide" = 1000px) without introducing a new size tier.
-  width?: number
   twoCol?: boolean
   leftContent?: ReactNode
   rightContent?: ReactNode
@@ -181,18 +178,19 @@ const STYLES = `
   .nstp-modal-value { font-size: 14px; font-weight: 600; color: var(--text, #111827); }
   .nstp-modal-footer {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     padding: 14px 22px 20px;
     flex-shrink: 0;
     border-top: 1px solid var(--border, #E5E7EB);
   }
   .nstp-modal-btn {
-    flex: 1;
-    padding: 10px 16px;
-    border-radius: 12px;
+    flex: 0 1 auto;
+    padding: 8px 14px;
+    border-radius: 10px;
     border: none;
     cursor: pointer;
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-weight: 700;
     font-family: inherit;
     transition: background 0.13s, opacity 0.13s;
@@ -217,7 +215,6 @@ export function NstpModal({
   subtitle,
   initials,
   size = "md",
-  width,
   twoCol = false,
   leftContent,
   rightContent,
@@ -245,7 +242,7 @@ export function NstpModal({
 
   if (!open) return null
 
-  const resolvedWidth = width ?? SIZE_MAP[size]
+  const width = SIZE_MAP[size]
 
   return (
     <>
@@ -258,7 +255,7 @@ export function NstpModal({
         aria-modal="true"
         aria-label={title}
       >
-        <div className="nstp-modal" style={{ width: resolvedWidth, maxWidth: "100%" }}>
+        <div className="nstp-modal" style={{ width, maxWidth: "100%" }}>
           <div className="nstp-modal-header">
             {initials && (
               <div className="nstp-modal-avatar" aria-hidden="true">{initials}</div>

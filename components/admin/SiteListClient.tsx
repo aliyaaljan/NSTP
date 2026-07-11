@@ -9,7 +9,7 @@ import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddGpsSiteModal from "@/components/admin/AddGpsSiteModal"
 import EditGpsSiteModal from "@/components/admin/EditGpsSiteModal"
-import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
+import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import { adminClickableRowProps } from "@/components/admin/admin-list-row"
 import { deleteSite } from "@/lib/admin/site-list-actions"
@@ -530,40 +530,49 @@ export default function SiteListClient({
       />
 
       {detailSite && (
-        <AdminRecordDetailModal
+        <NstpModal
           open
+          onClose={() => setDetailSite(null)}
           title={detailSite.siteName}
-          fieldColumns={2}
-          maxWidth={560}
-          fields={[
+          size="md"
+          actions={[
             {
-              label: "Class",
-              value: sectionLabelById.get(detailSite.sectionId) ?? detailSite.sectionName,
+              label: "Edit",
+              variant: "primary",
+              disabled: detailSite.isSample,
+              onClick: () => {
+                setEditSite(detailSite)
+                setDetailSite(null)
+              },
             },
-            { label: "Adviser", value: detailSite.supervisorName },
-            { label: "Radius", value: `${detailSite.radiusMeters} m` },
-            { label: "Coordinates", value: formatSiteCoordinates(detailSite) },
             {
-              label: "Status",
-              value: <SiteStatusBadge isActive={detailSite.isActive} />,
+              label: "Delete",
+              variant: "danger",
+              disabled: isDeleting || detailSite.isSample,
+              onClick: () => {
+                openDeleteConfirm(detailSite)
+                setDetailSite(null)
+              },
             },
           ]}
-          mapConfig={{
-            center: [detailSite.centerLatitude, detailSite.centerLongitude],
-            radius: detailSite.radiusMeters,
-          }}
-          onClose={() => setDetailSite(null)}
-          onEdit={() => {
-            setEditSite(detailSite)
-            setDetailSite(null)
-          }}
-          onDelete={() => {
-            openDeleteConfirm(detailSite)
-            setDetailSite(null)
-          }}
-          editDisabled={detailSite.isSample}
-          deleteDisabled={isDeleting || detailSite.isSample}
-        />
+        >
+          <ModalRow>
+            <ModalField
+              label="Class"
+              value={sectionLabelById.get(detailSite.sectionId) ?? detailSite.sectionName}
+            />
+            <ModalField label="Adviser" value={detailSite.supervisorName} />
+          </ModalRow>
+          <ModalRow>
+            <ModalField label="Radius" value={`${detailSite.radiusMeters} m`} />
+            <ModalField label="Coordinates" value={formatSiteCoordinates(detailSite)} />
+          </ModalRow>
+          <ModalRow>
+            <ModalField label="Status">
+              <SiteStatusBadge isActive={detailSite.isActive} />
+            </ModalField>
+          </ModalRow>
+        </NstpModal>
       )}
 
       <ConfirmDeleteModal
