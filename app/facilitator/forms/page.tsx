@@ -183,9 +183,10 @@ const formsStyles = `
   }
   .fm-repo-card:hover { border-color: var(--maroon); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
   .fm-repo-card-top { display: flex; align-items: flex-start; gap: 12px; }
+  .fm-repo-info { min-width: 0; flex: 1; }
   .fm-repo-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #F3E8FF; }
-  .fm-repo-name { font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.3; }
-  .fm-repo-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .fm-repo-name { font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fm-repo-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fm-repo-card-bottom { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid #F3F4F6; }
   .fm-repo-actions { display: flex; gap: 6px; }
   .fm-icon-btn {
@@ -636,9 +637,14 @@ export default function FormsPage() {
                                   color={tc.color}
                                 />
                               </div>
-                              <div>
-                                <div className="fm-repo-name">{f.title}</div>
-                                <div className="fm-repo-meta">
+                              <div className="fm-repo-info">
+                                <div className="fm-repo-name" title={f.title}>
+                                  {f.title}
+                                </div>
+                                <div
+                                  className="fm-repo-meta"
+                                  title={f.template_file_name || undefined}
+                                >
                                   {f.template_file_name ||
                                     "No template attached"}
                                   {f.template_file_size_byte
