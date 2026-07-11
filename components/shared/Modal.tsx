@@ -19,6 +19,9 @@ interface NstpModalProps {
   subtitle?: string
   initials?: string
   size?: ModalSize
+  // Optional pixel override for cases that need a bit more room than the
+  // largest preset ("wide" = 1000px) without introducing a new size tier.
+  width?: number
   twoCol?: boolean
   leftContent?: ReactNode
   rightContent?: ReactNode
@@ -214,6 +217,7 @@ export function NstpModal({
   subtitle,
   initials,
   size = "md",
+  width,
   twoCol = false,
   leftContent,
   rightContent,
@@ -241,7 +245,7 @@ export function NstpModal({
 
   if (!open) return null
 
-  const width = SIZE_MAP[size]
+  const resolvedWidth = width ?? SIZE_MAP[size]
 
   return (
     <>
@@ -254,7 +258,7 @@ export function NstpModal({
         aria-modal="true"
         aria-label={title}
       >
-        <div className="nstp-modal" style={{ width, maxWidth: "100%" }}>
+        <div className="nstp-modal" style={{ width: resolvedWidth, maxWidth: "100%" }}>
           <div className="nstp-modal-header">
             {initials && (
               <div className="nstp-modal-avatar" aria-hidden="true">{initials}</div>
