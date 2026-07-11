@@ -28,6 +28,11 @@ export async function GET(request: Request) {
       | "xlsx"
       | "pdf"
 
+    // Audit Log Filters
+    const filterAction = searchParams.get("action")
+    const filterDateRange = searchParams.get("dateRange")
+    const filterQ = searchParams.get("q")
+
     // Use Server Client so RLS and security contexts are maintained
     const supabase = await createSupabaseServerClient()
     const activeStatusId = await lookupId("enrollment_status", "active")
@@ -39,18 +44,38 @@ export async function GET(request: Request) {
     // DYNAMIC DATA FETCHING AND FILTERING
     switch (content) {
       case "activity": {
+        let auditQuery = supabase
+          .from("audit_log_readable")
+          .select(AUDIT_LOG_SELECT)
+          .order("created_at", { ascending: false })
+          .limit(1000)
+
+        if (filterAction && filterAction !== "all") {
+          auditQuery = auditQuery.eq("action", filterAction)
+        }
+
+        if (filterDateRange && filterDateRange !== "all") {
+          const days = parseInt(filterDateRange.replace("d", ""), 10)
+          if (!isNaN(days)) {
+            const startDate = new Date()
+            startDate.setDate(startDate.getDate() - days)
+            auditQuery = auditQuery.gte("created_at", startDate.toISOString())
+          }
+        }
+        if (filterQ) {
+          auditQuery = auditQuery.or(
+            `actor_name.ilike.%${filterQ}%,summary.ilike.%${filterQ}%,table_label.ilike.%${filterQ}%`
+          )
+        }
+
         // fetch translation dictionaries
         const [
-          { data: auditData },
+          { data: auditData, error: auditError },
           { data: appealStatus },
           { data: enrollmentStatus },
           { data: sessionStatus },
         ] = await Promise.all([
-          supabase
-            .from("audit_log_readable")
-            .select(AUDIT_LOG_SELECT)
-            .order("created_at", { ascending: false })
-            .limit(800),
+          auditQuery,
           supabase.from("appeal_status").select("appeal_status_id, name"),
           supabase
             .from("enrollment_status")
@@ -60,6 +85,8 @@ export async function GET(request: Request) {
             .select("attendance_session_status_id, name"),
         ])
 
+        if (auditError)
+          throw new Error(`Failed to fetch audit log: ${auditError.message}`)
         if (!auditData) throw new Error("Failed to fetch audit log")
 
         // compile the fetched dictionary

@@ -366,7 +366,7 @@ export default function CalendarOverview({
             <div style={styles.popupBadgeContainer}>
               <span style={{
                 ...styles.popupBadge,
-                background: isRenderedTime ? '#1B4332' : (isHolidayEvent ? '#D97706' : '#7B1D1D'),
+                background: isRenderedTime ? '#14492E' : (isHolidayEvent ? '#D97706' : '#7B1D1D'),
                 color: 'white',
               }}>
                 {isRenderedTime ? 'RENDERED' : label}
@@ -415,7 +415,7 @@ export default function CalendarOverview({
                     <div style={styles.popupBadgeContainer}>
                       <span style={{
                         ...styles.popupBadge,
-                        background: isRenderedTime ? '#1B4332' : (isHolidayEvent ? '#D97706' : '#7B1D1D'),
+                        background: isRenderedTime ? '#14492E' : (isHolidayEvent ? '#D97706' : '#7B1D1D'),
                         color: 'white',
                       }}>
                         {isRenderedTime ? 'RENDERED' : label}
@@ -557,7 +557,7 @@ export default function CalendarOverview({
                     width: 14,
                     height: 4,
                     borderRadius: 3,
-                    backgroundColor: isSemEndDay ? '#7B1D1D' : isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
+                    backgroundColor: isSemEndDay ? '#7B1D1D' : isHolidayDay ? '#D97706' : (hasRenderedTime ? '#14492E' : '#D97706'),
                     transition: 'all 0.2s ease',
                   }} />
                 )}
@@ -594,7 +594,7 @@ export default function CalendarOverview({
             width: 14,
             height: 4,
             borderRadius: 3,
-            backgroundColor: '#1B4332',
+            backgroundColor: '#14492E',
             flexShrink: 0,
           }} />
           <span style={{ fontSize: 11, color: '#6B7280' }}>Rendered</span>

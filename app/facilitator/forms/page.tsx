@@ -16,13 +16,15 @@ import {
   IconChevronUp,
   IconChevronDown,
   IconSelector,
-} from "@tabler/icons-react";
-import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
-import { signOutWithAudit } from "@/lib/auth-actions";
-import { ChartStyles } from "@/components/shared/ChartModule";
-import { createClient } from "@/lib/client";
-import { NstpModal } from "@/components/shared/Modal";
-import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
+  IconEdit,
+} from "@tabler/icons-react"
+import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
+import { signOutWithAudit } from "@/lib/auth-actions"
+import { ChartStyles } from "@/components/shared/ChartModule"
+import { createClient } from "@/lib/client"
+import { NstpModal } from "@/components/shared/Modal"
+import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
+import Link from "next/link"
 
 import {
   getSubmissionsByForm,
@@ -199,12 +201,9 @@ export default function FormsPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [userId, setUserId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Whether the Submission Bin table (merged into Repository) is visible.
-  // Becomes true once the user clicks a KPI card.
-  const [showSubmissionBin, setShowSubmissionBin] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<FormTab>("repository")
 
   // Filters
   const [search, setSearch] = useState("");
