@@ -127,7 +127,7 @@ export default function FormSubmissionsModal({
             justifyContent: "space-between",
             gap: 16,
             padding: "18px 22px",
-            background: COLORS.maroon,
+            background: COLORS.green,
             flexShrink: 0,
           }}
         >

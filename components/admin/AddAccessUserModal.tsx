@@ -15,11 +15,11 @@ import { ADMIN_COLORS } from "@/lib/admin-theme"
 const COLORS = {
   textDark: ADMIN_COLORS.text,
   textGray: ADMIN_COLORS.muted,
-  headerMaroon: ADMIN_COLORS.maroon,
+  headerGreen: ADMIN_COLORS.green,
   fieldBg: "#F3F4F6",
   error: ADMIN_COLORS.maroon,
   border: ADMIN_COLORS.border,
-  maroon: ADMIN_COLORS.maroon,
+  green: ADMIN_COLORS.green,
 }
 
 function FormField({
@@ -197,7 +197,7 @@ export default function AddAccessUserModal({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "18px 22px",
-            background: COLORS.headerMaroon,
+            background: COLORS.headerGreen,
           }}
         >
           <h2 id="add-access-user-title" style={{ ...TYPE.h2, color: "#fff", margin: 0 }}>
@@ -301,7 +301,7 @@ export default function AddAccessUserModal({
               style={{
                 width: 16,
                 height: 16,
-                accentColor: COLORS.headerMaroon,
+                accentColor: COLORS.headerGreen,
                 cursor: "pointer",
               }}
             />
@@ -349,7 +349,7 @@ export default function AddAccessUserModal({
               padding: "10px 18px",
               borderRadius: 8,
               border: "none",
-              background: canAdd ? COLORS.maroon : COLORS.border,
+              background: canAdd ? COLORS.green : COLORS.border,
               color: "#fff",
               cursor: canAdd ? "pointer" : "not-allowed",
               display: "inline-flex",

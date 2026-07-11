@@ -142,7 +142,7 @@ export default function AdminRecordDetailModal({
             justifyContent: "space-between",
             gap: 16,
             padding: "18px 22px",
-            background: COLORS.maroon,
+            background: COLORS.green,
           }}
         >
           <div style={{ minWidth: 0 }}>
@@ -257,8 +257,8 @@ export default function AdminRecordDetailModal({
                 title={deleteLabel}
                 style={{
                   ...DELETE_ICON_BTN,
-                  color: deleteDisabled ? COLORS.textGray : COLORS.maroon,
-                  background: deleteDisabled ? COLORS.track : COLORS.maroonBgLight,
+                  color: deleteDisabled ? COLORS.textGray : COLORS.green,
+                  background: deleteDisabled ? COLORS.track : COLORS.greenBgLight,
                   cursor: deleteDisabled ? "not-allowed" : "pointer",
                   opacity: deleteDisabled ? 0.7 : 1,
                 }}

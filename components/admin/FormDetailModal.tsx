@@ -80,7 +80,7 @@ export default function FormDetailModal({
             justifyContent: "space-between",
             gap: 16,
             padding: "18px 22px",
-            background: COLORS.maroon,
+            background: COLORS.green,
           }}
         >
           <div style={{ minWidth: 0 }}>
