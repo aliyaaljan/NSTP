@@ -14,6 +14,9 @@ import {
   IconTrash,
   IconFile,
   IconPlus,
+  IconChevronUp,
+  IconChevronDown,
+  IconSelector,
 } from "@tabler/icons-react"
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
@@ -156,6 +159,12 @@ const formsStyles = `
   .adv-table th:nth-child(3) { width: 24%; }
   .adv-table th:nth-child(4) { width: 18%; }
   .adv-table th:nth-child(5) { width: 18%; }
+  .adv-th-sort {
+    display: flex; align-items: center; gap: 4px;
+    cursor: pointer; user-select: none;
+  }
+  .adv-th-sort:hover { color: var(--maroon); }
+  .adv-th-sort svg { flex-shrink: 0; }
   .fm-student-name { font-weight: 600; color: var(--text); }
   .fm-student-no   { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
   .fm-upload-btn {
@@ -174,9 +183,10 @@ const formsStyles = `
   }
   .fm-repo-card:hover { border-color: var(--maroon); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
   .fm-repo-card-top { display: flex; align-items: flex-start; gap: 12px; }
+  .fm-repo-info { min-width: 0; flex: 1; }
   .fm-repo-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #F3E8FF; }
-  .fm-repo-name { font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.3; }
-  .fm-repo-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .fm-repo-name { font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fm-repo-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fm-repo-card-bottom { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid #F3F4F6; }
   .fm-repo-actions { display: flex; gap: 6px; }
   .fm-icon-btn {
@@ -254,6 +264,20 @@ export default function FormsPage() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+
+  // Submissions table sorting
+  type SubmissionSortField = "name" | "type" | "date" | "status"
+  const [sortField, setSortField] = useState<SubmissionSortField | null>(null)
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+
+  function toggleSort(field: SubmissionSortField) {
+    if (sortField === field) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -405,7 +429,38 @@ export default function FormsPage() {
     return matchSearch && matchStatus && matchType
   })
 
-  const paginated = filteredSubmissions.slice(
+  const sortedSubmissions = [...filteredSubmissions].sort((a, b) => {
+    if (!sortField) return 0
+    const dir = sortDirection === "asc" ? 1 : -1
+
+    let av: string | number = ""
+    let bv: string | number = ""
+
+    switch (sortField) {
+      case "name":
+        av = a.full_name.toLowerCase()
+        bv = b.full_name.toLowerCase()
+        break
+      case "type":
+        av = a.type.toLowerCase()
+        bv = b.type.toLowerCase()
+        break
+      case "date":
+        av = a.submission ? new Date(a.submission.submitted_at).getTime() : -Infinity
+        bv = b.submission ? new Date(b.submission.submitted_at).getTime() : -Infinity
+        break
+      case "status":
+        av = a.status.toLowerCase()
+        bv = b.status.toLowerCase()
+        break
+    }
+
+    if (av < bv) return -1 * dir
+    if (av > bv) return 1 * dir
+    return 0
+  })
+
+  const paginated = sortedSubmissions.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   )
@@ -582,9 +637,14 @@ export default function FormsPage() {
                                   color={tc.color}
                                 />
                               </div>
-                              <div>
-                                <div className="fm-repo-name">{f.title}</div>
-                                <div className="fm-repo-meta">
+                              <div className="fm-repo-info">
+                                <div className="fm-repo-name" title={f.title}>
+                                  {f.title}
+                                </div>
+                                <div
+                                  className="fm-repo-meta"
+                                  title={f.template_file_name || undefined}
+                                >
                                   {f.template_file_name ||
                                     "No template attached"}
                                   {f.template_file_size_byte
@@ -910,11 +970,75 @@ export default function FormsPage() {
                       <table className="adv-table">
                         <thead>
                           <tr>
-                            <th>Student</th>
+                            <th>
+                              <span
+                                className="adv-th-sort"
+                                onClick={() => toggleSort("name")}
+                              >
+                                Student
+                                {sortField === "name" ? (
+                                  sortDirection === "asc" ? (
+                                    <IconChevronUp size={13} stroke={2.5} />
+                                  ) : (
+                                    <IconChevronDown size={13} stroke={2.5} />
+                                  )
+                                ) : (
+                                  <IconSelector size={13} stroke={2} />
+                                )}
+                              </span>
+                            </th>
                             <th>Section</th>
-                            <th>Form Type</th>
-                            <th>Date Submitted</th>
-                            <th>Status</th>
+                            <th>
+                              <span
+                                className="adv-th-sort"
+                                onClick={() => toggleSort("type")}
+                              >
+                                Form Type
+                                {sortField === "type" ? (
+                                  sortDirection === "asc" ? (
+                                    <IconChevronUp size={13} stroke={2.5} />
+                                  ) : (
+                                    <IconChevronDown size={13} stroke={2.5} />
+                                  )
+                                ) : (
+                                  <IconSelector size={13} stroke={2} />
+                                )}
+                              </span>
+                            </th>
+                            <th>
+                              <span
+                                className="adv-th-sort"
+                                onClick={() => toggleSort("date")}
+                              >
+                                Date Submitted
+                                {sortField === "date" ? (
+                                  sortDirection === "asc" ? (
+                                    <IconChevronUp size={13} stroke={2.5} />
+                                  ) : (
+                                    <IconChevronDown size={13} stroke={2.5} />
+                                  )
+                                ) : (
+                                  <IconSelector size={13} stroke={2} />
+                                )}
+                              </span>
+                            </th>
+                            <th>
+                              <span
+                                className="adv-th-sort"
+                                onClick={() => toggleSort("status")}
+                              >
+                                Status
+                                {sortField === "status" ? (
+                                  sortDirection === "asc" ? (
+                                    <IconChevronUp size={13} stroke={2.5} />
+                                  ) : (
+                                    <IconChevronDown size={13} stroke={2.5} />
+                                  )
+                                ) : (
+                                  <IconSelector size={13} stroke={2} />
+                                )}
+                              </span>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
