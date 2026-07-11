@@ -719,7 +719,9 @@ export default function StudentFilesPage() {
   }
 
   if (loading || contextLoading) {
-    return <LoadingPage Sidebar={() => <StudentSidebar isLeader={isLeader} />} />
+    return (
+      <LoadingPage Sidebar={() => <StudentSidebar isLeader={isLeader} />} />
+    )
   }
 
   return (
