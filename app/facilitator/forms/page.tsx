@@ -22,7 +22,7 @@ import { ChartStyles } from "@/components/shared/ChartModule";
 import { createClient } from "@/lib/client";
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal";
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
-
+import LoadingPage from "@/components/shared/LoadingPage"
 import {
   getSubmissionsByForm,
   getFacilitatorSectionId,
@@ -295,6 +295,7 @@ export default function FormsPage() {
   const [uploadTitle, setUploadTitle] = useState("Daily Time Record");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isPageLoading, setIsPageLoading] = useState(true)
 
   const loadData = async () => {
     const secRes = await getFacilitatorSectionId();
@@ -321,6 +322,8 @@ export default function FormsPage() {
     }
 
     if (reqRes.ok) setRepoForms(reqRes.data);
+    setIsPageLoading(false)
+
   };
 
   useEffect(() => {
@@ -493,6 +496,29 @@ export default function FormsPage() {
     (sum, arr) => sum + (arr?.length ?? 0),
     0,
   );
+
+  const BoundSidebar = () => (
+    <Sidebar
+      open={sidebarOpen}
+      activeNav="Forms"
+      onToggle={() => setSidebarOpen((o) => !o)}
+      onNavClick={(label) => {
+      setSidebarOpen(false);
+      router.push(navRoutes[label]);
+      }}
+      onSignOut={handleSignOut}
+    />
+  )
+
+   if (isPageLoading) {
+    return (
+      <>
+        <style>{dashboardStyles}</style>
+        <ChartStyles />
+        <LoadingPage Sidebar={BoundSidebar} />
+      </>
+    )
+  }
 
   return (
     <>
@@ -799,11 +825,11 @@ export default function FormsPage() {
           size="wide"
           width={1140}
           actions={[
-            {
-              label: "Close",
-              onClick: closeSubmissionBin,
-              variant: "secondary",
-            },
+            // {
+            //   label: "Close",
+            //   onClick: closeSubmissionBin,
+            //   variant: "secondary",
+            // },
           ]}
         >
           <div className="adv-table-toolbar" style={{ paddingTop: 0 }}>
