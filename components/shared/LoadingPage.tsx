@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Montserrat } from "next/font/google"
+import { Cormorant, Montserrat } from "next/font/google"
 import { Goblin_One } from "next/font/google"
 
 const montserrat = Montserrat({
@@ -14,6 +14,11 @@ const montserrat = Montserrat({
 const goblin = Goblin_One({
   subsets: ["latin"],
   weight: "400",
+})
+
+const cormorant = Cormorant({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
 })
 
 const C = {
@@ -171,7 +176,7 @@ export default function LoadingPage({
             textAlign: "center",
             marginTop: isSmallMobile ? "2px" : isMobile ? "3px" : "4px",
           }}>
-            <div className={goblin.className}
+            <div className={cormorant.className}
               style={{
                 fontSize: isSmallMobile ? "24px" : isMobile ? "28px" : "36px",
                 fontWeight: 100,
