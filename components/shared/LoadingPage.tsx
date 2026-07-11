@@ -176,7 +176,7 @@ export default function LoadingPage({
             textAlign: "center",
             marginTop: isSmallMobile ? "2px" : isMobile ? "3px" : "4px",
           }}>
-            <div className={cormorant.className}
+            <div className={goblin.className}
               style={{
                 fontSize: isSmallMobile ? "24px" : isMobile ? "28px" : "36px",
                 fontWeight: 100,
@@ -187,7 +187,7 @@ export default function LoadingPage({
             >
               NSTP
             </div>
-            <div className={goblin.className}
+            <div className={cormorant.className}
               style={{
                 fontSize: isSmallMobile ? "10px" : isMobile ? "12px" : "14px",
                 fontWeight: 900,
