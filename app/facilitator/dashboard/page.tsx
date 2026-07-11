@@ -31,6 +31,7 @@ import { createClient } from "@/lib/client"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 import Link from "next/link";
+import LoadingPage from "@/components/shared/LoadingPage"
 
 type DashboardRow = {
   section_id: string | null
@@ -116,6 +117,7 @@ export default function DashboardPage() {
   const [animKey, setAnimKey] = useState(0)
   const [sectionKey, setSectionKey] = useState(0)
   const didDefaultToActiveSection = useRef(false)
+  const [isPageLoading, setIsPageLoading] = useState(true)
 
   const fetchDashboardBundle = useCallback(async (uid: string) => {
     const [
@@ -175,9 +177,20 @@ export default function DashboardPage() {
       setInitials(((parts[0] ?? "")[0] ?? "") + ((parts.at(-1) ?? "")[0] ?? ""))
       setUserId(user?.id ?? null)
       if (user?.id) await fetchDashboardBundle(user.id)
+      setIsPageLoading(false)
     })
   }, [supabase, fetchDashboardBundle])
 
+  
+  const BoundSidebar = () => (
+    <Sidebar
+      open={sidebarOpen}
+      activeNav={activeNav}
+      onToggle={() => setSidebarOpen((o) => !o)}
+      onNavClick={handleNavClick}
+      onSignOut={handleSignOut}
+    />
+  )
   // Debounce search input so filtering the student list doesn't run on
   // every keystroke — keeps typing smooth once a section has many students.
   useEffect(() => {
@@ -210,10 +223,6 @@ export default function DashboardPage() {
       router.push(navRoutes[label])
     }
   }
-
-    const currentData = dashboardData.find((r) => r.section_name === selectedSection)
-    if (!currentData) return null
-
     const currentSemData =
       selectedSection === "All Classes"
         ? activeSemData
@@ -221,6 +230,17 @@ export default function DashboardPage() {
             .sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0]
         : activeSemData.find((r) => r.section_name === selectedSection)
 
+  const currentData = dashboardData.find((r) => r.section_name === selectedSection)
+
+  if (isPageLoading || !currentData) {
+    return (
+      <>
+        <style>{dashboardStyles}</style>
+        <ChartStyles />
+        <LoadingPage Sidebar={BoundSidebar} />
+      </>
+    )
+  }
   const statCards = [
     { label: "Total Students", value: currentData.total, Icon: IconUsers, onClick:  () => router.push(`${navRoutes["My Students"]}?tab=list`)},
     { label: "Pending Requests", value: currentData.pending, Icon: IconAlertCircle, onClick: () => router.push(`${navRoutes["My Students"]}?tab=pending&status=Pending%20Review&status=Under%20Review`)},
