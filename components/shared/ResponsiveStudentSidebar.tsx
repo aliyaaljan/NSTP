@@ -5,12 +5,17 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOutWithAudit } from "@/lib/auth-actions"
-import { Goblin_One } from "next/font/google"
+import { Goblin_One, Cormorant } from "next/font/google"
 import { useStudent } from "@/app/student/StudentContext" 
 
 const goblin = Goblin_One({
   subsets: ["latin"],
   weight: "400",
+})
+
+const cormorant = Cormorant({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
 })
 
 const C = {
@@ -769,10 +774,10 @@ export default function StudentSidebar({
               >
                 NSTP
               </div>
-              <div className={goblin.className}
+              <div className={cormorant.className}
                 style={{
                   fontSize: `${sizes.mobileTopSubFontSize}px`,
-                  fontWeight: 10,
+                  fontWeight: 15,
                   color: "rgba(255,255,255,0.65)",
                   lineHeight: 1.2,
                 }}
@@ -895,10 +900,10 @@ export default function StudentSidebar({
               NSTP
             </div>
 
-            <div className={goblin.className}
+            <div className={cormorant.className}
               style={{
-                fontSize: 6,
-                fontWeight: 10,
+                fontSize: 10,
+                fontWeight: 15,
                 color: "rgba(255,255,255,0.9)",
                 lineHeight: 1.4,
                 marginTop: 4,
