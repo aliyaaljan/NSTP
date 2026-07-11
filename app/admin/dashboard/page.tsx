@@ -637,6 +637,26 @@ export default async function AdminDashboardPage({
       ? Math.round((uniqueScansThisWeek / totalActiveEnrollments) * 100)
       : 0
 
+  const activeTerm = activeTermRes?.data
+  let daysLeft: number | null = null
+  if (activeTerm?.end_date) {
+    const endDate = new Date(activeTerm.end_date)
+    const diffMs = endDate.getTime() - today.getTime()
+    daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  }
+
+  const currentSemesterMeta = activeTerm
+    ? {
+        academicYear: activeTerm.school_year,
+        semester: activeTerm.semester,
+      }
+    : { academicYear: "N/A", semester: "N/A" }
+
+  const roleData = currentUserRes?.data?.role as any
+  const currentUserMeta: CurrentUser = {
+    name: currentUserRes?.data?.full_name || "Admin",
+    role: roleData?.name || "Administrator",
+  }
   // processing enrollment data
 
   const rawEnrollments = enrollmentsRes.data || []
@@ -829,15 +849,6 @@ export default async function AdminDashboardPage({
         timeAgo: formatAuditLogTimestamp(activity.createdAt),
       }
     })
-
-  const currentSemesterMeta = {
-    academicYear: "2025-2026",
-    semester: "2nd Semester",
-  }
-  const currentUserMeta: CurrentUser = {
-    name: "Admin Test Account",
-    role: "NSTP Admin",
-  }
 
   const statCards: KpiStatCardProps[] = [
     {
