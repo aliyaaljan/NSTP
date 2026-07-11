@@ -31,7 +31,7 @@ const C = {
   green: '#14492E',
   maroon:      "#7B1113",
   maroonDark:  "#6B0D10",
-  gold:        "#014421",
+  gold:        "#14492E",
   goldBg:      "#FFF3CD",
   goldText:    "#4A2C00",
   pageBg:      "#F0F0F0",
