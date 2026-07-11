@@ -30,6 +30,7 @@ import { signOutWithAudit } from "@/lib/auth-actions"
 import { createClient } from "@/lib/client"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
+import Link from "next/link";
 
 type DashboardRow = {
   section_id: string | null
@@ -281,14 +282,14 @@ export default function DashboardPage() {
                   aria-label="Search students"
                 />
               </div>
-              <div className="profile-pill">
+              <Link href={"/facilitator/profile"} className="profile-pill">
                 <div className="profile-avatar">{initials}</div>
                 <div>
                   <div className="profile-name">
-                    {lastName}, {firstName}
+                    {lastName ? `${lastName}, ${firstName}` : "Adviser"}
                   </div>
                 </div>
-              </div>
+              </Link>
             </header>
 
             <div className="body">

@@ -35,6 +35,7 @@ import {
   type ApproveCorrection,
 } from "@/lib/facilitator/appeal-actions"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
+import Link from "next/link";
 
 //Map
 import dynamic from "next/dynamic"
@@ -1312,14 +1313,14 @@ function MyStudentsContent() {
             {/* Header */}
             <header className="header">
               <h1 className="header-greeting">My Students</h1>
-              <div className="profile-pill">
+              <Link href={"/facilitator/profile"} className="profile-pill">
                 <div className="profile-avatar">{initials}</div>
                 <div>
                   <div className="profile-name">
-                    {lastName}, {firstName}
+                    {lastName ? `${lastName}, ${firstName}` : "Adviser"}
                   </div>
                 </div>
-              </div>
+              </Link>
             </header>
 
             <div className="body">

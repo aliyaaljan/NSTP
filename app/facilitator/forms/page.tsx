@@ -25,6 +25,7 @@ import { ChartStyles } from "@/components/shared/ChartModule"
 import { createClient } from "@/lib/client"
 import { NstpModal } from "@/components/shared/Modal"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
+import Link from "next/link"
 
 import {
   getSubmissionsByForm,
@@ -606,14 +607,14 @@ export default function FormsPage() {
           <main className="main">
             <header className="header">
               <h1 className="header-greeting">Forms</h1>
-              <div className="profile-pill">
-                <div className="profile-avatar">{initials || "A"}</div>
+              <Link href={"/facilitator/profile"} className="profile-pill">
+                <div className="profile-avatar">{initials}</div>
                 <div>
                   <div className="profile-name">
                     {lastName ? `${lastName}, ${firstName}` : "Adviser"}
                   </div>
                 </div>
-              </div>
+              </Link>
             </header>
 
             {errorMsg && (
