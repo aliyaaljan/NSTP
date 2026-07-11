@@ -6,7 +6,6 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { Goblin_One } from "next/font/google"
-import { useStudent } from "@/app/student/StudentContext"
 
 const goblin = Goblin_One({
   subsets: ["latin"],
@@ -48,17 +47,21 @@ const NAV_ITEMS: NavItem[] = [
   { icon: "ti-pencil", label: "Request", href: "/student/request" },
 ]
 
-const LEADER_ITEMS: NavItem[] = [
-  { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
-  { icon: "ti-presentation", label: "Class", href: "/student/classlist" },
-  { icon: "ti-scan", label: "Scanner", href: "/student/scanner" },
-  { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
-  { icon: "ti-clipboard-check", label: "Forms", href: "/student/forms" },
-  { icon: "ti-pencil", label: "Request", href: "/student/request" },
-]
+interface StudentSidebarProps {
+  isLeader?: boolean
+  navGroups?: NavGroup[]
+  children?: React.ReactNode
+  mainClassName?: string
+  pageBg?: string
+}
 
-export default function StudentSidebar() {
-  const { isLeader, isLoading } = useStudent()
+export default function StudentSidebar({
+  isLeader = false,
+  navGroups,
+  children,
+  mainClassName,
+  pageBg = "#F0F0F0",
+}: StudentSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
@@ -84,9 +87,6 @@ export default function StudentSidebar() {
   })
   const [windowWidth, setWindowWidth] = useState(0)
   const [windowHeight, setWindowHeight] = useState(0)
-
-  // Navigation items based on role
-  const navItems = isLeader ? LEADER_ITEMS : NAV_ITEMS
 
   useEffect(() => {
     const calculateSizes = () => {
@@ -256,6 +256,31 @@ export default function StudentSidebar() {
     window.addEventListener("resize", calculateSizes)
     return () => window.removeEventListener("resize", calculateSizes)
   }, [])
+
+  const isAdminMode = Boolean(navGroups?.length)
+
+  // Navigation items based on role or admin nav groups
+  const navItems = navGroups
+    ? navGroups.flatMap((group) => group.items)
+    : isLeader
+      ? [
+          { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
+          { icon: "ti-presentation", label: "Class", href: "/student/classlist" },
+          { icon: "ti-scan", label: "Scanner", href: "/student/scanner" },
+          { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
+          { icon: "ti-clipboard-check", label: "Forms", href: "/student/forms" },
+          { icon: "ti-pencil", label: "Request", href: "/student/request" },
+        ]
+      : NAV_ITEMS
+
+  function isItemActive(item: NavItem) {
+    return (
+      pathname === item.href ||
+      (!isAdminMode &&
+        item.label === "Dashboard" &&
+        (pathname === "/student/dashboard" || pathname === "/student"))
+    )
+  }
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -703,7 +728,6 @@ export default function StudentSidebar() {
             backdropFilter: "blur(18px)",
             WebkitBackdropFilter: "blur(18px)",
             borderBottom: "1px solid rgba(255,255,255,0.15)",
-            borderRadius: "0 0 7px 7px",
           }}
         >
           {/* Logo and NSTP text */}
@@ -952,15 +976,14 @@ export default function StudentSidebar() {
                       style={{
                         height: 1,
                         background: C.divider,
-                        margin: expanded ? "12px 12px 10px" : "8px 18px",
+                        margin: expanded ? "12px 12px 10px" : "8px 18px 8px",
                       }}
                     />
                   )}
-                  {expanded && (
                   <div
                     style={{
                       margin: "4px 12px 2px",
-                      display: "flex",
+                      display: expanded || groupIndex === 0 ? "flex" : "none",
                       alignItems: "center",
                     }}
                   >
@@ -971,13 +994,14 @@ export default function StudentSidebar() {
                         color: "rgba(255,255,255,0.45)",
                         letterSpacing: 1.2,
                         textTransform: "uppercase",
+                        opacity: expanded ? 1 : 0,
+                        transition: "opacity 0.2s ease",
                         whiteSpace: "nowrap",
                       }}
                     >
                       {group.heading}
                     </span>
                   </div>
-                  )}
                   {group.items.map(renderDesktopNavLink)}
                 </div>
               ))
