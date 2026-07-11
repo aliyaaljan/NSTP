@@ -139,7 +139,7 @@ export function DonutChart({ pct = 60 }: { pct?: number }) {
   );
 }
 
-export function Calendar({ semEndDate, holidays = [], }: { semEndDate?: string | Date, holidays?: { name: string; date: string;}[]}) {
+export function Calendar({ semEndDate, holidays = [], deadlines = []}: { semEndDate?: string | Date, holidays?: { name: string; date: string;}[], deadlines?: {name:string; date:string}[]}) {
   const today = new Date();
 
   const semEnd = typeof semEndDate === "string" 
@@ -152,6 +152,11 @@ export function Calendar({ semEndDate, holidays = [], }: { semEndDate?: string |
   const parsedHolidays = holidays.map((h) => {
     const [year, month, day] = h.date.split("-").map(Number);
     return { date: new Date(year, month - 1, day), name: h.name };
+  });
+
+  const parsedDeadlines = deadlines.map((d) => {
+    const [year, month, day] = d.date.split("-").map(Number);
+    return { date: new Date(year, month - 1, day), name: d.name };
   });
 
   const [current, setCurrent] = useState({ year: today.getFullYear(), month: today.getMonth() });
@@ -175,6 +180,11 @@ export function Calendar({ semEndDate, holidays = [], }: { semEndDate?: string |
       (h) => h.date.getDate() === d && h.date.getMonth() === current.month && h.date.getFullYear() === current.year
     );
 
+  const getDeadline = (d: number) =>
+    parsedDeadlines.find(
+      (dl) => dl.date.getDate() === d && dl.date.getMonth() === current.month && dl.date.getFullYear() === current.year
+    );
+
   const prev = () => setCurrent(c => c.month === 0 ? { year: c.year - 1, month: 11 } : { year: c.year, month: c.month - 1 });
   const next = () => setCurrent(c => c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 });
 
@@ -191,7 +201,10 @@ export function Calendar({ semEndDate, holidays = [], }: { semEndDate?: string |
           const cellIsToday = d && isToday(d);
           const cellIsSemEnd = d && isSemEnd(d);
           const cellHoliday = d ? getHoliday(d) : undefined;
-          const hasLabel = cellIsToday || cellIsSemEnd || cellHoliday;
+          const cellDeadline = d ? getDeadline(d) : undefined;
+          const hasLabel = cellIsToday || cellIsSemEnd || cellHoliday || cellDeadline;
+          const col = i % 7;
+          const edgeAlign = col === 0 ? "left-0 translate-x-0" : col === 6 ? "left-auto right-0 translate-x-0" : "left-1/2 -translate-x-1/2";
 
           return (
             <div 
@@ -202,14 +215,15 @@ export function Calendar({ semEndDate, holidays = [], }: { semEndDate?: string |
                 cellIsToday ? "cal-today" : "",
                 cellIsSemEnd ? "cal-sem-end": "",
                 cellHoliday && !cellIsToday && !cellIsSemEnd ? "cal-holiday" : "",
+                 cellDeadline && !cellIsToday && !cellIsSemEnd && !cellHoliday ? "cal-sem-end" : "",
                 
               ].join(" ").trim()}
             >
               {d !== null ? <span className="cal-day-num">{d}</span> : null}
 
               {hasLabel && (
-                <span className={`capitalize absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : cellIsSemEnd ? "text-[var(--amber)]" : "text-[var(--green)]"}`}>
-                  {cellIsToday ? "Today" : cellIsSemEnd ? "End of Semester" : cellHoliday?.name}
+                <span className={`capitalize absolute bottom-full ${edgeAlign} mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : cellIsSemEnd || cellDeadline ? "text-[var(--amber)]" : "text-[var(--green)]"}`}>
+                  {cellIsToday ? "Today" : cellIsSemEnd ? "End of Semester" : cellHoliday ? cellHoliday.name : cellDeadline?.name}
                 </span>
               )}
             </div>

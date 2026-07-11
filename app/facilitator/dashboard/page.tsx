@@ -109,7 +109,7 @@ export default function DashboardPage() {
   const [sections, setSections] = useState<{ id: string; name: string; isActive: boolean; termStartDate: string | null }[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
   const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at_hours: string }[]>([])
-  const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string; holidays: { date: string; name: string }[] }[]>([])
+  const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string; holidays: { date: string; name: string }[], deadlines: {date:string; name:string}[] }[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [animKey, setAnimKey] = useState(0)
@@ -565,7 +565,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Calendar */}
-                  <Calendar semEndDate={currentSemData?.sem_end_date} holidays={currentSemData?.holidays ?? []} />
+                  <Calendar semEndDate={currentSemData?.sem_end_date} holidays={currentSemData?.holidays ?? []} deadlines={currentSemData?.deadlines ?? []} />
                   {/* Recent Activity */}
                   <div className={`activity-card ${recentActivity.length === 0 ? "flex-1" : ""}`} style={{ width: "100%" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, paddingRight: 20 }}>
