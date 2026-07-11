@@ -732,6 +732,7 @@ export default function StudentSidebar({
             backdropFilter: "blur(18px)",
             WebkitBackdropFilter: "blur(18px)",
             borderBottom: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: "0 0 7px 7px",
           }}
         >
           {/* Logo and NSTP text */}
