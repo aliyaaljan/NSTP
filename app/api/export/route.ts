@@ -62,6 +62,7 @@ export async function GET(request: Request) {
             auditQuery = auditQuery.gte("created_at", startDate.toISOString())
           }
         }
+
         if (filterQ) {
           auditQuery = auditQuery.or(
             `actor_name.ilike.%${filterQ}%,summary.ilike.%${filterQ}%,table_label.ilike.%${filterQ}%`
@@ -289,32 +290,59 @@ export async function GET(request: Request) {
 
     // PDF GENERATION
     if (fileType === "pdf") {
-      const doc = new jsPDF(headers.length > 5 ? "landscape" : "portrait")
-      doc.text(`NSTP 2 Analytics Report: ${content.toUpperCase()}`, 14, 15)
-      doc.setFontSize(10)
+      // Force Landscape orientation for dense reports like audit logs (activity) to provide breathing room
+      const isLandscape = headers.length > 5 || content === "activity"
+      const doc = new jsPDF({
+        orientation: isLandscape ? "landscape" : "portrait",
+        unit: "mm",
+        format: "a4",
+      })
 
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(14)
+      doc.text(`NSTP 2 Analytics Report: ${content.toUpperCase()}`, 14, 15)
+
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(9)
       const printDate = new Date().toLocaleString("en-US", {
         timeZone: "Asia/Manila",
       })
-      doc.text(`Generated: ${printDate} (PHT)`, 14, 22)
+      doc.text(`Generated: ${printDate} (PHT)`, 14, 21)
 
       autoTable(doc, {
-        startY: 28,
+        startY: 26,
         head: [headers],
         body: rows,
-        headStyles: { fillColor: [123, 17, 19] },
+        headStyles: { fillColor: [123, 17, 19], fontStyle: "bold" },
         theme: "striped",
+        styles: {
+          font: "helvetica",
+          fontSize: 8.5,
+          overflow: "linebreak",
+          cellPadding: 4,
+          valign: "middle",
+        },
+        columnStyles:
+          content === "activity"
+            ? {
+                0: { cellWidth: 38 }, // Date column
+                1: { cellWidth: 35 }, // Actor column
+                2: { cellWidth: 22 }, // Action column
+                3: { cellWidth: 25 }, // Table column
+                4: { cellWidth: "auto" }, // Summary column takes up all remaining landscape space cleanly
+              }
+            : {},
       })
 
-      const pdfBuffer = Buffer.from(doc.output("arraybuffer"))
-      return new NextResponse(pdfBuffer, {
+      // Standardize binary output stream without string character corruption
+      const uint8Array = new Uint8Array(doc.output("arraybuffer"))
+      return new NextResponse(uint8Array, {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="${filename}"`,
         },
       })
     }
-
     // CSV GENERATION (default)
     const csvContent = [
       headers.join(","),
