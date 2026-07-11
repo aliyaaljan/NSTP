@@ -7,7 +7,7 @@
  *   2. commitAdviserImportChunk({ rows }) with IMPORT_CHUNK_SIZE-row slices.
  */
 
-import type { ImportColumnSpec, RowIssue } from "@/lib/admin/import/types"
+import type { ErrorRow, ImportColumnSpec, RowIssue } from "@/lib/admin/import/types"
 
 export const ADVISER_IMPORT_COLUMNS: readonly ImportColumnSpec[] = [
   { key: "full_name", aliases: ["Facilitator's Name"], required: true },
@@ -29,8 +29,28 @@ export interface AdviserImportRow {
 }
 
 export type ParseAdviserImportResult =
-  | { ok: true; totalRows: number; validRows: AdviserImportRow[]; issues: RowIssue[] }
+  | {
+    ok: true
+    totalRows: number
+    validRows: AdviserImportRow[]
+    errorRows: ErrorRow[]
+    issues: RowIssue[]
+  }
   | { ok: false; error: string }
+
+export type RevalidateAdviserRowsResult =
+  | { ok: true; validRows: AdviserImportRow[]; errorRows: ErrorRow[]; issues: RowIssue[] }
+  | { ok: false; error: string }
+
+export function adviserRowToValues(row: AdviserImportRow): Record<string, string> {
+  return {
+    full_name: row.fullName,
+    college: row.college,
+    component: row.component,
+    partnership_type: row.partnershipType,
+    email: row.email,
+  }
+}
 
 export function validateAdviserImportValues(
   values: Record<string, string>,
@@ -41,12 +61,21 @@ export function validateAdviserImportValues(
   const email = (values.email ?? "").trim().toLowerCase()
 
   if (!fullName) {
-    issues.push({ rowNumber, message: "Facilitator's Name is required." })
+    issues.push({
+      rowNumber,
+      message: "Facilitator's Name is required.",
+      severity: "error",
+      code: "missing_name",
+      field: "full_name",
+    })
   }
   if (!email.endsWith("@up.edu.ph")) {
     issues.push({
       rowNumber,
       message: `Email "${values.email ?? ""}" must be a UP email (@up.edu.ph).`,
+      severity: "error",
+      code: "invalid_email",
+      field: "email",
     })
   }
   if (issues.length > 0) return { row: null, issues }

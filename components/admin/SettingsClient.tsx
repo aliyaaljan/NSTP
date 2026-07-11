@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import AddHolidayModal from "@/components/admin/AddHolidayModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import TermCloseoutConfirmModal from "@/components/admin/TermCloseoutConfirmModal"
 import ListPagination from "@/components/shared/ListPagination"
 import {
+  closeOutOutgoingEnrollments,
   deleteHoliday,
+  getOutgoingActiveEnrollmentSummary,
   updateAcademicConfig,
 } from "@/lib/admin/settings-actions"
 import {
@@ -21,6 +24,7 @@ import type {
   SchoolYearOption,
   SemesterOption,
   SettingsMeta,
+  TermCloseoutSummary,
 } from "@/lib/admin/settings"
 import {
   SETTINGS_LIST_PAGE_SIZE,
@@ -304,6 +308,11 @@ export default function SettingsClient({
   const [academicSuccess, setAcademicSuccess] = useState(false)
   const [isSavingAcademic, startSaveAcademic] = useTransition()
 
+  const [closeoutOpen, setCloseoutOpen] = useState(false)
+  const [closeoutSummary, setCloseoutSummary] = useState<TermCloseoutSummary | null>(null)
+  const [closeoutError, setCloseoutError] = useState<string | null>(null)
+  const [closeoutPending, setCloseoutPending] = useState(false)
+
   const [holidayPage, setHolidayPage] = useState(1)
   const [addHolidayOpen, setAddHolidayOpen] = useState(false)
   const [deleteHolidayTarget, setDeleteHolidayTarget] = useState<HolidayRow | null>(null)
@@ -339,6 +348,12 @@ export default function SettingsClient({
     })
   }
 
+  async function performSaveAcademic(): Promise<{ ok: true } | { ok: false; error: string }> {
+    const result = await updateAcademicConfig(academicForm)
+    if (!result.ok) return { ok: false, error: result.error }
+    return { ok: true }
+  }
+
   function handleSaveAcademic() {
     const validationError = validateAcademicConfigPayload(academicForm)
     if (validationError) {
@@ -348,16 +363,74 @@ export default function SettingsClient({
     }
 
     setAcademicError(null)
+    const termChanged = academicForm.termId !== academic.termId
+
     startSaveAcademic(async () => {
-      const result = await updateAcademicConfig(academicForm)
-      if (!result.ok) {
-        setAcademicError(result.error)
+      if (termChanged) {
+        const summaryResult = await getOutgoingActiveEnrollmentSummary(academicForm.termId)
+        if (!summaryResult.ok) {
+          setAcademicError(summaryResult.error)
+          return
+        }
+        if (summaryResult.summary.total > 0) {
+          setCloseoutSummary(summaryResult.summary)
+          setCloseoutError(null)
+          setCloseoutOpen(true)
+          return
+        }
+      }
+
+      const saved = await performSaveAcademic()
+      if (!saved.ok) {
+        setAcademicError(saved.error)
         setAcademicSuccess(false)
         return
       }
       setAcademicSuccess(true)
       window.location.reload()
     })
+  }
+
+  function handleSwitchOnly() {
+    setCloseoutPending(true)
+    setCloseoutError(null)
+    performSaveAcademic().then((saved) => {
+      setCloseoutPending(false)
+      if (!saved.ok) {
+        setCloseoutError(saved.error)
+        return
+      }
+      setCloseoutOpen(false)
+      window.location.reload()
+    })
+  }
+
+  function handleCloseOutAndSwitch() {
+    setCloseoutPending(true)
+    setCloseoutError(null)
+    ;(async () => {
+      const saved = await performSaveAcademic()
+      if (!saved.ok) {
+        setCloseoutPending(false)
+        setCloseoutError(saved.error)
+        return
+      }
+      const result = await closeOutOutgoingEnrollments(academicForm.termId)
+      setCloseoutPending(false)
+      if (!result.ok) {
+        setCloseoutError(result.error)
+        return
+      }
+      setCloseoutOpen(false)
+      window.location.reload()
+    })()
+  }
+
+  function handleCloseCloseoutModal() {
+    if (closeoutPending) return
+    setCloseoutOpen(false)
+    setCloseoutSummary(null)
+    setCloseoutError(null)
   }
 
   function handleConfirmDeleteHoliday() {
@@ -637,6 +710,16 @@ export default function SettingsClient({
           </SettingsListPanel>
         </SettingsCard>
       </div>
+
+      <TermCloseoutConfirmModal
+        open={closeoutOpen}
+        summary={closeoutSummary}
+        isPending={closeoutPending}
+        error={closeoutError}
+        onSwitchOnly={handleSwitchOnly}
+        onCloseOutAndSwitch={handleCloseOutAndSwitch}
+        onClose={handleCloseCloseoutModal}
+      />
 
       <AddHolidayModal
         open={addHolidayOpen}

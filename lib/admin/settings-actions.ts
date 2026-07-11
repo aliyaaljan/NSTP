@@ -1,6 +1,7 @@
 "use server"
 
 import { getAppUserRole } from "@/lib/auth-actions"
+import { lookupId } from "@/lib/lookups"
 import {
   SEMESTER_LABELS,
   formatSchoolYearOption,
@@ -9,6 +10,7 @@ import {
   type HolidayRow,
   type SettingsMeta,
   type SettingsPageData,
+  type TermCloseoutSummary,
   type TermDbRow,
 } from "@/lib/admin/settings"
 import {
@@ -156,6 +158,140 @@ export async function updateAcademicConfig(
   }
 
   return { ok: true }
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size))
+  return chunks
+}
+
+interface OutgoingEnrollmentDbRow {
+  enrollment_id: string
+  section: { term_id: string; required_hour_total: number | null } | null
+  attendance_session: Array<{
+    duration_minute: number | null
+    attendance_session_status: { code: string } | { code: string }[] | null
+  }> | null
+}
+
+/** Active enrollments whose section's term is NOT `newTermId`, split by
+ * whether the student met their required hours. Hours math mirrors
+ * mapEnrollmentToStudentListRow (lib/admin/student-list.ts). */
+async function fetchOutgoingEnrollments(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  newTermId: string
+): Promise<{ metIds: string[]; belowIds: string[] }> {
+  const activeStatusId = await lookupId("enrollment_status", "active")
+
+  const { data, error } = await service
+    .from("enrollment")
+    .select(
+      `enrollment_id, section:section_id!inner(term_id, required_hour_total),
+       attendance_session(duration_minute, attendance_session_status(code))`
+    )
+    .eq("enrollment_status_id", activeStatusId)
+    .neq("section.term_id", newTermId)
+
+  if (error) {
+    console.error("[fetchOutgoingEnrollments] query failed", error)
+    throw new Error("Failed to load outgoing enrollments.")
+  }
+
+  const metIds: string[] = []
+  const belowIds: string[] = []
+  for (const row of (data ?? []) as unknown as OutgoingEnrollmentDbRow[]) {
+    const hoursRequired = row.section?.required_hour_total ?? 60
+    const minutes =
+      row.attendance_session?.reduce((sum, s) => {
+        const st = Array.isArray(s.attendance_session_status)
+          ? s.attendance_session_status[0]
+          : s.attendance_session_status
+        return st?.code === "closed" || st?.code === "corrected"
+          ? sum + (s.duration_minute ?? 0)
+          : sum
+      }, 0) ?? 0
+    const hoursEarned = Math.round(minutes / 60)
+    if (hoursEarned >= hoursRequired) metIds.push(row.enrollment_id)
+    else belowIds.push(row.enrollment_id)
+  }
+
+  return { metIds, belowIds }
+}
+
+/**
+ * Counts active enrollments left dangling in terms other than `newTermId` —
+ * shown to the admin before switching the active term so they can choose to
+ * close them out (Key Business Rule #7 / re-enrollment fix).
+ */
+export async function getOutgoingActiveEnrollmentSummary(
+  newTermId: string
+): Promise<{ ok: true; summary: TermCloseoutSummary } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized." }
+  if (!newTermId) return { ok: false, error: "Term is required." }
+
+  const service = createSupabaseServiceClient()
+  try {
+    const { metIds, belowIds } = await fetchOutgoingEnrollments(service, newTermId)
+    return {
+      ok: true,
+      summary: { total: metIds.length + belowIds.length, meetHours: metIds.length, belowHours: belowIds.length },
+    }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to check outgoing enrollments." }
+  }
+}
+
+/**
+ * Closes out every active enrollment left in a term other than `newTermId`:
+ * `completed` when required hours were met, `dropped` otherwise. Called from
+ * the term-switch confirm step in Settings — the bulk counterpart to the
+ * per-student close-out in the CSV import / Add Student flows.
+ */
+export async function closeOutOutgoingEnrollments(
+  newTermId: string
+): Promise<{ ok: true; completed: number; dropped: number } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized." }
+  if (!newTermId) return { ok: false, error: "Term is required." }
+
+  const service = createSupabaseServiceClient()
+  let metIds: string[]
+  let belowIds: string[]
+  try {
+    ;({ metIds, belowIds } = await fetchOutgoingEnrollments(service, newTermId))
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to load outgoing enrollments." }
+  }
+
+  const [completedStatusId, droppedStatusId] = await Promise.all([
+    lookupId("enrollment_status", "completed"),
+    lookupId("enrollment_status", "dropped"),
+  ])
+
+  for (const idChunk of chunkArray(metIds, 200)) {
+    const { error } = await service
+      .from("enrollment")
+      .update({ enrollment_status_id: completedStatusId })
+      .in("enrollment_id", idChunk)
+    if (error) {
+      console.error("[closeOutOutgoingEnrollments] complete update failed", error)
+      return { ok: false, error: "Failed to close out some enrollments as completed." }
+    }
+  }
+  for (const idChunk of chunkArray(belowIds, 200)) {
+    const { error } = await service
+      .from("enrollment")
+      .update({ enrollment_status_id: droppedStatusId })
+      .in("enrollment_id", idChunk)
+    if (error) {
+      console.error("[closeOutOutgoingEnrollments] drop update failed", error)
+      return { ok: false, error: "Failed to close out some enrollments as dropped." }
+    }
+  }
+
+  return { ok: true, completed: metIds.length, dropped: belowIds.length }
 }
 
 export async function createHoliday(

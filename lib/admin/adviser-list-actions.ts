@@ -45,6 +45,7 @@ import {
   emptyCommitResult,
   isAcceptedImportFile,
   IMPORT_CHUNK_SIZE,
+  type ErrorRow,
   type ImportCommitResult,
   type RowIssue,
 } from "@/lib/admin/import/types"
@@ -53,6 +54,7 @@ import {
   validateAdviserImportValues,
   type AdviserImportRow,
   type ParseAdviserImportResult,
+  type RevalidateAdviserRowsResult,
 } from "@/lib/admin/adviser-import"
 
 /**
@@ -341,12 +343,16 @@ function warnUnknownAdviserLookups(
     issues.push({
       rowNumber: row.rowNumber,
       message: `Unknown college "${row.college}" — will be left blank.`,
+      severity: "warning",
+      code: "unknown_college",
     })
   }
   if (row.component && !lookups.component(row.component)) {
     issues.push({
       rowNumber: row.rowNumber,
       message: `Unknown component "${row.component}" — will be left blank.`,
+      severity: "warning",
+      code: "unknown_component",
     })
   }
 }
@@ -390,17 +396,54 @@ export async function parseAdviserImport(
   const service = createSupabaseServiceClient()
   const lookups = await getAdviserImportLookups(service)
 
+  const { validRows, errorRows, issues } = runAdviserRowPipeline(rows, lookups)
+
+  return { ok: true, totalRows: rows.length, validRows, errorRows, issues }
+}
+
+/** Shared validate → warn pipeline used by both parseAdviserImport (phase 1,
+ * all rows) and revalidateAdviserRows (inline-fix re-check, a few rows). */
+function runAdviserRowPipeline(
+  rows: { rowNumber: number; values: Record<string, string> }[],
+  lookups: AdviserImportLookups
+): { validRows: AdviserImportRow[]; errorRows: ErrorRow[]; issues: RowIssue[] } {
   const issues: RowIssue[] = []
+  const errorRows: ErrorRow[] = []
   const validRows: AdviserImportRow[] = []
   for (const { rowNumber, values } of rows) {
     const validated = validateAdviserImportValues(values, rowNumber)
-    issues.push(...validated.issues)
-    if (!validated.row) continue
+    if (!validated.row) {
+      issues.push(...validated.issues)
+      errorRows.push({ rowNumber, values, issues: validated.issues })
+      continue
+    }
     warnUnknownAdviserLookups(validated.row, lookups, issues)
     validRows.push(validated.row)
   }
+  return { validRows, errorRows, issues }
+}
 
-  return { ok: true, totalRows: rows.length, validRows, issues }
+/**
+ * Re-runs the parse pipeline for a handful of rows whose values were edited
+ * inline in the preview — lets the admin fix errors without re-uploading.
+ */
+export async function revalidateAdviserRows(input: {
+  rows: { rowNumber: number; values: Record<string, string> }[]
+}): Promise<RevalidateAdviserRowsResult> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+
+  if (!Array.isArray(input.rows) || input.rows.length === 0) {
+    return { ok: false, error: "No rows to re-check." }
+  }
+  if (input.rows.length > IMPORT_CHUNK_SIZE) {
+    return { ok: false, error: `Send at most ${IMPORT_CHUNK_SIZE} rows per request.` }
+  }
+
+  const service = createSupabaseServiceClient()
+  const lookups = await getAdviserImportLookups(service)
+  const result = runAdviserRowPipeline(input.rows, lookups)
+  return { ok: true, ...result }
 }
 
 /**
@@ -469,7 +512,12 @@ export async function commitAdviserImportChunk(input: {
       })
       if (!provisioned.ok) {
         result.skipped += 1
-        result.issues.push({ rowNumber: row.rowNumber, message: provisioned.error })
+        result.issues.push({
+          rowNumber: row.rowNumber,
+          message: provisioned.error,
+          severity: "error",
+          code: "account_create_failed",
+        })
         continue
       }
       const { error } = await service
@@ -481,6 +529,8 @@ export async function commitAdviserImportChunk(input: {
         result.issues.push({
           rowNumber: row.rowNumber,
           message: `Created ${row.email}'s account, but failed to save facilitator metadata (college/component/partnership type).`,
+          severity: "warning",
+          code: "profile_update_failed",
         })
       }
       const provisionedClass = await ensureFacilitatorClass(service, provisioned.userId)
@@ -488,6 +538,8 @@ export async function commitAdviserImportChunk(input: {
         result.issues.push({
           rowNumber: row.rowNumber,
           message: `Created ${row.email}'s account, but their class could not be created: ${provisionedClass.error}`,
+          severity: "warning",
+          code: "class_provision_failed",
         })
       }
       result.imported += 1
@@ -506,6 +558,8 @@ export async function commitAdviserImportChunk(input: {
         result.issues.push({
           rowNumber: row.rowNumber,
           message: `Failed to update ${row.email}.`,
+          severity: "error",
+          code: "profile_update_failed",
         })
       } else {
         const adminClass = await ensureFacilitatorClass(service, existing.appUserId)
@@ -513,6 +567,8 @@ export async function commitAdviserImportChunk(input: {
           result.issues.push({
             rowNumber: row.rowNumber,
             message: `Updated ${row.email}, but their class could not be created: ${adminClass.error}`,
+            severity: "warning",
+            code: "class_provision_failed",
           })
         }
         result.updated += 1
@@ -536,6 +592,8 @@ export async function commitAdviserImportChunk(input: {
       result.issues.push({
         rowNumber: row.rowNumber,
         message: `Failed to update ${row.email}.`,
+        severity: "error",
+        code: "profile_update_failed",
       })
       continue
     }
@@ -554,11 +612,15 @@ export async function commitAdviserImportChunk(input: {
         result.issues.push({
           rowNumber: row.rowNumber,
           message: `Promoted ${row.email} from student to facilitator, but the audit record failed to save.`,
+          severity: "warning",
+          code: "role_promotion_audit_failed",
         })
       } else {
         result.issues.push({
           rowNumber: row.rowNumber,
           message: `Promoted ${row.email} from student to facilitator.`,
+          severity: "info",
+          code: "role_promoted",
         })
       }
     }
@@ -568,6 +630,8 @@ export async function commitAdviserImportChunk(input: {
       result.issues.push({
         rowNumber: row.rowNumber,
         message: `Updated ${row.email}, but their class could not be created: ${updatedClass.error}`,
+        severity: "warning",
+        code: "class_provision_failed",
       })
     }
     result.updated += 1

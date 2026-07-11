@@ -94,6 +94,13 @@ export interface SettingsPageData {
   currentUser: AdminCurrentUser
 }
 
+/** Active-enrollment close-out counts for the term(s) being switched away from. */
+export interface TermCloseoutSummary {
+  total: number
+  meetHours: number
+  belowHours: number
+}
+
 /** Rows per page for holidays list. */
 export const SETTINGS_LIST_PAGE_SIZE = 5
 

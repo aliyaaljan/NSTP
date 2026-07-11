@@ -117,7 +117,7 @@ function SectionSelect({
         }}
       >
         <option value="" disabled>
-          Select facilitator
+          Select class
         </option>
         {sections.map((section) => (
           <option key={section.sectionId} value={section.sectionId}>
@@ -350,7 +350,7 @@ export default function EditStudentModal({
             />
           </FormField>
 
-          <FormField label="Facilitator">
+          <FormField label="Class">
             <SectionSelect
               value={form.sectionId}
               onChange={(sectionId) => patchForm({ sectionId })}
