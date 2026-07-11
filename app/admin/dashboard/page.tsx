@@ -22,6 +22,7 @@ import {
   formatAuditLogTimestamp,
 } from "@/lib/admin/audit-log"
 import { formatClassLabel } from "@/lib/shared/class-label"
+import { progressStatusFromPct } from "@/lib/admin/student-progress"
 
 export const revalidate = 0
 
@@ -320,6 +321,9 @@ export default async function AdminDashboardPage({
     selectedAdviser = currentFilter.replace("adviser:", "")
   }
   const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   const today = new Date()
   const dayOfWeek = today.getDay()
@@ -534,6 +538,8 @@ export default async function AdminDashboardPage({
     appealStatusesRes,
     enrollmentStatusesRes,
     attendanceSessionStatusesRes,
+    activeTermRes,
+    currentUserRes,
   ] = await Promise.all([
     // student counter call
     studentsQuery,
@@ -552,7 +558,9 @@ export default async function AdminDashboardPage({
     //Filter Dropdown for section list lookup
     supabase
       .from("section")
-      .select("section_id, course_code, term:term_id(school_year), app_user:adviser_user_id(full_name)"),
+      .select(
+        "section_id, course_code, term:term_id(school_year), app_user:adviser_user_id(full_name)"
+      ),
     // Filter dropdown for advisers list lookup
     supabase
       .from("app_user")
@@ -572,6 +580,21 @@ export default async function AdminDashboardPage({
     supabase
       .from("attendance_session_status")
       .select("attendance_session_status_id, name"),
+
+    // Fetch active term for deadline and semester display
+    supabase
+      .from("term")
+      .select("school_year, semester, end_date")
+      .eq("is_active", true)
+      .maybeSingle(),
+    // Fetch user details mapped from active auth session
+    user
+      ? supabase
+          .from("app_user")
+          .select("full_name, role(name)")
+          .eq("app_user_id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   const sectionFilterOptions: { sectionId: string; label: string }[] = (
@@ -1065,7 +1088,13 @@ export default async function AdminDashboardPage({
                 subtitle={a.section}
                 isLast={i === processedAdviserWorkload.length - 1}
                 rightSlot={
-                  <span style={{ ...TYPE.body, fontWeight: 500, color: COLORS.textGray }}>
+                  <span
+                    style={{
+                      ...TYPE.body,
+                      fontWeight: 500,
+                      color: COLORS.textGray,
+                    }}
+                  >
                     {a.studentCount}
                   </span>
                 }
