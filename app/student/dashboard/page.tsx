@@ -19,6 +19,7 @@ import { createClient } from "@/lib/client"
 import { getInitials, formsToDocuments, formsToCalendarEvents } from "@/lib/student/dashboard-view"
 import { manilaClock } from "@/lib/student/leader/scan-history"
 import LoadingPage from "@/components/shared/LoadingPage"
+import { useStudent } from "@/app/student/StudentContext"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -176,8 +177,8 @@ export default function StudentDashboardPage() {
   const [recentRequests, setRecentRequests] = useState<
     { title: string; status: string; time: string }[]
   >([])
-  const [isLeader, setIsLeader] = useState(false)
   const [loading, setLoading] = useState(true)
+  const { isLeader, isLoading: contextLoading } = useStudent()
 
   useEffect(() => {
     const accepted = localStorage.getItem("privacyAccepted")
@@ -204,18 +205,6 @@ export default function StudentDashboardPage() {
       }
       setDashboard(res.data)
       
-      // Check if leader
-      const supabase = createClient()
-      const { data: userData } = await supabase
-        .from('enrollment')
-        .select('is_student_leader')
-        .eq('enrollment_id', res.data.enrollmentId)
-        .single()
-      
-      if (userData) {
-        setIsLeader(userData.is_student_leader)
-      }
-      
       if (res.data.enrollmentId) {
         const formsRes = await getMyForms(res.data.enrollmentId)
         if (formsRes.ok) setFormViews(formsRes.data)
@@ -230,6 +219,7 @@ export default function StudentDashboardPage() {
         }
       }
 
+      const supabase = createClient()
       const { data: rosterData } = await supabase.rpc("get_leader_section_dashboard")
       if (rosterData && rosterData.length > 0) {
         const row = rosterData[0]
@@ -273,7 +263,7 @@ export default function StudentDashboardPage() {
   // Select sidebar based on role
   const SidebarComponent = () => <Sidebar isLeader={isLeader} />
 
-  if (loading) {
+  if (loading || contextLoading) {
     return <LoadingPage Sidebar={SidebarComponent} />
   }
 

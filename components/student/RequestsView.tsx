@@ -33,6 +33,7 @@ import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import SuccessModal from "@/components/shared/SuccessModal"
 import { IconX, IconCircleCheck, IconHourglass, IconClock, IconCircleX, IconFilter, IconChevronUp, IconChevronDown,} from "@tabler/icons-react"
 import LoadingPage from "@/components/shared/LoadingPage"
+import { useStudent } from "@/app/student/StudentContext"
 
 const MAX_NUM_ATTACHMENT = 1
 
@@ -138,7 +139,6 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
 
  return (
    <span
-   className="status-badge"
      style={{
        display: "inline-flex",
        alignItems: "center",
@@ -150,8 +150,6 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
        background: s.bg,
        color: s.text,
        border: `1px solid ${s.border}`,
-       whiteSpace: "nowrap", 
-       flexShrink: 0,  
      }}
    >
      <i
@@ -168,9 +166,9 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
 }
 
 export default function RequestsView() {
- // The sidebar and the "Leader Role Transfer" category both key off the user's
- // real leader status (isCurrentUserLeader below, from getStudentDashboard) —
- // the leader-specific route was removed, so a single dynamic page serves both.
+ // Use StudentContext instead of fetching locally
+ const { isLeader: isCurrentUserLeader, isLoading: contextLoading } = useStudent()
+ 
  const [showModal, setShowModal] = useState(false)
  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(
    null
@@ -188,7 +186,6 @@ export default function RequestsView() {
    useState<TimeCorrectionState>(EMPTY_TIME_CORRECTION)
  const [editFiles, setEditFiles] = useState<{ storage_path: string; file_name: string }[]>([])
  const [editNewFiles, setEditNewFiles] = useState<File[]>([])
- const [isCurrentUserLeader, setIsCurrentUserLeader] = useState(false)
  const [activeFilter, setActiveFilter] = useState("All")
 
  const [requestSearch, setRequestSearch] = useState("")
@@ -257,7 +254,6 @@ export default function RequestsView() {
        fullName: res.data.fullName,
        sectionName: res.data.sectionName ?? "",
      })
-     setIsCurrentUserLeader(res.data.isLeader)
      if (res.data.enrollmentId) loadRequests(res.data.enrollmentId)
      setLoading(false)
    })
@@ -788,7 +784,7 @@ useEffect(() => {
   return () => window.removeEventListener("resize", check)
 }, [])
 
-if (loading) {
+if (loading || contextLoading) {
   return <LoadingPage Sidebar={() => <StudentSidebar isLeader={isCurrentUserLeader} />} />
 }
 
@@ -849,13 +845,12 @@ if (loading) {
        box-shadow:0 10px 30px rgba(0,0,0,.06);
        }
 
-       //.request-card-scroll{
-       //max-height: 55vh;  
-       //overflow-y: auto;
-       //scrollbar-width: thin;
-       //scrollbar-color: #CFCFCB transparent;
-       //}
-
+       .request-card-scroll{
+       max-height: 55vh;  
+       overflow-y: auto;
+       scrollbar-width: thin;
+       scrollbar-color: #CFCFCB transparent;
+       }
 
        .request-top-bar{
        padding:16px 20px 16px;
@@ -1453,7 +1448,11 @@ if (loading) {
     gap:4px !important;
     }
 
-    }
+    .send-btn{
+       height:20x !important;
+     }
+
+     }
 
      `}</style>
 
@@ -1679,65 +1678,64 @@ if (loading) {
                           borderRadius: 10,
                       }}
                     />
-                    <div className="request-top" style={{ flexDirection: "column", alignItems: "flex-start" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8,}}>
-                        <StatusBadge status={request.status} />
-                        <div
-                            className="request-type-pill"
-                            style={{
-                                display: "flex",
-                                width: "fit-content",
-                                alignItems: "center",
-                                padding: "4px 10px",
-                                borderRadius: 999,
-                                background: "#e4e4e4",
-                                color: C.textDark,
-                                fontSize: 10,
-                                fontWeight: 600,
-                                border: `1px solid ${C.textDark}20`,
-                            }}
-                        >
-                            {request.type}
-                        </div>
-                    </div>
-
-                    <div>
+                    <div className="request-top">
+                        <div>
                         <div className="request-title">{request.title}</div>
 
                         <div
-                            className="request-date"
-                            style={{ fontSize: 11, color: "#999", marginTop: 6 }}
-                        >
-                            Submitted{" "}
-                            {new Date(request.date).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                            })}
+                          className="request-type-pill"
+                          style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              padding: "4px 10px",
+                              marginTop: 5,
+                              borderRadius: 999,
+                              background: "#cccc",
+                              color: C.green,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              border: `1px solid ${C.green}20`,
+                          }}
+                      >
+                          {request.type}
+                      </div>
+
+                      <div
+                          className="request-date"
+                          style={{ fontSize: 11, color: "#999", marginTop: 6 }}
+                      >
+                          Submitted{" "}
+                          {new Date(request.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                          })}
+                      </div>
                         </div>
+
+                        <StatusBadge status={request.status} />
                     </div>
-                </div>
 
-                <div className="request-body">{request.body}</div>
+                    <div className="request-body">{request.body}</div>
 
-                <div
-                    className="request-note-box"
-                    style={{
-                        marginTop: 5,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: "#F6F5EF",
-                        padding: "7px 12px",
-                        borderRadius: 12,
-                        fontSize: 13,
-                        color: C.textMuted,
-                    }}
-                >
-                    {request.note}
-                </div>
-                </div>
-                )
+                    <div
+                        className="request-note-box"
+                        style={{
+                            marginTop: 5,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            background: "#F6F5EF",
+                            padding: "7px 12px",
+                            borderRadius: 12,
+                            fontSize: 13,
+                            color: C.textMuted,
+                        }}
+                    >
+                        {request.note}
+                    </div>
+                    </div>
+                    )
                 })
                 )}
 

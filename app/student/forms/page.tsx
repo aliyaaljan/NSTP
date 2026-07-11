@@ -27,6 +27,7 @@ import {
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createClient } from "@/lib/client"
 import LoadingPage from "@/components/shared/LoadingPage"
+import { useStudent } from "@/app/student/StudentContext"
 
 import {
   getMyForms,
@@ -218,6 +219,7 @@ export default function StudentFilesPage() {
   const [forms, setForms] = useState<Form[]>([])
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const { isLeader, isLoading: contextLoading } = useStudent()
 
   const [showModal, setShowModal] = useState(false)
   const [selectedForm, setSelectedForm] = useState<Form | null>(null)
@@ -716,15 +718,15 @@ export default function StudentFilesPage() {
     return "34px"
   }
 
-  if (loading) {
-    return <LoadingPage Sidebar={() => <StudentSidebar />} />
+  if (loading || contextLoading) {
+    return <LoadingPage Sidebar={() => <StudentSidebar isLeader={isLeader} />} />
   }
 
   return (
     <>
       <style>{studentFilesStyles}</style>
       <div className="sf-root">
-        <StudentSidebar />
+        <StudentSidebar isLeader={isLeader} />
         <main
           className="sf-main"
           style={{

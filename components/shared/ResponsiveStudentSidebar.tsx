@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { Goblin_One } from "next/font/google"
+import { useStudent } from "@/app/student/StudentContext" 
 
 const goblin = Goblin_One({
   subsets: ["latin"],
@@ -56,7 +57,7 @@ interface StudentSidebarProps {
 }
 
 export default function StudentSidebar({
-  isLeader = false,
+  isLeader: propIsLeader,
   navGroups,
   children,
   mainClassName,
@@ -87,6 +88,9 @@ export default function StudentSidebar({
   })
   const [windowWidth, setWindowWidth] = useState(0)
   const [windowHeight, setWindowHeight] = useState(0)
+
+  const { isLeader: contextIsLeader, isLoading } = useStudent()
+  const isLeader = propIsLeader !== undefined ? propIsLeader : contextIsLeader
 
   useEffect(() => {
     const calculateSizes = () => {

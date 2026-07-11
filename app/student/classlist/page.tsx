@@ -9,6 +9,7 @@ import { getInitials } from "@/lib/student/dashboard-view"
 import { AdminFilterPanel } from "@/components/shared/AdminFilterPanel"
 import { IconChevronUp, IconChevronDown, IconFilter } from "@tabler/icons-react"
 import Sidebar from "@/components/shared/ResponsiveStudentSidebar"
+import { useStudent } from "@/app/student/StudentContext"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -43,6 +44,7 @@ type RosterRow = {
 
 export default function ClassList() {
   const [search, setSearch] = useState("")
+  const { isLeader, isLoading: contextLoading } = useStudent()
 
   const [profile, setProfile] = useState({
     fullName: "",
@@ -262,7 +264,6 @@ const pages = []
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
-
 
   return (
     <>
@@ -873,8 +874,7 @@ const pages = []
 
       <div className={`${montserrat.variable} class-page`}>
 
-        <Sidebar />
-
+        <Sidebar isLeader={isLeader} />
 
         <main className="class-main">
 

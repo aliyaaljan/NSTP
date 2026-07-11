@@ -12,6 +12,7 @@ import {
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
 import LoadingPage from "@/components/shared/LoadingPage"
+import { useStudent } from "@/app/student/StudentContext"
 
 import { montserrat, C, COLLAPSED_W, RAIL_MARGIN } from "./_components/theme"
 import { useIsMobile } from "./_components/useIsMobile"
@@ -33,6 +34,7 @@ const getWeekNumber = (date: Date): string => {
 
 export default function LeaderScannerPage() {
   const { isMobile, isSmallMobile, isTablet } = useIsMobile()
+  const { isLeader, isLoading: contextLoading } = useStudent()
   const [scannerOpen, setScannerOpen] = useState(false)
   const [selectedWeek, setSelectedWeek] = useState<string>("all")
   const [selectedMonth, setSelectedMonth] = useState<string>("")
@@ -283,8 +285,8 @@ export default function LeaderScannerPage() {
     })
   }, [scans])
 
-  if (loading) {
-    return <LoadingPage Sidebar={() => <Sidebar />} />
+  if (loading || contextLoading) {
+    return <LoadingPage Sidebar={() => <Sidebar isLeader={isLeader} />} />
   }
 
   return (
@@ -298,7 +300,7 @@ export default function LeaderScannerPage() {
         position: "relative",
       }}
     >
-      <Sidebar />
+      <Sidebar isLeader={isLeader} />
       <main
         style={{
           flex: 1,

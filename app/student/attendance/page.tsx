@@ -26,6 +26,7 @@ import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { IconCalendar, IconClock } from "@tabler/icons-react"
 import { createClient } from "@/lib/client"
 import LoadingPage from "@/components/shared/LoadingPage"
+import { useStudent } from "@/app/student/StudentContext"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -98,6 +99,7 @@ export default function QRGenerationPage() {
   const [timeoutFeedback, setTimeoutFeedback] = useState<string | undefined>(undefined)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [loading, setLoading] = useState(true)
+  const { isLeader: contextIsLeader, isLoading: contextLoading } = useStudent()
 
   const generatingRef = useRef(false)
   const displayRef = useRef<QrDisplayInfo | null>(null)
@@ -480,8 +482,10 @@ export default function QRGenerationPage() {
 
   const responsivePadding = getResponsivePadding()
 
-  if (loading) {
-    return <LoadingPage Sidebar={() => <StudentSidebar isLeader={isStudentLeader} />} />
+  const finalIsLeader = contextIsLeader || isStudentLeader
+
+  if (loading || contextLoading) {
+    return <LoadingPage Sidebar={() => <StudentSidebar isLeader={finalIsLeader} />} />
   }
 
   return (
@@ -919,7 +923,7 @@ export default function QRGenerationPage() {
       `}</style>
 
       <div className={`${montserrat.variable} qr-page`}>
-        <StudentSidebar isLeader={isStudentLeader} />
+        <StudentSidebar isLeader={finalIsLeader} />
 
         <main 
           className="qr-main" 

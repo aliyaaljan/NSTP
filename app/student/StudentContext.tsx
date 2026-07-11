@@ -8,6 +8,7 @@ interface StudentContextType {
   isLeader: boolean
   isLoading: boolean
   studentData: any
+  refreshStudentData: () => Promise<void>
 }
 
 const StudentContext = createContext<StudentContextType | undefined>(undefined)
@@ -17,25 +18,51 @@ export function StudentProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [studentData, setStudentData] = useState<any>(null)
 
-  useEffect(() => {
-    async function loadStudentData() {
-      try {
-        const result = await getStudentDashboard()
-        if (result.ok && result.data) {
-          setIsLeader(result.data.isLeader || false)
-          setStudentData(result.data)
+  // Load student data with caching
+  const loadStudentData = async (forceRefresh = false) => {
+    try {
+      setIsLoading(true)
+
+      // Check localStorage
+      if (!forceRefresh) {
+        const cachedLeader = localStorage.getItem("isLeader")
+        const cachedData = localStorage.getItem("studentData")
+        
+        if (cachedLeader !== null && cachedData) {
+          setIsLeader(cachedLeader === "true")
+          setStudentData(JSON.parse(cachedData))
+          setIsLoading(false)
         }
-      } catch (error) {
-        console.error("Failed to fetch student data:", error)
-      } finally {
-        setIsLoading(false)
       }
+
+      const result = await getStudentDashboard()
+      if (result.ok && result.data) {
+        const leaderStatus = result.data.isLeader || false
+        setIsLeader(leaderStatus)
+        setStudentData(result.data)
+        
+        // Cache in localStorage
+        localStorage.setItem("isLeader", String(leaderStatus))
+        localStorage.setItem("studentData", JSON.stringify(result.data))
+      }
+    } catch (error) {
+      console.error("Failed to fetch student data:", error)
+    } finally {
+      setIsLoading(false)
     }
+  }
+
+  // Refresh function to force reload from server
+  const refreshStudentData = async () => {
+    await loadStudentData(true)
+  }
+
+  useEffect(() => {
     loadStudentData()
   }, [])
 
   return (
-    <StudentContext.Provider value={{ isLeader, isLoading, studentData }}>
+    <StudentContext.Provider value={{ isLeader, isLoading, studentData, refreshStudentData }}>
       {children}
     </StudentContext.Provider>
   )
