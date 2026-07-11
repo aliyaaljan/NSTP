@@ -36,6 +36,7 @@ import {
 } from "@/lib/facilitator/appeal-actions"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 import Link from "next/link";
+import LoadingPage from "@/components/shared/LoadingPage"
 
 //Map
 import dynamic from "next/dynamic"
@@ -605,7 +606,8 @@ function MyStudentsContent() {
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null)
   const [requestType, setRequestTypes] = useState<{ appeal_type_id: string; name: string }[]>([])
-  
+  const [isPageLoading, setIsPageLoading] = useState(true)
+
   const [exportStudent, setExportStudent] = useState(false)
   const [exportSection, setExportSection] = useState("All Sections")
   const [exportColumns, setExportColumns] = useState<string[]>([
@@ -871,7 +873,7 @@ function MyStudentsContent() {
         fetchStudents(user.id),
       ])
 
-      
+      setIsPageLoading(false)
     })
   }, [supabase, fetchStatsAndSections, fetchStudents])
 
@@ -1277,6 +1279,25 @@ function MyStudentsContent() {
     setExportStudent(false)
   }
 
+  const BoundSidebar = () => (
+    <Sidebar
+      open={sidebarOpen}
+      activeNav="Group Summary"
+      onToggle={() => setSidebarOpen((o) => !o)}
+      onNavClick={(label) => { setSidebarOpen(false); router.push(navRoutes[label]); }}
+      onSignOut={handleSignOut}
+    />
+  )
+
+  if (isPageLoading) {
+    return (
+      <>
+        <style>{dashboardStyles}</style>
+        <ChartStyles />
+        <LoadingPage Sidebar={BoundSidebar} />
+      </>
+    )
+  }
   return (
     <>
       <style>{myStudentsStyles}</style>

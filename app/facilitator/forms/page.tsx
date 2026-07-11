@@ -26,6 +26,7 @@ import { createClient } from "@/lib/client"
 import { NstpModal } from "@/components/shared/Modal"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
 import Link from "next/link"
+import LoadingPage from "@/components/shared/LoadingPage"
 
 import {
   getSubmissionsByForm,
@@ -220,6 +221,7 @@ export default function FormsPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<FormTab>("repository")
+  const [isPageLoading, setIsPageLoading] = useState(true)
 
   // Filters
   const [search, setSearch] = useState("")

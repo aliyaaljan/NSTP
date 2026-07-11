@@ -14,6 +14,7 @@ import { ChartStyles } from "@/components/shared/ChartModule";
 import { createClient } from "@/lib/client";
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 import Link from "next/link";
+import LoadingPage from "@/components/shared/LoadingPage"
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface SectionSummary {
@@ -327,6 +328,7 @@ export default function GroupSummaryPage() {
   const [initials, setInitials] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [sections, setSections] = useState<SectionSummary[]>([]);
+  const [isPageLoading, setIsPageLoading] = useState(true)
 
   const fetchSummary = useCallback(async (userId: string) => {
     const {data:summaryData, error:summaryError} = await supabase.rpc("get_summary", {p_adviser_user_id: userId})
@@ -345,6 +347,7 @@ export default function GroupSummaryPage() {
       setInitials((fName[0] ?? "") + (lName[0] ?? ""));
       setUserId(user?.id ?? null);
       if (user?.id) await fetchSummary(user.id);
+      setIsPageLoading(false)
     });
   }, [supabase, fetchSummary]);
 
@@ -382,6 +385,26 @@ export default function GroupSummaryPage() {
     if (summaryFilter === "progress") return s.completionPct > 0;
     return true;
   });
+
+  const BoundSidebar = () => (
+    <Sidebar
+      open={sidebarOpen}
+      activeNav="Group Summary"
+      onToggle={() => setSidebarOpen((o) => !o)}
+      onNavClick={(label) => { setSidebarOpen(false); router.push(navRoutes[label]); }}
+      onSignOut={handleSignOut}
+    />
+  )
+
+  if (isPageLoading) {
+    return (
+      <>
+        <style>{dashboardStyles}</style>
+        <ChartStyles />
+        <LoadingPage Sidebar={BoundSidebar} />
+      </>
+    )
+  }
 
   return (
     <>
