@@ -323,7 +323,6 @@ export default function StudentSidebar({
   } : {}
 
   const mobileItemStyles = isMobile ? {
-    width: `${sizes.item}px`,
     height: `${sizes.item}px`,
   } : {}
 
@@ -349,7 +348,6 @@ export default function StudentSidebar({
           height: 46,
           borderRadius: 50,
           textDecoration: "none",
-          overflow: "hidden",
           ...mobileItemStyles,
         }}
       >
@@ -558,22 +556,31 @@ export default function StudentSidebar({
           }
 
           .nstp-scroll-dark {
-            overflow: visible !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
             padding: 0 !important;
             flex: 1;
             display: flex;
             align-items: center;
             height: 100%;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          .nstp-scroll-dark::-webkit-scrollbar {
+            display: none;
           }
 
           .nstp-scroll-dark .nstp-menu {
             flex-direction: row;
             height: 100%;
             align-items: center;
-            gap: ${sizes.mobileGap}px;
+            gap: ${Math.max(2, sizes.mobileGap)}px;
             justify-content: space-around;
             padding: 0 2px;
             width: 100%;
+            min-width: min-content;
           }
 
           .nstp-menu > div:first-child {
@@ -585,23 +592,26 @@ export default function StudentSidebar({
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 0 !important;
-            border-radius: 50% !important;
+            padding: 4px 8px !important;
+            border-radius: 14px !important;
             background: transparent !important;
-            min-width: 0 !important;
-            width: ${sizes.item}px !important;
+            min-width: ${sizes.item}px !important;
+            width: auto !important;
             height: ${sizes.item}px !important;
           }
 
-          .nstp-link.active {
-            background: ${C.activeBg} !important;
-          }
-
           .nstp-link span:first-child {
-            width: auto !important;
+            width: ${sizes.mobileIconSize + 18}px !important;
+            height: ${sizes.mobileIconSize + 18}px !important;
             margin: 0 !important;
             justify-content: center;
             align-items: center;
+            border-radius: 50%;
+            transition: background 0.15s ease;
+          }
+
+          .nstp-link.active span:first-child {
+            background: ${C.activeBg} !important;
           }
 
           .nstp-link i {
@@ -619,10 +629,12 @@ export default function StudentSidebar({
             line-height: 1;
             letter-spacing: 0.1px;
             margin-top: 2px;
+            white-space: nowrap;
           }
 
           .nstp-link.active .nstp-label {
-            color: ${C.activeText};
+            color: #ffffff;
+            font-weight: 700;
           }
 
           /* Mobile Profile Avatar styles */
@@ -633,13 +645,25 @@ export default function StudentSidebar({
             align-items: center;
             justify-content: center;
             text-decoration: none;
-            width: ${sizes.item}px !important;
+            min-width: ${sizes.item}px !important;
+            width: auto !important;
             height: ${sizes.item}px !important;
-            border-radius: 50% !important;
+            padding: 4px 8px !important;
+            border-radius: 14px !important;
             background: transparent !important;
           }
 
-          .nstp-avatar-link.active {
+          .nstp-avatar-circle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: ${sizes.mobileAvatarSize + 10}px;
+            height: ${sizes.mobileAvatarSize + 10}px;
+            border-radius: 50%;
+            transition: background 0.15s ease;
+          }
+
+          .nstp-avatar-link.active .nstp-avatar-circle {
             background: ${C.activeBg} !important;
           }
 
@@ -660,21 +684,16 @@ export default function StudentSidebar({
             line-height: 1;
             letter-spacing: 0.1px;
             margin-top: 2px;
+            white-space: nowrap;
           }
 
           .nstp-avatar-link.active .nstp-avatar-label {
-            color: ${C.activeText};
+            color: #ffffff;
+            font-weight: 700;
           }
 
           .nstp-menu.admin-mobile-menu {
             justify-content: flex-start !important;
-            overflow-x: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-          }
-
-          .nstp-menu.admin-mobile-menu::-webkit-scrollbar {
-            display: none;
           }
         }
 
@@ -971,13 +990,15 @@ export default function StudentSidebar({
                     href="/student/profile"
                     className={`nstp-avatar-link${pathname === "/student/profile" ? " active" : ""}`}
                   >
-                    <Image
-                      src="/nstp-logo.jpg"
-                      alt="Profile"
-                      width={sizes.mobileAvatarSize}
-                      height={sizes.mobileAvatarSize}
-                      className="nstp-avatar-image"
-                    />
+                    <span className="nstp-avatar-circle">
+                      <Image
+                        src="/nstp-logo.jpg"
+                        alt="Profile"
+                        width={sizes.mobileAvatarSize}
+                        height={sizes.mobileAvatarSize}
+                        className="nstp-avatar-image"
+                      />
+                    </span>
                     <span className="nstp-avatar-label">Profile</span>
                   </Link>
                 )}
