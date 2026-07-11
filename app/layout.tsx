@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Goblin_One, Cormorant, Montserrat } from "next/font/google"
 import "./globals.css"
 
@@ -27,6 +27,11 @@ const montserrat = Montserrat({
 export const metadata: Metadata = {
   title: "UP Community Extension | Login",
   description: "University of the Philippines — Community Extension Program",
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 }
 
 export default function RootLayout({
