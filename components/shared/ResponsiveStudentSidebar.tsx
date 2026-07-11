@@ -731,7 +731,15 @@ export default function StudentSidebar({
           }}
         >
           {/* Logo and NSTP text */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Link
+            href="/student/dashboard"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              textDecoration: "none",
+            }}
+          >
             <Image
               src="/nstp-logo.jpg"
               alt="NSTP UP Baguio Logo"
@@ -740,6 +748,7 @@ export default function StudentSidebar({
               style={{
                 borderRadius: "50%",
                 objectFit: "cover",
+                cursor: "pointer",
               }}
               priority
             />
@@ -766,7 +775,7 @@ export default function StudentSidebar({
                 University of the Philippines Baguio
               </div>
             </div>
-          </div>
+          </Link>
 
           {/* Logout */}
           <button
@@ -835,7 +844,8 @@ export default function StudentSidebar({
             minHeight: 46,
           }}
         >
-          <div
+          <Link
+            href="/student/dashboard"
             style={{
               width: expanded ? 46 : COLLAPSED_W - 28,
               display: "flex",
@@ -852,10 +862,11 @@ export default function StudentSidebar({
                 borderRadius: "50%",
                 objectFit: "cover",
                 border: "2px solid rgba(255,255,255,0.25)",
+                cursor: "pointer",
               }}
               priority
             />
-          </div>
+          </Link>
 
           <div
             className="nstp-expand"
