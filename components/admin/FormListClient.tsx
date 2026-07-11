@@ -280,7 +280,7 @@ export default function FormListClient({
     },
     {
       icon: "ti-layout-grid",
-      label: "Section Forms",
+      label: "Class Forms",
       value: summary.sectionSpecific,
       badge: {
         text: pctOfTotal(summary.sectionSpecific),
@@ -368,7 +368,7 @@ export default function FormListClient({
                 </th>
                 <th style={{ width: "22%" }}>
                   <AdminSortHeader
-                    label="Section"
+                    label="Class"
                     sortable
                     sortActive={query.sort === "section"}
                     sortDirection={query.dir}
@@ -514,8 +514,12 @@ export default function FormListClient({
           maxWidth={680}
           footerNoWrap
           title={detailForm.formName}
-          subtitle={`${detailForm.sectionName} Section · ${detailForm.adviserName}`}
+          subtitle={`${detailForm.sectionName} · ${detailForm.adviserName}`}
           fields={[
+            {
+              label: "Class",
+              value: detailForm.sectionName,
+            },
             {
               label: "Submissions",
               value: (
@@ -539,7 +543,7 @@ export default function FormListClient({
             },
             {
               label: "Scope",
-              value: detailForm.isGlobal ? "Global default" : "Section-specific",
+              value: detailForm.isGlobal ? "Global default" : "Class-specific",
             },
             {
               label: "Status",
@@ -602,7 +606,7 @@ export default function FormListClient({
         subjectName={deleteTarget?.formName}
         message={
           deleteTarget?.isGlobal
-            ? "Remove this global form from the selected section? Other sections will not be affected."
+            ? "Remove this global form from the selected class? Other classes will not be affected."
             : "Remove this form? Students will no longer be required to submit it."
         }
         isPending={isDeleting}

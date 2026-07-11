@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
 import { createForm, updateForm } from "@/lib/admin/form-list-actions"
 import {
   emptyFormCreatePayload,
@@ -87,61 +88,6 @@ function TextInput({
   )
 }
 
-function SectionSelect({
-  value,
-  onChange,
-  sections,
-  disabled = false,
-}: {
-  value: string
-  onChange: (value: string) => void
-  sections: FormListSectionOption[]
-  disabled?: boolean
-}) {
-  return (
-    <div style={{ position: "relative" }}>
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          ...TYPE.body,
-          fontStyle: "normal",
-          color: value ? COLORS.textDark : COLORS.textGray,
-          background: COLORS.fieldBg,
-          border: "none",
-          borderRadius: 6,
-          padding: "12px 40px 12px 14px",
-          appearance: "none",
-          cursor: disabled ? "not-allowed" : "pointer",
-          outline: "none",
-          opacity: disabled ? 0.7 : 1,
-        }}
-      >
-        <option value={FORM_GLOBAL_SECTION}>All sections (global default)</option>
-        {sections.map((section) => (
-          <option key={section.sectionId} value={section.sectionId}>
-            {section.label}
-          </option>
-        ))}
-      </select>
-      <i
-        className="ti ti-chevron-down"
-        style={{
-          position: "absolute",
-          right: 14,
-          top: "50%",
-          transform: "translateY(-50%)",
-          fontSize: 16,
-          color: COLORS.textGray,
-          pointerEvents: "none",
-        }}
-      />
-    </div>
-  )
-}
-
 export default function CreateFormModal({
   open,
   mode,
@@ -219,6 +165,17 @@ export default function CreateFormModal({
       window.removeEventListener("keydown", onKeyDown)
     }
   }, [open, isPending, onClose])
+
+  const classOptions = useMemo(
+    () => [
+      { value: FORM_GLOBAL_SECTION, label: "All classes (global default)" },
+      ...sections.map((section) => ({
+        value: section.sectionId,
+        label: section.label,
+      })),
+    ],
+    [sections]
+  )
 
   if (!open) return null
 
@@ -373,17 +330,21 @@ export default function CreateFormModal({
           </FormField>
 
           <FormField
-            label="Section"
+            label="Class"
             hint={
               mode === "edit" && editMeta?.isGlobal
-                ? "This form is a global default. Section scope cannot be changed here."
-                : "Global forms apply to every section unless excluded."
+                ? "This form is a global default. Class scope cannot be changed here."
+                : "Global forms apply to every class unless excluded."
             }
           >
-            <SectionSelect
+            <SearchableCombobox
+              key={editMeta ? `${editMeta.formRequirementId}:${editMeta.listSectionId}` : "create"}
               value={form.sectionId ?? FORM_GLOBAL_SECTION}
               onChange={(sectionId) => patchForm({ sectionId })}
-              sections={sections}
+              options={classOptions}
+              placeholder="Select class"
+              emptyMessage="No classes found"
+              toggleAriaLabel="Toggle class list"
               disabled={mode === "edit" && Boolean(editMeta?.isGlobal)}
             />
           </FormField>

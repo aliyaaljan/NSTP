@@ -140,6 +140,43 @@ export default function FormDetailModal({
                   marginBottom: 4,
                 }}
               >
+                Class
+              </div>
+              <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 600 }}>
+                {form.sectionName}
+              </div>
+            </div>
+            <div>
+              <div
+                style={{
+                  ...TYPE.caption,
+                  color: COLORS.textGray,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.6px",
+                  fontWeight: 700,
+                  marginBottom: 4,
+                }}
+              >
+                Adviser
+              </div>
+              <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 600 }}>
+                {form.adviserName}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <div
+                style={{
+                  ...TYPE.caption,
+                  color: COLORS.textGray,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.6px",
+                  fontWeight: 700,
+                  marginBottom: 4,
+                }}
+              >
                 Deadline
               </div>
               <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 600 }}>
@@ -161,7 +198,7 @@ export default function FormDetailModal({
                 Scope
               </div>
               <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 600 }}>
-                {form.isGlobal ? "Global default" : "Section-specific"}
+                {form.isGlobal ? "Global default" : "Class-specific"}
               </div>
             </div>
           </div>

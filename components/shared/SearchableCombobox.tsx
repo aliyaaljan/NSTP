@@ -24,6 +24,7 @@ export function SearchableCombobox({
   toggleAriaLabel = "Toggle options",
   id,
   name,
+  disabled = false,
 }: {
   value: string
   onChange: (value: string) => void
@@ -33,6 +34,7 @@ export function SearchableCombobox({
   toggleAriaLabel?: string
   id?: string
   name?: string
+  disabled?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
@@ -96,15 +98,19 @@ export function SearchableCombobox({
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
+        disabled={disabled}
         value={inputValue}
         onChange={(event) => {
+          if (disabled) return
           setInputValue(event.target.value)
           setOpen(true)
           if (selectedOption && event.target.value !== selectedOption.label) {
             onChange("")
           }
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          if (!disabled) setOpen(true)
+        }}
         onBlur={() => {
           window.setTimeout(() => {
             if (!containerRef.current?.contains(document.activeElement)) {
@@ -119,19 +125,23 @@ export function SearchableCombobox({
           boxSizing: "border-box",
           ...TYPE.body,
           fontStyle: "normal",
-          color: inputValue ? COLORS.textDark : COLORS.textGray,
-          background: COLORS.fieldBg,
+          color: disabled ? COLORS.textGray : inputValue ? COLORS.textDark : COLORS.textGray,
+          background: disabled ? "#F5F4F1" : COLORS.fieldBg,
           border: "none",
           borderRadius: 6,
           padding: "12px 40px 12px 14px",
           outline: "none",
+          opacity: disabled ? 0.7 : 1,
+          cursor: disabled ? "not-allowed" : "text",
         }}
       />
       <button
         type="button"
         aria-label={toggleAriaLabel}
+        disabled={disabled}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
+          if (disabled) return
           setOpen((current) => !current)
         }}
         style={{
@@ -142,17 +152,18 @@ export function SearchableCombobox({
           width: 40,
           background: "none",
           border: "none",
-          cursor: "pointer",
+          cursor: disabled ? "not-allowed" : "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           color: COLORS.textGray,
+          opacity: disabled ? 0.7 : 1,
         }}
       >
         <i className="ti ti-chevron-down" style={{ fontSize: 16 }} />
       </button>
 
-      {open && (
+      {open && !disabled && (
         <ul
           role="listbox"
           style={{

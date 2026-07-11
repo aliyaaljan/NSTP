@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
 import { importFormTemplate } from "@/lib/admin/form-list-actions"
 import { FORM_GLOBAL_SECTION } from "@/lib/admin/form-edit"
 import {
@@ -37,6 +38,17 @@ export default function ImportFormsModal({
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  const classOptions = useMemo(
+    () => [
+      { value: FORM_GLOBAL_SECTION, label: "All classes (global default)" },
+      ...sections.map((section) => ({
+        value: section.sectionId,
+        label: section.label,
+      })),
+    ],
+    [sections]
+  )
 
   const reset = useCallback(() => {
     setFile(null)
@@ -268,31 +280,16 @@ export default function ImportFormsModal({
                   marginBottom: 8,
                 }}
               >
-                Section
+                Class
               </span>
-              <select
+              <SearchableCombobox
                 value={sectionId}
-                onChange={(e) => setSectionId(e.target.value)}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  ...TYPE.body,
-                  color: COLORS.textDark,
-                  background: COLORS.fieldBg,
-                  border: "none",
-                  borderRadius: 6,
-                  padding: "12px 14px",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
-              >
-                <option value={FORM_GLOBAL_SECTION}>All sections (global default)</option>
-                {sections.map((section) => (
-                  <option key={section.sectionId} value={section.sectionId}>
-                    {section.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setSectionId}
+                options={classOptions}
+                placeholder="Select class"
+                emptyMessage="No classes found"
+                toggleAriaLabel="Toggle class list"
+              />
             </label>
 
             <label style={{ display: "block" }}>
