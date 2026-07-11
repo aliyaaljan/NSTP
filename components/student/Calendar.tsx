@@ -529,19 +529,22 @@ export default function CalendarOverview({
                 style={{
                   ...styles.calCell,
                   cursor: hasAnyContent ? 'pointer' : 'default',
-                  backgroundColor: isToday ? '#7B1D1D' : 'transparent',
-                  color: isToday ? '#FFFFFF' : '#111827',
+                  backgroundColor: isSemEndDay ? 'transparent' : (isToday ? '#7B1D1D' : 'transparent'),
+                  color: isSemEndDay ? '#7B1D1D' : (isToday ? '#FFFFFF' : '#111827'),
                   fontWeight: isToday ? 700 : 500,
-                  borderRadius: isToday ? '50%' : '6px',
-                  position: 'relative' as const,
+                  borderRadius: isSemEndDay ? '50%' : (isToday ? '50%' : '6px'),
+                  border: isSemEndDay ? '2px dashed #7B1D1D' : 'none',
+                  width: (isToday || isSemEndDay) ? '32px' : 'auto',
+                  height: (isToday || isSemEndDay) ? '32px' : 'auto',
+                  margin: (isToday || isSemEndDay) ? '0 auto' : '0',
                 }}
                 onMouseEnter={(e) => {
-                  if (hasAnyContent && !isToday) {
+                  if (hasAnyContent && !isToday && !isSemEndDay) {
                     e.currentTarget.style.backgroundColor = '#F5F5F5'
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (!isToday) {
+                  if (!isToday && !isSemEndDay) {
                     e.currentTarget.style.backgroundColor = 'transparent'
                   }
                 }}
@@ -557,8 +560,9 @@ export default function CalendarOverview({
                     width: 14,
                     height: 4,
                     borderRadius: 3,
-                    backgroundColor: isSemEndDay ? '#7B1D1D' : isHolidayDay ? '#D97706' : (hasRenderedTime ? '#14492E' : '#D97706'),
+                    backgroundColor: isSemEndDay ? 'transparent' : (isHolidayDay ? '#D97706' : (hasRenderedTime ? '#14492E' : '#D97706')),
                     transition: 'all 0.2s ease',
+                    display: isSemEndDay ? 'none' : 'block',
                   }} />
                 )}
               </div>
@@ -571,7 +575,7 @@ export default function CalendarOverview({
       <div style={styles.legend}>
         <div style={styles.legendItem}>
           <div style={{
-            width: 24,
+            width: 16,
             height: 16,
             borderRadius: '50%',
             backgroundColor: '#7B1D1D',
@@ -601,10 +605,11 @@ export default function CalendarOverview({
         </div>
         <div style={styles.legendItem}>
           <div style={{
-            width: 14,
-            height: 4,
-            borderRadius: 3,
-            backgroundColor: '#7B1D1D',
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            border: '2px dashed #7B1D1D',
+            backgroundColor: 'transparent',
             flexShrink: 0,
           }} />
           <span style={{ fontSize: 11, color: '#6B7280' }}>Last Day</span>
