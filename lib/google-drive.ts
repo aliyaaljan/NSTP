@@ -50,6 +50,7 @@ export const uploadToGoogleDrive = async (file: File, folderId: string) => {
         body: stream,
       },
       fields: "id, webViewLink, webContentLink",
+      supportsAllDrives: true, // allow to write into workspace shared drive
     })
 
     return response.data
