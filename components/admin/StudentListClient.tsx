@@ -9,7 +9,7 @@ import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddStudentModal from "@/components/admin/AddStudentModal"
-import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
+import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import EditStudentModal from "@/components/admin/EditStudentModal"
 import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
@@ -154,6 +154,13 @@ function ProfilePill({ user }: { user: CurrentUser }) {
       </div>
     </div>
   )
+}
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 function initialFiltersFromQuery(query: StudentListQuery): ActiveFilters {
@@ -572,52 +579,67 @@ export default function StudentListClient({
       <ImportStudentsModal open={importOpen} onClose={() => setImportOpen(false)} />
 
       {detailStudent && (
-        <AdminRecordDetailModal
+        <NstpModal
           open
+          onClose={() => setDetailStudent(null)}
           title={detailStudent.fullName}
           subtitle={detailStudent.email}
-          fields={[
-            { label: "Student ID", value: detailStudent.studentNumber ?? "—" },
-            { label: "Class", value: detailStudent.classLabel },
-            { label: "Adviser", value: detailStudent.adviserName },
+          initials={initialsFromName(detailStudent.fullName)}
+          size="md"
+          actions={[
             {
-              label: "Hours",
-              value: `${detailStudent.hoursCompleted}/${detailStudent.hoursRequired}`,
+              label: "Edit",
+              variant: "primary",
+              onClick: () => {
+                setEditStudent(detailStudent)
+                setDetailStudent(null)
+              },
             },
             {
-              label: "Progress",
-              value: <StudentProgressBar pct={detailStudent.completionPct} wide />,
-            },
-            {
-              label: "Status",
-              value: (
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "4px 12px",
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    background: STATUS_BADGE[detailStudent.progressStatus].bg,
-                    color: STATUS_BADGE[detailStudent.progressStatus].color,
-                  }}
-                >
-                  {PROGRESS_STATUS_LABELS[detailStudent.progressStatus]}
-                </span>
-              ),
+              label: "Remove",
+              variant: "danger",
+              disabled: isDeleting && deletingId === detailStudent.enrollmentId,
+              onClick: () => {
+                openDeleteConfirm(detailStudent.enrollmentId, detailStudent.fullName)
+                setDetailStudent(null)
+              },
             },
           ]}
-          onClose={() => setDetailStudent(null)}
-          onEdit={() => {
-            setEditStudent(detailStudent)
-            setDetailStudent(null)
-          }}
-          onDelete={() => {
-            openDeleteConfirm(detailStudent.enrollmentId, detailStudent.fullName)
-            setDetailStudent(null)
-          }}
-          deleteDisabled={isDeleting && deletingId === detailStudent.enrollmentId}
-        />
+        >
+          <ModalRow>
+            <ModalField label="Student ID" value={detailStudent.studentNumber ?? "—"} />
+            <ModalField label="Class" value={detailStudent.classLabel} />
+          </ModalRow>
+          <ModalRow>
+            <ModalField label="Adviser" value={detailStudent.adviserName} />
+            <ModalField
+              label="Hours"
+              value={`${detailStudent.hoursCompleted}/${detailStudent.hoursRequired}`}
+            />
+          </ModalRow>
+          <ModalRow>
+            <ModalField label="Progress">
+              <StudentProgressBar pct={detailStudent.completionPct} wide />
+            </ModalField>
+          </ModalRow>
+          <ModalRow>
+            <ModalField label="Status">
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "4px 12px",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: STATUS_BADGE[detailStudent.progressStatus].bg,
+                  color: STATUS_BADGE[detailStudent.progressStatus].color,
+                }}
+              >
+                {PROGRESS_STATUS_LABELS[detailStudent.progressStatus]}
+              </span>
+            </ModalField>
+          </ModalRow>
+        </NstpModal>
       )}
 
       <EditStudentModal
