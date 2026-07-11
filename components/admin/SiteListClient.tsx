@@ -202,7 +202,7 @@ export default function SiteListClient({
         ).map((o) => ({ value: o.value, label: o.label })),
       },
       {
-        label: "Section",
+        label: "Class",
         field: "sectionId",
         options: sections.map((s) => ({ value: s.sectionId, label: s.label })),
       },
@@ -386,7 +386,7 @@ export default function SiteListClient({
           count={`${filteredCount} site${filteredCount !== 1 ? "s" : ""} found`}
           searchValue={searchInput}
           onSearchChange={setSearchInput}
-          searchPlaceholder="Search sites, sections, or advisers"
+          searchPlaceholder="Search sites, classes, or advisers"
           filterGroups={filterGroups}
           activeFilters={activeFilters}
           onFiltersChange={(next) => {
@@ -415,7 +415,7 @@ export default function SiteListClient({
                 </th>
                 <th style={{ width: "16%" }}>
                   <AdminSortHeader
-                    label="Section"
+                    label="Class"
                     sortable
                     sortActive={query.sort === "section"}
                     sortDirection={query.dir}
@@ -533,9 +533,11 @@ export default function SiteListClient({
         <AdminRecordDetailModal
           open
           title={detailSite.siteName}
+          fieldColumns={2}
+          maxWidth={560}
           fields={[
             {
-              label: "Section",
+              label: "Class",
               value: sectionLabelById.get(detailSite.sectionId) ?? detailSite.sectionName,
             },
             { label: "Adviser", value: detailSite.supervisorName },

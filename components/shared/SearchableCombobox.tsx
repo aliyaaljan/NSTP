@@ -22,6 +22,8 @@ export function SearchableCombobox({
   placeholder,
   emptyMessage = "No results found",
   toggleAriaLabel = "Toggle options",
+  id,
+  name,
 }: {
   value: string
   onChange: (value: string) => void
@@ -29,6 +31,8 @@ export function SearchableCombobox({
   placeholder: string
   emptyMessage?: string
   toggleAriaLabel?: string
+  id?: string
+  name?: string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
@@ -87,6 +91,8 @@ export function SearchableCombobox({
     <div ref={containerRef} style={{ position: "relative" }}>
       <input
         type="text"
+        id={id}
+        name={name}
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"

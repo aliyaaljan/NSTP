@@ -59,6 +59,7 @@ export default function AdminRecordDetailModal({
   viewSecondaryDisabled = false,
   maxWidth = 520,
   footerNoWrap = false,
+  fieldColumns = 1,
 }: {
   open: boolean
   title: string
@@ -83,6 +84,7 @@ export default function AdminRecordDetailModal({
   viewSecondaryDisabled?: boolean
   maxWidth?: number
   footerNoWrap?: boolean
+  fieldColumns?: 1 | 2
 }) {
   useEffect(() => {
     if (!open) return
@@ -175,14 +177,25 @@ export default function AdminRecordDetailModal({
         </div>
         
         <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
-          <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+          <dl
+            style={{
+              margin: 0,
+              display: "grid",
+              gridTemplateColumns:
+                fieldColumns === 2 ? "repeat(2, minmax(0, 1fr))" : "1fr",
+              gap: 14,
+              columnGap: fieldColumns === 2 ? 24 : undefined,
+            }}
+          >
             {fields.map((field) => (
               <div
                 key={field.label}
                 style={
-                  field.align === "center"
-                    ? { textAlign: "center" }
-                    : undefined
+                  field.align === "center" && fieldColumns === 2
+                    ? { textAlign: "center", gridColumn: "1 / -1" }
+                    : field.align === "center"
+                      ? { textAlign: "center" }
+                      : undefined
                 }
               >
                 <dt
