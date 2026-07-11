@@ -13,6 +13,7 @@ import {
   IconChevronUp,
   IconChevronDown,
 } from "@tabler/icons-react"
+import LoadingPage from "@/components/shared/LoadingPage"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -63,6 +64,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
   const [pageSize, setPageSize] = useState(5)
   const [sortField, setSortField] = useState<SortField>(null) 
   const [sortDirection, setSortDirection] = useState<SortDirection>(null) 
+  const [isPageLoading, setIsPageLoading] = useState(true)
 
   useEffect(() => {
     const handleResize = () => {
@@ -90,9 +92,41 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
         console.error("[Profile] failed to load attendance history", historyRes.error)
       }
       setLoadingHistory(false)
+      setIsPageLoading(false)
     }
     load()
   }, [])
+
+  // Sort then paginate
+  const sortedData = useMemo(() => {
+    if (!sortField || !sortDirection) {
+      return [...attendanceHistory]
+    }
+
+    return [...attendanceHistory].sort((a, b) => {
+      let comparison = 0
+      if (sortField === "date") {
+        comparison = new Date(a.date).getTime() - new Date(b.date).getTime()
+      }
+      return sortDirection === "asc" ? comparison : -comparison
+    })
+  }, [attendanceHistory, sortField, sortDirection])
+
+  // Pagination calculations
+  const totalEntries = sortedData.length
+  const totalPages = Math.max(1, Math.ceil(totalEntries / pageSize))
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = Math.min(startIndex + pageSize, totalEntries)
+  const currentEntries = sortedData.slice(startIndex, endIndex)
+
+  // Loading page 
+  if (isPageLoading) {
+    return (
+      <LoadingPage 
+        Sidebar={Sidebar}
+      />
+    )
+  }
 
   // Get data
   const fullName = dashboard?.fullName ?? ""
@@ -226,28 +260,6 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
       </span>
     )
   }
-
-  // Sort then paginate
-  const sortedData = useMemo(() => {
-    if (!sortField || !sortDirection) {
-      return [...attendanceHistory]
-    }
-
-    return [...attendanceHistory].sort((a, b) => {
-      let comparison = 0
-      if (sortField === "date") {
-        comparison = new Date(a.date).getTime() - new Date(b.date).getTime()
-      }
-      return sortDirection === "asc" ? comparison : -comparison
-    })
-  }, [attendanceHistory, sortField, sortDirection])
-
-  // Pagination
-  const totalEntries = sortedData.length
-  const totalPages = Math.max(1, Math.ceil(totalEntries / pageSize))
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = Math.min(startIndex + pageSize, totalEntries)
-  const currentEntries = sortedData.slice(startIndex, endIndex)
 
   const handlePageChange = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)))

@@ -3,7 +3,6 @@
 
 "use client"
 
-
 import { useEffect, useState, useTransition, useRef } from "react"
 import { Montserrat } from "next/font/google"
 import StudentSidebar from "@/components/shared/ResponsiveStudentSidebar"
@@ -33,38 +32,32 @@ import {KpiStatCard, KpiStatCardGrid, ChartStyles,} from "@/components/shared/Ch
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import SuccessModal from "@/components/shared/SuccessModal"
 import { IconX, IconCircleCheck, IconHourglass, IconClock, IconCircleX, IconFilter, IconChevronUp, IconChevronDown,} from "@tabler/icons-react"
-
+import LoadingPage from "@/components/shared/LoadingPage"
 
 const MAX_NUM_ATTACHMENT = 1
-
 
 function checkDuplicateName (filename: string, existingNames: Set<string>): string {
  const i = filename.lastIndexOf(".")
  const extension = i !== -1 ? filename.slice(i) : ""
  const base = i !== -1 ? filename.slice(0, i) : filename
 
-
  let final = filename
  let count = 1
-
 
  while (existingNames.has(final)) {
    final = `${base}${count}${extension}`
    count++
  }
 
-
  existingNames.add(final)
  return final
 }
-
 
 const montserrat = Montserrat({
  subsets: ["latin"],
  weight: ["400", "500", "600", "700", "800"],
  variable: "--font-montserrat",
 })
-
 
 const C = {
  maroon: "#6B1A1A",
@@ -75,14 +68,12 @@ const C = {
  textDark: "#2C2C2A",
  textMuted: "#7A7A7A",
 
-
  approved: {
    bg: "#E8F2E3", //to be checked pa po ulit kasi no reference atm
    text: "#2D5C3A",
    border: "#8AAE8A",
    icon: "#3A7A4A",
  },
-
 
  review: {
    bg: "#FFF4D6",
@@ -91,7 +82,6 @@ const C = {
    icon: "#C8882A",
  },
 
-
  declined: {
    bg: "#F4E3E3", //to be checked pa po ulit kasi no reference atm
    text: "#6B1A1A",
@@ -99,7 +89,6 @@ const C = {
    icon: "#8B3A3A",
  },
 }
-
 
 interface RequestItem {
  id: string
@@ -118,7 +107,6 @@ interface RequestItem {
 
 const LEADER_ROLE_TRANSFER_CODE = "leader role transfer"
 
-
 function StatusBadge({ status }: { status: RequestItem["status"] }) {
  const map = {
    Approved: {
@@ -126,18 +114,15 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
      icon: "ti-circle-check",
    },
 
-
    "Under Review": {
      ...C.review,
      icon: "ti-clock",
    },
 
-
    "Pending Review": {
        ...C.review,
        icon: "ti-hourglass"
      },
-
 
    Declined: {
      ...C.declined,
@@ -149,9 +134,7 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
    },
  }
 
-
  const s = map[status] || map["Pending Review"]
-
 
  return (
    <span
@@ -181,7 +164,6 @@ function StatusBadge({ status }: { status: RequestItem["status"] }) {
  )
 }
 
-
 export default function RequestsView() {
  // The sidebar and the "Leader Role Transfer" category both key off the user's
  // real leader status (isCurrentUserLeader below, from getStudentDashboard) —
@@ -206,22 +188,18 @@ export default function RequestsView() {
  const [isCurrentUserLeader, setIsCurrentUserLeader] = useState(false)
  const [activeFilter, setActiveFilter] = useState("All")
 
-
  const [requestSearch, setRequestSearch] = useState("")
  const [showRequestFilters, setShowRequestFilters] = useState(false)
-
 
  type RequestFilterField = "type"
  type ActiveRequestFilters = Partial<Record<RequestFilterField, string[]>>
  const [activeRequestFilters, setActiveRequestFilters] = useState<ActiveRequestFilters>({})
 
-
  const requestFilterRef = useRef<HTMLDivElement>(null)
-
 
  const [isPending, startTransition] = useTransition() // for loading states
  const [requests, setRequests] = useState<RequestItem[]>([]) // empty array
-
+ const [loading, setLoading] = useState(true)
 
  const [requestType, setRequestTypes] = useState<
    { appeal_type_id: string; name: string; code: string }[]
@@ -230,11 +208,9 @@ export default function RequestsView() {
  const [editTypeId, setEditTypeId] = useState<string>("")
  const [selectedTypeId, setSelectedTypeId] = useState<string>("")
 
-
  const isEditable =
  selectedRequest &&
  normalizeStatus(selectedRequest.status) === "pending review"
-
 
  const [profile, setProfile] = useState({
    enrollmentId: "",
@@ -242,21 +218,17 @@ export default function RequestsView() {
    sectionName: "",
  })
 
-
  // fetch profile and requests on load
  const loadRequests = async (enrollmentId: string) => {
    const res = await getStudentRequests(enrollmentId)
    if (res.ok) {console.log("requests:", res.data);setRequests(res.data)}
  }
 
-
  const supabase = createClient()
-
 
  useEffect(() => {
    let cancelled = false
    const supabase = createClient()
-
 
    // Fetch dynamic request/appeal types from DB
    supabase
@@ -275,7 +247,6 @@ export default function RequestsView() {
        }
      })
 
-
    getStudentDashboard().then((res) => {
      if (cancelled || !res.ok) return
      setProfile({
@@ -285,12 +256,12 @@ export default function RequestsView() {
      })
      setIsCurrentUserLeader(res.data.isLeader)
      if (res.data.enrollmentId) loadRequests(res.data.enrollmentId)
+     setLoading(false)
    })
    return () => {
      cancelled = true
    }
  }, [])
-
 
  // Load the student's sessions for the structured time-correction picker
  // (needed by both the Add and Edit modals).
@@ -303,7 +274,6 @@ export default function RequestsView() {
    })
  }, [showModal, selectedRequest])
 
-
  // Seed the edit modal's time-correction state once per open, inferring the
  // scenario from the stored session/times. inferTimeCorrectionState doesn't need
  // sessionOptions, so we key only on selectedRequest to avoid clobbering edits
@@ -315,7 +285,6 @@ export default function RequestsView() {
    // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [selectedRequest])
 
-
  const counts = {
    Approved: requests.filter(
      (r) => r.status?.trim().toLowerCase() === "approved"
@@ -323,7 +292,6 @@ export default function RequestsView() {
     "Pending Review": requests.filter(
      (r) => r.status?.trim().toLowerCase() === "pending review"
    ).length,
-
 
    "Under Review": requests.filter(
        (r) => r.status?.trim().toLowerCase() === "under review"
@@ -334,22 +302,18 @@ export default function RequestsView() {
    }).length,
  }
 
-
  async function handleViewAttachment(storagePath: string) {
    const { data, error } = await supabase.storage
      .from("request-attachments")
      .createSignedUrl(storagePath, 60 * 20) // valid for 20 min
-
 
    if (error || !data?.signedUrl) {
      alert("Failed to open attachment")
      return
    }
 
-
    window.open(data.signedUrl, "_blank")
  }
-
 
  function handleSubmit() {
    if (
@@ -360,13 +324,11 @@ export default function RequestsView() {
    )
      return
 
-
    const selectedTypeObj = requestType.find(
      (t) => t.appeal_type_id === formTypeId
    )
    const typeName = selectedTypeObj ? selectedTypeObj.name : "Others"
    const isTimeRequest = typeName === "Hour Adjustment"
-
 
    let structured: StructuredCorrection | undefined
    if (isTimeRequest) {
@@ -377,7 +339,6 @@ export default function RequestsView() {
      }
      structured = built.value
    }
-
 
    startTransition(async () => {
      const {data: { user },} = await supabase.auth.getUser()
@@ -390,15 +351,12 @@ export default function RequestsView() {
        .from("request-attachments")
        .list(user.id)
 
-
      if (listError) {
        alert(`Failed to check existing attachments: ${listError.message}`)
        return
      }
 
-
      const existingNames = new Set(existingFiles?.map((f) => f.name) ?? [])
-
 
      const uploadedAttachments: {
        storage_path: string
@@ -407,22 +365,18 @@ export default function RequestsView() {
        file_size_byte: number
      }[] = []
 
-
      for (const file of formFiles) {
        const uniqueName = checkDuplicateName(file.name, existingNames)
        const path = `${user.id}/${uniqueName}`
-
 
        const { error: uploadError } = await supabase.storage
          .from("request-attachments")
          .upload(path, file)
 
-
        if (uploadError) {
          alert(`Failed to upload ${file.name}: ${uploadError.message}`)
          return
        }
-
 
        uploadedAttachments.push({
          storage_path: path,
@@ -432,7 +386,6 @@ export default function RequestsView() {
        })
      }
 
-
      const res = await submitStudentRequest(
        profile.enrollmentId,
        formTypeId,
@@ -441,7 +394,6 @@ export default function RequestsView() {
        uploadedAttachments,
        structured
      )
-
 
      if (res.ok) {
        await loadRequests(profile.enrollmentId)
@@ -457,7 +409,6 @@ export default function RequestsView() {
      }
    })
  }
-
 
  function hasChanges() {
    if (!selectedRequest) return false
@@ -489,11 +440,9 @@ export default function RequestsView() {
  function handleEditSave() {
    if (!profile.enrollmentId || !selectedRequest || !editTypeId) return
 
-
    const editTypeName =
      requestType.find((t) => t.appeal_type_id === editTypeId)?.name ?? ""
    const editIsTimeRequest = editTypeName === "Hour Adjustment"
-
 
    let structured: StructuredCorrection
    if (editIsTimeRequest) {
@@ -512,10 +461,8 @@ export default function RequestsView() {
      }
    }
 
-
    startTransition(async () => {
      const cleanBody = editBody.replace(/^Request:\s*/, "")
-
 
      const {
        data: { user },
@@ -525,7 +472,6 @@ export default function RequestsView() {
        return
      }
 
-
      // Upload any newly-attached files (same flow as handleSubmit).
      const uploadedAttachments: {
        storage_path: string
@@ -533,7 +479,6 @@ export default function RequestsView() {
        content_type: string
        file_size_byte: number
      }[] = []
-
 
      if (editNewFiles.length > 0) {
        const { data: existingFiles, error: listError } = await supabase.storage
@@ -563,12 +508,10 @@ export default function RequestsView() {
        }
      }
 
-
      // Existing attachments the student removed in the modal.
      const originalPaths = (selectedRequest.attachments ?? []).map((a) => a.storage_path)
      const keptPaths = editFiles.map((a) => a.storage_path)
      const removePaths = originalPaths.filter((p) => !keptPaths.includes(p))
-
 
      const res = await updateStudentRequest(
        selectedRequest.id,
@@ -590,7 +533,6 @@ export default function RequestsView() {
      }
    })
  }
-
 
  const stats = [
    {
@@ -619,40 +561,30 @@ export default function RequestsView() {
    },
  ]
 
-
  const [hoveredCard, setHoveredCard] = useState<string | null>(null)
-
 
  const [currentPage, setCurrentPage] = useState(1)
  const [itemsPerPage, setItemsPerPage] = useState(10)
 
-
  type SortField = "title" | "type" | "status" | "date"
-
 
  const [sortField, setSortField] = useState<SortField>("date")
  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-
 
  function normalizeStatus(status: string) {
    return status?.trim().toLowerCase()
  }
 
-
  const requestTypeNames = [...new Set(requestType.map((t) => t.name))].sort()
-
 
  function handleSort(field: SortField) {
    if (sortField !== field) {
 
-
      setSortField(field)
      setSortOrder("asc")
 
-
    } else if (sortOrder === "asc") {
      setSortOrder("desc")
-
 
    } else {
      setSortField("date")
@@ -691,14 +623,11 @@ export default function RequestsView() {
    )
  }
 
-
  const filteredRequests = requests
  .filter((request) => {
    const status = normalizeStatus(request.status)
 
-
    let matchesStatus = true
-
 
    if (activeFilter === "Declined") {
      matchesStatus = status === "declined" || status === "rejected"
@@ -710,39 +639,32 @@ export default function RequestsView() {
      matchesStatus = status === "approved"
    }
 
-
    const matchesSearch = request.title
      .toLowerCase()
      .includes(requestSearch.toLowerCase())
-
 
    const matchesType =
      !activeRequestFilters.type ||
      activeRequestFilters.type.length === 0 ||
      activeRequestFilters.type.includes(request.type)
 
-
    return matchesStatus && matchesSearch && matchesType
  })
  .sort((a, b) => {
  let result = 0
-
 
  switch (sortField) {
    case "title":
      result = a.title.localeCompare(b.title)
      break
 
-
    case "type":
      result = a.type.localeCompare(b.type)
      break
 
-
    case "status":
      result = a.status.localeCompare(b.status)
      break
-
 
    case "date":
      result =
@@ -751,10 +673,8 @@ export default function RequestsView() {
      break
  }
 
-
  return sortOrder === "asc" ? result : -result
 })
-
 
  const totalPages = Math.ceil(
    filteredRequests.length / itemsPerPage
@@ -763,7 +683,6 @@ export default function RequestsView() {
    (currentPage - 1) * itemsPerPage,
    currentPage * itemsPerPage
  )
-
 
  function getPageNumbers() {
    const pages: (number | "...")[] = []
@@ -789,15 +708,12 @@ export default function RequestsView() {
     return pages
  }
 
-
  useEffect(() => {
    setCurrentPage(1)
  }, [activeFilter, itemsPerPage, requestSearch, activeRequestFilters])
 
-
    const [showSuccessModal, setShowSuccessModal] = useState(false)
    const [successMessage, setSuccessMessage] = useState("")
-
 
    useEffect(() => {
        function handleClickOutsideRequestFilter(event: MouseEvent) {
@@ -814,18 +730,13 @@ export default function RequestsView() {
          document.removeEventListener("mousedown", handleClickOutsideRequestFilter)
      }, [])
 
-
-
-
  const selectedFormTypeName =
    requestType.find((t) => t.appeal_type_id === formTypeId)?.name ?? ""
  const isTimeRequest = selectedFormTypeName === "Hour Adjustment"
 
-
  const editSelectedTypeName =
    requestType.find((t) => t.appeal_type_id === editTypeId)?.name ?? ""
  const editIsTimeRequest = editSelectedTypeName === "Hour Adjustment"
-
 
  // "Leader Role Transfer" is only offered to non-leader students. Hide it from
  // the category dropdowns when the current user is actually a section leader.
@@ -863,7 +774,6 @@ export default function RequestsView() {
   }
 }, [])
 
-
 const [isMobile, setIsMobile] = useState(false)
 
 useEffect(() => {
@@ -875,18 +785,16 @@ useEffect(() => {
   return () => window.removeEventListener("resize", check)
 }, [])
 
+if (loading) {
+  return <LoadingPage Sidebar={() => <StudentSidebar isLeader={isCurrentUserLeader} />} />
+}
 
  return (
    <>
 
-
    <ChartStyles />
 
-
-
-
      <style>{`
-
 
        .requests-page{
          min-height:100vh;
@@ -895,7 +803,6 @@ useEffect(() => {
          font-family:'Montserrat',sans-serif;
        }
 
-
        .requests-main{
        flex:1;
        margin-left:90px;
@@ -903,13 +810,11 @@ useEffect(() => {
        min-width:0;
        }
 
-
        .requests-header{
          display:flex;
          justify-content:space-between;
          align-items:center;
        }
-
 
        .requests-maintitle{
        margin:0;
@@ -919,13 +824,11 @@ useEffect(() => {
        letter-spacing:-1.5px;
        }
 
-
        .divider{
          background:#D9DDD8;
          margin-top:10px;
          margin-bottom:24px;
        }
-
 
        .stats{
          display:flex;
@@ -933,7 +836,6 @@ useEffect(() => {
          margin-bottom:24px;
          align-items:flex-start;
        }
-
 
        .request-card{
        background:white;
@@ -944,14 +846,12 @@ useEffect(() => {
        box-shadow:0 10px 30px rgba(0,0,0,.06);
        }
 
-
        .request-card-scroll{
        max-height: 55vh;  
        overflow-y: auto;
        scrollbar-width: thin;
        scrollbar-color: #CFCFCB transparent;
        }
-
 
        .request-top-bar{
        padding:16px 20px 16px;
@@ -963,13 +863,11 @@ useEffect(() => {
        border-bottom: 1px solid #EEEEEE;
        }
 
-
        .request-card-title{
        font-weight: 700;
        font-size: 15px;
        color: #111827;
        }
-
 
        .request-card-count{
        font-size: 13px;
@@ -979,14 +877,12 @@ useEffect(() => {
        padding:0;
        }
 
-
        .request-actions{
        display:flex;
        align-items:center;
        gap:10px;
        flex-wrap:wrap;
        }
-
 
        .search-box{
        width:260px;
@@ -999,7 +895,6 @@ useEffect(() => {
        gap:10px;
        }
 
-
        .search-box input{
        width:100%;
        border:none;
@@ -1008,7 +903,6 @@ useEffect(() => {
        font-size:13px;
        background:transparent;
        }
-
 
        .filter {
            width:60px;
@@ -1024,7 +918,6 @@ useEffect(() => {
            justify-content:center;
            transition: 0.2s ease;
            }
-
 
        .filter-menu{
        position:absolute;
@@ -1045,12 +938,10 @@ useEffect(() => {
        gap:8px;
        }
 
-
        .filter-section{
        display:flex;
        flex-direction:column;
        }
-
 
        .filter-title{
        font-size:11px;
@@ -1059,7 +950,6 @@ useEffect(() => {
        color:${C.maroon};
        margin-bottom:4px;
        }
-
 
        .filter-header{
        display:flex;
@@ -1073,12 +963,10 @@ useEffect(() => {
        color:${C.maroon};
        }
 
-
        .filter-arrow{
        font-size:14px;
        color:${C.textMuted};
        }
-
 
        .filter-options{
        display:flex;
@@ -1087,13 +975,11 @@ useEffect(() => {
        padding:4px 0 8px;
        }
 
-
        .filter-divider{
        height:1px;
        background:#EAEAEA;
        margin:8px 0;
        }
-
 
        .check-item{
        display:flex;
@@ -1108,11 +994,9 @@ useEffect(() => {
        transition:.2s;
        }
 
-
        .check-item:hover{
        background:#F7F7F5;
        }
-
 
        .check-item input{
        appearance:none;
@@ -1124,12 +1008,10 @@ useEffect(() => {
        position:relative;
        }
 
-
        .check-item input:checked{
        background:${C.maroon};
        border-color:${C.maroon};
        }
-
 
        .check-item input:checked::after{
        content:"✓";
@@ -1139,7 +1021,6 @@ useEffect(() => {
        left:3px;
        top:-1px;
        }
-
 
        .clear-filter{
        margin-top:14px;
@@ -1153,11 +1034,9 @@ useEffect(() => {
        transition:.2s;
        }
 
-
        .clear-filter:hover{
        opacity:.9;
        }
-
 
        .request-table-head{
        display:grid;
@@ -1171,7 +1050,6 @@ useEffect(() => {
        font-weight:700;
        letter-spacing:1px;
        }
-
 
        .request-item{
         padding:16px 28px;
@@ -1206,13 +1084,11 @@ useEffect(() => {
         margin-bottom:8px;
         }
 
-
        .request-note{
          font-size:11px;
          color:${C.textMuted};
          font-style:italic;
        }
-
 
        .request-header{
        display:flex;
@@ -1228,7 +1104,6 @@ useEffect(() => {
        color:${C.textDark};
        }
 
-
        .send-btn{
        height:38px;
        padding:0 15px;
@@ -1241,16 +1116,13 @@ useEffect(() => {
        font-weight:600;
        cursor:pointer;
 
-
        display:flex;
        align-items:center;
        justify-content:center;
        gap:8px;
 
-
        transition:transform .25s ease, box-shadow .25s ease;
    }
-
 
    .send-btn:hover{
        transform:scale(1.05);
@@ -1266,20 +1138,17 @@ useEffect(() => {
        flex-wrap:wrap;
        }
 
-
        .pagination-info {
        font-size:11px;
        color:${C.textMuted};
        font-weight:500;
        }
 
-
        .pagination-buttons {
        display:flex;
        align-items:center;
        gap:8px;
        }
-
 
        .pagination-btn {
        width:28px;
@@ -1301,19 +1170,16 @@ useEffect(() => {
        --status-height: 20%;
         }
 
-
        .pagination-btn.active {
        background:${C.maroon};
        color:white;
        font-weight:700;
        }
 
-
        .pagination-btn.disabled {
        color:#CFCFCF;
        cursor:not-allowed;
        }
-
 
        .pagination-dots {
        width:20px;
@@ -1321,7 +1187,6 @@ useEffect(() => {
        font-weight:700;
        color:${C.textMuted};
        }
-
 
        .rows-page {
        display:flex;
@@ -1331,7 +1196,6 @@ useEffect(() => {
        color:${C.textMuted};
        font-weight:500;
        }
-
 
        .rows-select {
        height:30px;
@@ -1344,7 +1208,6 @@ useEffect(() => {
        background:white;
        }
 
-
        .input-field:focus {
        outline: none;
        border: 1.5px solid #14532D !important;
@@ -1353,8 +1216,6 @@ useEffect(() => {
        .db-kpi-grid {
           width:100%;
         }
-
-
 
        @media (max-width:1024px){
 
@@ -1366,19 +1227,16 @@ useEffect(() => {
             font-size:34px;
         }
 
-
         .stats{
             display:grid !important;
             gap:14px;
             width:100%;
         }
 
-
         .stats > *{
             width:100% !important;
             min-width:0 !important;
         }
-
 
         .stats > div{
             padding:18px !important;
@@ -1398,7 +1256,6 @@ useEffect(() => {
             font-size:34px;
         }
 
-
         .stats{
             display:grid !important;
             grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
@@ -1406,19 +1263,16 @@ useEffect(() => {
             width:100%;
         }
 
-
         .stats > *{
             width:100% !important;
             min-width:0 !important;
         }
-
 
         .stats > div{
             padding:18px !important;
             height:auto !important;
             min-height:unset !important;
         }
-
 
         .search-box{
             width:220px;
@@ -1435,10 +1289,7 @@ useEffect(() => {
 
     }
 
-
-
        @media (max-width:767px){
-
 
        .requests-main{
            margin-left:0;
@@ -1446,23 +1297,19 @@ useEffect(() => {
            padding-bottom:110px;
        }
 
-
        .requests-header{
            gap:12px;
            align-items:center;
        }
 
-
        .requests-maintitle{
            font-size:24px;
        }
-
 
        .stats{
            flex-direction:column;
            gap:12px;
        }
-
 
        .request-header{
            flex-direction:column;
@@ -1470,12 +1317,10 @@ useEffect(() => {
            gap:14px;
        }
 
-
        .send-btn{
            width:100%;
            height:44px;
        }
-
 
        .request-item{
            padding:20px 18px 20px 28px;
@@ -1612,10 +1457,8 @@ useEffect(() => {
 
      `}</style>
 
-
      <div className={`${montserrat.variable} requests-page`}>
        <StudentSidebar isLeader={isCurrentUserLeader} />
-
 
        <main className="requests-main">
          <div className="requests-header">
@@ -1630,18 +1473,14 @@ useEffect(() => {
          </div>
          </div>
 
-
          <div className="divider" />
 
-
          <ChartStyles />
-
 
          <KpiStatCardGrid columns={4}>
            {stats.map((stat) => {
                const isHovered = hoveredCard === stat.label
                const isActive = activeFilter === stat.label
-
 
                return (
                    <div
@@ -1675,7 +1514,6 @@ useEffect(() => {
                                ? "translateY(-1.5px)"
                                : "translateY(0)",
 
-
                        boxShadow:
                            hoveredCard === stat.label
                                ? "0 6px 14px rgba(0,0,0,.07)"
@@ -1695,12 +1533,9 @@ useEffect(() => {
            })}
            </KpiStatCardGrid>
 
-
            <div className="request-card">
 
-
            <div className="request-top-bar">
-
 
                <div>
                <div className="request-card-title">
@@ -1709,13 +1544,11 @@ useEffect(() => {
                    : `${activeFilter} Requests`}
                </div>
 
-
                <div className="request-card-count">
                    {filteredRequests.length} request
                    {filteredRequests.length !== 1 ? "s" : ""} found
                </div>
                </div>
-
 
                <div className="request-actions">
                <div className="search-box">
@@ -1726,7 +1559,6 @@ useEffect(() => {
                    placeholder="Search requests..."
                    />
                </div>
-
 
                <div ref={requestFilterRef} style={{ position: "relative" }}>
                <button
@@ -1764,7 +1596,6 @@ useEffect(() => {
                    )}
                </button>
 
-
                {showRequestFilters && (
                    <AdminFilterPanel
                    groups={[
@@ -1784,14 +1615,12 @@ useEffect(() => {
                )}
                </div>
 
-
                <button className="send-btn" onClick={() => setShowModal(true)}>
                <span style={{ fontSize: 20 }}>+</span>
                Send Request
                </button>
            </div>
            </div>
-
 
            <div className="request-card-scroll">
 
@@ -1825,7 +1654,6 @@ useEffect(() => {
                     setEditTitle(request.title)
                     setEditBody(request.body)
                     setEditFiles(request.attachments ?? [])
-
 
                      // Find the UUID that matches string name
                      const matchingType = requestType.find(
@@ -1914,9 +1742,7 @@ useEffect(() => {
 
                 </div>
 
-
            <div className="pagination-container">
-
 
            <div className="pagination-info">
            Showing{" "}
@@ -1931,9 +1757,7 @@ useEffect(() => {
            of {filteredRequests.length}
            </div>
 
-
            <div className="pagination-buttons">
-
 
            <button
                onClick={() =>
@@ -1946,7 +1770,6 @@ useEffect(() => {
            >
                ‹
            </button>
-
 
            {getPageNumbers().map((page, index) =>
                page === "..." ? (
@@ -1969,7 +1792,6 @@ useEffect(() => {
                )
            )}
 
-
            <button
                onClick={() =>
                setCurrentPage((prev) =>
@@ -1990,15 +1812,11 @@ useEffect(() => {
                ›
            </button>
 
-
            </div>
-
 
            <div className="rows-page">
 
-
            Rows per page
-
 
            <select
                value={itemsPerPage}
@@ -2013,19 +1831,14 @@ useEffect(() => {
                <option value={20}>20</option>
            </select>
 
-
            </div>
 
-
            </div>
-
 
          </div>
 
-
        </main>
      </div>
-
 
      {/* modal */}
      {showModal && (
@@ -2083,7 +1896,6 @@ useEffect(() => {
                    Send Request / Concern
                </h2>
 
-
                <button
                onClick={() => setShowModal(false)}
                onMouseEnter={(e) =>
@@ -2122,7 +1934,6 @@ useEffect(() => {
              >
                Request Category
              </label>
-
 
              <select
                className="input-field"
@@ -2184,7 +1995,6 @@ useEffect(() => {
                }}
                />
 
-
                <div
                style={{
                    fontSize: 12,
@@ -2196,7 +2006,6 @@ useEffect(() => {
                {formTitle.length}/50
                </div>
            </div>
-
 
            <div style={{ marginBottom: 24 }}>
              <label
@@ -2256,16 +2065,13 @@ useEffect(() => {
                  Attachment (Optional)
                </label>
 
-
                {formFiles.length < MAX_NUM_ATTACHMENT && (
                <label
                onDragOver={(e) => e.preventDefault()}
                onDrop={(e) => {
                    e.preventDefault()
 
-
                    const files = Array.from(e.dataTransfer.files)
-
 
                    if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
                    alert(
@@ -2273,7 +2079,6 @@ useEffect(() => {
                    )
                    return
                    }
-
 
                    setFormFiles((prev) => [...prev, ...files])
                }}
@@ -2302,7 +2107,6 @@ useEffect(() => {
                    Drop your file here
                    </span>
 
-
                    <span
                    style={{
                        fontSize: 12,
@@ -2313,7 +2117,6 @@ useEffect(() => {
                    or click to browse
                    </span>
 
-
                    <input
                    type="file"
                    hidden
@@ -2321,7 +2124,6 @@ useEffect(() => {
                    onChange={(e) => {
                        if (e.target.files) {
                        const files = Array.from(e.target.files)
-
 
                        if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
                            alert(
@@ -2332,14 +2134,12 @@ useEffect(() => {
                            return
                        }
 
-
                        setFormFiles((prev) => [...prev, ...files])
                        }
                    }}
                    />
                </label>
                )}
-
 
                {formFiles.length > 0 && (
                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -2440,7 +2240,6 @@ useEffect(() => {
        </div>
      )}
 
-
      {selectedRequest && (
        <div
            style={{
@@ -2499,7 +2298,6 @@ useEffect(() => {
                    Review Request
                </h2>
 
-
                <button
                onClick={() => setSelectedRequest(null)}
                onMouseEnter={(e) =>
@@ -2524,7 +2322,6 @@ useEffect(() => {
                <IconX size={20} stroke={2} />
                </button>
                </div>
-
 
            <label
              style={{
@@ -2571,7 +2368,6 @@ useEffect(() => {
              )}
            </select>
 
-
            <label
             style={{
                fontSize: 11,
@@ -2585,7 +2381,6 @@ useEffect(() => {
            >
              Title
            </label>
-
 
            <textarea
                className="input-field"
@@ -2613,7 +2408,6 @@ useEffect(() => {
                }}
                />
 
-
                {isEditable && (
                <div
                    style={{
@@ -2628,7 +2422,6 @@ useEffect(() => {
                </div>
                )}
 
-
            <label
              style={{
                fontSize: 11,
@@ -2642,7 +2435,6 @@ useEffect(() => {
            >
              Description
            </label>
-
 
            <textarea
              className="input-field"
@@ -2667,7 +2459,6 @@ useEffect(() => {
              }}
            />
 
-
            {isEditable && (
            <div
                style={{
@@ -2682,7 +2473,6 @@ useEffect(() => {
            </div>
            )}
 
-
            {/* Structured time-correction — editable "Hour Adjustment" requests only */}
            {isEditable && editIsTimeRequest && (
              <TimeCorrectionFields
@@ -2692,7 +2482,6 @@ useEffect(() => {
                loading={sessionsLoading}
              />
            )}
-
 
            {isEditable ? (
              <div style={{ marginTop: 4, marginBottom: 16 }}>
@@ -2709,7 +2498,6 @@ useEffect(() => {
                >
                  Attachment (Optional)
                </label>
-
 
                {/* Existing attachments — view or remove */}
                {editFiles.length > 0 && (
@@ -2748,7 +2536,6 @@ useEffect(() => {
                    ))}
                  </div>
                )}
-
 
                {/* Upload zone — shown while under the attachment cap */}
                {editFiles.length + editNewFiles.length < MAX_NUM_ATTACHMENT && (
@@ -2801,7 +2588,6 @@ useEffect(() => {
                    />
                  </label>
                )}
-
 
                {/* Newly-selected files pending upload */}
                {editNewFiles.length > 0 && (
@@ -2859,7 +2645,6 @@ useEffect(() => {
              )
            )}
 
-
            <div
              style={{
                fontSize: 12,
@@ -2873,7 +2658,6 @@ useEffect(() => {
                year: "numeric",
                })}
            </div>
-
 
            <div
              style={{
@@ -2891,7 +2675,6 @@ useEffect(() => {
                    })
                : "Not edited yet"}
            </div>
-
 
            <div
            style={{
@@ -2921,7 +2704,6 @@ useEffect(() => {
                </button>
                )}
 
-
              {isEditable && (
                <button
                  onClick={handleEditSave}
@@ -2948,17 +2730,12 @@ useEffect(() => {
        </div>
      )}
 
-
        <SuccessModal
        show={showSuccessModal}
        message={successMessage}
        onClose={() => setShowSuccessModal(false)}
        />
 
-
    </>
  )
 }
-
-
-
