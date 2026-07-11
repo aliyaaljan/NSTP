@@ -17,6 +17,7 @@ import {
   IconChevronUp,
   IconChevronDown,
   IconSelector,
+  IconEdit,
 } from "@tabler/icons-react"
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
@@ -36,6 +37,7 @@ import {
   deleteSectionRequirement,
   uploadRequirementFromData,
   getTemplateDownloadUrl,
+  updateRequirementFromData,
   type FormRequirement,
 } from "@/lib/forms/requirement-actions"
 
@@ -294,8 +296,21 @@ export default function FormsPage() {
   const [showUpload, setShowUpload] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadTitle, setUploadTitle] = useState("Daily Time Record")
+  const [customTitle, setCustomTitle] = useState("")
+  const [uploadDescription, setUploadDescription] = useState("")
+  const [uploadDueDate, setUploadDueDate] = useState("")
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Edit Modal States
+  const [showEdit, setShowEdit] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editReqId, setEditReqId] = useState("")
+  const [editTitle, setEditTitle] = useState("Daily Time Record")
+  const [editCustomTitle, setEditCustomTitle] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [editDueDate, setEditDueDate] = useState("")
+  const [editFile, setEditFile] = useState<File | null>(null)
 
   const loadData = async () => {
     const secRes = await getFacilitatorSectionId()
@@ -357,11 +372,15 @@ export default function FormsPage() {
   }
 
   const handleUploadSubmit = async () => {
-    if (!uploadTitle.trim() || !sectionId) return
-    setIsUploading(true)
+    const finalTitle = uploadTitle === "Other" ? customTitle : uploadTitle
+    if (!finalTitle.trim() || !sectionId) return
 
+    setIsUploading(true)
     const formData = new FormData()
-    formData.append("title", uploadTitle)
+    formData.append("title", finalTitle.trim())
+    if (uploadDescription.trim())
+      formData.append("description", uploadDescription.trim())
+    if (uploadDueDate) formData.append("dueDate", uploadDueDate)
     if (uploadFile) formData.append("file", uploadFile)
 
     const res = await uploadRequirementFromData(formData, sectionId)
@@ -370,9 +389,59 @@ export default function FormsPage() {
     if (res.ok) {
       setShowUpload(false)
       setUploadFile(null)
+      setUploadTitle("Daily Time Record")
+      setCustomTitle("")
+      setUploadDescription("")
+      setUploadDueDate("")
       loadData()
     } else {
       alert(`Upload Failed: ${res.error}`)
+    }
+  }
+
+  const openEditModal = (form: FormRequirement) => {
+    setEditReqId(form.form_requirement_id)
+    const standardTitles = [
+      "Daily Time Record",
+      "Accomplishment Report",
+      "Attendance Sheet",
+      "Incident Report",
+    ]
+
+    if (standardTitles.includes(form.title)) {
+      setEditTitle(form.title)
+      setEditCustomTitle("")
+    } else {
+      setEditTitle("Other")
+      setEditCustomTitle(form.title)
+    }
+
+    setEditDescription(form.description || "")
+    setEditDueDate(form.due_date ? form.due_date.split("T")[0] : "")
+    setEditFile(null)
+    setShowEdit(true)
+  }
+
+  const handleEditSubmit = async () => {
+    const finalTitle = editTitle === "Other" ? editCustomTitle : editTitle
+    if (!finalTitle.trim() || !sectionId || !editReqId) return
+
+    setIsEditing(true)
+    const formData = new FormData()
+    formData.append("title", finalTitle.trim())
+    if (editDescription.trim())
+      formData.append("description", editDescription.trim())
+    if (editDueDate) formData.append("dueDate", editDueDate)
+    if (editFile) formData.append("file", editFile)
+
+    const res = await updateRequirementFromData(editReqId, sectionId, formData)
+    setIsEditing(false)
+
+    if (res.ok) {
+      setShowEdit(false)
+      loadData()
+    } else {
+      alert(`Update Failed: ${res.error}`)
     }
   }
 
@@ -446,8 +515,12 @@ export default function FormsPage() {
         bv = b.type.toLowerCase()
         break
       case "date":
-        av = a.submission ? new Date(a.submission.submitted_at).getTime() : -Infinity
-        bv = b.submission ? new Date(b.submission.submitted_at).getTime() : -Infinity
+        av = a.submission
+          ? new Date(a.submission.submitted_at).getTime()
+          : -Infinity
+        bv = b.submission
+          ? new Date(b.submission.submitted_at).getTime()
+          : -Infinity
         break
       case "status":
         av = a.status.toLowerCase()
@@ -681,6 +754,18 @@ export default function FormsPage() {
                                     <IconDownload size={14} stroke={1.75} />
                                   </button>
                                 )}
+
+                                {f.section_id !== null && (
+                                  <button
+                                    className="fm-icon-btn"
+                                    title="Edit"
+                                    onClick={() => openEditModal(f)}
+                                    disabled={isLoading}
+                                  >
+                                    <IconEdit size={14} stroke={1.75} />
+                                  </button>
+                                )}
+
                                 {f.section_id !== null && (
                                   <button
                                     className="fm-icon-btn danger"
