@@ -13,14 +13,18 @@ type UseAdviserBroadcastOptions = {
   adviserUserId: string | null | undefined
   onChange: (payload: BroadcastPayload) => void
   debounceMs?: number
+  tables?: string[] 
 }
 
 export function useAdviserBroadcast(
   supabase: SupabaseClient,
-  { adviserUserId, onChange, debounceMs = 400 }: UseAdviserBroadcastOptions
+  { adviserUserId, onChange, debounceMs = 400, tables  }: UseAdviserBroadcastOptions
 ) {
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+
+  const tablesRef = useRef(tables)
+  tablesRef.current = tables
 
   useEffect(() => {
     if (!adviserUserId) return
@@ -35,6 +39,7 @@ export function useAdviserBroadcast(
     }
 
     const handleEvent = (msg: { payload: BroadcastPayload }) => {
+      if (tablesRef.current && !tablesRef.current.includes(msg.payload.table)) return
       queuedPayloads.push(msg.payload)
       clearTimeout(timer)
       timer = setTimeout(flush, debounceMs)

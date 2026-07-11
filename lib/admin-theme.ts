@@ -205,6 +205,7 @@ export const ADMIN_THEME_CSS = `
     border-bottom: 1px solid #F3F4F6;
     vertical-align: middle;
     font-size: 13px;
+    font-weight: 400;
   }
   .admin-table tbody tr:last-child td { border-bottom: none; }
   .admin-table tbody tr { transition: background 0.12s; }

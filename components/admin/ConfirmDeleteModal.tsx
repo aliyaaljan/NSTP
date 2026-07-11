@@ -6,7 +6,7 @@ import { TYPE } from "@/lib/admin-typography"
 const COLORS = {
   textDark: "#2C2C2A",
   textGray: "#8C8C88",
-  maroon: "#7B1113",
+  headerGreen: "#14492E",
   fieldBg: "#EBEBE8",
   error: "#7B1113",
   border: "#ECECEA",
@@ -87,7 +87,7 @@ export default function ConfirmDeleteModal({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "18px 22px",
-            background: COLORS.maroon,
+            background: COLORS.headerGreen,
           }}
         >
           <h2 id="confirm-delete-title" style={{ ...TYPE.h2, color: "#fff", margin: 0 }}>
@@ -167,7 +167,7 @@ export default function ConfirmDeleteModal({
               justifyContent: "center",
               flexShrink: 0,
               color: "#fff",
-              background: isPending ? "#A86B6D" : COLORS.maroon,
+              background: isPending ? "#A8B5AD" : COLORS.headerGreen,
               cursor: isPending ? "not-allowed" : "pointer",
             }}
           >

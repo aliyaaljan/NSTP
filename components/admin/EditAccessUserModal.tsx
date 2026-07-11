@@ -19,11 +19,11 @@ import { ADMIN_COLORS } from "@/lib/admin-theme"
 const COLORS = {
   textDark: ADMIN_COLORS.text,
   textGray: ADMIN_COLORS.muted,
-  headerMaroon: ADMIN_COLORS.maroon,
+  headerGreen: ADMIN_COLORS.green,
   fieldBg: "#F3F4F6",
   error: ADMIN_COLORS.maroon,
   border: ADMIN_COLORS.border,
-  maroon: ADMIN_COLORS.maroon,
+  green: ADMIN_COLORS.green,
 }
 
 function FormField({
@@ -228,7 +228,7 @@ export default function EditAccessUserModal({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "18px 22px",
-            background: COLORS.headerMaroon,
+            background: COLORS.headerGreen,
           }}
         >
           <h2 id="edit-access-user-title" style={{ ...TYPE.h2, color: "#fff", margin: 0 }}>
@@ -332,7 +332,7 @@ export default function EditAccessUserModal({
               style={{
                 width: 16,
                 height: 16,
-                accentColor: COLORS.headerMaroon,
+                accentColor: COLORS.headerGreen,
                 cursor: "pointer",
               }}
             />
@@ -380,7 +380,7 @@ export default function EditAccessUserModal({
               padding: "10px 18px",
               borderRadius: 8,
               border: "none",
-              background: canSave ? COLORS.maroon : COLORS.border,
+              background: canSave ? COLORS.green : COLORS.border,
               color: "#fff",
               cursor: canSave ? "pointer" : "not-allowed",
             }}

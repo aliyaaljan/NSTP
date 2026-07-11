@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
 import { createSection, updateSection } from "@/lib/admin/section-list-actions"
 import {
   emptySectionCreatePayload,
@@ -183,6 +184,15 @@ export default function SectionFormModal({
     }
   }, [open, isPending, onClose])
 
+  const adviserOptions = useMemo(
+    () =>
+      advisers.map((adviser) => ({
+        value: adviser.adviserUserId,
+        label: adviser.fullName,
+      })),
+    [advisers]
+  )
+
   if (!open) return null
 
   function patchForm(updates: Partial<SectionCreatePayload>) {
@@ -325,17 +335,15 @@ export default function SectionFormModal({
           </FormField>
 
           <FormField label="Adviser">
-            <NativeSelect
+            <SearchableCombobox
+              key={editSectionId ?? "create"}
               value={form.adviserUserId}
               onChange={(adviserUserId) => patchForm({ adviserUserId })}
-            >
-              <option value="">Select adviser</option>
-              {advisers.map((adviser) => (
-                <option key={adviser.adviserUserId} value={adviser.adviserUserId}>
-                  {adviser.fullName}
-                </option>
-              ))}
-            </NativeSelect>
+              options={adviserOptions}
+              placeholder="Select adviser"
+              emptyMessage="No advisers found"
+              toggleAriaLabel="Toggle adviser list"
+            />
           </FormField>
 
           <FormField label="Status">

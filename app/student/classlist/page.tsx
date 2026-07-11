@@ -8,7 +8,7 @@ import { getMyClassmates } from "@/lib/student/classlist-actions"
 import { getInitials } from "@/lib/student/dashboard-view"
 import { AdminFilterPanel } from "@/components/shared/AdminFilterPanel"
 import { IconChevronUp, IconChevronDown, IconFilter } from "@tabler/icons-react"
-import Sidebar from "@/components/shared/StudentSidebar"
+import Sidebar from "@/components/shared/ResponsiveStudentSidebar"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -177,15 +177,32 @@ const filteredStudents = roster.filter((student) => {
     return 0
   })
 
+  const [isMobile, setIsMobile] = useState(false)
+
+useEffect(() => {
+  const handleResize = () => setIsMobile(window.innerWidth <= 767)
+
+  handleResize()
+  window.addEventListener("resize", handleResize)
+
+  return () => window.removeEventListener("resize", handleResize)
+}, [])
+
   const getSortIcons = (field: typeof sortField) => {
     const isActive = sortField === field
     const isAsc = isActive && sortOrder === "asc"
     const isDesc = isActive && sortOrder === "desc"
-
+  
     return (
-      <span style={{ display: "inline-flex", flexDirection: "column", marginLeft: 6 }}>
+      <span
+        style={{
+          display: "inline-flex",
+          flexDirection: "column",
+          marginLeft: isMobile ? 3 : 6,
+        }}
+      >
         <IconChevronUp
-          size={12}
+          size={isMobile ? 10 : 12}
           stroke={2}
           style={{
             color: isAsc ? "#7B1113" : "#CFCFCF",
@@ -193,7 +210,7 @@ const filteredStudents = roster.filter((student) => {
           }}
         />
         <IconChevronDown
-          size={12}
+          size={isMobile ? 10 : 12}
           stroke={2}
           style={{
             color: isDesc ? "#7B1113" : "#CFCFCF",
@@ -261,7 +278,7 @@ const pages = []
 
         .class-main {
           flex:1;
-          margin-left:120px;
+          margin-left:90px;
           padding:28px 32px;
           min-width:0;
         }
@@ -293,7 +310,7 @@ const pages = []
         .class-card {
           background:white;
           border-radius:15px;
-          overflow:hidden;
+          overflow:visible;
           box-shadow: 0 15px 15px rgba(0, 0, 0, 0.08);
         }
 
@@ -311,7 +328,7 @@ const pages = []
         .class-name {
           font-size:20px;
           font-weight:800;
-          color:${C.Green};
+          color:${C.textDark};
         }
 
 
@@ -713,28 +730,140 @@ const pages = []
         background:white;
         }
 
-        @media(max-width:900px){
+        @media (max-width:1024px){
 
-        .class-main {
-            margin-left:100px;
+          .class-main{
+              margin-left:90px;
+              padding:24px;
+          }
+
+          .class-title{
+              font-size:30px;
+          }
+
+          .class-top{
+              flex-direction:column;
+              align-items:stretch;
+          }
+
+          .search-area{
+              width:100%;
+          }
+
+          .search-box{
+              flex:1;
+              width:auto;
+          }
+
+          .table-head,
+          .row{
+              grid-template-columns:2fr 1fr 1fr 1fr;
+              gap:12px;
+              padding-left:18px;
+              padding-right:18px;
+          }
+
+          .student-name{
+              font-size:13px;
+          }
+
+          .student-email,
+          .student-course,
+          .student-year,
+          .site{
+              font-size:12px;
+          }
+
         }
 
-        }
 
+        @media (max-width:767px){
 
-        @media(max-width:600px){
-
-        .class-main {
+        .class-main{
             margin-left:0;
-            padding:20px 12px 110px;
+            padding:18px 14px 100px;
         }
 
-        .class-title {
+        .class-title{
             font-size:28px;
+            padding-top:clamp(43px, 0.5vw, 20px);
         }
 
-        .search-box {
-            width:200px;
+        .class-top{
+            flex-direction:column;
+            align-items:stretch;
+            gap:16px;
+        }
+
+        .divider {
+          background:#D9DDD8;
+          margin-top:1px;
+          margin-bottom:13px;
+        }
+
+        .search-area{
+            width:100%;
+        }
+
+        .search-box{
+            flex:1;
+            width:auto;
+        }
+
+        .filter{
+            width:46px;
+        }
+
+        .profile-pill-wrapper{
+            display:none;
+        }
+
+        .pagination-container{
+            gap:2px;
+            padding:12px 10px;
+        }
+
+        .pagination-info {
+            font-size: 7px;
+        }
+
+        .pagination-buttons {
+            gap:2px;
+        }
+
+        .pagination-btn{
+            font-size:9px;
+            font-weight: 100;
+            width:20px;
+            height:20px;
+            border-radius:5px;
+        }
+
+        .rows-page {
+            font-size: 7px;
+        }
+
+        .rows-select {
+            height:20px;
+            width:40px;
+            font-size: 8px;
+            padding:0 2px;
+        }
+
+        .student-name{
+              font-size:11px;
+          }
+
+          .student-email,
+          .student-course,
+          .student-year,
+          .site{
+              font-size:9px;
+          }
+
+        .table-head{
+            font-size: 9px;
+            align-items: center;
         }
 
         }
@@ -756,12 +885,13 @@ const pages = []
               Class
             </h1>
 
-
+            <div className="profile-pill-wrapper">
             <ProfilePill
               name={profile.fullName}
               initials={getInitials(profile.fullName)}
               section={profile.sectionName}
             />
+            </div>
 
           </div>
 
@@ -849,7 +979,6 @@ const pages = []
                 {/* filter */}
                 {showFilters && (
                     <div
-                    ref={filterRef} 
                     style={{
                         position: "absolute",
                         top: "100%",
@@ -972,7 +1101,7 @@ const pages = []
                     currentPage * itemsPerPage,
                     filteredStudents.length
                     )}
-                    {" "}of {filteredStudents.length} students
+                    {" "}of {filteredStudents.length}
                     </div>
 
 

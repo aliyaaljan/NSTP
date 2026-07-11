@@ -17,7 +17,7 @@ import {
   IconEye,
   IconDownload,
 } from "@tabler/icons-react"
-import StudentSidebar from "@/components/shared/StudentSidebar"
+import StudentSidebar from "@/components/shared/ResponsiveStudentSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
 import {
   KpiStatCard,
@@ -31,6 +31,7 @@ import {
   getMyForms,
   saveDriveSubmission,
   getStudentActiveEnrollmentId,
+  getMySubmissionUrl,
   type StudentFormView,
 } from "@/lib/forms/submission-actions"
 
@@ -39,34 +40,30 @@ import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 
 const studentFilesStyles = `
   .sf-root { display: flex; min-height: 100vh; background: #F0F0F0; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; color: #111827; }
-  .sf-main { flex: 1; display: flex; flex-direction: column; padding: 28px 32px 28px 120px; min-width: 0; width: 100%; max-width: 100%; transition: padding 0.3s ease; }
+  .sf-main { flex: 1; display: flex; flex-direction: column; min-width: 0; width: 100%; max-width: 100%; transition: padding 0.3s ease; }
   
   /* Header */
   .sf-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
   .sf-header-left { flex: 1; min-width: 200px; }
   .sf-header-title { font-size: 34px; font-weight: 800; color: #7B1D1D; font-family: var(--font-montserrat, 'Montserrat', sans-serif); margin: 0; letter-spacing: -0.01em; }
-  .sf-profile-pill { display: flex; align-items: center; gap: 10px; background: #7B1D1D; border-radius: 24px; padding: 4px 16px 4px 4px; flex-shrink: 0; }
-  .sf-profile-avatar { width: 38px; height: 38px; border-radius: 50%; background: #C8A84B; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #7B1D1D; flex-shrink: 0; }
-  .sf-profile-name { color: #FFFFFF; font-size: 13px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sf-profile-section { color: #C8A84B; font-size: 11px; line-height: 1.2; font-weight: 500; }
-
+  
   /* Table Card */
   .sf-adv-table-card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.07); display: flex; flex-direction: column; overflow: hidden; width: 100%; }
-  .sf-adv-table-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #E5E7EB; background: #FFFFFF; }
+  .sf-adv-table-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #E5E7EB; background: #FFFFFF; flex-wrap: wrap; gap: 8px; }
   .sf-adv-table-title { font-weight: 700; font-size: 15px; color: #111827; }
   .sf-adv-table-count { font-size: 12px; color: #6B7280; margin-top: 2px; }
-  .sf-adv-search-bar { display: flex; align-items: center; gap: 8px; border: 1.5px solid #7B1D1D; border-radius: 999px; padding: 8px 18px; min-width: 280px; background: #FFFFFF; transition: border-color 0.15s; }
+  .sf-adv-search-bar { display: flex; align-items: center; gap: 8px; border: 1.5px solid #1B4332; border-radius: 999px; padding: 8px 18px; min-width: 200px; background: #FFFFFF; transition: border-color 0.15s; flex: 1; max-width: 280px; }
   .sf-adv-search-bar:focus-within { border-color: #1B4332; }
   .sf-adv-search-input { border: none; outline: none; font-size: 13px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); color: #111827; width: 100%; background: transparent; }
   .sf-adv-search-input::placeholder { color: #9CA3AF; }
-  .sf-adv-filter-btn { display: flex; align-items: center; gap: 6px; border: none; border-radius: 999px; padding: 8px 18px; background: #1B4332; font-size: 13px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-weight: 500; cursor: pointer; color: #FFFFFF; transition: background 0.13s; }
+  .sf-adv-filter-btn { display: flex; align-items: center; gap: 6px; border: none; border-radius: 999px; padding: 8px 18px; background: #1B4332; font-size: 13px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-weight: 500; cursor: pointer; color: #FFFFFF; transition: background 0.13s; flex-shrink: 0; }
   .sf-adv-filter-btn:hover { background: #14532D; }
   
-  .sf-adv-table-wrapper { overflow-y: visible; max-height: none; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
-  .sf-adv-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .sf-adv-table-wrapper { overflow-y: visible; max-height: none; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; overflow-x: auto; }
+  .sf-adv-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 400px; }
   .sf-adv-table thead tr { background: #F9FAFB; border-bottom: 1px solid #E5E7EB; }
   .sf-adv-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 700; color: #7B1D1D; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
-  .sf-adv-table thead th:last-child { text-align: center; cursor: default; }
+  .sf-adv-table thead th:last-child { text-align: right; cursor: default; }
   .sf-adv-table thead th .sf-sort-icons { display: inline-flex; flex-direction: column; align-items: center; margin-left: 4px; vertical-align: middle; line-height: 1; }
   .sf-adv-table thead th .sf-sort-icons .sf-sort-up, .sf-adv-table thead th .sf-sort-icons .sf-sort-down { opacity: 0.5; color: #4A4A4A; }
   .sf-adv-table thead th .sf-sort-icons .active { opacity: 1 !important; color: #7B1D1D !important; }
@@ -74,31 +71,39 @@ const studentFilesStyles = `
   .sf-adv-table tbody tr:hover td { background: #FAFAFA; }
   .sf-adv-empty { text-align: center; padding: 48px 0; color: #6B7280; font-size: 13px; }
   
-  .sf-form-name { display: flex; align-items: center; gap: 10px; font-weight: 500; color: #111827; }
-  .sf-form-icon { color: #1B4332; flex-shrink: 0; }
-  .sf-deadline { color: #6B7280; font-size: 13px; text-align: left; }
+  .sf-form-name { font-weight: 500; color: #111827; }
+  .sf-form-deadline { color: #6B7280; font-size: 13px; }
   .sf-status-cell { text-align: center; }
   .sf-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; background: #E8EDE5; color: #1B4332; min-width: 100px; justify-content: center; cursor: pointer; }
   .sf-status-badge-submitted { background: #D1FAE5; color: #065F46; }
   .sf-upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #1B4332; color: #FFFFFF; border: none; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); min-width: 100px; justify-content: center; }
   .sf-upload-btn:hover { opacity: 0.85; }
-  .sf-download-template-btn { display: inline-flex; align-items: center; justify-content: center; background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 6px; padding: 4px; cursor: pointer; transition: all 0.2s; color: #6B7280; }
+  .sf-download-template-btn { display: inline-flex; align-items: center; justify-content: center; background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 6px; padding: 4px; cursor: pointer; transition: all 0.2s; color: #6B7280; flex-shrink: 0; margin-left: 6px; }
   .sf-download-template-btn:hover { background: #E5E7EB; color: #1B4332; }
 
-  .sf-adv-pagination { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid #E5E7EB; position: relative; }
-  .sf-adv-pagination-info { font-size: 12px; color: #6B7280; }
-  .sf-adv-pagination-controls { display: flex; align-items: center; gap: 4px; position: absolute; left: 50%; transform: translateX(-50%); }
-  .sf-adv-page-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #E5E7EB; background: #FFFFFF; font-size: 12px; color: #111827; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .sf-adv-pagination { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid #E5E7EB; flex-wrap: nowrap; gap: 8px; }
+  .sf-adv-pagination-info { font-size: 12px; color: #6B7280; flex-shrink: 0; white-space: nowrap; }
+  .sf-adv-pagination-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; justify-content: center; }
+  .sf-adv-page-btn { min-width: 28px; height: 28px; border-radius: 4px; border: 1px solid #E5E7EB; background: #FFFFFF; font-size: 12px; color: #111827; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0 4px; transition: background 0.12s, border-color 0.12s; }
   .sf-adv-page-btn:hover:not(.sf-adv-page-btn-active):not(:disabled) { background: #F9FAFB; }
   .sf-adv-page-btn.sf-adv-page-btn-active { background: #7B1D1D; color: #FFFFFF; border-color: #7B1D1D; font-weight: 700; }
   .sf-adv-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .sf-adv-page-size-select-wrapper { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #6B7280; flex-shrink: 0; white-space: nowrap; }
+  .sf-adv-page-size-select { border: 1.5px solid #E5E7EB; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); color: #111827; background: #FFFFFF; cursor: pointer; outline: none; }
+  
+  /* Mobile card view */
+  .sf-mobile-card { background: #FAFAFA; border-radius: 8px; padding: 12px; margin-bottom: 6px; border: 1px solid #E5E7EB; }
+  .sf-mobile-card-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .sf-mobile-card-name { font-weight: 600; color: #111827; font-size: 13px; word-break: break-word; flex: 1; }
+  .sf-mobile-card-deadline { font-size: 11px; color: #6B7280; flex-shrink: 0; margin-top: 2px; }
+  .sf-mobile-card-status { flex-shrink: 0; }
   
   /* Modal */
   .sf-modal-backdrop { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 100; background: rgba(0,0,0,0.35); backdrop-filter: blur(2px); padding: 16px; }
   .sf-modal { width: 100%; max-width: 480px; max-height: 90vh; background: #FFFFFF; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12); display: flex; flex-direction: column; }
   .sf-modal-header { padding: 16px 24px; background: #1B4332; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-  .sf-modal-title { color: #FFFFFF; font-size: 13px; font-weight: 700; }
-  .sf-modal-close { background: transparent; border: none; cursor: pointer; color: #FFFFFF; }
+  .sf-modal-title { color: #FFFFFF; font-size: 13px; font-weight: 700; word-break: break-word; }
+  .sf-modal-close { background: transparent; border: none; cursor: pointer; color: #FFFFFF; flex-shrink: 0; }
   .sf-modal-body { padding: 24px; overflow-y: auto; display: flex; flex-direction: column; flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; }
   .sf-modal-body::-webkit-scrollbar { width: 4px; }
   .sf-modal-body::-webkit-scrollbar-track { background: transparent; }
@@ -107,9 +112,9 @@ const studentFilesStyles = `
 
   /* Add Button & Upload Submit */
   .sf-add-btn-wrapper { display: flex; flex-direction: column; gap: 10px; width: 100%; }
-  .sf-add-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 20px; background: transparent; border: 2px solid #1B4332; border-radius: 10px; color: #1B4332; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); }
+  .sf-add-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 20px; background: transparent; border: 2px solid #1B4332; border-radius: 10px; color: #1B4332; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); position: relative; }
   .sf-add-btn:hover { background: rgba(27, 67, 50, 0.05); }
-  .sf-upload-submit-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 20px; background: #1B4332; border: 2px solid #1B4332; border-radius: 10px; color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); }
+  .sf-upload-submit-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 20px; background: #1B4332; border: 2px solid #1B4332; border-radius: 10px; color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); position: relative; }
   .sf-upload-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .sf-upload-submit-btn:hover:not(:disabled) { background: #14532D; }
 
@@ -128,20 +133,58 @@ const studentFilesStyles = `
   .sf-file-preview-icon-wrapper { width: 40px; height: 40px; border-radius: 8px; background: #E8EDE5; display: flex; align-items: center; justify-content: center; color: #1B4332; flex-shrink: 0; }
   .sf-file-preview-info { flex: 1; min-width: 0; }
   .sf-file-preview-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sf-file-preview-meta { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .sf-file-preview-meta { display: flex; align-items: center; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
   .sf-file-preview-type { font-size: 10px; font-weight: 700; color: #FFFFFF; background: #1B4332; padding: 2px 10px; border-radius: 12px; flex-shrink: 0; }
   .sf-file-preview-size { font-size: 11px; color: #6B7280; }
   .sf-file-preview-remove { background: none; border: none; color: #9CA3AF; cursor: pointer; padding: 6px; flex-shrink: 0; }
   .sf-file-preview-remove:hover { color: #7B1D1D}
   .sf-empty-state { text-align: center; padding: 60px 20px; color: #9CA3AF; display: flex; flex-direction: column; align-items: center; }
+  .sf-empty-sub { font-size: 12px; color: #B0B0B0; margin-top: 4px; }
   
   /* Link Input */
-  .sf-link-input-container { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #E8EDE5; border-radius: 10px; border: 1px solid #8AAE8A; margin-bottom: 12px; flex-shrink: 0; width: 100%; }
-  .sf-link-input { border: none; outline: none; background: transparent; font-size: 13px; width: 100%; min-width: 0; font-family: var(--font-montserrat, 'Montserrat', sans-serif); }
+  .sf-link-input-container { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #E8EDE5; border-radius: 10px; border: 1px solid #8AAE8A; margin-bottom: 12px; flex-shrink: 0; width: 100%; flex-wrap: wrap; }
+  .sf-link-input { border: none; outline: none; background: transparent; font-size: 13px; width: 100%; min-width: 0; font-family: var(--font-montserrat, 'Montserrat', sans-serif); flex: 1; }
   .sf-link-add-btn { background: #1B4332; color: #FFF; border: none; padding: 6px 24px; border-radius: 6px; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
   .sf-link-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .sf-link-cancel-btn { background: #FFFFFF; border: 1px solid #B0B0B0; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; font-weight: 500; color: #111827; flex-shrink: 0; }
   .sf-link-cancel-btn:hover { background: #F5F5F5; }
+
+  .sf-toolbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  
+  /* Responsive adjustments */
+  @media (max-width: 767px) {
+    .sf-main { padding: 12px 12px 100px 12px !important; margin-top: 60px !important; }
+    .sf-header { margin-bottom: 16px; }
+    .sf-adv-table-toolbar { padding: 12px 14px; flex-direction: column; align-items: stretch; }
+    .sf-adv-search-bar { min-width: unset; max-width: unset; }
+    .sf-toolbar-right { flex: 1; }
+    .sf-adv-table-wrapper { overflow-x: auto; }
+    .sf-adv-table { min-width: 400px; font-size: 12px; }
+    .sf-adv-table thead th { padding: 8px 12px; font-size: 10px; }
+    .sf-adv-table td { padding: 10px 12px; font-size: 12px; }
+    .sf-status-badge { padding: 4px 12px; font-size: 11px; min-width: 80px; }
+    .sf-upload-btn { padding: 4px 12px; font-size: 11px; min-width: 80px; }
+    .sf-adv-pagination { flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
+    .sf-adv-pagination-info { font-size: 10px; }
+    .sf-adv-page-btn { min-width: 24px; height: 24px; font-size: 10px; }
+    .sf-adv-page-size-select-wrapper { font-size: 10px; }
+    .sf-adv-page-size-select { font-size: 10px; padding: 2px 6px; }
+    .sf-modal { max-width: 95%; margin: 8px; }
+    .sf-modal-body { padding: 16px; }
+    .sf-modal-header { padding: 12px 16px; }
+  }
+  
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .sf-main { padding: 24px 24px 24px 100px !important; }
+    .sf-adv-search-bar { min-width: 180px; max-width: 220px; }
+    .sf-adv-table thead th { padding: 8px 14px; font-size: 10px; }
+    .sf-adv-table td { padding: 12px 14px; font-size: 12px; }
+    .sf-adv-pagination { padding: 12px 16px; }
+  }
+  
+  @media (min-width: 1024px) {
+    .sf-main { padding: 28px 32px 28px 120px !important; }
+  }
 `
 
 // Types
@@ -156,9 +199,18 @@ interface Form {
   deadline: string
   sortDate: Date | null
   status: "uploaded" | "pending"
+  realStatus: "missing" | "submitted" | "approved" | "rejected"
   hasTemplate: boolean
-  submittedFiles?: { name: string; type: string; size: string; url?: string }[]
+  submittedFiles?: {
+    name: string
+    type: string
+    size: string
+    url?: string
+    submissionId?: string
+  }[]
   submittedLinks?: string[]
+  reviewerComment?: string | null
+  submissionDate?: string
 }
 
 export default function StudentFilesPage() {
@@ -193,16 +245,38 @@ export default function StudentFilesPage() {
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const filterPanelRef = useRef<HTMLDivElement>(null)
 
+  // Responsive state
+  const [isMobile, setIsMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
+  const [isSmallMobile, setIsSmallMobile] = useState(false)
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth
+      setIsMobile(width < 768)
+      setIsTablet(width >= 768 && width < 1024)
+      setIsSmallMobile(width < 480)
+    }
+
+    handleResize()
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
   // Filter groups
-  const filterGroups: { label: string; field: FilterField; values: () => string[] }[] = [
+  const filterGroups: {
+    label: string
+    field: FilterField
+    values: () => string[]
+  }[] = [
     { label: "Status", field: "status", values: () => ["uploaded", "pending"] },
   ]
 
   function toggleFilter(field: FilterField, value: string) {
-    setActiveFilters(prev => {
+    setActiveFilters((prev) => {
       const current = prev[field] ?? []
       const updated = current.includes(value)
-        ? current.filter(v => v !== value)
+        ? current.filter((v) => v !== value)
         : [...current, value]
       const next = { ...prev }
       if (updated.length === 0) delete next[field]
@@ -219,13 +293,19 @@ export default function StudentFilesPage() {
     setCurrentPage(1)
   }
 
-  // Filter count 
-  const totalActiveFilters = Object.values(activeFilters).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)
+  // Filter count
+  const totalActiveFilters = Object.values(activeFilters).reduce(
+    (sum, arr) => sum + (arr?.length ?? 0),
+    0
+  )
 
   useEffect(() => {
     if (!showFilterPanel) return
     function handleClickOutside(e: MouseEvent) {
-      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)) {
+      if (
+        filterPanelRef.current &&
+        !filterPanelRef.current.contains(e.target as Node)
+      ) {
         setShowFilterPanel(false)
       }
     }
@@ -287,6 +367,7 @@ export default function StudentFilesPage() {
                 ? formatFileSize(req.submission.file_size_byte)
                 : "0 KB",
               url: path,
+              sumissionId: req.submission.form_submission_id,
             })
           }
         }
@@ -298,10 +379,10 @@ export default function StudentFilesPage() {
           const dateObj = new Date(req.due_date)
           if (!isNaN(dateObj.getTime())) {
             sortDate = dateObj
-            formattedDeadline = dateObj.toLocaleDateString('en-US', { 
-              month: 'long', 
-              day: 'numeric', 
-              year: 'numeric' 
+            formattedDeadline = dateObj.toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
             })
           }
         }
@@ -315,9 +396,17 @@ export default function StudentFilesPage() {
             req.status === "missing" || req.status === "rejected"
               ? "pending"
               : "uploaded",
+          realStatus: req.status,
           hasTemplate: req.has_template,
           submittedFiles,
           submittedLinks,
+          reviewerComment: req.submission?.reviewer_comment,
+          submissionDate: req.submission?.submitted_at
+            ? new Date(req.submission.submitted_at).toLocaleDateString(
+                "en-US",
+                { month: "short", day: "numeric", year: "numeric" }
+              )
+            : undefined,
         }
       })
       setForms(mappedForms)
@@ -414,7 +503,7 @@ export default function StudentFilesPage() {
     }
   }
 
-  // Table & Filter Logic 
+  // Table & Filter Logic
 
   const uploadedCount = forms.filter((f) => f.status === "uploaded").length
   const totalCount = forms.length
@@ -454,7 +543,9 @@ export default function StudentFilesPage() {
     if (searchQuery.trim() !== "")
       return form.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
 
-    const matchFilters = (Object.entries(activeFilters) as [FilterField, string[]][]).every(([field, values]) => {
+    const matchFilters = (
+      Object.entries(activeFilters) as [FilterField, string[]][]
+    ).every(([field, values]) => {
       if (!values || values.length === 0) return true
       if (field === "status") {
         return values.includes(form.status)
@@ -478,7 +569,7 @@ export default function StudentFilesPage() {
       } else if (sortField === "deadline") {
         const dateA = a.sortDate
         const dateB = b.sortDate
-        
+
         // Handle null dates
         if (dateA === null && dateB === null) comparison = 0
         else if (dateA === null) comparison = 1 // goes to end
@@ -544,21 +635,30 @@ export default function StudentFilesPage() {
     return <IconFile size={20} stroke={1.75} />
   }
 
+  const handleDirectFileDownload = async (submissionId: string | undefined) => {
+    if (!submissionId) return
+    const res = await getMySubmissionUrl(submissionId)
+    if (res.ok) window.open(res.url, "_blank")
+    else alert(`Download Error: ${res.error}`)
+  }
   const isUploadDisabled = () =>
     selectedFiles.length === 0 && links.length === 0
-  
+
   // URL Validation
   const isValidUrl = (url: string) => {
     if (!url || url.trim() === "") return false
-    
+
     try {
       const urlObj = new URL(url)
-      return urlObj.protocol === "http:" || 
-            urlObj.protocol === "https:" || 
-            urlObj.protocol === "ftp:" ||
-            urlObj.protocol === "ftps:"
+      return (
+        urlObj.protocol === "http:" ||
+        urlObj.protocol === "https:" ||
+        urlObj.protocol === "ftp:" ||
+        urlObj.protocol === "ftps:"
+      )
     } catch {
-      const urlPattern = /^(https?:\/\/|ftp:\/\/|ftps:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?(\/.*)?$/i
+      const urlPattern =
+        /^(https?:\/\/|ftp:\/\/|ftps:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?(\/.*)?$/i
       return urlPattern.test(url.trim())
     }
   }
@@ -569,22 +669,81 @@ export default function StudentFilesPage() {
     ...links.map((link) => ({ type: "link" as const, data: link })),
   ]
 
+  // Responsive padding calculation
+  const getResponsivePadding = () => {
+    if (isMobile) {
+      const bottomPadding = isSmallMobile ? 20 : 70
+      return {
+        paddingLeft: "12px",
+        paddingRight: "12px",
+        paddingTop: isSmallMobile ? "12px" : "14px",
+        paddingBottom: `${bottomPadding}px`,
+        marginTop: isMobile ? "60px" : 0,
+      }
+    }
+
+    if (isTablet) {
+      return {
+        paddingLeft: "24px",
+        paddingRight: "24px",
+        paddingTop: "24px",
+        paddingBottom: "24px",
+        marginTop: 0,
+      }
+    }
+
+    return {
+      paddingLeft: "32px",
+      paddingRight: "32px",
+      paddingTop: "28px",
+      paddingBottom: "28px",
+      marginTop: 0,
+    }
+  }
+
+  const responsivePadding = getResponsivePadding()
+
+  const getTitleSize = () => {
+    if (isSmallMobile) return "24px"
+    if (isMobile) return "28px"
+    if (isTablet) return "30px"
+    return "34px"
+  }
+
   return (
     <>
       <style>{studentFilesStyles}</style>
       <div className="sf-root">
         <StudentSidebar />
-        <main className="sf-main">
+        <main
+          className="sf-main"
+          style={{
+            paddingLeft: responsivePadding.paddingLeft,
+            paddingRight: responsivePadding.paddingRight,
+            paddingTop: responsivePadding.paddingTop,
+            paddingBottom: responsivePadding.paddingBottom,
+            marginTop: responsivePadding.marginTop,
+          }}
+        >
           {/* Header */}
           <div className="sf-header">
             <div className="sf-header-left">
-              <h1 className="sf-header-title">Forms</h1>
+              <h1
+                className="sf-header-title"
+                style={{
+                  fontSize: getTitleSize(),
+                }}
+              >
+                Forms
+              </h1>
             </div>
-            <ProfilePill
-              name={student.displayName}
-              initials={student.initials}
-              section={student.section}
-            />
+            {!isMobile && (
+              <ProfilePill
+                name={student.displayName}
+                initials={student.initials}
+                section={student.section}
+              />
+            )}
           </div>
 
           <ChartStyles />
@@ -640,7 +799,7 @@ export default function StudentFilesPage() {
           </KpiStatCardGrid>
 
           {/* Table Card */}
-          <div className="sf-adv-table-card" style={{ marginTop: 24 }}>
+          <div className="sf-adv-table-card" style={{ marginTop: 1 }}>
             <div className="sf-adv-table-toolbar">
               <div>
                 <div className="sf-adv-table-title">
@@ -653,7 +812,7 @@ export default function StudentFilesPage() {
                   found
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="sf-toolbar-right">
                 {/* Search Bar */}
                 <div className="sf-adv-search-bar">
                   <IconSearch size={16} stroke={1.75} color="#6B7280" />
@@ -672,11 +831,13 @@ export default function StudentFilesPage() {
                 <div ref={filterPanelRef} style={{ position: "relative" }}>
                   <button
                     className="sf-adv-filter-btn"
-                    onClick={() => setShowFilterPanel(v => !v)}
+                    onClick={() => setShowFilterPanel((v) => !v)}
                     style={{
                       width: 60,
                       height: 38,
-                      border: `1.5px solid ${totalActiveFilters > 0 ? "#7B1D1D" : "#1B4332"}`,
+                      border: `1.5px solid ${
+                        totalActiveFilters > 0 ? "#7B1D1D" : "#1B4332"
+                      }`,
                       borderRadius: 999,
                       background: "white",
                       color: totalActiveFilters > 0 ? "#7B1D1D" : "#1B4332",
@@ -691,21 +852,23 @@ export default function StudentFilesPage() {
                   >
                     <IconFilter size={18} stroke={1.75} />
                     {totalActiveFilters > 0 && (
-                      <span style={{
-                        position: "absolute",
-                        top: -6,
-                        right: -6,
-                        background: "#7B1D1D",
-                        color: "#fff",
-                        borderRadius: "50%",
-                        width: 16,
-                        height: 16,
-                        fontSize: 9,
-                        fontWeight: 700,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}>
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: -6,
+                          right: -6,
+                          background: "#7B1D1D",
+                          color: "#fff",
+                          borderRadius: "50%",
+                          width: 16,
+                          height: 16,
+                          fontSize: 9,
+                          fontWeight: 700,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
                         {totalActiveFilters}
                       </span>
                     )}
@@ -713,30 +876,39 @@ export default function StudentFilesPage() {
 
                   {/* Filter Popup */}
                   {showFilterPanel && (
-                    <div style={{
-                      position: "absolute",
-                      top: "calc(100% + 8px)",
-                      right: 0,
-                      background: "#FFFFFF",
-                      border: "1px solid #E5E7EB",
-                      borderRadius: 14,
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                      zIndex: 100,
-                      padding: 16,
-                    }}>
-                      <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 12,
-                      }}>
-                        <span style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: "#6B7280",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                        }}>Filter</span>
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 8px)",
+                        right: 0,
+                        background: "#FFFFFF",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: 14,
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                        zIndex: 100,
+                        padding: 16,
+                        minWidth: 180,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: 12,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#6B7280",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          Filter
+                        </span>
                         {totalActiveFilters > 0 && (
                           <button
                             onClick={clearAllFilters}
@@ -747,7 +919,8 @@ export default function StudentFilesPage() {
                               fontSize: 11.5,
                               color: "#7B1D1D",
                               fontWeight: 600,
-                              fontFamily: "var(--font-montserrat, 'Montserrat', sans-serif)",
+                              fontFamily:
+                                "var(--font-montserrat, 'Montserrat', sans-serif)",
                               padding: 0,
                             }}
                           >
@@ -756,27 +929,40 @@ export default function StudentFilesPage() {
                         )}
                       </div>
 
-                      <div style={{ display: "flex", gap: 24 }}>
+                      <div
+                        style={{ display: "flex", gap: 24, flexWrap: "wrap" }}
+                      >
                         {filterGroups.map(({ label, field, values }) => {
                           const opts = values()
                           if (opts.length === 0) return null
                           const checked = activeFilters[field] ?? []
                           return (
-                            <div key={field} style={{ minWidth: 130 }}>
-                              <div style={{
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: "#111827",
-                                marginBottom: 8,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.4px",
-                              }}>{label}</div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                {opts.map(v => {
+                            <div key={field} style={{ minWidth: 100 }}>
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: "#111827",
+                                  marginBottom: 8,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.4px",
+                                }}
+                              >
+                                {label}
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 6,
+                                }}
+                              >
+                                {opts.map((v) => {
                                   // Format display value
                                   let displayValue = v
                                   if (field === "status") {
-                                    displayValue = v === "uploaded" ? "Submitted" : "Pending"
+                                    displayValue =
+                                      v === "uploaded" ? "Submitted" : "Pending"
                                   }
                                   return (
                                     <label
@@ -788,7 +974,8 @@ export default function StudentFilesPage() {
                                         cursor: "pointer",
                                         fontSize: 13,
                                         color: "#111827",
-                                        fontFamily: "var(--font-montserrat, 'Montserrat', sans-serif)",
+                                        fontFamily:
+                                          "var(--font-montserrat, 'Montserrat', sans-serif)",
                                       }}
                                     >
                                       <input
@@ -821,23 +1008,93 @@ export default function StudentFilesPage() {
             <div className="sf-adv-table-wrapper">
               {sortedForms.length === 0 ? (
                 <div className="sf-adv-empty">No forms available.</div>
+              ) : isMobile ? (
+                // Mobile card view
+                <div style={{ padding: isSmallMobile ? "6px" : "8px" }}>
+                  {filteredPaginatedForms.map((form) => (
+                    <div key={form.id} className="sf-mobile-card">
+                      <div className="sf-mobile-card-row">
+                        <div>
+                          <div className="sf-mobile-card-name">
+                            {form.name}
+                            {form.hasTemplate && (
+                              <button
+                                title="Download Template"
+                                className="sf-download-template-btn"
+                                onClick={(e) =>
+                                  handleTemplateDownload(form.id, e)
+                                }
+                                style={{ marginLeft: 6 }}
+                              >
+                                <IconDownload size={12} stroke={1.75} />
+                              </button>
+                            )}
+                          </div>
+                          <div className="sf-mobile-card-deadline">
+                            Deadline: {form.deadline}
+                          </div>
+                        </div>
+                        <div className="sf-mobile-card-status">
+                          {form.status === "uploaded" ? (
+                            <span
+                              className="sf-status-badge sf-status-badge-submitted"
+                              onClick={() => handleViewClick(form)}
+                              style={{
+                                minWidth: isSmallMobile ? "70px" : "80px",
+                                fontSize: isSmallMobile ? "10px" : "11px",
+                                padding: isSmallMobile
+                                  ? "3px 10px"
+                                  : "4px 12px",
+                              }}
+                            >
+                              <IconEye
+                                size={isSmallMobile ? 10 : 12}
+                                stroke={2}
+                              />{" "}
+                              Submitted
+                            </span>
+                          ) : (
+                            <button
+                              className="sf-upload-btn"
+                              onClick={() => handleUploadClick(form)}
+                              style={{
+                                minWidth: isSmallMobile ? "70px" : "80px",
+                                fontSize: isSmallMobile ? "10px" : "11px",
+                                padding: isSmallMobile
+                                  ? "3px 10px"
+                                  : "4px 12px",
+                              }}
+                            >
+                              <IconUpload
+                                size={isSmallMobile ? 10 : 12}
+                                stroke={2.5}
+                              />{" "}
+                              Upload
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
+                // Desktop/Tablet table view
                 <table className="sf-adv-table">
                   <thead>
                     <tr>
                       <th
-                        style={{ width: "45%" }}
+                        style={{ width: "55%" }}
                         onClick={() => handleSort("name")}
                       >
                         File {getSortIcons("name")}
                       </th>
                       <th
-                        style={{ width: "25%", textAlign: "left" }}
+                        style={{ width: "20%", textAlign: "left" }}
                         onClick={() => handleSort("deadline")}
                       >
                         Deadline {getSortIcons("deadline")}
                       </th>
-                      <th style={{ width: "30%", textAlign: "center" }}>
+                      <th style={{ width: "25%", textAlign: "center" }}>
                         Status
                       </th>
                     </tr>
@@ -847,11 +1104,6 @@ export default function StudentFilesPage() {
                       <tr key={form.id}>
                         <td>
                           <div className="sf-form-name">
-                            <IconFileText
-                              size={16}
-                              stroke={1.75}
-                              className="sf-form-icon"
-                            />
                             {form.name}
                             {form.hasTemplate && (
                               <button
@@ -866,7 +1118,7 @@ export default function StudentFilesPage() {
                             )}
                           </div>
                         </td>
-                        <td className="sf-deadline">{form.deadline}</td>
+                        <td className="sf-form-deadline">{form.deadline}</td>
                         <td className="sf-status-cell">
                           {form.status === "uploaded" ? (
                             <span
@@ -898,7 +1150,7 @@ export default function StudentFilesPage() {
                   ? 0
                   : (currentPage - 1) * pageSize + 1}
                 –{Math.min(currentPage * pageSize, sortedForms.length)} of{" "}
-                {sortedForms.length} forms
+                {sortedForms.length}
               </div>
               <div className="sf-adv-pagination-controls">
                 <button
@@ -908,20 +1160,89 @@ export default function StudentFilesPage() {
                 >
                   &#8249;
                 </button>
-                {Array.from(
-                  { length: Math.min(filteredTotalPages, 5) },
-                  (_, i) => i + 1
-                ).map((p) => (
-                  <button
-                    key={p}
-                    className={`sf-adv-page-btn${
-                      p === currentPage ? " sf-adv-page-btn-active" : ""
-                    }`}
-                    onClick={() => setCurrentPage(p)}
-                  >
-                    {p}
-                  </button>
-                ))}
+                {(() => {
+                  const maxVisible = isSmallMobile ? 3 : 5
+                  let pages = []
+
+                  if (filteredTotalPages <= maxVisible + 2) {
+                    for (let i = 1; i <= filteredTotalPages; i++) {
+                      pages.push(i)
+                    }
+                  } else {
+                    pages.push(1)
+
+                    let start = Math.max(
+                      2,
+                      currentPage - Math.floor(maxVisible / 2)
+                    )
+                    let end = Math.min(
+                      filteredTotalPages - 1,
+                      currentPage + Math.floor(maxVisible / 2)
+                    )
+
+                    if (currentPage <= Math.floor(maxVisible / 2) + 1) {
+                      end = maxVisible
+                    }
+                    if (
+                      currentPage >=
+                      filteredTotalPages - Math.floor(maxVisible / 2)
+                    ) {
+                      start = filteredTotalPages - maxVisible + 1
+                    }
+
+                    if (start > 2) {
+                      pages.push(-1)
+                    }
+
+                    for (let i = start; i <= end; i++) {
+                      if (i > 1 && i < filteredTotalPages) {
+                        pages.push(i)
+                      }
+                    }
+
+                    if (end < filteredTotalPages - 1) {
+                      pages.push(-2)
+                    }
+
+                    if (filteredTotalPages > 1) {
+                      pages.push(filteredTotalPages)
+                    }
+                  }
+
+                  return pages.map((p, index) => {
+                    if (p === -1 || p === -2) {
+                      return (
+                        <span
+                          key={`ellipsis-${index}`}
+                          style={{
+                            color: "#6B7280",
+                            fontSize: isSmallMobile ? 8 : 12,
+                            fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                            padding: "0 2px",
+                          }}
+                        >
+                          …
+                        </span>
+                      )
+                    }
+                    return (
+                      <button
+                        key={p}
+                        className={`sf-adv-page-btn${
+                          p === currentPage ? " sf-adv-page-btn-active" : ""
+                        }`}
+                        onClick={() => setCurrentPage(p)}
+                        style={{
+                          minWidth: isSmallMobile ? "20px" : "28px",
+                          height: isSmallMobile ? "20px" : "28px",
+                          fontSize: isSmallMobile ? "9px" : "12px",
+                        }}
+                      >
+                        {p}
+                      </button>
+                    )
+                  })
+                })()}
                 <button
                   className="sf-adv-page-btn"
                   disabled={
@@ -935,26 +1256,13 @@ export default function StudentFilesPage() {
                   &#8250;
                 </button>
               </div>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12,
-                color: "#6B7280",
-                fontFamily: "'Montserrat', 'Fallback Montserrat'",
-              }}>
-                <span>Rows per page:</span>
+              <div className="sf-adv-page-size-select-wrapper">
+                <span style={{ fontSize: isSmallMobile ? 9 : 12 }}>Rows:</span>
                 <select
+                  className="sf-adv-page-size-select"
                   style={{
-                    border: "1.5px solid #E5E7EB",
-                    borderRadius: 8,
-                    padding: "4px 8px",
-                    fontSize: 12,
-                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                    color: "#111827",
-                    background: "#FFFFFF",
-                    cursor: "pointer",
-                    outline: "none",
+                    fontSize: isSmallMobile ? 9 : 12,
+                    padding: isSmallMobile ? "2px 4px" : "4px 8px",
                   }}
                   value={pageSize}
                   onChange={(e) => {
@@ -962,8 +1270,10 @@ export default function StudentFilesPage() {
                     setCurrentPage(1)
                   }}
                 >
-                  {[5, 10, 20, 50].map(n => (
-                    <option key={n} value={n}>{n}</option>
+                  {[5, 10, 20, 50].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -994,13 +1304,23 @@ export default function StudentFilesPage() {
                       id="file-input"
                       type="file"
                       multiple
+                      accept=".pdf,.doc,.docx,.jpg,.png,.zip"
                       style={{ display: "none" }}
                       onChange={(e) => {
                         if (e.target.files) {
-                          setSelectedFiles((prev) => [
-                            ...prev,
-                            ...Array.from(e.target.files!),
-                          ])
+                          const files = Array.from(e.target.files)
+                          const MAX_SIZE = 10 * 1024 * 1024 // 10 MB limit
+                          const validFiles = files.filter(
+                            (f) => f.size <= MAX_SIZE
+                          )
+
+                          if (validFiles.length < files.length) {
+                            alert(
+                              "Some files were ignored because they exceed the 10MB limit."
+                            )
+                          }
+
+                          setSelectedFiles((prev) => [...prev, ...validFiles])
                           setIsDropdownOpen(false)
                         }
                       }}
@@ -1039,9 +1359,17 @@ export default function StudentFilesPage() {
                             }
                           }}
                           disabled={!isValidUrl(linkInput.trim())}
-                          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
                         >
-                          <IconPlus size={14} stroke={2} style={{ color: "#FFFFFF", flexShrink: 0 }} />
+                          <IconPlus
+                            size={14}
+                            stroke={2}
+                            style={{ color: "#FFFFFF", flexShrink: 0 }}
+                          />
                           <span style={{ whiteSpace: "nowrap" }}>Add</span>
                         </button>
                         <button
@@ -1063,7 +1391,10 @@ export default function StudentFilesPage() {
                           if (item.type === "file") {
                             const file = item.data
                             return (
-                              <div key={`file-${index}`} className="sf-file-preview-card">
+                              <div
+                                key={`file-${index}`}
+                                className="sf-file-preview-card"
+                              >
                                 <div className="sf-file-preview-icon-wrapper">
                                   {getFileIcon(file)}
                                 </div>
@@ -1095,7 +1426,10 @@ export default function StudentFilesPage() {
                           } else {
                             const link = item.data
                             return (
-                              <div key={`link-${index}`} className="sf-file-preview-card">
+                              <div
+                                key={`link-${index}`}
+                                className="sf-file-preview-card"
+                              >
                                 <div
                                   className="sf-file-preview-icon-wrapper"
                                   style={{
@@ -1106,7 +1440,9 @@ export default function StudentFilesPage() {
                                   <IconLink size={20} stroke={1.75} />
                                 </div>
                                 <div className="sf-file-preview-info">
-                                  <div className="sf-file-preview-name">{link}</div>
+                                  <div className="sf-file-preview-name">
+                                    {link}
+                                  </div>
                                   <div className="sf-file-preview-meta">
                                     <span
                                       className="sf-file-preview-type"
@@ -1119,7 +1455,9 @@ export default function StudentFilesPage() {
                                 <button
                                   className="sf-file-preview-remove"
                                   onClick={() =>
-                                    setLinks((p) => p.filter((_, i) => i !== index))
+                                    setLinks((p) =>
+                                      p.filter((_, i) => i !== index)
+                                    )
                                   }
                                 >
                                   <IconX size={18} stroke={2} />
@@ -1148,10 +1486,6 @@ export default function StudentFilesPage() {
                         <button
                           className="sf-add-btn"
                           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                          style={{
-                            position: "relative",
-                            justifyContent: "center",
-                          }}
                         >
                           <IconPlus
                             size={18}
@@ -1203,10 +1537,6 @@ export default function StudentFilesPage() {
                         className="sf-upload-submit-btn"
                         disabled={isUploadDisabled() || isUploading}
                         onClick={handleUploadExecute}
-                        style={{
-                          position: "relative",
-                          justifyContent: "center",
-                        }}
                       >
                         <IconUpload
                           size={18}
@@ -1244,53 +1574,218 @@ export default function StudentFilesPage() {
                 </div>
                 <div className="sf-modal-body">
                   <div className="sf-modal-content">
-                    {/* Submitted Links / Drive Web View */}
-                    {viewingForm.submittedLinks &&
-                      viewingForm.submittedLinks.length > 0 && (
-                        <div className="sf-file-grid">
-                          {viewingForm.submittedLinks.map((link, index) => (
-                            <div key={index} className="sf-file-preview-card">
-                              <div
-                                className="sf-file-preview-icon-wrapper"
-                                style={{
-                                  background: "#E8EDE5",
-                                  color: "#1B4332",
-                                }}
-                              >
-                                <IconLink size={20} stroke={1.75} />
-                              </div>
-                              <div className="sf-file-preview-info">
-                                <div
-                                  className="sf-file-preview-name"
-                                  style={{
-                                    cursor: "pointer",
-                                    color: "#1B4332",
-                                    textDecoration: "underline",
-                                  }}
-                                  onClick={() => window.open(link, "_blank")}
-                                >
-                                  Open in Google Drive
-                                </div>
-                                <div className="sf-file-preview-meta">
-                                  <span
-                                    className="sf-file-preview-type"
-                                    style={{ background: "#1B4332" }}
-                                  >
-                                    DRIVE
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                    {/* Status & Adviser Note Section */}
+                    <div
+                      style={{
+                        marginBottom: 20,
+                        padding: 16,
+                        background: "#F9FAFB",
+                        borderRadius: 10,
+                        border: "1px solid #E5E7EB",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 12,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "#4B5563",
+                          }}
+                        >
+                          Status:
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            padding: "4px 12px",
+                            borderRadius: "20px",
+                            background:
+                              viewingForm.realStatus === "approved"
+                                ? "#D1FAE5"
+                                : viewingForm.realStatus === "rejected"
+                                ? "#FEE2E2"
+                                : "#E8EDE5",
+                            color:
+                              viewingForm.realStatus === "approved"
+                                ? "#065F46"
+                                : viewingForm.realStatus === "rejected"
+                                ? "#991B1B"
+                                : "#1B4332",
+                          }}
+                        >
+                          {viewingForm.realStatus.toUpperCase()}
+                        </span>
+                      </div>
+
+                      {viewingForm.submissionDate && (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: viewingForm.reviewerComment ? 12 : 0,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "#4B5563",
+                            }}
+                          >
+                            Submitted On:
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 13,
+                              color: "#111827",
+                              fontWeight: 500,
+                            }}
+                          >
+                            {viewingForm.submissionDate}
+                          </span>
                         </div>
                       )}
-                    {(!viewingForm.submittedLinks ||
-                      viewingForm.submittedLinks.length === 0) && (
-                      <div className="sf-empty-state">
-                        <IconFileText size={40} stroke={1.5} />
-                        <p>No files submitted</p>
-                      </div>
-                    )}
+
+                      {viewingForm.reviewerComment && (
+                        <div
+                          style={{
+                            marginTop: 12,
+                            paddingTop: 12,
+                            borderTop: "1px solid #E5E7EB",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#7B1D1D",
+                              display: "block",
+                              marginBottom: 6,
+                            }}
+                          >
+                            ADVISER'S NOTE:
+                          </span>
+                          <p
+                            style={{
+                              fontSize: 13,
+                              color: "#111827",
+                              margin: 0,
+                              fontStyle: "italic",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            "{viewingForm.reviewerComment}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <h4
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#111827",
+                        marginBottom: 12,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Attachments
+                    </h4>
+
+                    <div className="sf-file-grid">
+                      {/* Submitted Links / Drive Web View */}
+                      {viewingForm.submittedLinks?.map((link, index) => (
+                        <div
+                          key={`link-${index}`}
+                          className="sf-file-preview-card"
+                        >
+                          <div
+                            className="sf-file-preview-icon-wrapper"
+                            style={{ background: "#E8EDE5", color: "#1B4332" }}
+                          >
+                            <IconLink size={20} stroke={1.75} />
+                          </div>
+                          <div className="sf-file-preview-info">
+                            <div
+                              className="sf-file-preview-name"
+                              style={{
+                                cursor: "pointer",
+                                color: "#1B4332",
+                                textDecoration: "underline",
+                              }}
+                              onClick={() => window.open(link, "_blank")}
+                            >
+                              Open in Google Drive
+                            </div>
+                            <div className="sf-file-preview-meta">
+                              <span
+                                className="sf-file-preview-type"
+                                style={{ background: "#1B4332" }}
+                              >
+                                DRIVE
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Direct File Submissions (Supabase Storage) */}
+                      {viewingForm.submittedFiles?.map((file, index) => (
+                        <div
+                          key={`file-${index}`}
+                          className="sf-file-preview-card"
+                        >
+                          <div
+                            className="sf-file-preview-icon-wrapper"
+                            style={{ background: "#F3F4F6", color: "#4B5563" }}
+                          >
+                            <IconFileText size={20} stroke={1.75} />
+                          </div>
+                          <div className="sf-file-preview-info">
+                            <div
+                              className="sf-file-preview-name"
+                              style={{
+                                cursor: "pointer",
+                                color: "#1B4332",
+                                textDecoration: "underline",
+                              }}
+                              onClick={() =>
+                                handleDirectFileDownload(file.submissionId)
+                              }
+                            >
+                              {file.name}
+                            </div>
+                            <div className="sf-file-preview-meta">
+                              <span
+                                className="sf-file-preview-type"
+                                style={{ background: "#4B5563" }}
+                              >
+                                {file.type}
+                              </span>
+                              <span className="sf-file-preview-size">
+                                {file.size}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {!viewingForm.submittedLinks?.length &&
+                      !viewingForm.submittedFiles?.length && (
+                        <div className="sf-empty-state">
+                          <IconFileText size={40} stroke={1.5} />
+                          <p>No files submitted</p>
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>

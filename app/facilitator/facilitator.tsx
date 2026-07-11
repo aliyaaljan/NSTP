@@ -139,7 +139,7 @@ export function DonutChart({ pct = 60 }: { pct?: number }) {
   );
 }
 
-export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
+export function Calendar({ semEndDate, holidays = [], }: { semEndDate?: string | Date, holidays?: { name: string; date: string;}[]}) {
   const today = new Date();
 
   const semEnd = typeof semEndDate === "string" 
@@ -148,6 +148,11 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
         return new Date(year, month - 1, day); 
       })()
     : semEndDate;
+  
+  const parsedHolidays = holidays.map((h) => {
+    const [year, month, day] = h.date.split("-").map(Number);
+    return { date: new Date(year, month - 1, day), name: h.name };
+  });
 
   const [current, setCurrent] = useState({ year: today.getFullYear(), month: today.getMonth() });
 
@@ -165,6 +170,11 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
     return d === semEnd.getDate() && current.month === semEnd.getMonth() && current.year === semEnd.getFullYear();
   }
 
+  const getHoliday = (d: number) =>
+    parsedHolidays.find(
+      (h) => h.date.getDate() === d && h.date.getMonth() === current.month && h.date.getFullYear() === current.year
+    );
+
   const prev = () => setCurrent(c => c.month === 0 ? { year: c.year - 1, month: 11 } : { year: c.year, month: c.month - 1 });
   const next = () => setCurrent(c => c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 });
 
@@ -180,7 +190,8 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
         {cells.map((d, i) => {
           const cellIsToday = d && isToday(d);
           const cellIsSemEnd = d && isSemEnd(d);
-          const hasLabel = cellIsToday || cellIsSemEnd;
+          const cellHoliday = d ? getHoliday(d) : undefined;
+          const hasLabel = cellIsToday || cellIsSemEnd || cellHoliday;
 
           return (
             <div 
@@ -190,13 +201,15 @@ export function Calendar({ semEndDate }: { semEndDate?: string | Date }) {
                 d === null ? "cal-empty" : "",
                 cellIsToday ? "cal-today" : "",
                 cellIsSemEnd ? "cal-sem-end": "",
+                cellHoliday && !cellIsToday && !cellIsSemEnd ? "cal-holiday" : "",
+                
               ].join(" ").trim()}
             >
               {d !== null ? <span className="cal-day-num">{d}</span> : null}
 
               {hasLabel && (
-                <span className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : "text-[var(--amber)]"}`}>
-                  {cellIsToday ? "Today" : "End of Semester"}
+                <span className={`capitalize absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : cellIsSemEnd ? "text-[var(--amber)]" : "text-[var(--green)]"}`}>
+                  {cellIsToday ? "Today" : cellIsSemEnd ? "End of Semester" : cellHoliday?.name}
                 </span>
               )}
             </div>
@@ -377,7 +390,7 @@ export function Sidebar({ open, activeNav, onToggle, onNavClick, onSignOut }: Si
         <div className="sb-footer">
           <button className="sb-logout" title={!open ? "Log Out" : undefined}
             onClick={(e) => {e.stopPropagation();  onSignOut()}}>
-            <IconLogout2 size={16} stroke={1.75} />
+            <IconLogout2 size={20} stroke={1.75} />
             <span className="sb-logout-label">Log Out</span>
           </button>
         </div>
@@ -402,23 +415,22 @@ export const dashboardStyles = `
   .sb-logo-name { color: #fff; font-family: var(--font-title); font-size: 30px; line-height: 1; letter-spacing: 0.5px; }
   .sb-logo-sub { color: var(--green-light); font-family: var(--font-sub); font-style: normal; font-size: 12px; margin-top: 4px; opacity: 0.9; white-space: nowrap; }
   .sb-nav { flex: 1; padding: 8px 0; overflow: hidden; }
-  .sb-nav-section-label { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; color: rgba(255,255,255,0.45); text-transform: uppercase; padding: 0 20px 4px; }
-  .sb.sb-closed .sb-nav-section-label { display: none; }
-  .sb-nav-btn { width: 100%; display: flex; align-items: center; justify-content: flex-start; padding: 0 10px 0 10px; background: transparent; border: none; cursor: pointer; color: #fff; font-size: 15px; font-family: var(--font); font-weight: 600; text-align: left; transition: color 0.13s; line-height: 1; margin: 4px 0; }
-  .sb.sb-closed .sb-nav-btn { padding: 0; justify-content: center; }
+  .sb-nav-section-label { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; color: rgba(255,255,255,0.45); text-transform: uppercase; padding: 0 20px 4px; transition: opacity 0.2s ease; }
+  .sb.sb-closed .sb-nav-section-label { opacity: 0; pointer-events: none; }
+  .sb-nav-btn { width: 100%; display: flex; align-items: center; justify-content: flex-start; padding: 0 10px; background: transparent; border: none; cursor: pointer; color: #fff; font-size: 15px; font-family: var(--font); font-weight: 600; text-align: left; transition: color 0.13s; line-height: 1; margin: 4px 0; }
   .sb-nav-btn:hover:not(.sb-active) { color: rgba(255,255,255,0.8); }
   .sb-nav-btn.sb-active { color: var(--green-dark); }
-  .sb-nav-pill { display: flex; align-items: center; gap: 14px; padding: 13px 20px; border-radius: 999px; width: 100%; transition: background 0.13s; white-space: nowrap; overflow: hidden; }
-  .sb.sb-closed .sb-nav-pill { border-radius: 999px; width: 44px; height: 44px; min-width: 44px; padding: 0; display: flex; align-items: center; justify-content: center; margin: 0 auto; gap: 0; }
+  .sb-nav-pill { display: flex; align-items: center; gap: 14px; padding: 13px 20px; border-radius: 999px; width: 100%; transition: background 0.13s, width 0.25s ease, gap 0.25s ease; white-space: nowrap; overflow: hidden; }
+  .sb.sb-closed .sb-nav-pill { width: 46px; height: 46px; padding: 0; margin-left: 7px; gap: 0; justify-content: center; }
   .sb-nav-btn.sb-active .sb-nav-pill { background: rgba(232,232,232,0.92); }
   .sb-nav-btn:hover:not(.sb-active) .sb-nav-pill { background: rgba(255,255,255,0.08); }
   .sb-nav-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
   .sb-nav-btn.sb-active .sb-nav-icon { color: var(--green); }
   .sb-nav-label { overflow: hidden; white-space: nowrap; transition: opacity 0.2s ease, max-width 0.25s ease; opacity: 1; max-width: 200px; }
   .sb.sb-closed .sb-nav-label { opacity: 0; max-width: 0; overflow: hidden; pointer-events: none; }
-  .sb-footer { padding: 18px 18px 24px; overflow: hidden; flex-shrink: 0; }
+  .sb-footer { padding: 18px 18px 24px 30px; overflow: hidden; flex-shrink: 0; }
   .sb.sb-closed .sb-footer { padding: 18px 0 24px; display: flex; justify-content: center; align-items: center; }
-  .sb-logout { display: flex; align-items: center; gap: 8px; background: transparent; border: none; cursor: pointer; color: #FCA5A5; font-size: 13px; font-family: var(--font); font-weight: 500; padding: 0; opacity: 0.85; transition: opacity 0.13s; white-space: nowrap; overflow: hidden; }
+  .sb-logout { display: flex; align-items: center; gap: 14px; background: transparent; border: none; cursor: pointer; color: #FCA5A5; font-size: 15px; font-family: var(--font); font-weight: 500; padding: 0; opacity: 0.85; transition: opacity 0.13s; white-space: nowrap; overflow: hidden; }
   .sb-logout:hover { opacity: 1; }
   .sb-logout-label { transition: opacity 0.2s ease, max-width 0.25s ease; opacity: 1; max-width: 200px; overflow: hidden; }
   .sb.sb-closed .sb-logout-label { opacity: 0; max-width: 0; pointer-events: none; }
@@ -436,7 +448,7 @@ export const dashboardStyles = `
   .profile-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
   .profile-name { font-weight: 700; font-size: 13px; }
   .profile-sec { font-size: 11px; opacity: 0.75; margin-top: 1px; }
-  .body { flex: 1; overflow: auto; padding: 0 28px 28px; display: flex; flex-direction: column; gap: 8px; }
+  .body { flex: 1; overflow: auto; padding: 0 28px 28px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin;}
   .top-row { display: flex; gap: 14px; justify-content: space-between; align-items: flex-start; }
   .alert-banner { flex: 1; background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: var(--radius); padding: 13px 16px; display: flex; align-items: center; gap: 12px; }
   .alert-icon { display: flex; align-items: center; color: #D97706; flex-shrink: 0; }
@@ -531,6 +543,19 @@ export const dashboardStyles = `
   }
   .cal-cell.cal-today::before { background: var(--maroon); }
   .cal-cell.cal-sem-end::before { background: var(--amber); }
+  .cal-cell.cal-holiday {color: #fff; font-weight: 700; }
+  .cal-cell.cal-holiday::after {
+    content: "";
+    position: absolute;
+    width: 88%;
+    height: 88%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    z-index: 0;
+    background: var(--green);
+  }
   
   /* ── Dashboard layout ── */
   .dashboard-layout { display: flex; gap: 16px; align-items: flex-start; flex: 1; align-items: stretch; }

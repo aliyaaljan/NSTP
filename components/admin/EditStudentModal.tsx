@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
 import { updateStudent } from "@/lib/admin/student-list-actions"
 import {
   studentRowToEditPayload,
@@ -85,59 +86,6 @@ function TextInput({
         outline: "none",
       }}
     />
-  )
-}
-
-function SectionSelect({
-  value,
-  onChange,
-  sections,
-}: {
-  value: string
-  onChange: (value: string) => void
-  sections: StudentListSectionOption[]
-}) {
-  return (
-    <div style={{ position: "relative" }}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          ...TYPE.body,
-          fontStyle: "normal",
-          color: value ? COLORS.textDark : COLORS.textGray,
-          background: COLORS.fieldBg,
-          border: "none",
-          borderRadius: 6,
-          padding: "12px 40px 12px 14px",
-          appearance: "none",
-          cursor: "pointer",
-          outline: "none",
-        }}
-      >
-        <option value="" disabled>
-          Select class
-        </option>
-        {sections.map((section) => (
-          <option key={section.sectionId} value={section.sectionId}>
-            {section.label}
-          </option>
-        ))}
-      </select>
-      <i
-        className="ti ti-chevron-down"
-        style={{
-          position: "absolute",
-          right: 14,
-          top: "50%",
-          transform: "translateY(-50%)",
-          pointerEvents: "none",
-          fontSize: 16,
-          color: COLORS.textGray,
-        }}
-      />
-    </div>
   )
 }
 
@@ -351,10 +299,17 @@ export default function EditStudentModal({
           </FormField>
 
           <FormField label="Class">
-            <SectionSelect
+            <SearchableCombobox
+              key={student.enrollmentId}
               value={form.sectionId}
               onChange={(sectionId) => patchForm({ sectionId })}
-              sections={sections}
+              options={sections.map((section) => ({
+                value: section.sectionId,
+                label: section.label,
+              }))}
+              placeholder="Select class"
+              emptyMessage="No classes found"
+              toggleAriaLabel="Toggle class list"
             />
           </FormField>
 

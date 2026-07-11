@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react"
+import { createClient } from "@/lib/client"
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -38,7 +39,7 @@ export interface CalendarEvent {
   day: number
   month: number
   title: string
-  type: "holiday" | "deadline" | "submitted"
+  type: "holiday" | "deadline" | "submitted" | "sem_end"
   note?: string
   status?: "submitted" | "pending"
 }
@@ -52,6 +53,25 @@ export interface CalendarOverviewProps {
   onMonthChange?: (year: number, month: number) => void
   onDayClick?: (day: number, event?: CalendarEvent) => void
   onRenderedDayClick?: (day: number) => void
+}
+
+function parseDate(dateStr: string): { day: number; month: number } {
+  const parts = dateStr.split("-")
+  const day = parseInt(parts[parts.length - 1], 10)
+  const month = parseInt(parts[parts.length - 2], 10) - 1
+  return { day, month }
+}
+
+function mapHolidayRows(rows: { name: string; holiday_date: string }[]): CalendarEvent[] {
+  return rows.map((row) => {
+    const { day, month } = parseDate(row.holiday_date)
+    return {
+      day,
+      month,
+      title: row.name,
+      type: "holiday" as const,
+    }
+  })
 }
 
 export default function CalendarOverview({
@@ -72,6 +92,59 @@ export default function CalendarOverview({
   const [selectedDayEvents, setSelectedDayEvents] = useState<{ events: CalendarEvent[]; day: number } | null>(null)
   const [selectedRenderedDay, setSelectedRenderedDay] = useState<number | null>(null)
   const [rowGap, setRowGap] = useState<number>(8)
+
+  //get holidays directly na lang sa component hehe 
+  const supabase = createClient()
+  const [holidays, setHolidays] = useState<CalendarEvent[]>([])
+  const [semEndDate, setSemEndDate] = useState<{ title: string; day: number; month: number } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadHolidays = async () => {
+      try {
+        const { data: holidayData, error } = await supabase
+          .from("holiday")
+          .select(`name, holiday_date`)
+
+        if (error) throw error
+
+        if (!cancelled) setHolidays(mapHolidayRows(holidayData ?? []))
+      } catch (err) {
+        console.error("Failed to load holidays:", err)
+        if (!cancelled) setHolidays([])
+      } 
+    }
+
+    const loadCalendarData = async () => {
+    try {
+      const { data: holidayData, error: holidayError } = await supabase.from("holiday").select(`name, holiday_date`)
+      if (holidayError) throw holidayError
+
+      const { data: semData, error: semError } = await supabase.from("term").select(`name, end_date`).eq("is_active", true).single()                  
+      if (semError) throw semError
+
+      if (!cancelled) {
+        setHolidays(mapHolidayRows(holidayData ?? []))
+
+        if (semData && semData.end_date) {
+          const { day, month } = parseDate(semData.end_date)
+          setSemEndDate({title: semData.name || "Semester End Date", day, month})
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load calendar configuration layout data:", err)
+      if (!cancelled) {
+        setHolidays([])
+        setSemEndDate(null)
+      }
+    } 
+  }
+
+    loadHolidays()
+    loadCalendarData()
+    return () => { cancelled = true }
+  }, [currentYear])
 
   // Row gap calculation based on container height
   useEffect(() => {
@@ -138,8 +211,18 @@ export default function CalendarOverview({
     }
   })
 
-  const allEvents = [...HOLIDAYS]
-  const currentMonthEvents = allEvents.filter(e => e.month === currentMonth)
+  const currentMonthEvents = holidays.filter(e => e.month === currentMonth)
+
+  if (semEndDate && semEndDate.month === currentMonth) {
+    currentMonthEvents.push({
+      day: semEndDate.day,
+      month: semEndDate.month,
+      title: semEndDate.title,
+      type: "sem_end" as const,
+      note: "Last Day of Semester"
+    })
+  }
+
   const eventMap = new Map<number, CalendarEvent[]>()
   currentMonthEvents.forEach(e => {
     if (!eventMap.has(e.day)) {
@@ -175,7 +258,7 @@ export default function CalendarOverview({
   }
 
   const isHoliday = (day: number) => {
-    return HOLIDAYS.some(e => e.month === currentMonth && e.day === day && e.type === 'holiday')
+    return holidays.some(e => e.month === currentMonth && e.day === day && e.type === 'holiday')
   }
 
   const isFutureDate = (day: number) => {
@@ -246,6 +329,7 @@ export default function CalendarOverview({
     }
     if (event.type === 'submitted') return 'SUBMITTED'
     if (event.type === 'deadline') return 'PENDING'
+     if (event.type === 'sem_end') return 'END OF SEMESTER' 
     return ''
   }
 
@@ -254,6 +338,7 @@ export default function CalendarOverview({
     const isRenderedTime = event.title === "Rendered Time" && event.note
     const label = getEventLabel(event)
     const isHolidayEvent = event.type === 'holiday'
+    const isSemEndEvent = event.type === 'sem_end'
 
     return (
       <div style={styles.overlay} onClick={onClose}>
@@ -430,7 +515,8 @@ export default function CalendarOverview({
             const isFuture = isFutureDate(cell.day)
             const isRendered = isClient && renderedDays.includes(cell.day) && !isFuture
             const hasRenderedTime = isRendered && renderedTime[cell.day]
-            const hasAnyContent = hasEvent || hasRenderedTime
+            const isSemEndDay = semEndDate && semEndDate.month === currentMonth && semEndDate.day === cell.day
+            const hasAnyContent = hasEvent || hasRenderedTime || isSemEndDay
 
             return (
               <div
@@ -471,7 +557,7 @@ export default function CalendarOverview({
                     width: 14,
                     height: 4,
                     borderRadius: 3,
-                    backgroundColor: isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
+                    backgroundColor: isSemEndDay ? '#7B1D1D' : isHolidayDay ? '#D97706' : (hasRenderedTime ? '#1B4332' : '#D97706'),
                     transition: 'all 0.2s ease',
                   }} />
                 )}
@@ -512,6 +598,16 @@ export default function CalendarOverview({
             flexShrink: 0,
           }} />
           <span style={{ fontSize: 11, color: '#6B7280' }}>Rendered</span>
+        </div>
+        <div style={styles.legendItem}>
+          <div style={{
+            width: 14,
+            height: 4,
+            borderRadius: 3,
+            backgroundColor: '#7B1D1D',
+            flexShrink: 0,
+          }} />
+          <span style={{ fontSize: 11, color: '#6B7280' }}>Last Day</span>
         </div>
       </div>
     </div>

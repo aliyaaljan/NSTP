@@ -4,8 +4,6 @@ import { useState, useRef, useEffect, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   IconSearch,
-  IconChevronDown,
-  IconClipboardText,
   IconCircleCheck,
   IconClock,
   IconDownload,
@@ -16,12 +14,16 @@ import {
   IconTrash,
   IconFile,
   IconPlus,
+  IconChevronUp,
+  IconChevronDown,
+  IconSelector,
 } from "@tabler/icons-react"
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { createClient } from "@/lib/client"
 import { NstpModal } from "@/components/shared/Modal"
+import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
 
 import {
   getSubmissionsByForm,
@@ -69,14 +71,100 @@ const typeConfig: Record<string, { bg: string; color: string }> = {
   default: { bg: "#F3F4F6", color: "#374151" },
 }
 
+// The four standard NSTP form types, shown first; any other/custom form
+// type added later is appended after these, sorted alphabetically.
+const OFFICIAL_FORM_ORDER = [
+  "Daily Time Record",
+  "Accomplishment Report",
+  "Attendance Sheet",
+  "Incident Report",
+]
+
+function sortFormTypes(types: string[]): string[] {
+  return [...types].sort((a, b) => {
+    const ai = OFFICIAL_FORM_ORDER.indexOf(a)
+    const bi = OFFICIAL_FORM_ORDER.indexOf(b)
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return a.localeCompare(b)
+  })
+}
+
+function countByField<T>(
+  items: T[],
+  getField: (item: T) => string
+): { type: string; count: number }[] {
+  const counts: Record<string, number> = {}
+  items.forEach((item) => {
+    const key = getField(item)
+    counts[key] = (counts[key] ?? 0) + 1
+  })
+  return sortFormTypes(Object.keys(counts)).map((type) => ({
+    type,
+    count: counts[type],
+  }))
+}
+
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  const gap = 2
+  const shown = new Set<number>()
+
+  shown.add(1)
+  shown.add(total)
+  let start = current - gap
+  let end = current + gap
+
+  if (start < 1) {
+    end += 1 - start
+    start = 1
+  }
+
+  if (end > total) {
+    start -= end - total
+    end = total
+  }
+
+  for (let i = Math.max(1, start); i <= Math.min(total, end); i++) {
+    shown.add(i)
+  }
+
+  const sorted = Array.from(shown).sort((a, b) => a - b)
+  const result: (number | "...")[] = []
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1)
+    }
+    if (i > 0) {
+      const gap = sorted[i] - sorted[i - 1]
+      if (gap === 2) {
+        result.push(sorted[i - 1] + 1)
+      } else if (gap > 2) {
+        result.push("...")
+      }
+    }
+    result.push(sorted[i])
+  }
+
+  return result
+}
+
 const formsStyles = `
   ${dashboardStyles}
   .fm-body { flex: 1; overflow: auto; padding-top: 16px; }
+  .fm-body .stat-cards { margin-bottom: 20px; }
   .adv-table th:nth-child(1) { width: 28%; }
   .adv-table th:nth-child(2) { width: 12%; }
   .adv-table th:nth-child(3) { width: 24%; }
   .adv-table th:nth-child(4) { width: 18%; }
   .adv-table th:nth-child(5) { width: 18%; }
+  .adv-th-sort {
+    display: flex; align-items: center; gap: 4px;
+    cursor: pointer; user-select: none;
+  }
+  .adv-th-sort:hover { color: var(--maroon); }
+  .adv-th-sort svg { flex-shrink: 0; }
   .fm-student-name { font-weight: 600; color: var(--text); }
   .fm-student-no   { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
   .fm-upload-btn {
@@ -95,9 +183,10 @@ const formsStyles = `
   }
   .fm-repo-card:hover { border-color: var(--maroon); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
   .fm-repo-card-top { display: flex; align-items: flex-start; gap: 12px; }
+  .fm-repo-info { min-width: 0; flex: 1; }
   .fm-repo-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #F3E8FF; }
-  .fm-repo-name { font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.3; }
-  .fm-repo-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .fm-repo-name { font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fm-repo-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fm-repo-card-bottom { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid #F3F4F6; }
   .fm-repo-actions { display: flex; gap: 6px; }
   .fm-icon-btn {
@@ -107,6 +196,10 @@ const formsStyles = `
   }
   .fm-icon-btn:hover { border-color: var(--maroon); color: var(--maroon); background: #FEF2F2; }
   .fm-icon-btn.danger:hover { border-color: #EF4444; color: #EF4444; background: #FEF2F2; }
+  .fm-kpi-active {
+    border-color: var(--maroon) !important;
+    box-shadow: 0 0 0 2px rgba(123, 29, 29, 0.14);
+  }
   .fm-upload-zone {
     border: 2px dashed var(--border); border-radius: 12px;
     padding: 32px; text-align: center; cursor: pointer;
@@ -119,22 +212,72 @@ const formsStyles = `
 
 export default function FormsPage() {
   const router = useRouter()
+  const supabase = createClient()
+
+  const [userId, setUserId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<FormTab>("repository")
 
   // Filters
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<"All" | FormStatus>("All")
-  const [typeFilter, setTypeFilter] = useState<FormType>("All")
+  type SubmissionFilterField = "status" | "type"
+  type SubmissionActiveFilters = Partial<
+    Record<SubmissionFilterField, string[]>
+  >
+  const [activeFilters, setActiveFilters] = useState<SubmissionActiveFilters>(
+    {}
+  )
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const filterPanelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showFilterPanel) return
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        filterPanelRef.current &&
+        !filterPanelRef.current.contains(e.target as Node)
+      ) {
+        setShowFilterPanel(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showFilterPanel])
+
+  function toggleFilter(field: SubmissionFilterField, value: string) {
+    setActiveFilters((prev) => {
+      const current = prev[field] ?? []
+      const updated = current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value]
+      const next = { ...prev }
+      if (updated.length === 0) delete next[field]
+      else next[field] = updated
+      return next
+    })
+    setCurrentPage(1)
+  }
   const [sectionFilter, setSectionFilter] = useState("All")
 
   // Dropdown toggles
-  const [showStatusDrop, setShowStatusDrop] = useState(false)
-  const [showTypeDrop, setShowTypeDrop] = useState(false)
   const [showSectionDrop, setShowSectionDrop] = useState(false)
 
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+
+  // Submissions table sorting
+  type SubmissionSortField = "name" | "type" | "date" | "status"
+  const [sortField, setSortField] = useState<SubmissionSortField | null>(null)
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+
+  function toggleSort(field: SubmissionSortField) {
+    if (sortField === field) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -195,8 +338,17 @@ export default function FormsPage() {
       setFirstName(fName)
       setLastName(lName)
       setInitials((fName[0] ?? "") + (lName[0] ?? ""))
+      setUserId(user?.id ?? null)
     })
   }, [])
+
+  useAdviserBroadcast(supabase, {
+    adviserUserId: userId,
+    tables: ["form_submission", "form_requirement"],
+    onChange: () => {
+      loadData()
+    },
+  })
 
   async function handleSignOut() {
     await signOutWithAudit()
@@ -265,16 +417,50 @@ export default function FormsPage() {
       Submitted: "submitted",
       "Not Yet Submitted": "missing",
     }
-    const mappedFilterStatus =
-      statusFilter === "All" ? "All" : dbStatusMap[statusFilter]
+    const statusSelections = activeFilters.status ?? []
     const matchStatus =
-      statusFilter === "All" || f.status === mappedFilterStatus
+      statusSelections.length === 0 ||
+      statusSelections.some((s) => dbStatusMap[s] === f.status)
 
-    const matchType = typeFilter === "All" || f.type === typeFilter
+    const typeSelections = activeFilters.type ?? []
+    const matchType =
+      typeSelections.length === 0 || typeSelections.includes(f.type)
+
     return matchSearch && matchStatus && matchType
   })
 
-  const paginated = filteredSubmissions.slice(
+  const sortedSubmissions = [...filteredSubmissions].sort((a, b) => {
+    if (!sortField) return 0
+    const dir = sortDirection === "asc" ? 1 : -1
+
+    let av: string | number = ""
+    let bv: string | number = ""
+
+    switch (sortField) {
+      case "name":
+        av = a.full_name.toLowerCase()
+        bv = b.full_name.toLowerCase()
+        break
+      case "type":
+        av = a.type.toLowerCase()
+        bv = b.type.toLowerCase()
+        break
+      case "date":
+        av = a.submission ? new Date(a.submission.submitted_at).getTime() : -Infinity
+        bv = b.submission ? new Date(b.submission.submitted_at).getTime() : -Infinity
+        break
+      case "status":
+        av = a.status.toLowerCase()
+        bv = b.status.toLowerCase()
+        break
+    }
+
+    if (av < bv) return -1 * dir
+    if (av > bv) return 1 * dir
+    return 0
+  })
+
+  const paginated = sortedSubmissions.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   )
@@ -287,6 +473,38 @@ export default function FormsPage() {
     if (!bytes) return "0 KB"
     return `${(bytes / 1024).toFixed(1)} KB`
   }
+
+  // Total count per form type — Submission Bin
+  const submissionTypeCounts = countByField(realEntries, (e) => e.type)
+
+  const filterGroups: {
+    label: string
+    field: SubmissionFilterField
+    values: () => string[]
+  }[] = [
+    {
+      label: "Status",
+      field: "status",
+      values: () => ["Submitted", "Not Yet Submitted"],
+    },
+    {
+      label: "Type",
+      field: "type",
+      values: () => submissionTypeCounts.map((c) => c.type),
+    },
+  ]
+
+  const totalActiveFilters = Object.values(activeFilters).reduce(
+    (sum, arr) => sum + (arr?.length ?? 0),
+    0
+  )
+
+  const submissionKpis = submissionTypeCounts.map(({ type, count }) => ({
+    key: type,
+    label: type,
+    value: count,
+    Icon: IconFile,
+  }))
 
   return (
     <>
@@ -366,7 +584,8 @@ export default function FormsPage() {
                       <div>
                         <div className="adv-table-title">All Forms</div>
                         <div className="adv-table-count">
-                          Official NSTP Documents
+                          {repoForms.length} NSTP Form
+                          {repoForms.length !== 1 ? "s" : ""}
                         </div>
                       </div>
                       <div
@@ -418,9 +637,14 @@ export default function FormsPage() {
                                   color={tc.color}
                                 />
                               </div>
-                              <div>
-                                <div className="fm-repo-name">{f.title}</div>
-                                <div className="fm-repo-meta">
+                              <div className="fm-repo-info">
+                                <div className="fm-repo-name" title={f.title}>
+                                  {f.title}
+                                </div>
+                                <div
+                                  className="fm-repo-meta"
+                                  title={f.template_file_name || undefined}
+                                >
                                   {f.template_file_name ||
                                     "No template attached"}
                                   {f.template_file_size_byte
@@ -493,6 +717,40 @@ export default function FormsPage() {
 
               {activeTab === "submissions" && (
                 <div className="fm-body">
+                  <div className="stat-cards">
+                    {submissionKpis.map(({ key, label, value }) => {
+                      const isActive =
+                        (activeFilters.type ?? []).length === 1 &&
+                        activeFilters.type?.[0] === key
+                      return (
+                        <button
+                          key={key}
+                          className={`db-kpi-card db-kpi-card--interactive${
+                            isActive ? " fm-kpi-active" : ""
+                          }`}
+                          onClick={() => {
+                            setActiveFilters((prev) => {
+                              const next = { ...prev }
+                              if (isActive) {
+                                delete next.type
+                              } else {
+                                next.type = [key]
+                              }
+                              return next
+                            })
+                            setCurrentPage(1)
+                          }}
+                          aria-pressed={isActive}
+                          aria-label={`${label}: ${value}`}
+                        >
+                          <div className="db-kpi-header">
+                            <span className="db-kpi-label">{label}</span>
+                          </div>
+                          <div className="db-kpi-value">{value}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
                   <div className="adv-table-card">
                     <div className="adv-table-toolbar">
                       <div>
@@ -527,143 +785,181 @@ export default function FormsPage() {
                           />
                         </div>
 
-                        {/* Status filter */}
-                        <div style={{ position: "relative" }}>
+                        {/* Unified Filter Button */}
+                        <div
+                          ref={filterPanelRef}
+                          style={{ position: "relative" }}
+                        >
                           <button
                             className="adv-filter-btn"
-                            onClick={() => {
-                              setShowStatusDrop((v) => !v)
-                              setShowTypeDrop(false)
-                              setShowSectionDrop(false)
+                            onClick={() => setShowFilterPanel((v) => !v)}
+                            style={{
+                              width: 60,
+                              height: 38,
+                              border: `1.5px solid ${
+                                totalActiveFilters > 0
+                                  ? "var(--maroon)"
+                                  : "var(--green)"
+                              }`,
+                              borderRadius: 999,
+                              background: "white",
+                              color:
+                                totalActiveFilters > 0
+                                  ? "var(--maroon)"
+                                  : "var(--green)",
+                              fontSize: 22,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "0.2s ease",
+                              position: "relative",
                             }}
                           >
-                            <IconFilter size={13} stroke={2} />
-                            {statusFilter === "All"
-                              ? "All Status"
-                              : statusFilter}
-                            <IconChevronDown size={13} stroke={2} />
+                            <IconFilter size={18} stroke={1.75} />
+                            {totalActiveFilters > 0 && (
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  top: -6,
+                                  right: -6,
+                                  background: "var(--maroon)",
+                                  color: "#fff",
+                                  borderRadius: "50%",
+                                  width: 16,
+                                  height: 16,
+                                  fontSize: 9,
+                                  fontWeight: 700,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                {totalActiveFilters}
+                              </span>
+                            )}
                           </button>
-                          {showStatusDrop && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "calc(100% + 6px)",
-                                right: 0,
-                                background: "var(--white)",
-                                border: "1px solid var(--border)",
-                                borderRadius: 10,
-                                boxShadow: "var(--shadow)",
-                                zIndex: 50,
-                                minWidth: 180,
-                                overflow: "hidden",
-                              }}
-                            >
-                              {(
-                                [
-                                  "All",
-                                  "Submitted",
-                                  "Not Yet Submitted",
-                                ] as const
-                              ).map((opt) => (
-                                <button
-                                  key={opt}
-                                  onClick={() => {
-                                    setStatusFilter(opt)
-                                    setShowStatusDrop(false)
-                                    setCurrentPage(1)
-                                  }}
-                                  style={{
-                                    display: "block",
-                                    width: "100%",
-                                    padding: "9px 16px",
-                                    textAlign: "left",
-                                    background:
-                                      statusFilter === opt ? "#F9FAFB" : "none",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    fontSize: 13,
-                                    fontFamily: "var(--font)",
-                                    fontWeight:
-                                      statusFilter === opt ? 700 : 400,
-                                    color:
-                                      statusFilter === opt
-                                        ? "var(--maroon)"
-                                        : "var(--text)",
-                                  }}
-                                >
-                                  {opt === "All" ? "All Status" : opt}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Type filter */}
-                        <div style={{ position: "relative" }}>
-                          <button
-                            className="adv-filter-btn"
-                            onClick={() => {
-                              setShowTypeDrop((v) => !v)
-                              setShowStatusDrop(false)
-                              setShowSectionDrop(false)
-                            }}
-                          >
-                            <IconClipboardText size={13} stroke={2} />
-                            {typeFilter === "All" ? "All Types" : typeFilter}
-                            <IconChevronDown size={13} stroke={2} />
-                          </button>
-                          {showTypeDrop && (
+                          {showFilterPanel && (
                             <div
                               style={{
                                 position: "absolute",
-                                top: "calc(100% + 6px)",
+                                top: "calc(100% + 8px)",
                                 right: 0,
                                 background: "var(--white)",
                                 border: "1px solid var(--border)",
-                                borderRadius: 10,
-                                boxShadow: "var(--shadow)",
-                                zIndex: 50,
-                                minWidth: 210,
-                                overflow: "hidden",
+                                borderRadius: 14,
+                                boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                                zIndex: 100,
+                                padding: 16,
                               }}
                             >
-                              {(
-                                [
-                                  "All",
-                                  "Daily Time Record",
-                                  "Accomplishment Report",
-                                  "Attendance Sheet",
-                                  "Incident Report",
-                                ] as const
-                              ).map((opt) => (
-                                <button
-                                  key={opt}
-                                  onClick={() => {
-                                    setTypeFilter(opt)
-                                    setShowTypeDrop(false)
-                                    setCurrentPage(1)
-                                  }}
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  marginBottom: 12,
+                                }}
+                              >
+                                <span
                                   style={{
-                                    display: "block",
-                                    width: "100%",
-                                    padding: "9px 16px",
-                                    textAlign: "left",
-                                    background:
-                                      typeFilter === opt ? "#F9FAFB" : "none",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    fontSize: 13,
-                                    fontFamily: "var(--font)",
-                                    fontWeight: typeFilter === opt ? 700 : 400,
-                                    color:
-                                      typeFilter === opt
-                                        ? "var(--maroon)"
-                                        : "var(--text)",
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color: "var(--muted)",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
                                   }}
                                 >
-                                  {opt === "All" ? "All Types" : opt}
-                                </button>
-                              ))}
+                                  Filters
+                                </span>
+                                {totalActiveFilters > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      setActiveFilters({})
+                                      setCurrentPage(1)
+                                    }}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      fontSize: 11.5,
+                                      color: "var(--maroon)",
+                                      fontWeight: 600,
+                                      fontFamily: "var(--font)",
+                                      padding: 0,
+                                    }}
+                                  >
+                                    Clear all
+                                  </button>
+                                )}
+                              </div>
+                              <div style={{ display: "flex", gap: 24 }}>
+                                {filterGroups.map(
+                                  ({ label, field, values }) => {
+                                    const opts = values()
+                                    if (opts.length === 0) return null
+                                    const checked = activeFilters[field] ?? []
+                                    return (
+                                      <div
+                                        key={field}
+                                        style={{ minWidth: 150 }}
+                                      >
+                                        <div
+                                          style={{
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                            color: "var(--text)",
+                                            marginBottom: 8,
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.4px",
+                                          }}
+                                        >
+                                          {label}
+                                        </div>
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: 6,
+                                          }}
+                                        >
+                                          {opts.map((v) => (
+                                            <label
+                                              key={v}
+                                              style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 8,
+                                                cursor: "pointer",
+                                                fontSize: 13,
+                                                color: "var(--text)",
+                                                fontFamily: "var(--font)",
+                                              }}
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={checked.includes(v)}
+                                                onChange={() =>
+                                                  toggleFilter(field, v)
+                                                }
+                                                style={{
+                                                  accentColor: "var(--maroon)",
+                                                  width: 14,
+                                                  height: 14,
+                                                  cursor: "pointer",
+                                                  flexShrink: 0,
+                                                }}
+                                              />
+                                              {v}
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )
+                                  }
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -674,11 +970,75 @@ export default function FormsPage() {
                       <table className="adv-table">
                         <thead>
                           <tr>
-                            <th>Student</th>
+                            <th>
+                              <span
+                                className="adv-th-sort"
+                                onClick={() => toggleSort("name")}
+                              >
+                                Student
+                                {sortField === "name" ? (
+                                  sortDirection === "asc" ? (
+                                    <IconChevronUp size={13} stroke={2.5} />
+                                  ) : (
+                                    <IconChevronDown size={13} stroke={2.5} />
+                                  )
+                                ) : (
+                                  <IconSelector size={13} stroke={2} />
+                                )}
+                              </span>
+                            </th>
                             <th>Section</th>
-                            <th>Form Type</th>
-                            <th>Date Submitted</th>
-                            <th>Status</th>
+                            <th>
+                              <span
+                                className="adv-th-sort"
+                                onClick={() => toggleSort("type")}
+                              >
+                                Form Type
+                                {sortField === "type" ? (
+                                  sortDirection === "asc" ? (
+                                    <IconChevronUp size={13} stroke={2.5} />
+                                  ) : (
+                                    <IconChevronDown size={13} stroke={2.5} />
+                                  )
+                                ) : (
+                                  <IconSelector size={13} stroke={2} />
+                                )}
+                              </span>
+                            </th>
+                            <th>
+                              <span
+                                className="adv-th-sort"
+                                onClick={() => toggleSort("date")}
+                              >
+                                Date Submitted
+                                {sortField === "date" ? (
+                                  sortDirection === "asc" ? (
+                                    <IconChevronUp size={13} stroke={2.5} />
+                                  ) : (
+                                    <IconChevronDown size={13} stroke={2.5} />
+                                  )
+                                ) : (
+                                  <IconSelector size={13} stroke={2} />
+                                )}
+                              </span>
+                            </th>
+                            <th>
+                              <span
+                                className="adv-th-sort"
+                                onClick={() => toggleSort("status")}
+                              >
+                                Status
+                                {sortField === "status" ? (
+                                  sortDirection === "asc" ? (
+                                    <IconChevronUp size={13} stroke={2.5} />
+                                  ) : (
+                                    <IconChevronDown size={13} stroke={2.5} />
+                                  )
+                                ) : (
+                                  <IconSelector size={13} stroke={2} />
+                                )}
+                              </span>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -779,30 +1139,120 @@ export default function FormsPage() {
                       </table>
                     </div>
                     <div className="adv-pagination">
-                      <div className="adv-pagination-info">
-                        Page {currentPage} of {totalPages}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 18,
+                        }}
+                      >
+                        <div className="adv-pagination-info">
+                          Page {currentPage} of {totalPages}
+                        </div>
+                        <div className="adv-pagination-controls">
+                          <button
+                            className="adv-page-btn"
+                            disabled={currentPage === 1}
+                            onClick={() =>
+                              setCurrentPage((c) => Math.max(1, c - 1))
+                            }
+                          >
+                            &#8249;
+                          </button>
+                          {getPageNumbers(currentPage, totalPages).map(
+                            (p, idx) =>
+                              p === "..." ? (
+                                <span
+                                  key={`ellipsis-${idx}`}
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 12,
+                                    color: "var(--muted)",
+                                  }}
+                                >
+                                  &#8230;
+                                </span>
+                              ) : (
+                                <button
+                                  key={p}
+                                  onClick={() => setCurrentPage(p)}
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: 6,
+                                    border: "1px solid var(--border)",
+                                    background:
+                                      p === currentPage
+                                        ? "var(--maroon)"
+                                        : "var(--white)",
+                                    color:
+                                      p === currentPage
+                                        ? "#fff"
+                                        : "var(--text)",
+                                    fontWeight: p === currentPage ? 700 : 500,
+                                    cursor: "pointer",
+                                    fontSize: 12,
+                                    fontFamily: "var(--font)",
+                                  }}
+                                >
+                                  {p}
+                                </button>
+                              )
+                          )}
+                          <button
+                            className="adv-page-btn"
+                            disabled={
+                              currentPage === totalPages || totalPages === 0
+                            }
+                            onClick={() =>
+                              setCurrentPage((c) => Math.min(totalPages, c + 1))
+                            }
+                          >
+                            &#8250;
+                          </button>
+                        </div>
                       </div>
-                      <div className="adv-pagination-controls">
-                        <button
-                          className="adv-page-btn"
-                          disabled={currentPage === 1}
-                          onClick={() =>
-                            setCurrentPage((c) => Math.max(1, c - 1))
-                          }
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          fontSize: 12.5,
+                          color: "var(--muted)",
+                        }}
+                      >
+                        <span>Rows per page:</span>
+                        <select
+                          value={pageSize}
+                          onChange={(e) => {
+                            setPageSize(Number(e.target.value))
+                            setCurrentPage(1)
+                          }}
+                          style={{
+                            border: "1.5px solid var(--border)",
+                            borderRadius: 10,
+                            padding: "5px 10px",
+                            fontSize: 13,
+                            fontFamily: "var(--font)",
+                            color: "var(--text)",
+                            background: "var(--white)",
+                            cursor: "pointer",
+                            outline: "none",
+                            appearance: "auto",
+                            minWidth: 60,
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                          }}
                         >
-                          &#8249;
-                        </button>
-                        <button
-                          className="adv-page-btn"
-                          disabled={
-                            currentPage === totalPages || totalPages === 0
-                          }
-                          onClick={() =>
-                            setCurrentPage((c) => Math.min(totalPages, c + 1))
-                          }
-                        >
-                          &#8250;
-                        </button>
+                          {[10, 20, 50].map((n) => (
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   </div>

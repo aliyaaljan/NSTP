@@ -7,7 +7,7 @@ import {
   type FormSubmissionListEntry,
 } from "@/lib/admin/form-list-actions"
 import { formatFormDeadline, type FormListRow } from "@/lib/admin/form-list"
-import { FONT_BODY, TYPE } from "@/lib/admin-typography"
+import { TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 const STATUS_STYLE: Record<
@@ -127,7 +127,7 @@ export default function FormSubmissionsModal({
             justifyContent: "space-between",
             gap: 16,
             padding: "18px 22px",
-            background: COLORS.maroon,
+            background: COLORS.green,
             flexShrink: 0,
           }}
         >
@@ -158,15 +158,12 @@ export default function FormSubmissionsModal({
         </div>
 
         <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
-          <div style={{ ...TYPE.body, color: COLORS.textDark, fontWeight: 600 }}>
+          <div style={{ ...TYPE.body, color: COLORS.textDark }}>
             {form.isSample ? (
               "Sample preview row — submissions are not available."
             ) : (
               <>
-                <span style={{ fontWeight: 700 }}>{submittedCount}</span>
-                {" of "}
-                <span style={{ fontWeight: 700 }}>{form.totalStudents}</span>
-                {" students submitted"}
+                {submittedCount} of {form.totalStudents} students submitted
               </>
             )}
           </div>
@@ -203,13 +200,7 @@ export default function FormSubmissionsModal({
               No enrolled students in this section.
             </div>
           ) : (
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontFamily: FONT_BODY,
-              }}
-            >
+            <table className="admin-table">
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                   {["Student", "Status", "Submitted", ""].map((label) => (

@@ -13,8 +13,8 @@ import {
   IconClock,
   IconCircleCheck,
   IconInbox,
-  IconFilter,
 } from "@tabler/icons-react"
+import { HiSortAscending, HiSortDescending } from "react-icons/hi";
 import {
   navRoutes,
   dashboardStyles,
@@ -98,7 +98,7 @@ export default function DashboardPage() {
   const [activeNav, setActiveNav] = useState("Dashboard")
   const [searchVal, setSearchVal] = useState("")
   const [debouncedSearchVal, setDebouncedSearchVal] = useState("")
-  const [sortOrder, setSortOrder] = useState<"none" | "desc" | "asc">("none")
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc")
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
@@ -109,7 +109,7 @@ export default function DashboardPage() {
   const [sections, setSections] = useState<{ id: string; name: string; isActive: boolean; termStartDate: string | null }[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
   const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at_hours: string }[]>([])
-  const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string }[]>([])
+  const [activeSemData, setActiveSemData] = useState<{ section_id: string; section_name: string; sem_end_date: string; remaining_days: string; holidays: { date: string; name: string }[] }[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [animKey, setAnimKey] = useState(0)
@@ -180,14 +180,19 @@ export default function DashboardPage() {
   // Debounce search input so filtering the student list doesn't run on
   // every keystroke — keeps typing smooth once a section has many students.
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearchVal(searchVal), 250)
+    const t = setTimeout(() => setDebouncedSearchVal(searchVal), 300)
     return () => clearTimeout(t)
   }, [searchVal])
 
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
-    onChange: () => {
-      if (userId) fetchDashboardBundle(userId)
+    tables: ["appeal", "attendance_session", "enrollment"],
+    onChange: (payload) => {
+      if (!userId) return
+
+      if (payload.table === "attendance_session" || payload.table === "enrollment" || payload.table === "appeal") {
+        fetchDashboardBundle(userId)
+      }
     },
   })
 
@@ -225,10 +230,7 @@ export default function DashboardPage() {
 
   const filtered = debouncedSearchVal.trim() ? students.filter((s) => s.name.toLowerCase().includes(debouncedSearchVal.toLowerCase())) : students
 
-  const sorted =
-    sortOrder === "none"
-      ? filtered
-      : [...filtered].sort((a, b) => (sortOrder === "desc" ? b.pct - a.pct : a.pct - b.pct))
+  const sorted = [...filtered].sort((a, b) => (sortOrder === "desc" ? b.pct - a.pct : a.pct - b.pct))
 
   const totalPages = Math.max(1, Math.ceil(sorted?.length / pageSize))
   const paginated = sorted?.slice(
@@ -340,76 +342,46 @@ export default function DashboardPage() {
                   {/* Student Progress */}
                   <div className="progress-card" style={{ marginTop: -8 }}>
                     <div className="progress-card-header">
-                      <div className="card-title" style={{ marginBottom: 0 }}>
+                      <div className="flex flex-row items-center justify-start">
+                        <div className="card-title" style={{ marginBottom: 0 }}>
                         Student Progress
                       </div>
+                        <div style={{ position: "relative" }}>
+                          <button
+                            className="px-1"
+                            onClick={() => {
+                              setSortOrder((o) => (o === "desc" ? "asc" : "desc"))
+                              setCurrentPage(1)
+                              setAnimKey((k) => k + 1)
+                            }}
+                            aria-label={`Sort by progress: ${sortOrder === "desc" ? "High to Low" : "Low to High"}`}
+                            title={sortOrder === "desc" ? "Sort: High to Low" : "Sort: Low to High"}
+                            style={{
+                              width: 60,
+                              height: 38,
+                              borderRadius: 999,
+                              padding: 0,
+                              justifyContent: "center",
+                              borderColor: "var(--green-dark)",
+                              display: "flex",
+                              alignItems: "center",
+                              marginLeft: "-13px"
+                            }}
+                          >
+                            {sortOrder === "desc" ? (<HiSortDescending size={21} />) : (<HiSortAscending size={21} />)}
+                          </button>
+                        </div>
+                      </div>
+                      
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         {currentSemData?.remaining_days && (
                           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                             {currentSemData.remaining_days}
                           </div>
                         )}
-                        <div style={{ position: "relative" }}>
-                          <div onMouseLeave={() => setSortMenuOpen(false)}>
-                            <button
-                              className="adv-filter-btn"
-                              onClick={() => setSortMenuOpen((o) => !o)}
-                              aria-label="Sort students by progress"
-                              aria-expanded={sortMenuOpen}
-                              style={{ width: 60, height: 38, borderRadius: 999, padding: 0, justifyContent: "center", borderColor: sortOrder !== "none" ? "var(--green-dark)" : undefined }}
-                            >
-                              <IconFilter size={16} stroke={2} />
-                            </button>
-
-                            {sortMenuOpen && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "100%",
-                                  right: 0,
-                                  paddingTop: 6,
-                                  zIndex: 10,
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    background: "var(--white)",
-                                    border: "1px solid var(--border)",
-                                    borderRadius: 10,
-                                    boxShadow: "var(--shadow)",
-                                    width: "max-content",
-                                    minWidth: 190,
-                                    overflow: "hidden",
-                                  }}
-                                >
-                                  {[
-                                    { value: "none" as const, label: "Sort: Default" },
-                                    { value: "desc" as const, label: "Progress: High to Low" },
-                                    { value: "asc" as const, label: "Progress: Low to High" },
-                                  ].map((opt) => (
-                                    <div
-                                      key={opt.value}
-                                      onClick={() => {
-                                        setSortOrder(opt.value)
-                                        setSortMenuOpen(false)
-                                        setCurrentPage(1)
-                                        setAnimKey((k) => k + 1)
-                                      }}
-                                      className={`flex items-center justify-between gap-3 w-full px-4 py-2.25 text-left text-[13px] cursor-pointer border-none font-sans hover:bg-green/30 ${
-                                        opt.value === sortOrder ? "font-semibold bg-green text-white" : "font-normal text-text"
-                                      }`}
-                                    >
-                                      <span style={{ whiteSpace: "nowrap" }}>{opt.label}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
                       </div>
                     </div>
-                    <div className={`student-list ${filtered.length === 0 ? "student-list--empty" : ""}`} key={animKey}>
+                    <div className={`student-list ${filtered.length === 0 ? "student-list--empty" : "pb-2"}`} key={animKey}>
                       {filtered.length === 0 ? (
                         <div className="no-results">
                           No students match your search.
@@ -593,7 +565,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Calendar */}
-                  <Calendar semEndDate={currentSemData?.sem_end_date} />
+                  <Calendar semEndDate={currentSemData?.sem_end_date} holidays={currentSemData?.holidays ?? []} />
                   {/* Recent Activity */}
                   <div className={`activity-card ${recentActivity.length === 0 ? "flex-1" : ""}`} style={{ width: "100%" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, paddingRight: 20 }}>

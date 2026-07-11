@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import {
   IconSearch,
   IconChevronDown,
+  IconChevronUp,
+  IconSelector,
   IconFilter,
   IconUsers,
   IconCircleCheck,
@@ -394,7 +396,7 @@ const myStudentsStyles = `
     background: #F9FAFB;
     border-bottom: 1px solid var(--border);
   }
-  .ms-requests-thead span {
+  .ms-requests-thead span, .ms-requests-thead button {
     font-size: 11px; font-weight: 700; color: var(--maroon);
     letter-spacing: 0.8px; text-transform: uppercase;
   }
@@ -429,7 +431,7 @@ const myStudentsStyles = `
   .ms-modal-left { flex: 1; min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
   .ms-modal-right { width: 430px; flex-shrink: 0; border-left: 1px solid var(--border); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
   .ms-modal-right-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
-  .ms-session-table-wrapper {overflow: auto; max-height:500px }
+  .ms-session-table-wrapper {overflow: auto; max-height:500px; scrollbar-width: thin; }
   .ms-session-table { width: 100%; border-collapse: collapse; table-layout: fixed;}
   .ms-session-table th:nth-child(1) { width: 23%; }
   .ms-session-table th:nth-child(2) { width: 17%; }
@@ -594,6 +596,10 @@ function MyStudentsContent() {
   const [tableSearch, setTableSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
+  const [sortField, setSortField] = useState<keyof Student | null>(null)
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  const [pendingSortField, setPendingSortField] = useState<keyof PendingRequest | null>(null)
+  const [pendingSortDirection, setPendingSortDirection] = useState<"asc" | "desc">("asc")
   const [pendingSearch, setPendingSearch] = useState("")
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null)
@@ -871,6 +877,7 @@ function MyStudentsContent() {
   const selectedStudent = selectedStudentKey
   ? students.find(s => s.enrollment_id === selectedStudentKey) ?? null
   : null
+
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
     onChange: (payload) => {
@@ -881,13 +888,16 @@ function MyStudentsContent() {
       if (payload.table === "attendance_session" || payload.table === "enrollment") {
         Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
       }
+      if (payload.table === "form_submission" || payload.table === "form_requirement") {
+        Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
+      }
       if (payload.table === "section") {
         Promise.all([fetchStudents(userId), fetchStatsAndSections(userId)])
         router.refresh()
       }
     },
   })
-
+  
   const currentData = statData.find((r) => r.section_name === selectedSection) ?? {
     section_id: "",
     section_name: selectedSection,
@@ -975,14 +985,64 @@ function MyStudentsContent() {
     return matchSearch && matchSection && matchFilters
   })
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const paginated = filtered.slice(
+  const handleSort = (field: keyof Student) => {
+    if (sortField === field) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortField(field)
+      setSortDirection("asc")
+    }
+    setCurrentPage(1)
+  }
+
+  const sorted = sortField
+    ? [...filtered].sort((a, b) => {
+        const av = a[sortField]
+        const bv = b[sortField]
+        if (typeof av === "number" && typeof bv === "number") {
+          return sortDirection === "asc" ? av - bv : bv - av
+        }
+        const as = String(av ?? "").toLowerCase()
+        const bs = String(bv ?? "").toLowerCase()
+        if (as < bs) return sortDirection === "asc" ? -1 : 1
+        if (as > bs) return sortDirection === "asc" ? 1 : -1
+        return 0
+      })
+    : filtered
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
+  const paginated = sorted.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   )
 
-  const totalPendingPages = Math.max(1, Math.ceil(filteredPending.length / pendingPageSize))
-  const paginatedPending = filteredPending.slice((pendingPage - 1) * pendingPageSize, pendingPage * pendingPageSize)
+  const handlePendingSort = (field: keyof PendingRequest) => {
+    if (pendingSortField === field) {
+      setPendingSortDirection((d) => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setPendingSortField(field)
+      setPendingSortDirection("asc")
+    }
+    setPendingPage(1)
+  }
+
+  const sortedPending = pendingSortField
+    ? [...filteredPending].sort((a, b) => {
+        const av = a[pendingSortField]
+        const bv = b[pendingSortField]
+        if (typeof av === "number" && typeof bv === "number") {
+          return pendingSortDirection === "asc" ? av - bv : bv - av
+        }
+        const as = String(av ?? "").toLowerCase()
+        const bs = String(bv ?? "").toLowerCase()
+        if (as < bs) return pendingSortDirection === "asc" ? -1 : 1
+        if (as > bs) return pendingSortDirection === "asc" ? 1 : -1
+        return 0
+      })
+    : filteredPending
+
+  const totalPendingPages = Math.max(1, Math.ceil(sortedPending.length / pendingPageSize))
+  const paginatedPending = sortedPending.slice((pendingPage - 1) * pendingPageSize, pendingPage * pendingPageSize)
 
   const statCards = buildStatCards()
 
@@ -1471,12 +1531,47 @@ function MyStudentsContent() {
                     <table className="adv-table">
                       <thead className="pt-0">
                         <tr>
-                          <th>Student</th>
-                          <th>Site Location</th>
-                          <th>Program</th>
-                          <th>Classification</th>
-                          <th>Status</th>
-                          <th>Hours Logged</th>
+                          {([
+                            { field: "student_name" as const, label: "Student" },
+                            { field: "site_location" as const, label: "Site Location" },
+                            { field: "program" as const, label: "Program" },
+                            { field: "classification" as const, label: "Classification" },
+                            { field: "status" as const, label: "Status" },
+                            { field: "hours_logged" as const, label: "Hours Logged" },
+                          ]).map((col) => (
+                            <th key={col.field}>
+                              <button
+                                onClick={() => handleSort(col.field)}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  background: "none",
+                                  border: "none",
+                                  padding: 0,
+                                  cursor: "pointer",
+                                  fontFamily: "var(--font)",
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: "var(--maroon)",
+                                  letterSpacing: "0.6px",
+                                  textTransform: "uppercase",
+                                }}
+                                aria-label={`Sort by ${col.label}`}
+                              >
+                                {col.label}
+                                {sortField === col.field ? (
+                                  sortDirection === "asc" ? (
+                                    <IconChevronUp size={13} stroke={2.5} />
+                                  ) : (
+                                    <IconChevronDown size={13} stroke={2.5} />
+                                  )
+                                ) : (
+                                  <IconSelector size={13} stroke={2} style={{ opacity: 0.4 }} />
+                                )}
+                              </button>
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -1769,10 +1864,39 @@ function MyStudentsContent() {
                   ) : (
                     <>
                       <div className="ms-requests-thead">
-                        <span>Student</span>
-                        <span>Type</span>
-                        <span>Status</span>
-                        <span>Date</span>
+                        {([
+                          { field: "student_name" as const, label: "Student" },
+                          { field: "appeal_type_name" as const, label: "Type" },
+                          { field: "status" as const, label: "Status" },
+                          { field: "date" as const, label: "Date" },
+                        ]).map((col) => (
+                          <button
+                            key={col.field}
+                            onClick={() => handlePendingSort(col.field)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
+                              fontFamily: "var(--font)",
+                            }}
+                            aria-label={`Sort by ${col.label}`}
+                          >
+                            {col.label}
+                            {pendingSortField === col.field ? (
+                              pendingSortDirection === "asc" ? (
+                                <IconChevronUp size={12} stroke={2.5} />
+                              ) : (
+                                <IconChevronDown size={12} stroke={2.5} />
+                              )
+                            ) : (
+                              <IconSelector size={12} stroke={2} style={{ opacity: 0.4 }} />
+                            )}
+                          </button>
+                        ))}
                         <span>Details</span>
                         <span>Attachment</span>
                       </div>

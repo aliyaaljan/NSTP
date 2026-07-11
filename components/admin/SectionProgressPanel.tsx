@@ -64,7 +64,7 @@ function SectionProgressRowItem({ section, pct }: SectionProgressRow) {
       </div>
       <div
         style={{
-          ...TYPE.bodyBold,
+          ...TYPE.body,
           color: COLORS.textGray,
           textAlign: "right",
           paddingLeft: 12,

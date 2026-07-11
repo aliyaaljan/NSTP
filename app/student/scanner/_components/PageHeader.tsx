@@ -24,7 +24,7 @@ export function PageHeader({
       <div>
         <h1
           style={{
-            fontSize: isMobile ? "18px" : "32px",
+            fontSize: isMobile ? "20px" : "32px",
             fontWeight: 800,
             color: C.maroon,
             margin: 0,
@@ -35,13 +35,15 @@ export function PageHeader({
         </h1>
       </div>
 
-      <div style={{ flexShrink: 0 }}>
-        <ProfilePill
-          name={profile?.name ?? ""}
-          initials={profile?.initials ?? ""}
-          section={profile?.section ?? ""}
-        />
-      </div>
+      {!isMobile && (
+        <div style={{ flexShrink: 0 }}>
+          <ProfilePill
+            name={profile?.name ?? ""}
+            initials={profile?.initials ?? ""}
+            section={profile?.section ?? ""}
+          />
+        </div>
+      )}
     </div>
   )
 }

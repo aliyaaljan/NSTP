@@ -157,8 +157,7 @@ function DetailModal({
         aria-labelledby="audit-detail-title"
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%",
-          maxWidth: 560,
+          width: "min(560px, calc(100vw - 32px))",
           maxHeight: "85vh",
           borderRadius: 16,
           overflow: "hidden",
@@ -175,7 +174,6 @@ function DetailModal({
             justifyContent: "space-between",
             padding: "18px 22px",
             background: COLORS.green,
-            flexShrink: 0,
           }}
         >
           <h2
@@ -201,12 +199,16 @@ function DetailModal({
         </div>
 
         <div
+          className="audit-log-scroll"
           style={{
             padding: "20px 22px",
-            overflowY: "auto",
             display: "flex",
             flexDirection: "column",
             gap: 16,
+            minWidth: 0,
+            minHeight: 0,
+            flex: 1,
+            overflowY: "auto",
           }}
         >
           <div>
@@ -216,7 +218,13 @@ function DetailModal({
             <div style={{ ...TYPE.bodyBold, color: COLORS.text }}>{entry.title}</div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: 12,
+            }}
+          >
             <div>
               <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
                 Actor
@@ -243,32 +251,36 @@ function DetailModal({
                 {formatAuditLogTimestamp(entry.createdAt)}
               </div>
             </div>
+            {entry.summary && (
+              <div>
+                <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+                  Summary
+                </div>
+                <div style={{ ...TYPE.body, color: COLORS.text }}>{entry.summary}</div>
+              </div>
+            )}
+            {entry.changedFields && entry.changedFields.length > 0 && (
+              <div style={entry.summary ? undefined : { gridColumn: 2 }}>
+                <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+                  Changed Fields
+                </div>
+                <div style={{ ...TYPE.body, color: COLORS.text }}>
+                  {entry.changedFields.join(", ")}
+                </div>
+              </div>
+            )}
           </div>
 
-          {entry.summary && (
-            <div>
-              <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
-                Summary
-              </div>
-              <div style={{ ...TYPE.body, color: COLORS.text }}>{entry.summary}</div>
-            </div>
-          )}
-
-          {entry.changedFields && entry.changedFields.length > 0 && (
-            <div>
-              <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
-                Changed Fields
-              </div>
-              <div style={{ ...TYPE.body, color: COLORS.text }}>
-                {entry.changedFields.join(", ")}
-              </div>
-            </div>
-          )}
-
           {(entry.oldData || entry.newData) && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 12,
+              }}
+            >
               {entry.oldData && (
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}
                   >
@@ -281,8 +293,9 @@ function DetailModal({
                       padding: 12,
                       background: COLORS.tableHeadBg,
                       borderRadius: 8,
-                      overflow: "auto",
-                      maxHeight: 180,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      overflowWrap: "anywhere",
                     }}
                   >
                     {JSON.stringify(entry.oldData, null, 2)}
@@ -290,7 +303,7 @@ function DetailModal({
                 </div>
               )}
               {entry.newData && (
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}
                   >
@@ -303,8 +316,9 @@ function DetailModal({
                       padding: 12,
                       background: COLORS.greenBgLight,
                       borderRadius: 8,
-                      overflow: "auto",
-                      maxHeight: 180,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      overflowWrap: "anywhere",
                     }}
                   >
                     {JSON.stringify(entry.newData, null, 2)}

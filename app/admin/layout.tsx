@@ -3,8 +3,11 @@ export const dynamic = "force-dynamic"
 import { redirect } from "next/navigation"
 import { Goblin_One, Cormorant, Montserrat } from "next/font/google"
 import { getAppUserRole } from "@/lib/auth-actions"
-import AdminSidebar, { type NavGroup } from "@/components/shared/AdminSidebar"
-import { ADMIN_THEME_CSS } from "@/lib/admin-theme"
+import ResponsiveStudentSidebar, {
+  type NavGroup,
+} from "@/components/shared/ResponsiveStudentSidebar"
+import { FONT_BODY } from "@/lib/admin-typography"
+import { ADMIN_COLORS, ADMIN_THEME_CSS } from "@/lib/admin-theme"
 
 const goblinOne = Goblin_One({
   weight: "400",
@@ -87,7 +90,15 @@ export default async function AdminLayout({
       }}
     >
       <style>{ADMIN_THEME_CSS}</style>
-      <AdminSidebar navGroups={adminNav}>{children}</AdminSidebar>
+      <ResponsiveStudentSidebar
+        navGroups={adminNav}
+        mainClassName="admin-main-scroll"
+        pageBg={ADMIN_COLORS.bg}
+      >
+        <div style={{ fontFamily: FONT_BODY, color: ADMIN_COLORS.text }}>
+          {children}
+        </div>
+      </ResponsiveStudentSidebar>
     </div>
   )
 }
