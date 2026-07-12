@@ -16,6 +16,8 @@ import {
   IconPlus,
   IconEye,
   IconDownload,
+  IconAlertTriangle,
+  IconQuestionMark,
 } from "@tabler/icons-react"
 import StudentSidebar from "@/components/shared/ResponsiveStudentSidebar"
 import ProfilePill from "@/components/shared/StudentProfilePill"
@@ -35,6 +37,7 @@ import {
   saveDriveSubmission,
   getStudentActiveEnrollmentId,
   getMySubmissionUrl,
+  unsubmitForm,
   type StudentFormView,
 } from "@/lib/forms/submission-actions"
 
@@ -194,7 +197,7 @@ const studentFilesStyles = `
   .sf-file-preview-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sf-file-preview-meta { display: flex; align-items: center; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
   .sf-file-preview-type { font-size: 10px; font-weight: 700; color: #FFFFFF; background: #1B4332; padding: 2px 10px; border-radius: 12px; flex-shrink: 0; }
-  .sf-file-preview-size { font-size: 11px; color: #6B7280; }
+  .sf-file-preview-size { font-size: 11px; color: #6B7280; display: flex; align-items: center; gap: 4px; }
   .sf-file-preview-remove { background: none; border: none; color: #9CA3AF; cursor: pointer; padding: 6px; flex-shrink: 0; }
   .sf-file-preview-remove:hover { color: #7B1D1D}
   .sf-empty-state { text-align: center; padding: 60px 20px; color: #9CA3AF; display: flex; flex-direction: column; align-items: center; }
@@ -251,6 +254,44 @@ const studentFilesStyles = `
   .sf-dropdown-menu { position: absolute; bottom: calc(100% + 4px); left: 0; right: 0; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 10; overflow: hidden;}
   .sf-dropdown-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; background: none; border: none; font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; }
   .sf-dropdown-item:hover { background: #F5F5F7; }
+  
+  /* Unsubmit inline confirmation styles */
+  .sf-unsubmit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font-montserrat, 'Montserrat', sans-serif);
+    position: relative;
+    transition: all 0.2s ease;
+    background: transparent;
+    color: #7B1D1D;
+    border: 2px solid #7B1D1D;
+  }
+  .sf-unsubmit-btn:hover:not(.sf-unsubmit-confirming) {
+    background: rgba(123, 29, 29, 0.05);
+  }
+  .sf-unsubmit-btn.sf-unsubmit-confirming {
+    background: #7B1D1D;
+    color: #FFFFFF;
+    border: 2px solid #7B1D1D;
+  }
+  .sf-unsubmit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .sf-unsubmit-confirm-text {
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.7;
+    margin-left: 4px;
+  }
   
   /* Responsive adjustments */
   @media (max-width: 767px) {
@@ -314,9 +355,11 @@ interface Form {
   submittedLinks?: {
     url: string
     fileName?: string
+    submissionId?: string
   }[]
   reviewerComment?: string | null
   submissionDate?: string
+  submissionTime?: string
 }
 
 export default function StudentFilesPage() {
@@ -341,6 +384,8 @@ export default function StudentFilesPage() {
     message: "",
     type: "success",
   })
+
+  const [isConfirmingUnsubmit, setIsConfirmingUnsubmit] = useState(false)
 
   const [student, setStudent] = useState({
     initials: "ST",
@@ -370,6 +415,8 @@ export default function StudentFilesPage() {
   const [isTablet, setIsTablet] = useState(false)
   const [isSmallMobile, setIsSmallMobile] = useState(false)
 
+  const unsubmitTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth
@@ -381,6 +428,14 @@ export default function StudentFilesPage() {
     handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (unsubmitTimeoutRef.current) {
+        clearTimeout(unsubmitTimeoutRef.current)
+      }
+    }
   }, [])
 
   // Filter groups
@@ -485,6 +540,7 @@ export default function StudentFilesPage() {
             submittedLinks.push({
               url: url,
               fileName: fileName,
+              submissionId: req.submission.form_submission_id,
             })
           } else {
             submittedFiles.push({
@@ -531,10 +587,18 @@ export default function StudentFilesPage() {
           submittedLinks,
           reviewerComment: req.submission?.reviewer_comment,
           submissionDate: req.submission?.submitted_at
-            ? new Date(req.submission.submitted_at).toLocaleDateString(
-                "en-US",
-                { month: "short", day: "numeric", year: "numeric" }
-              )
+            ? new Date(req.submission.submitted_at).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : undefined,
+          submissionTime: req.submission?.submitted_at
+            ? new Date(req.submission.submitted_at).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
             : undefined,
         }
       })
@@ -608,6 +672,94 @@ export default function StudentFilesPage() {
     else alert(`Download Error: ${res.error}`)
   }
 
+  const handleUnsubmitClick = () => {
+    if (isConfirmingUnsubmit) {
+      // Second click - unsubmit
+      executeUnsubmit()
+    } else {
+      // First click - show confirmation state
+      setIsConfirmingUnsubmit(true)
+      
+      // Auto-reset after 5 seconds if not clicked
+      if (unsubmitTimeoutRef.current) {
+        clearTimeout(unsubmitTimeoutRef.current)
+      }
+      unsubmitTimeoutRef.current = setTimeout(() => {
+        setIsConfirmingUnsubmit(false)
+        unsubmitTimeoutRef.current = null
+      }, 5000)
+    }
+  }
+
+  const executeUnsubmit = async () => {
+    if (!viewingForm) return
+
+    if (unsubmitTimeoutRef.current) {
+      clearTimeout(unsubmitTimeoutRef.current)
+      unsubmitTimeoutRef.current = null
+    }
+
+    try {
+      const submissionId = viewingForm.submittedFiles?.[0]?.submissionId || 
+                         viewingForm.submittedLinks?.[0]?.submissionId
+      
+      if (!submissionId) {
+        setToast({
+          show: true,
+          message: "No submission found to unsubmit.",
+          type: "error",
+        })
+        setIsConfirmingUnsubmit(false)
+        return
+      }
+
+      const result = await unsubmitForm(submissionId)
+      if (result.ok) {
+        const updatedForm = {
+          ...viewingForm,
+          status: "pending" as const,
+          realStatus: "missing" as const,
+          submittedFiles: [],
+          submittedLinks: [],
+          submissionDate: undefined,
+          submissionTime: undefined,
+          reviewerComment: null,
+        }
+        
+        setForms(prevForms =>
+          prevForms.map(form =>
+            form.id === viewingForm.id ? updatedForm : form
+          )
+        )
+        
+        setShowViewModal(false)
+        setIsConfirmingUnsubmit(false)
+        
+        setToast({
+          show: true,
+          message: "Form unsubmitted successfully! You can now re-upload.",
+          type: "success",
+        })
+        
+        loadData()
+      } else {
+        setToast({
+          show: true,
+          message: result.error || "Failed to unsubmit form.",
+          type: "error",
+        })
+        setIsConfirmingUnsubmit(false)
+      }
+    } catch (error: any) {
+      setToast({
+        show: true,
+        message: error.message || "An error occurred while unsubmitting.",
+        type: "error",
+      })
+      setIsConfirmingUnsubmit(false)
+    }
+  }
+
   const handleUploadExecute = async () => {
     if (!selectedForm || !enrollmentId) return
     setIsUploading(true)
@@ -650,6 +802,7 @@ export default function StudentFilesPage() {
       }
 
       // Makes button change to "Submitted" instantly after Uploading
+      const now = new Date()
       const updatedForm: Form = {
         ...selectedForm,
         status: "uploaded",
@@ -671,13 +824,19 @@ export default function StudentFilesPage() {
               {
                 url: links[0].url,
                 fileName: links[0].fileName,
+                submissionId: 'pending',
               }
             ]
           : selectedForm.submittedLinks || [],
-        submissionDate: new Date().toLocaleDateString("en-US", {
+        submissionDate: now.toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
           year: "numeric",
+        }),
+        submissionTime: now.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
         }),
       }
 
@@ -844,12 +1003,6 @@ export default function StudentFilesPage() {
     return <IconFile size={20} stroke={1.75} />
   }
 
-  const handleDirectFileDownload = async (submissionId: string | undefined) => {
-    if (!submissionId) return
-    const res = await getMySubmissionUrl(submissionId)
-    if (res.ok) window.open(res.url, "_blank")
-    else alert(`Download Error: ${res.error}`)
-  }
   const isUploadDisabled = () =>
     selectedFiles.length === 0 && links.length === 0
 
@@ -1817,7 +1970,14 @@ export default function StudentFilesPage() {
           {showViewModal && viewingForm && (
             <div
               className="sf-modal-backdrop"
-              onClick={() => setShowViewModal(false)}
+              onClick={() => {
+                setShowViewModal(false)
+                setIsConfirmingUnsubmit(false)
+                if (unsubmitTimeoutRef.current) {
+                  clearTimeout(unsubmitTimeoutRef.current)
+                  unsubmitTimeoutRef.current = null
+                }
+              }}
             >
               <div className="sf-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="sf-modal-header">
@@ -1826,7 +1986,14 @@ export default function StudentFilesPage() {
                   </span>
                   <button
                     className="sf-modal-close"
-                    onClick={() => setShowViewModal(false)}
+                    onClick={() => {
+                      setShowViewModal(false)
+                      setIsConfirmingUnsubmit(false)
+                      if (unsubmitTimeoutRef.current) {
+                        clearTimeout(unsubmitTimeoutRef.current)
+                        unsubmitTimeoutRef.current = null
+                      }
+                    }}
                   >
                     <IconX size={20} stroke={2} />
                   </button>
@@ -1884,6 +2051,7 @@ export default function StudentFilesPage() {
                         </span>
                       </div>
 
+                      {/* Submission Date and Time */}
                       {viewingForm.submissionDate && (
                         <div
                           style={{
@@ -1906,9 +2074,20 @@ export default function StudentFilesPage() {
                               fontSize: 13,
                               color: "#111827",
                               fontWeight: 500,
+                              textAlign: "right",
                             }}
                           >
                             {viewingForm.submissionDate}
+                            {viewingForm.submissionTime && (
+                              <span style={{ 
+                                display: "block", 
+                                fontSize: 12, 
+                                color: "#6B7280", 
+                                fontWeight: 400 
+                              }}>
+                                at {viewingForm.submissionTime}
+                              </span>
+                            )}
                           </span>
                         </div>
                       )}
@@ -2016,9 +2195,6 @@ export default function StudentFilesPage() {
                                 color: "#1B4332",
                                 textDecoration: "underline",
                               }}
-                              onClick={() =>
-                                handleDirectFileDownload(file.submissionId)
-                              }
                             >
                               {file.name}
                             </div>
@@ -2046,6 +2222,27 @@ export default function StudentFilesPage() {
                         </div>
                       )}
                   </div>
+                </div>
+                {/* Unsubmit button */}
+                <div className="sf-modal-footer" style={{ padding: "14px 22px 20px" }}>
+                  <button
+                    className={`sf-unsubmit-btn ${isConfirmingUnsubmit ? 'sf-unsubmit-confirming' : ''}`}
+                    onClick={handleUnsubmitClick}
+                    disabled={isUploading}
+                  >
+                    {isConfirmingUnsubmit ? (
+                      <>
+                        <IconQuestionMark size={18} stroke={2} style={{ position: "absolute", left: "16px" }} />
+                        <span>Are you sure?</span>
+                        <span className="sf-unsubmit-confirm-text">tap again to confirm</span>
+                      </>
+                    ) : (
+                      <>
+                        <IconX size={18} stroke={2} style={{ position: "absolute", left: "16px" }} />
+                        <span>Unsubmit Form</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>

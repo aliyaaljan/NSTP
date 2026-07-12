@@ -202,6 +202,69 @@ export async function submitForm(
 }
 
 // ---------------------------------------------------------------------------
+// Student: unsubmit a form
+// ---------------------------------------------------------------------------
+
+export async function unsubmitForm(
+  submissionId: string
+): Promise<ActionResult<void>> {
+  try {
+    const { supabase, user } = await requireAuth()
+    const service = createSupabaseServiceClient()
+
+    // Get the submission to verify ownership and get storage path
+    const { data: submission, error: fetchError } = await service
+      .from("form_submission")
+      .select("storage_path, enrollment_id")
+      .eq("form_submission_id", submissionId)
+      .single()
+
+    if (fetchError || !submission) {
+      return { ok: false, error: "Submission not found" }
+    }
+
+    // Verify the student owns this submission
+    const { data: enrollment } = await service
+      .from("enrollment")
+      .select("student_user_id")
+      .eq("enrollment_id", submission.enrollment_id)
+      .single()
+
+    if (!enrollment || enrollment.student_user_id !== user.id) {
+      return { ok: false, error: "You do not have permission to unsubmit this form" }
+    }
+
+    // If it's a file in storage (not a Google Drive link), delete it
+    if (submission.storage_path && !submission.storage_path.startsWith('gdrive:')) {
+      const { error: deleteError } = await service.storage
+        .from('form-submissions')
+        .remove([submission.storage_path])
+
+      if (deleteError) {
+        console.error("[unsubmitForm] Storage delete error:", deleteError)
+        // Continue with database deletion even if file delete fails
+      }
+    }
+
+    // Delete the submission record from the database
+    const { error: deleteRecordError } = await service
+      .from("form_submission")
+      .delete()
+      .eq("form_submission_id", submissionId)
+
+    if (deleteRecordError) {
+      console.error("[unsubmitForm] Database delete error:", deleteRecordError)
+      return { ok: false, error: "Failed to delete submission record" }
+    }
+
+    return { ok: true, data: undefined }
+  } catch (err) {
+    console.error("[unsubmitForm] Error:", err)
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Student: get my forms for a given enrollment
 // ---------------------------------------------------------------------------
 
