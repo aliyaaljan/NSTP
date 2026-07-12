@@ -561,7 +561,6 @@ export default function CalendarOverview({
                     height: 4,
                     borderRadius: 3,
                     backgroundColor: isSemEndDay ? 'transparent' : (isHolidayDay ? '#D97706' : (hasRenderedTime ? '#14492E' : '#D97706')),
-                    transition: 'all 0.2s ease',
                     display: isSemEndDay ? 'none' : 'block',
                   }} />
                 )}
@@ -651,7 +650,6 @@ const styles = {
     alignItems: 'center',
     padding: '3px',
     borderRadius: '6px',
-    transition: 'background 0.12s',
   },
   calMonthLabel: {
     fontSize: '13px',
@@ -696,7 +694,6 @@ const styles = {
     color: '#111827',
     cursor: 'default',
     lineHeight: 1,
-    transition: 'all 0.15s',
     minHeight: '32px',
     display: 'flex',
     alignItems: 'center',
@@ -747,7 +744,6 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'opacity 0.15s',
   },
   popupBody: {
     padding: '24px 20px 20px',
