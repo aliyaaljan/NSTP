@@ -878,6 +878,7 @@ export default function FormsPage() {
                 <input
                   type="text"
                   value={customTitle}
+                  maxLength={100}
                   onChange={(e) => setCustomTitle(e.target.value)}
                   placeholder="Enter custom form title"
                   style={{
@@ -920,6 +921,7 @@ export default function FormsPage() {
               </div>
               <textarea
                 value={uploadDescription}
+                maxLength={500}
                 onChange={(e) => setUploadDescription(e.target.value)}
                 placeholder="Add helpful instructions for your students..."
                 rows={3}
@@ -1029,6 +1031,7 @@ export default function FormsPage() {
                 <input
                   type="text"
                   value={editCustomTitle}
+                  maxLength={100}
                   onChange={(e) => setEditCustomTitle(e.target.value)}
                   placeholder="Enter custom form title"
                   style={{
@@ -1069,6 +1072,7 @@ export default function FormsPage() {
               <div className="nstp-modal-label">Description / Instructions</div>
               <textarea
                 value={editDescription}
+                maxLength={500}
                 onChange={(e) => setEditDescription(e.target.value)}
                 rows={3}
                 style={{
