@@ -9,6 +9,10 @@ import {
   getSignedUrl,
 } from "@/lib/forms/storage"
 import { lookupId } from "@/lib/lookups"
+import {
+  notifyAdviserOnSubmission,
+  notifyStudentOnSubmissionReviewed,
+} from "@/lib/email/notifications"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -186,6 +190,10 @@ export async function submitForm(
     if (oldStoragePath && oldStoragePath !== upload.storagePath) {
       await deleteFormFile(oldStoragePath)
     }
+
+    await notifyAdviserOnSubmission(
+      (submission as any).form_submission_id
+    ).catch(console.error)
 
     return { ok: true, data: submission as FormSubmission }
   } catch (err) {
@@ -529,6 +537,10 @@ export async function reviewSubmission(
       return { ok: false, error: "Failed to review submission" }
     }
 
+    await notifyStudentOnSubmissionReviewed(submissionId, decision).catch(
+      console.error
+    )
+
     return { ok: true, data: updated as FormSubmission }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
@@ -758,6 +770,10 @@ export async function saveDriveSubmission(
         error: "Failed to save submission record to database.",
       }
     }
+
+    await notifyAdviserOnSubmission(
+      (submission as any).form_submission_id
+    ).catch(console.error)
 
     return { ok: true, data: submission as FormSubmission }
   } catch (err) {

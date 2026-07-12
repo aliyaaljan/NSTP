@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { lookupId } from "@/lib/lookups"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import type { StructuredCorrection } from "@/lib/student/time-correction"
+import { notifyAdviserOnAppeal } from "@/lib/email/notifications"
 
 const MAX_NUM_ATTACHMENT = 1
 
@@ -97,7 +98,10 @@ export async function submitStudentRequest(
     } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: "Not authenticated" }
     if (attachments.length > MAX_NUM_ATTACHMENT) {
-      return { ok: false, error: `You can attach at most ${MAX_NUM_ATTACHMENT} files per request` }
+      return {
+        ok: false,
+        error: `You can attach at most ${MAX_NUM_ATTACHMENT} files per request`,
+      }
     }
 
     const openStatusId = await lookupId("appeal_status", "pending")
@@ -139,6 +143,8 @@ export async function submitStudentRequest(
         throw attachmentError
       }
     }
+
+    await notifyAdviserOnAppeal(data.appeal_id).catch(console.error)
 
     return { ok: true, data: null }
   } catch (err: any) {
@@ -200,7 +206,8 @@ export async function updateStudentRequest(
       updated_at: new Date().toISOString(),
     }
     if (structured) {
-      updatePayload.attendance_session_id = structured.attendanceSessionId ?? null
+      updatePayload.attendance_session_id =
+        structured.attendanceSessionId ?? null
       updatePayload.requested_time_in = structured.requestedTimeIn ?? null
       updatePayload.requested_time_out = structured.requestedTimeOut ?? null
     }

@@ -7,6 +7,7 @@ import { lookupId } from "../lookups"
 import { revalidatePath } from "next/cache"
 import { formatClassLabel } from "@/lib/shared/class-label"
 import type { FlagReason } from "@/lib/attendance/flag-reasons"
+import { notifyStudentOnAppealResolved } from "@/lib/email/notifications"
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -186,9 +187,15 @@ export async function resolveStudentRequest(
     if (error) throw error
     revalidatePath("/facilitator/dashboard")
     revalidatePath("/facilitator/my-students")
+
+    await notifyStudentOnAppealResolved(appealId, decision).catch(console.error)
+
     return {
       ok: true,
-      data: { appealId, status: decision === "approved" ? "Approved" : "Rejected" },
+      data: {
+        appealId,
+        status: decision === "approved" ? "Approved" : "Rejected",
+      },
     }
   } catch (err: any) {
     return { ok: false, error: err.message }
@@ -210,18 +217,28 @@ export async function approveRequestWithCorrection(
     let linkedSessionId: string | null = correction.attendanceSessionId ?? null
 
     if (correction.action === "add") {
-      if (!correction.sessionDate || !correction.timeIn || !correction.timeOut) {
+      if (
+        !correction.sessionDate ||
+        !correction.timeIn ||
+        !correction.timeOut
+      ) {
         return { ok: false, error: "Missing date/time for the new session" }
       }
-      const { data: newId, error } = await supabase.rpc("create_attendance_session", {
-        p_enrollment_id: guard.enrollmentId,
-        p_session_date: correction.sessionDate,
-        p_time_in: correction.timeIn,
-        p_time_out: correction.timeOut,
-      })
+      const { data: newId, error } = await supabase.rpc(
+        "create_attendance_session",
+        {
+          p_enrollment_id: guard.enrollmentId,
+          p_session_date: correction.sessionDate,
+          p_time_in: correction.timeIn,
+          p_time_out: correction.timeOut,
+        }
+      )
       if (error) throw error
       linkedSessionId = (newId as string) ?? null
-    } else if (correction.action === "edit" || correction.action === "restore") {
+    } else if (
+      correction.action === "edit" ||
+      correction.action === "restore"
+    ) {
       if (
         !correction.attendanceSessionId ||
         !correction.sessionDate ||
@@ -273,7 +290,15 @@ export async function approveRequestWithCorrection(
 
     revalidatePath("/facilitator/dashboard")
     revalidatePath("/facilitator/my-students")
-    return { ok: true, data: { appealId, attendanceSessionId: linkedSessionId } }
+
+    await notifyStudentOnAppealResolved(appealId, "approved").catch(
+      console.error
+    )
+
+    return {
+      ok: true,
+      data: { appealId, attendanceSessionId: linkedSessionId },
+    }
   } catch (err: any) {
     return { ok: false, error: err.message }
   }
