@@ -26,7 +26,11 @@ const getOAuthClient = () => {
 /**
  * direct file upload using personal account's 15GB GDrive quota via Oauthv2
  */
-export const uploadToGoogleDrive = async (file: File, folderId: string) => {
+export const uploadToGoogleDrive = async (
+  file: File,
+  folderId: string,
+  studentEmail?: string
+) => {
   const auth = getOAuthClient()
   const drive = google.drive({ version: "v3", auth })
 
@@ -54,14 +58,16 @@ export const uploadToGoogleDrive = async (file: File, folderId: string) => {
     })
     const fileId = response.data.id
 
-    if (fileId) {
+    if (fileId && studentEmail) {
       try {
         await drive.permissions.create({
           fileId: fileId,
-          supportsAllDrives: true, // Crucial for Shared Drives
+          supportsAllDrives: true,
+          sendNotificationEmail: false, // Prevents spamming the student's UP Mail inbox
           requestBody: {
-            type: "anyone", // Allows the student who holds the link to view it
-            role: "reader", // Restricts them to Read-Only so they can't delete or modify it after submission
+            type: "user",
+            role: "reader", // They can view their submission, but not edit/delete it
+            emailAddress: studentEmail,
           },
         })
       } catch (permError) {
