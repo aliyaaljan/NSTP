@@ -131,6 +131,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
   // Get data
   const fullName = dashboard?.fullName ?? ""
   const initials = fullName ? getInitials(fullName) : ""
+  const avatarUrl = dashboard?.avatarUrl ?? null
   const sectionName = dashboard?.sectionName ?? ""
   const studentNumber = dashboard?.studentNumber ?? ""
   const email = dashboard?.email ?? ""
@@ -375,19 +376,29 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                 boxShadow: "0 4px 12px rgba(123, 17, 19, 0.2)",
                 border: `3px solid ${C.cardBg}`,
                 zIndex: 2,
+                overflow: "hidden",
               }}
             >
-              <span
-                style={{
-                  fontSize: isSmallMobile ? 18 : isMobile ? 22 : 30,
-                  fontWeight: 800,
-                  color: C.maroon,
-                  letterSpacing: "0.02em",
-                  fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                }}
-              >
-                {initials}
-              </span>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                />
+              ) : (
+                <span
+                  style={{
+                    fontSize: isSmallMobile ? 18 : isMobile ? 22 : 30,
+                    fontWeight: 800,
+                    color: C.maroon,
+                    letterSpacing: "0.02em",
+                    fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                  }}
+                >
+                  {initials}
+                </span>
+              )}
             </div>
 
             {/* Name */}

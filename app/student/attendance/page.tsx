@@ -86,9 +86,11 @@ export default function QRGenerationPage() {
   const [profile, setProfile] = useState<{
     fullName: string
     sectionName: string
+    avatarUrl: string | null
   }>({
     fullName: "",
     sectionName: "",
+    avatarUrl: null,
   })
 
   const [hasOpenSession, setHasOpenSession] = useState(false)
@@ -122,6 +124,7 @@ export default function QRGenerationPage() {
       setProfile({
         fullName: res.data.fullName,
         sectionName: res.data.sectionName ?? "",
+        avatarUrl: res.data.avatarUrl ?? null,
       })
 
       // Check if leader
@@ -947,6 +950,7 @@ export default function QRGenerationPage() {
                 name={profile.fullName}
                 initials={getInitials(profile.fullName)}
                 section={profile.sectionName}
+                avatarUrl={profile.avatarUrl}
               />
             )}
           </div>

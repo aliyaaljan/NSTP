@@ -145,7 +145,7 @@ async function resolveCurrentUser(
 
   const { data: appUser } = await supabase
     .from("app_user")
-    .select("full_name, role:role_id(code)")
+    .select("full_name, avatar_url, role:role_id(code)")
     .eq("app_user_id", userId)
     .maybeSingle()
 
@@ -158,6 +158,7 @@ async function resolveCurrentUser(
   return {
     name: isAdmin ? "Admin Test Account" : appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
+    avatarUrl: (appUser as any).avatar_url ?? undefined,
   }
 }
 

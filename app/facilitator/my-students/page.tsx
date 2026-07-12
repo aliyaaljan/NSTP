@@ -26,6 +26,7 @@ import { ChartStyles } from "@/components/shared/ChartModule"
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/client"
+import { googleAvatarUrl } from "@/lib/auth/avatar"
 import { parse, format } from "date-fns"
 import {
   getAdviserPendingRequests,
@@ -85,6 +86,7 @@ interface Student {
   section_name: string
   enrollment_id: string
   student_name: string
+  student_avatar_url: string | null
   student_number: string
   is_student_leader: boolean
   sais_id: number
@@ -111,6 +113,7 @@ interface PendingRequest {
   section_name: string
   enrollment_id: string
   student_name: string
+  student_avatar_url: string | null
   student_number: string
   appeal_id: string
   appeal_type_id: string
@@ -871,6 +874,7 @@ function MyStudentsContent() {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [initials, setInitials] = useState("")
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [sections, setSections] = useState<{ id: string; name: string }[]>([])
   const [selectedSection, setSelectedSection] = useState("All Sections")
   const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false)
@@ -989,6 +993,7 @@ function MyStudentsContent() {
       setFirstName(parts[0] ?? "")
       setLastName(parts.at(-1) ?? "")
       setInitials(((parts[0] ?? "")[0] ?? "") + ((parts.at(-1) ?? "")[0] ?? ""))
+      setAvatarUrl(googleAvatarUrl(user))
       setUserId(user?.id ?? null)
 
       if (!user?.id) return
@@ -1470,7 +1475,18 @@ function MyStudentsContent() {
             <header className="header">
               <h1 className="header-greeting">My Students</h1>
               <Link href={"/facilitator/profile"} className="profile-pill">
-                <div className="profile-avatar">{initials}</div>
+                <div className="profile-avatar">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    initials
+                  )}
+                </div>
                 <div>
                   <div className="profile-name">
                     {lastName ? `${lastName}, ${firstName}` : "Adviser"}
@@ -1757,7 +1773,16 @@ function MyStudentsContent() {
                                   <div className="ms-student-no">{s.student_number}</div> */}
                                   <div className="ms-request-student">
                                     <div className="ms-request-avatar">
-                                      {initials}
+                                      {s.student_avatar_url ? (
+                                        <img
+                                          src={s.student_avatar_url}
+                                          alt=""
+                                          referrerPolicy="no-referrer"
+                                          style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                                        />
+                                      ) : (
+                                        initials
+                                      )}
                                     </div>
                                     <div>
                                       <div className="ms-request-name">
@@ -2122,7 +2147,16 @@ function MyStudentsContent() {
                             >
                               <div className="ms-request-student">
                                 <div className="ms-request-avatar">
-                                  {initials}
+                                  {r.student_avatar_url ? (
+                                    <img
+                                      src={r.student_avatar_url}
+                                      alt=""
+                                      referrerPolicy="no-referrer"
+                                      style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                                    />
+                                  ) : (
+                                    initials
+                                  )}
                                 </div>
                                 <div>
                                   <div className="ms-request-name">
@@ -2223,6 +2257,7 @@ function MyStudentsContent() {
           title={selectedStudent?.student_name ?? ""}
           subtitle={selectedStudent ? `${selectedStudent.section_name} · ${selectedStudent.site_location ? selectedStudent.site_location : "Not Assigned to a Location Yet"}` : ""}
           initials={selectedStudent?.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
+          avatarUrl={selectedStudent?.student_avatar_url ?? null}
           size="wide"
           twoCol
           leftContent={selectedStudent && (
@@ -2339,6 +2374,7 @@ function MyStudentsContent() {
           title={selectedRequest?.student_name ?? ""}
           subtitle={selectedRequest ? `${selectedRequest.student_number} · ${selectedRequest.section_name}` : ""}
           initials={selectedRequest?.student_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
+          avatarUrl={selectedRequest?.student_avatar_url ?? null}
           size="md"
         >
           {selectedRequest && (

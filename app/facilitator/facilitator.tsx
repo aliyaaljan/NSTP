@@ -431,7 +431,12 @@ export function ProfileCard({ fullName = "", email = "", college = "", component
       <div className="pc-card">
         <div className="pc-avatar overflow-hidden">
           {avatarUrl ? (
-            <img src={avatarUrl} alt={fullName || "Profile Photo"} className="pc-avatar-img" />
+            <img
+              src={avatarUrl}
+              alt={fullName || "Profile Photo"}
+              className="pc-avatar-img"
+              referrerPolicy="no-referrer"
+            />
           ) : (
             <span className="pc-avatar-text">{initials}</span>
           )}
@@ -731,6 +736,7 @@ export const dashboardStyles = `
   .pc-card { position: relative; width: 100%; max-width: 480px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; padding: 50px 24px 28px; }
   .pc-avatar { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--gold, #C8A84B), #D4B05C); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(123, 17, 19, 0.2); border: 3px solid var(--white); }
   .pc-avatar-text { font-size: 30px; font-weight: 800; color: var(--maroon); letter-spacing: 0.02em; }
+  .pc-avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
   .pc-name { font-size: 20px; font-weight: 700; color: var(--maroon); margin: 8px 0 18px; text-align: center; word-break: break-word; }
   .pc-info { width: 100%; border-top: 1px solid var(--border); padding-top: 16px; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; color: var(--text); line-height: 1.8; }
   .pc-label { font-weight: 600; color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }

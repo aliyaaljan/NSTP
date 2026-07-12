@@ -13,6 +13,7 @@ import {
   type AuditLogQuery,
 } from "@/lib/admin/audit-log"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import { lookupId } from "@/lib//lookups"
 
 /**
  * Fetches everything the admin audit log page needs.
@@ -24,6 +25,50 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client"
  * 4. Add server-side search (`ilike` on summary, actor_name) when needed.
  * 5. Replace hardcoded `meta` with a `term` table lookup.
  */
+
+interface CountParams {
+  action: string
+  dateRange: string
+  search: string
+}
+
+export async function getExportEventCount(
+  params: CountParams
+): Promise<number> {
+  const supabase = await createSupabaseServerClient()
+
+  let query = supabase
+    .from("audit_log_readable")
+    .select("audit_log_id", { count: "exact", head: true })
+
+  if (params.action && params.action !== "all") {
+    query = query.eq("action", params.action)
+  }
+
+  if (params.dateRange && params.dateRange !== "all") {
+    const days = parseInt(params.dateRange.replace("d", ""), 10)
+    if (!isNaN(days)) {
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - days)
+      query = query.gte("created_at", startDate.toISOString())
+    }
+  }
+
+  if (params.search && params.search.trim()) {
+    const q = params.search.trim()
+    query = query.or(
+      `actor_name.ilike.%${q}%,summary.ilike.%${q}%,table_label.ilike.%${q}%`
+    )
+  }
+
+  const { count, error } = await query
+  if (error) {
+    console.error("Error fetching export count:", error)
+    return 0
+  }
+
+  return count || 0
+}
 export async function getAuditLogData(
   query: AuditLogQuery
 ): Promise<AuditLogPageData> {
@@ -124,7 +169,7 @@ async function resolveCurrentUser(
   }
   const { data: appUser } = await supabase
     .from("app_user")
-    .select("full_name, role:role_id(code)")
+    .select("full_name, avatar_url, role:role_id(code)")
     .eq("app_user_id", userId)
     .maybeSingle()
 
@@ -137,5 +182,6 @@ async function resolveCurrentUser(
   return {
     name: appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "User",
+    avatarUrl: (appUser as any).avatar_url ?? undefined,
   }
 }

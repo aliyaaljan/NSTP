@@ -52,6 +52,7 @@ export default function ClassList({ Sidebar }: ClassListProps) {
     sectionName: "",
     adviserName: "",
     adviserEmail: "",
+    avatarUrl: null as string | null,
   })
 
   const [roster, setRoster] = useState<RosterRow[]>([])
@@ -66,6 +67,7 @@ export default function ClassList({ Sidebar }: ClassListProps) {
             sectionName: dash.data.sectionName ?? "",
             adviserName: dash.data.adviserName ?? "",
             adviserEmail: dash.data.adviserEmail ?? "",
+            avatarUrl: dash.data.avatarUrl ?? null,
           })
         }
 
@@ -731,6 +733,7 @@ const pages = []
               name={profile.fullName}
               initials={getInitials(profile.fullName)}
               section={profile.sectionName}
+              avatarUrl={profile.avatarUrl}
             />
 
           </div>

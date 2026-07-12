@@ -610,7 +610,7 @@ export default async function AdminDashboardPage({
     user
       ? supabase
           .from("app_user")
-          .select("full_name, role(name)")
+          .select("full_name, avatar_url, role(name)")
           .eq("app_user_id", user.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -686,6 +686,7 @@ export default async function AdminDashboardPage({
   const currentUserMeta: CurrentUser = {
     name: currentUserRes?.data?.full_name || "Admin",
     role: roleData?.name || "Administrator",
+    avatarUrl: (currentUserRes?.data as any)?.avatar_url ?? undefined,
   }
 
   // processing enrollment data

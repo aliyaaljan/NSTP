@@ -91,6 +91,7 @@ export const ADVISER_LIST_SELECT = `
   app_user_id,
   full_name,
   email,
+  avatar_url,
   is_active,
   section:section_adviser_user_id_fkey(
     section_id,
@@ -110,6 +111,7 @@ export interface AdviserListDbRow {
   app_user_id: string
   full_name: string
   email: string
+  avatar_url: string | null
   is_active: boolean
   section:
     | Array<{
@@ -194,7 +196,7 @@ export function mapAdviserDbRowToListRow(
     fullName: row.full_name ?? "Unknown",
     email: row.email ?? "",
     initials: initialsFromName(row.full_name ?? "?"),
-    photoUrl: null,
+    photoUrl: row.avatar_url ?? null,
     sectionIds,
     sectionNames,
     studentCount,

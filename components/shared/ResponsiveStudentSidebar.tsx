@@ -94,7 +94,7 @@ export default function StudentSidebar({
   const [windowWidth, setWindowWidth] = useState(0)
   const [windowHeight, setWindowHeight] = useState(0)
 
-  const { isLeader: contextIsLeader, isLoading } = useStudent()
+  const { isLeader: contextIsLeader, isLoading, studentData } = useStudent()
   const isLeader = propIsLeader !== undefined ? propIsLeader : contextIsLeader
 
   useEffect(() => {
@@ -991,13 +991,28 @@ export default function StudentSidebar({
                     className={`nstp-avatar-link${pathname === "/student/profile" ? " active" : ""}`}
                   >
                     <span className="nstp-avatar-circle">
-                      <Image
-                        src="/nstp-logo.jpg"
-                        alt="Profile"
-                        width={sizes.mobileAvatarSize}
-                        height={sizes.mobileAvatarSize}
-                        className="nstp-avatar-image"
-                      />
+                      {studentData?.avatarUrl ? (
+                        <img
+                          src={studentData.avatarUrl}
+                          alt="Profile"
+                          referrerPolicy="no-referrer"
+                          style={{
+                            width: sizes.mobileAvatarSize,
+                            height: sizes.mobileAvatarSize,
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                          }}
+                          className="nstp-avatar-image"
+                        />
+                      ) : (
+                        <Image
+                          src="/nstp-logo.jpg"
+                          alt="Profile"
+                          width={sizes.mobileAvatarSize}
+                          height={sizes.mobileAvatarSize}
+                          className="nstp-avatar-image"
+                        />
+                      )}
                     </span>
                     <span className="nstp-avatar-label">Profile</span>
                   </Link>
