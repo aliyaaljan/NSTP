@@ -77,6 +77,23 @@ revoke execute on function public.class_label_surname(text) from public;
 revoke execute on function public.class_label_surname(text) from anon;
 grant  execute on function public.class_label_surname(text) to authenticated;
 
+-- Great-circle distance in meters between two lat/lng points (haversine).
+create or replace function public.haversine_m(
+  p_lat1 numeric, p_lng1 numeric, p_lat2 numeric, p_lng2 numeric
+) returns numeric
+language sql immutable
+set search_path = public, pg_temp as $$
+  select 2 * 6371000 * asin(least(1.0, sqrt(
+    power(sin(radians(p_lat2 - p_lat1) / 2), 2)
+    + cos(radians(p_lat1)) * cos(radians(p_lat2))
+    * power(sin(radians(p_lng2 - p_lng1) / 2), 2)
+  )));
+$$;
+
+revoke execute on function public.haversine_m(numeric,numeric,numeric,numeric) from public;
+revoke execute on function public.haversine_m(numeric,numeric,numeric,numeric) from anon;
+grant  execute on function public.haversine_m(numeric,numeric,numeric,numeric) to authenticated;
+
 -- ============================================================
 -- 3. get_leader_section_dashboard() → table
 --    Roster + progress stats for the caller's led section.
@@ -206,19 +223,52 @@ create or replace function public.record_attendance_scan(
 language plpgsql security definer
 set search_path = public, pg_temp as $$
 declare
-  v_type_time_in  uuid;
-  v_source_qr     uuid;
-  v_status_open   uuid;
-  v_session_id    uuid;
-  v_effective_at  timestamptz;
-  v_rows_updated  int;
+  v_type_time_in   uuid;
+  v_source_qr      uuid;
+  v_status_open    uuid;
+  v_session_id     uuid;
+  v_effective_at   timestamptz;
+  v_rows_updated   int;
+  -- fraud-flag rule state
+  v_student_user   uuid;
+  v_student_name   text;
+  v_gen_device     text;
+  v_gen_dev_new    boolean;
+  v_gen_ip         inet;
+  v_gen_devtype    text;
+  v_gen_browser    text;
+  v_gen_os         text;
+  v_gen_lat        numeric;
+  v_gen_lng        numeric;
+  v_gen_acc        numeric;
+  v_scan_lat       numeric;
+  v_scan_lng       numeric;
+  v_scan_acc       numeric;
+  v_manila_day     date;
+  v_at             text;
+  v_reasons        jsonb := '[]'::jsonb;
+  v_prev           record;
+  v_matches        jsonb;
+  v_dist           numeric;
+  v_allowed        numeric;
 begin
   select attendance_event_type_id     into v_type_time_in from public.attendance_event_type     where code = 'time_in';
   select attendance_event_source_id   into v_source_qr    from public.attendance_event_source   where code = 'qr_scan';
   select attendance_session_status_id into v_status_open  from public.attendance_session_status where code = 'open';
 
-  -- Serialize concurrent time-ins for the same student
-  perform 1 from public.enrollment where enrollment_id = p_enrollment_id for update;
+  -- Serialize concurrent time-ins for the same student; resolve the student.
+  select e.student_user_id into v_student_user
+  from   public.enrollment e
+  where  e.enrollment_id = p_enrollment_id
+  for update;
+
+  if v_student_user is null then
+    raise exception 'enrollment not found';
+  end if;
+
+  select u.full_name into v_student_name
+  from   public.app_user u
+  where  u.app_user_id = v_student_user;
 
   -- Guard: student must not already have an open session
   if exists (
@@ -245,16 +295,152 @@ begin
   end if;
 
   v_effective_at := now();
+  v_at           := to_char(v_effective_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
+  v_manila_day   := (v_effective_at at time zone 'Asia/Manila')::date;
 
-  -- Open the attendance session
+  v_gen_device  := nullif(p_generated_meta->>'device_id', '');
+  v_gen_dev_new := coalesce((p_generated_meta->>'device_id_is_new')::boolean, false);
+  v_gen_ip      := nullif(p_generated_meta->>'ip_address', '')::inet;
+  v_gen_devtype := nullif(p_generated_meta->>'device_type', '');
+  v_gen_browser := nullif(p_generated_meta->>'browser', '');
+  v_gen_os      := nullif(p_generated_meta->>'os', '');
+  v_gen_lat     := (p_generated_meta->>'latitude')::numeric;
+  v_gen_lng     := (p_generated_meta->>'longitude')::numeric;
+  v_gen_acc     := (p_generated_meta->>'accuracy_meter')::numeric;
+  v_scan_lat    := (p_scan_meta->>'latitude')::numeric;
+  v_scan_lng    := (p_scan_meta->>'longitude')::numeric;
+  v_scan_acc    := (p_scan_meta->>'accuracy_meter')::numeric;
+
+  -- ── Fraud rules R1–R3 run BEFORE inserting the new event so lookups can't
+  -- self-match. Advisory only: they add reasons, never abort the scan.
+  -- Only QR time-ins (source qr_scan) carry generated_* device meta — the
+  -- source filter keeps seeded/manual events from ever matching.
+
+  -- R1 device_changed: generated device differs from this student's previous QR time-in.
+  select ae.attendance_event_id,
+         ae.generated_device_id,
+         ae.generated_ip_address,
+         ae.generated_device_type,
+         ae.generated_browser,
+         ae.generated_os
+  into   v_prev
+  from   public.attendance_event ae
+  join   public.enrollment e2 on e2.enrollment_id = ae.enrollment_id
+  where  e2.student_user_id = v_student_user
+    and  ae.attendance_event_type_id   = v_type_time_in
+    and  ae.attendance_event_source_id = v_source_qr
+  order by ae.effective_at desc
+  limit 1;
+
+  if found then  -- first-ever QR time-in never flags
+    if v_gen_device is not null and not v_gen_dev_new and v_prev.generated_device_id is not null then
+      -- both sides have an established device id: compare ids; UA drift alone never flags
+      if v_gen_device <> v_prev.generated_device_id then
+        v_reasons := v_reasons || jsonb_build_array(jsonb_build_object(
+          'code', 'device_changed',
+          'message', 'QR was generated on a different device than this student''s previous time-in.',
+          'at', v_at,
+          'meta', jsonb_build_object(
+            'matched_by',      'device_id',
+            'device_id',       v_gen_device,
+            'prev_device_id',  v_prev.generated_device_id,
+            'prev_event_id',   v_prev.attendance_event_id,
+            'ip_address',      host(v_gen_ip),
+            'prev_ip_address', host(v_prev.generated_ip_address))));
+      end if;
+    elsif (v_gen_devtype, v_gen_browser, v_gen_os) is distinct from
+          (v_prev.generated_device_type, v_prev.generated_browser, v_prev.generated_os)
+          and coalesce(v_gen_devtype, v_gen_browser, v_gen_os,
+                       v_prev.generated_device_type, v_prev.generated_browser, v_prev.generated_os) is not null
+    then
+      -- fallback when a device id is missing/fresh on either side: coarse fingerprint
+      v_reasons := v_reasons || jsonb_build_array(jsonb_build_object(
+        'code', 'device_changed',
+        'message', 'QR was generated on a different device than this student''s previous time-in.',
+        'at', v_at,
+        'meta', jsonb_build_object(
+          'matched_by',       'fingerprint',
+          'device_id_is_new', v_gen_dev_new,
+          'prev_event_id',    v_prev.attendance_event_id,
+          'ip_address',       host(v_gen_ip),
+          'prev_ip_address',  host(v_prev.generated_ip_address))));
+    end if;
+  end if;
+
+  -- R2 shared_device: same device generated a QR time-in for a DIFFERENT student
+  -- today (Asia/Manila). Primary match = stored device ids equal. Heuristic
+  -- fallback (only when the generating side has no established id, or the
+  -- compared event has none): same IP AND same device_type+browser+os, all non-null.
+  select jsonb_agg(jsonb_build_object(
+           'session_id',    ae.attendance_session_id,
+           'enrollment_id', e2.enrollment_id,
+           'student_name',  u2.full_name,
+           'matched_by',    case when v_gen_device is not null and ae.generated_device_id = v_gen_device
+                                 then 'device_id' else 'ip_fingerprint' end))
+  into   v_matches
+  from   public.attendance_event ae
+  join   public.enrollment e2 on e2.enrollment_id = ae.enrollment_id
+  join   public.app_user   u2 on u2.app_user_id   = e2.student_user_id
+  where  ae.attendance_event_type_id   = v_type_time_in
+    and  ae.attendance_event_source_id = v_source_qr
+    and  ae.attendance_session_id is not null
+    and  (ae.effective_at at time zone 'Asia/Manila')::date = v_manila_day
+    and  e2.student_user_id <> v_student_user   -- same student w/ 2 enrollments never self-matches
+    and  (
+          (v_gen_device is not null and ae.generated_device_id = v_gen_device)
+          or
+          ((v_gen_device is null or v_gen_dev_new or ae.generated_device_id is null)
+            and v_gen_ip      is not null and ae.generated_ip_address  = v_gen_ip
+            and v_gen_devtype is not null and ae.generated_device_type = v_gen_devtype
+            and v_gen_browser is not null and ae.generated_browser     = v_gen_browser
+            and v_gen_os      is not null and ae.generated_os          = v_gen_os)
+        );
+
+  if v_matches is not null then
+    v_reasons := v_reasons || jsonb_build_array(jsonb_build_object(
+      'code', 'shared_device',
+      'message', 'The device that generated this QR also generated a time-in for '
+                 || coalesce(v_matches->0->>'student_name', 'another student')
+                 || case when jsonb_array_length(v_matches) > 1
+                         then ' and ' || (jsonb_array_length(v_matches) - 1)::text || ' other student(s)'
+                         else '' end
+                 || ' today.',
+      'at', v_at,
+      'meta', jsonb_build_object(
+        'matched_by', v_matches->0->>'matched_by',
+        'device_id',  v_gen_device,
+        'ip_address', host(v_gen_ip),
+        'others',     v_matches)));
+  end if;
+
+  -- R3 scan_distance: generated GPS vs scanner GPS further apart than 200 m + both accuracies.
+  if v_gen_lat is not null and v_gen_lng is not null
+     and v_scan_lat is not null and v_scan_lng is not null then
+    v_dist    := public.haversine_m(v_gen_lat, v_gen_lng, v_scan_lat, v_scan_lng);
+    v_allowed := 200 + coalesce(v_gen_acc, 0) + coalesce(v_scan_acc, 0);
+    if v_dist > v_allowed then
+      v_reasons := v_reasons || jsonb_build_array(jsonb_build_object(
+        'code', 'scan_distance',
+        'message', 'QR was generated ~' || round(v_dist)::int
+                   || ' m from where it was scanned (allowed ~' || round(v_allowed)::int || ' m).',
+        'at', v_at,
+        'meta', jsonb_build_object('distance_m', round(v_dist)::int, 'allowed_m', round(v_allowed)::int)));
+    end if;
+  end if;
+
+  -- Open the attendance session (flags included so the CHECK constraint holds)
   insert into public.attendance_session (
     enrollment_id,
     attendance_session_status_id,
-    started_at
+    started_at,
+    is_flagged,
+    flag_reasons
   ) values (
     p_enrollment_id,
     v_status_open,
-    v_effective_at
+    v_effective_at,
+    jsonb_array_length(v_reasons) > 0,
+    v_reasons
   ) returning attendance_session_id into v_session_id;
 
   -- Append the immutable time-in event.
@@ -277,13 +463,15 @@ begin
       generated_browser,
       generated_os,
       generated_ip_address,
+      generated_device_id,
       scan_latitude,
       scan_longitude,
       scan_accuracy_meter,
       scanner_device_type,
       scanner_browser,
       scanner_os,
-      scanner_ip_address
+      scanner_ip_address,
+      scanner_device_id
     ) values (
       p_enrollment_id,
       v_session_id,
@@ -294,26 +482,49 @@ begin
       p_nonce,
       p_generated_meta->>'signature',
       (p_generated_meta->>'generated_at')::timestamptz,
-      (p_generated_meta->>'latitude')::numeric,
-      (p_generated_meta->>'longitude')::numeric,
-      (p_generated_meta->>'accuracy_meter')::numeric,
-      p_generated_meta->>'device_type',
-      p_generated_meta->>'browser',
-      p_generated_meta->>'os',
-      nullif(p_generated_meta->>'ip_address', '')::inet,
-      (p_scan_meta->>'latitude')::numeric,
-      (p_scan_meta->>'longitude')::numeric,
-      (p_scan_meta->>'accuracy_meter')::numeric,
+      v_gen_lat,
+      v_gen_lng,
+      v_gen_acc,
+      v_gen_devtype,
+      v_gen_browser,
+      v_gen_os,
+      v_gen_ip,
+      v_gen_device,
+      v_scan_lat,
+      v_scan_lng,
+      v_scan_acc,
       p_scan_meta->>'device_type',
       p_scan_meta->>'browser',
       p_scan_meta->>'os',
-      nullif(p_scan_meta->>'ip_address', '')::inet
+      nullif(p_scan_meta->>'ip_address', '')::inet,
+      nullif(p_scan_meta->>'device_id', '')
     );
   exception
     when unique_violation then
       raise exception 'QR nonce already recorded — replay detected';
   end;
 
+  -- R2 retro-flag: the matched earlier session(s) of the other student(s).
+  -- (attendance_event stays append-only — only the session rows are updated.)
+  if v_matches is not null then
+    update public.attendance_session s
+    set    is_flagged   = true,
+           flag_reasons = s.flag_reasons || jsonb_build_array(jsonb_build_object(
+             'code', 'shared_device',
+             'message', 'The device used for this time-in later generated a QR time-in for '
+                        || coalesce(v_student_name, 'another student') || ' today.',
+             'at', v_at,
+             'meta', jsonb_build_object(
+               'matched_by',          m.value->>'matched_by',
+               'other_session_id',    v_session_id,
+               'other_enrollment_id', p_enrollment_id,
+               'device_id',           v_gen_device,
+               'ip_address',          host(v_gen_ip))))
+    from   jsonb_array_elements(v_matches) m
+    where  s.attendance_session_id = (m.value->>'session_id')::uuid;
+  end if;
+
+  -- Deliberately no flag info in the return value — the scanner may be the accomplice.
   return jsonb_build_object(
     'event_type',   'time_in',
     'session_id',   v_session_id,
@@ -401,7 +612,8 @@ begin
     scanner_device_type,
     scanner_browser,
     scanner_os,
-    scanner_ip_address
+    scanner_ip_address,
+    scanner_device_id
   ) values (
     p_enrollment_id,
     v_session_id,
@@ -415,7 +627,8 @@ begin
     p_meta->>'device_type',
     p_meta->>'browser',
     p_meta->>'os',
-    nullif(p_meta->>'ip_address', '')::inet
+    nullif(p_meta->>'ip_address', '')::inet,
+    nullif(p_meta->>'device_id', '')
   );
 
   return jsonb_build_object(
@@ -449,23 +662,34 @@ language plpgsql security definer
 set search_path = public, pg_temp as $$
 declare
   v_type_time_out  uuid;
+  v_type_time_in   uuid;
   v_source_id      uuid;
   v_status_open    uuid;
   v_status_closed  uuid;
   v_active_status  uuid;
   v_session_id     uuid;
+  v_open_session   uuid;
   v_effective_at   timestamptz;
   v_rows_closed    int;
   v_section_id     uuid;
   v_lat            numeric;
   v_lng            numeric;
-  v_flag_reason    text;
+  v_at             text;
+  v_reasons        jsonb := '[]'::jsonb;
+  v_offsite        record;
+  v_actor_device   text;
+  v_actor_dev_new  boolean;
+  v_actor_devtype  text;
+  v_actor_browser  text;
+  v_actor_os       text;
+  v_tin            record;
 begin
   if p_source_code not in ('self_student', 'self_leader') then
     raise exception 'invalid source code: %', p_source_code;
   end if;
 
   select attendance_event_type_id     into v_type_time_out  from public.attendance_event_type     where code = 'time_out';
+  select attendance_event_type_id     into v_type_time_in   from public.attendance_event_type     where code = 'time_in';
   select attendance_event_source_id   into v_source_id      from public.attendance_event_source   where code = p_source_code;
   select attendance_session_status_id into v_status_open    from public.attendance_session_status where code = 'open';
   select attendance_session_status_id into v_status_closed  from public.attendance_session_status where code = 'closed';
@@ -492,11 +716,24 @@ begin
     raise exception 'actor is not authorised to close this enrollment';
   end if;
 
-  v_effective_at := now();
+  -- Resolve the open session up front so the flag rules can reference it.
+  select attendance_session_id into v_open_session
+  from   public.attendance_session
+  where  enrollment_id                = p_enrollment_id
+    and  attendance_session_status_id = v_status_open
+  order by started_at desc
+  limit 1;
 
-  -- Off-site advisory check (Business Rule #2): flag when the reported GPS point is
-  -- outside ALL of the section's active geofences. Advisory only — the session still
-  -- closes and counts toward hours. No GPS or no geofences → no flag.
+  if v_open_session is null then
+    raise exception 'no open attendance session found for this enrollment';
+  end if;
+
+  v_effective_at := now();
+  v_at           := to_char(v_effective_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
+
+  -- R5 offsite (Business Rule #2): flag when the reported GPS point is outside ALL
+  -- of the section's active geofences. Advisory only — the session still closes
+  -- and counts. No GPS or no geofences → no flag.
   v_lat := (p_meta->>'latitude')::numeric;
   v_lng := (p_meta->>'longitude')::numeric;
   if v_lat is not null and v_lng is not null then
@@ -504,34 +741,90 @@ begin
     from   public.enrollment e
     where  e.enrollment_id = p_enrollment_id;
 
-    select case
-             when count(*) > 0
-              and count(*) filter (where g.dist_m <= g.radius_meter) = 0
-             then 'Timed out ~' || round(min(g.dist_m))::int
-                  || ' m from the nearest site (' || (array_agg(g.label order by g.dist_m))[1] || ').'
-           end
-    into v_flag_reason
+    select count(*)                                            as total,
+           count(*) filter (where g.dist_m <= g.radius_meter)  as inside,
+           round(min(g.dist_m))::int                           as min_dist,
+           (array_agg(g.label order by g.dist_m))[1]           as nearest_label
+    into   v_offsite
     from (
       select coalesce(sg.label, 'site') as label,
              sg.radius_meter,
-             2 * 6371000 * asin(least(1.0, sqrt(
-               power(sin(radians(sg.center_latitude - v_lat) / 2), 2)
-               + cos(radians(v_lat)) * cos(radians(sg.center_latitude))
-               * power(sin(radians(sg.center_longitude - v_lng) / 2), 2)
-             ))) as dist_m
+             public.haversine_m(sg.center_latitude, sg.center_longitude, v_lat, v_lng) as dist_m
       from public.section_geofence sg
       where sg.section_id = v_section_id
         and sg.is_active
     ) g;
+
+    if v_offsite.total > 0 and v_offsite.inside = 0 then
+      v_reasons := v_reasons || jsonb_build_array(jsonb_build_object(
+        'code', 'offsite',
+        'message', 'Timed out ~' || v_offsite.min_dist
+                   || ' m from the nearest site (' || v_offsite.nearest_label || ').',
+        'at', v_at,
+        'meta', jsonb_build_object('distance_m', v_offsite.min_dist,
+                                   'nearest_label', v_offsite.nearest_label)));
+    end if;
   end if;
 
-  -- CAS close: only succeeds if a session is currently open
+  -- R4 timeout_device_mismatch: the time-out actor's device differs from the device
+  -- that OPENED the session (generated_device_id for QR time-ins, scanner_device_id
+  -- for leader self time-ins). Catches "friend times me out after I leave early".
+  v_actor_device  := nullif(p_meta->>'device_id', '');
+  v_actor_dev_new := coalesce((p_meta->>'device_id_is_new')::boolean, false);
+  v_actor_devtype := nullif(p_meta->>'device_type', '');
+  v_actor_browser := nullif(p_meta->>'browser', '');
+  v_actor_os      := nullif(p_meta->>'os', '');
+
+  select ae.attendance_event_id,
+         coalesce(ae.generated_device_id,   ae.scanner_device_id)   as ref_device,
+         coalesce(ae.generated_device_type, ae.scanner_device_type) as ref_devtype,
+         coalesce(ae.generated_browser,     ae.scanner_browser)     as ref_browser,
+         coalesce(ae.generated_os,          ae.scanner_os)          as ref_os
+  into   v_tin
+  from   public.attendance_event ae
+  where  ae.attendance_session_id    = v_open_session
+    and  ae.attendance_event_type_id = v_type_time_in
+  order by ae.recorded_at desc
+  limit 1;
+
+  if found then  -- sessions without a time-in event (manual adds) are skipped
+    if v_actor_device is not null and not v_actor_dev_new and v_tin.ref_device is not null then
+      if v_actor_device <> v_tin.ref_device then
+        v_reasons := v_reasons || jsonb_build_array(jsonb_build_object(
+          'code', 'timeout_device_mismatch',
+          'message', 'Timed out from a different device than the one used at time-in.',
+          'at', v_at,
+          'meta', jsonb_build_object(
+            'matched_by',        'device_id',
+            'actor_device_id',   v_actor_device,
+            'time_in_device_id', v_tin.ref_device,
+            'time_in_event_id',  v_tin.attendance_event_id,
+            'ip_address',        nullif(p_meta->>'ip_address', ''))));
+      end if;
+    elsif (v_actor_devtype, v_actor_browser, v_actor_os) is distinct from
+          (v_tin.ref_devtype, v_tin.ref_browser, v_tin.ref_os)
+          and coalesce(v_actor_devtype, v_actor_browser, v_actor_os,
+                       v_tin.ref_devtype, v_tin.ref_browser, v_tin.ref_os) is not null
+    then
+      v_reasons := v_reasons || jsonb_build_array(jsonb_build_object(
+        'code', 'timeout_device_mismatch',
+        'message', 'Timed out from a different device than the one used at time-in.',
+        'at', v_at,
+        'meta', jsonb_build_object(
+          'matched_by',       'fingerprint',
+          'device_id_is_new', v_actor_dev_new,
+          'time_in_event_id', v_tin.attendance_event_id,
+          'ip_address',       nullif(p_meta->>'ip_address', ''))));
+    end if;
+  end if;
+
+  -- CAS close: status predicate keeps the race guard.
   update public.attendance_session
   set    attendance_session_status_id = v_status_closed,
          ended_at                     = v_effective_at,
-         is_flagged                   = is_flagged or (v_flag_reason is not null),
-         flag_reason                  = coalesce(v_flag_reason, flag_reason)
-  where  enrollment_id               = p_enrollment_id
+         is_flagged                   = is_flagged or (jsonb_array_length(v_reasons) > 0),
+         flag_reasons                 = flag_reasons || v_reasons
+  where  attendance_session_id        = v_open_session
     and  attendance_session_status_id = v_status_open
   returning attendance_session_id into v_session_id;
 
@@ -553,7 +846,8 @@ begin
     scanner_device_type,
     scanner_browser,
     scanner_os,
-    scanner_ip_address
+    scanner_ip_address,
+    scanner_device_id
   ) values (
     p_enrollment_id,
     v_session_id,
@@ -561,13 +855,14 @@ begin
     v_source_id,
     v_effective_at,
     p_actor,
-    (p_meta->>'latitude')::numeric,
-    (p_meta->>'longitude')::numeric,
+    v_lat,
+    v_lng,
     (p_meta->>'accuracy_meter')::numeric,
     p_meta->>'device_type',
     p_meta->>'browser',
     p_meta->>'os',
-    nullif(p_meta->>'ip_address', '')::inet
+    nullif(p_meta->>'ip_address', '')::inet,
+    v_actor_device
   );
 
   return jsonb_build_object(
@@ -889,8 +1184,23 @@ end;
 $function$;
 
 -- get_my_students — roster with logged hours, status, sessions, SAIS ID
+-- Reconciled 2026-07-12: the live definition (no auth guard, hardcoded lookup
+-- UUIDs, bare course_code, missing enrollment_id/is_student_leader/
+-- completion_percentage/section_geofence_id, and student_sessions that dropped
+-- voided/open sessions) had drifted from this file. This version restores the
+-- columns the facilitator My Students page actually consumes (enrollment_id,
+-- is_student_leader, completion_percentage, section_geofence_id, and the full
+-- session object incl. statusId/status/isFlagged/flagReasons/locations/geofence)
+-- while keeping this file's already-correct guard, code-based lookups, and
+-- class_label() section naming.
 create or replace function public.get_my_students(p_adviser_user_id uuid)
-returns table(section_id uuid, section_name text, student_name text, student_number text, sais_id numeric, site_location text, program text, classification text, status text, hours_logged numeric, total_hours integer, sessions jsonb)
+returns table(
+  section_id uuid, section_name text, enrollment_id uuid, student_name text,
+  is_student_leader boolean, student_number text, sais_id numeric,
+  section_geofence_id uuid, site_location text, program text, classification text,
+  status text, hours_logged numeric, total_hours integer,
+  completion_percentage numeric, sessions jsonb
+)
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
@@ -926,29 +1236,76 @@ begin
       coalesce(
         jsonb_agg(
           jsonb_build_object(
-            'id', att.attendance_session_id,
-            'date', to_char(att.started_at at time zone 'Asia/Manila', 'Mon DD, YYYY'),
-            'timeIn', to_char(att.started_at at time zone 'Asia/Manila', 'HH12:MI AM'),
-            'timeOut', to_char(att.ended_at at time zone 'Asia/Manila', 'HH12:MI AM'),
-            'hours', round(att.duration_minute / 60.0, 2)
+            'id',       att.attendance_session_id,
+            'date',     to_char(att.started_at at time zone 'Asia/Manila', 'Mon DD, YYYY'),
+            'timeIn',   to_char(att.started_at at time zone 'Asia/Manila', 'HH12:MI AM'),
+            'timeOut',  to_char(att.ended_at at time zone 'Asia/Manila', 'HH12:MI AM'),
+            'hours',    round(att.duration_minute / 60.0, 2),
+            'statusId', att.attendance_session_status_id,
+            'status',   atts.code,
+            'isFlagged', att.is_flagged,
+            'flagReasons', att.flag_reasons,
+            'locations', (
+              select coalesce(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'eventType',     et.code,
+                    'eventSource',   src.code,
+                    'recordedBy',    recorder.full_name,
+                    'recordedAt',    to_char(evt.effective_at at time zone 'Asia/Manila', 'HH12:MI AM'),
+                    'generatedLat',  evt.generated_latitude,
+                    'generatedLong', evt.generated_longitude,
+                    'scanLat',       evt.scan_latitude,
+                    'scanLong',      evt.scan_longitude
+                  )
+                  order by et.code
+                ),
+                '[]'::jsonb
+              )
+              from attendance_event evt
+              join attendance_event_type et
+                on et.attendance_event_type_id = evt.attendance_event_type_id
+              left join attendance_event_source src
+                on src.attendance_event_source_id = evt.attendance_event_source_id
+              left join app_user recorder
+                on recorder.app_user_id = evt.recorded_by_user_id
+              where evt.attendance_session_id = att.attendance_session_id
+            ),
+            'geofence', (
+              select coalesce(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'label', g.label,
+                    'centerLat', g.center_latitude,
+                    'centerLong', g.center_longitude,
+                    'radius', g.radius_meter
+                  )
+                ),
+                '[]'::jsonb
+              )
+              from enrollment e2
+              left join section_geofence g on g.section_geofence_id = e2.assigned_geofence_id
+              where e2.enrollment_id = att.enrollment_id
+            )
           )
           order by att.started_at
         ),
         '[]'::jsonb
       ) as sessions
     from attendance_session att
-    where att.attendance_session_status_id not in (
-            select attendance_session_status_id from attendance_session_status
-            where code in ('voided', 'open')
-          )
+    join attendance_session_status atts
+      on atts.attendance_session_status_id = att.attendance_session_status_id
     group by att.enrollment_id
   )
   select
     s.section_id,
     public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
+    e.enrollment_id as enrollment_id,
     u.full_name as student_name,
+    e.is_student_leader as is_student_leader,
     u.student_number as student_number,
     u.sais_id::numeric as sais_id,
+    g.section_geofence_id as section_geofence_id,
     g.label as site_location,
     p.name as program,
     sc.name as classification,
@@ -957,8 +1314,9 @@ begin
       when round(coalesce(sm.total_minutes, 0) / 60.0, 2) > 0 then 'In Progress'
       else 'Not Started'
     end as status,
-    round(sm.total_minutes / 60.0, 2) as hours_logged,
+    round(coalesce(sm.total_minutes, 0) / 60.0, 2) as hours_logged,
     s.required_hour_total as total_hours,
+    least(round((coalesce(sm.total_minutes, 0) / 60.0) / nullif(s.required_hour_total, 0) * 100, 2), 100) as completion_percentage,
     coalesce(ss.sessions, '[]'::jsonb) as sessions
   from section s
     join term t on t.term_id = s.term_id

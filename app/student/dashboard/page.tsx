@@ -748,7 +748,7 @@ export default function StudentDashboardPage() {
                     lineHeight: isVerySmall ? 1.6 : isMobile ? 1.7 : 2, 
                     marginBottom: isVerySmall ? "12px" : "16px" 
                   }}>
-                    By continuing to use this system, you acknowledge and consent to the collection, processing, and storage of your personal information in accordance with the Data Privacy Act of 2012.
+                    By continuing to use this system, you acknowledge and consent to the collection, processing, and storage of your personal information — including location data and device information (with a device identifier stored in your browser) captured during attendance actions — in accordance with the Data Privacy Act of 2012.
                   </p>
 
                   <p style={{ 

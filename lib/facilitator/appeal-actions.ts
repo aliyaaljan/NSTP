@@ -6,6 +6,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { lookupId } from "../lookups"
 import { revalidatePath } from "next/cache"
 import { formatClassLabel } from "@/lib/shared/class-label"
+import type { FlagReason } from "@/lib/attendance/flag-reasons"
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -16,7 +17,7 @@ type ActionResult<T = void> =
 export type ApproveCorrection = {
   // edit = fix times on an existing session; add = create a missing session;
   // restore = supply the time-out for an auto-voided session (-> corrected);
-  // clear_flag = leave times, just clear the off-site flag; none = approve only.
+  // clear_flag = leave times, clear ALL flags on the session; none = approve only.
   action: "edit" | "add" | "restore" | "clear_flag" | "none"
   attendanceSessionId?: string | null
   sessionDate?: string // YYYY-MM-DD (for add/edit/restore)
@@ -61,7 +62,7 @@ export async function getAdviserPendingRequests(): Promise<
           appeal_type:appeal_type_id (name),
           appeal_attachment (storage_path, file_name, content_type, file_size_byte),
           attendance_session:attendance_session_id (
-              started_at, ended_at, is_flagged, flag_reason,
+              started_at, ended_at, is_flagged, flag_reasons,
               attendance_session_status:attendance_session_status_id (code)
           ),
           enrollment!inner (
@@ -109,7 +110,7 @@ export async function getAdviserPendingRequests(): Promise<
               startedAt: session.started_at ?? null,
               endedAt: session.ended_at ?? null,
               isFlagged: session.is_flagged ?? false,
-              flagReason: session.flag_reason ?? null,
+              flagReasons: (session.flag_reasons ?? []) as FlagReason[],
               statusCode: session.attendance_session_status?.code ?? null,
             }
           : null,
@@ -251,7 +252,7 @@ export async function approveRequestWithCorrection(
       }
       const { error } = await service
         .from("attendance_session")
-        .update({ is_flagged: false, flag_reason: null })
+        .update({ is_flagged: false, flag_reasons: [] })
         .eq("attendance_session_id", correction.attendanceSessionId)
       if (error) throw error
     }

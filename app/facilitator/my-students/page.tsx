@@ -12,6 +12,7 @@ import {
   IconCircleCheck,
   IconClock,
   IconAlertCircle,
+  IconAlertTriangle,
   IconX,
   IconPaperclip,
   IconPencil,
@@ -37,6 +38,7 @@ import {
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 import Link from "next/link";
 import LoadingPage from "@/components/shared/LoadingPage"
+import { flagLabel, type FlagReason } from "@/lib/attendance/flag-reasons"
 
 //Map
 import dynamic from "next/dynamic"
@@ -72,6 +74,8 @@ interface StudentSession {
   hours: number
   statusId:string
   status: string
+  isFlagged: boolean
+  flagReasons: FlagReason[]
   locations: StudentLocation[] | null
   geofence: Geofence[] | null
 }
@@ -125,7 +129,7 @@ interface PendingRequest {
     startedAt: string | null
     endedAt: string | null
     isFlagged: boolean
-    flagReason: string | null
+    flagReasons: FlagReason[]
     statusCode: string | null
   } | null
 }
@@ -217,7 +221,7 @@ function deriveApplyPlan(r: PendingRequest | null): ApplyPlan {
       summary: "Correct the recorded time on this session.",
     }
   }
-  // session referenced, no requested times -> off-site flag explanation
+  // session referenced, no requested times -> flag explanation
   return {
     isTimeRequest: true,
     isFlagCase: true,
@@ -226,7 +230,7 @@ function deriveApplyPlan(r: PendingRequest | null): ApplyPlan {
     timeIn: "",
     timeOut: "",
     timeInLocked: false,
-    summary: "The student is explaining an off-site flag. The session still counts.",
+    summary: "The student is explaining a flagged session. The session still counts.",
   }
 }
 
@@ -2184,6 +2188,14 @@ function MyStudentsContent() {
                           >
                             {sess.status.charAt(0).toUpperCase() + sess.status.slice(1)}
                           </span>
+                          {sess.isFlagged && (
+                            <span
+                              title={(sess.flagReasons ?? []).map((r) => `${flagLabel(r.code)}: ${r.message}`).join("\n")}
+                              style={{ marginLeft: 6, color: "#B45309", display: "inline-flex", verticalAlign: "middle" }}
+                            >
+                              <IconAlertTriangle size={14} stroke={2} />
+                            </span>
+                          )}
                         </td>
                         <td className="flex flex-row gap-1">
                           <button title="Edit Session" className="ms-session-action-btn" onClick={async (e) => {
@@ -2255,10 +2267,19 @@ function MyStudentsContent() {
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Attendance correction</div>
                   <div style={{ fontSize: 12, color: "var(--muted, #666)", marginBottom: 10 }}>{applyPlan.summary}</div>
                   {applyPlan.isFlagCase ? (
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                      <input type="checkbox" checked={clearFlag} onChange={(e) => setClearFlag(e.target.checked)} />
-                      Clear the off-site flag on this session
-                    </label>
+                    <>
+                      {(selectedRequest.session?.flagReasons?.length ?? 0) > 0 && (
+                        <ul style={{ margin: "0 0 8px", paddingLeft: 18, fontSize: 12, color: "#92400E" }}>
+                          {selectedRequest.session!.flagReasons.map((r, i) => (
+                            <li key={i}><strong>{flagLabel(r.code)}:</strong> {r.message}</li>
+                          ))}
+                        </ul>
+                      )}
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                        <input type="checkbox" checked={clearFlag} onChange={(e) => setClearFlag(e.target.checked)} />
+                        Clear all flags on this session
+                      </label>
+                    </>
                   ) : (
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <div style={{ flex: "1 1 120px" }}>

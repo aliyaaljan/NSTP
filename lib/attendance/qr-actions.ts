@@ -9,6 +9,7 @@ import { resolveActiveStudentEnrollment } from "@/lib/student/enrollment"
 import { parseUserAgent } from "@/lib/user-agent"
 import { encryptQrPayload, decryptQrPayload } from "@/lib/attendance/qr-crypto"
 import { lookupId } from "@/lib/lookups"
+import { getOrCreateDeviceId } from "@/lib/attendance/device-id"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,6 +27,8 @@ export type QrTokenPayload = {
   browser: string | null
   os: string | null
   ip_address: string | null
+  device_id: string | null
+  device_id_is_new: boolean
 }
 
 export type QrDisplayInfo = {
@@ -79,10 +82,13 @@ async function getRequestClientMeta() {
 }
 
 async function buildScannerMeta(geo?: ScanMeta) {
+  const dev = await getOrCreateDeviceId()
   return {
     latitude: geo?.latitude ?? null,
     longitude: geo?.longitude ?? null,
     accuracy_meter: geo?.accuracy_meter ?? null,
+    device_id: dev.deviceId,
+    device_id_is_new: dev.isNew,
     ...(await getRequestClientMeta()),
   }
 }
@@ -121,6 +127,7 @@ export async function generateQrToken(
   const expiresAt = new Date(generatedAt.getTime() + 60_000)
 
   const { device_type, browser, os, ip_address: ip } = await getRequestClientMeta()
+  const dev = await getOrCreateDeviceId()
 
   const payload: QrTokenPayload = {
     enrollmentId,
@@ -134,6 +141,8 @@ export async function generateQrToken(
     browser,
     os,
     ip_address: ip,
+    device_id: dev.deviceId,
+    device_id_is_new: dev.isNew,
   }
 
   let token: string
@@ -248,6 +257,8 @@ export async function recordScan(
     browser: payload.browser ?? null,
     os: payload.os ?? null,
     ip_address: payload.ip_address ?? null,
+    device_id: (payload.device_id as string | undefined) ?? null,
+    device_id_is_new: (payload.device_id_is_new as boolean | undefined) ?? false,
   }
 
   const { data, error } = await service.rpc("record_attendance_scan", {

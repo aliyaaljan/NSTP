@@ -47,7 +47,7 @@ export async function getMyAttendanceHistory(): Promise<ActionResult> {
     const { data: sessions, error: sessionsError } = await service
       .from("attendance_session")
       .select(
-        "attendance_session_id, started_at, ended_at, duration_minute, is_flagged"
+        "attendance_session_id, started_at, ended_at, duration_minute, is_flagged, flag_reasons"
       )
       .eq("enrollment_id", primary.enrollmentId)
       .in(
@@ -113,7 +113,10 @@ export async function getMyAttendanceHistory(): Promise<ActionResult> {
           : manilaClock(s.started_at),
         timeOut: s.ended_at ? manilaClock(s.ended_at) : "—",
         hours,
-        site: s.is_flagged ? `${siteLabel} (Off-site)` : siteLabel,
+        // Students only ever see the off-site label — fraud flag codes are facilitator-only.
+        site: ((s.flag_reasons ?? []) as { code?: string }[]).some((r) => r.code === "offsite")
+          ? `${siteLabel} (Off-site)`
+          : siteLabel,
       }
     })
 
@@ -174,7 +177,7 @@ export async function getMySessionsForRequest(): Promise<
     const { data: sessions, error } = await service
       .from("attendance_session")
       .select(
-        "attendance_session_id, started_at, ended_at, is_flagged, attendance_session_status:attendance_session_status_id ( code )"
+        "attendance_session_id, started_at, ended_at, is_flagged, flag_reasons, attendance_session_status:attendance_session_status_id ( code )"
       )
       .eq("enrollment_id", primary.enrollmentId)
       .order("started_at", { ascending: false })
@@ -194,7 +197,8 @@ export async function getMySessionsForRequest(): Promise<
         timeInLabel: manilaClock(s.started_at),
         timeOutLabel: manilaClock(s.ended_at),
         statusCode: s.attendance_session_status?.code ?? "",
-        isFlagged: s.is_flagged ?? false,
+        // off-site only — fraud flag codes are facilitator-only
+        isFlagged: ((s.flag_reasons ?? []) as { code?: string }[]).some((r) => r.code === "offsite"),
       }))
       // in-progress ('open') sessions aren't correctable via a request
       .filter((r) => r.statusCode && r.statusCode !== "open")

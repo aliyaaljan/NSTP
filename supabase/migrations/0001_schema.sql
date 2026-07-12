@@ -199,11 +199,13 @@ create table attendance_session (
   duration_minute              integer generated always as
                                  (floor(extract(epoch from (ended_at - started_at)) / 60)::int) stored,
   void_reason                  text,
-  is_flagged                   boolean not null default false,   -- advisory flag (e.g. off-site at time-out); session still counts
-  flag_reason                  text,                             -- human-readable reason the session was flagged
+  is_flagged                   boolean not null default false,   -- advisory flag; session still counts (see flag_reasons)
+  flag_reasons                 jsonb not null default '[]'::jsonb, -- array of {code, message, at, meta}; codes in lib/attendance/flag-reasons.ts. Facilitator-only detail
   resolution_note              text,
   created_at                   timestamptz not null default now(),
-  updated_at                   timestamptz not null default now()
+  updated_at                   timestamptz not null default now(),
+  constraint attendance_session_flag_consistency
+    check (is_flagged = (jsonb_array_length(flag_reasons) > 0))
 );
 
 -- APPEND-ONLY: never UPDATE/DELETE rows; corrections are new inserts with corrects_event_id set
@@ -227,6 +229,7 @@ create table attendance_event (
   generated_browser          text,
   generated_os               text,
   generated_ip_address       inet,
+  generated_device_id        text,   -- nstp_device_id cookie of the browser that generated the QR
   -- scan side
   scan_latitude              numeric(9,6),
   scan_longitude             numeric(9,6),
@@ -235,6 +238,7 @@ create table attendance_event (
   scanner_browser            text,
   scanner_os                 text,
   scanner_ip_address         inet,
+  scanner_device_id          text,   -- nstp_device_id cookie of the scanner / self-acting browser
   corrects_event_id          uuid references attendance_event(attendance_event_id),
   note                       text,
   created_at                 timestamptz not null default now()
@@ -408,6 +412,8 @@ create index role_change_changed_by_idx       on role_change(changed_by_user_id)
 create index if not exists appeal_status_idx                on appeal(appeal_status_id);
 create index if not exists attendance_event_source_idx      on attendance_event(attendance_event_source_id);
 create index if not exists attendance_session_status_idx    on attendance_session(attendance_session_status_id);
+create index if not exists attendance_event_generated_device_idx
+  on attendance_event(generated_device_id) where generated_device_id is not null;
 create index if not exists role_change_old_role_idx         on role_change(old_role_id);
 create index if not exists role_change_new_role_idx         on role_change(new_role_id);
 create index if not exists section_status_idx               on section(section_status_id);
