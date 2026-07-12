@@ -30,7 +30,7 @@ import { createClient } from "@/lib/client"
 import { AdminFilterPanel } from "@/components/shared/AdminFilterPanel"
 import {KpiStatCard, KpiStatCardGrid, ChartStyles,} from "@/components/shared/ChartModule"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
-import SuccessModal from "@/components/shared/SuccessModal"
+import SuccessModal from "@/components/shared/SuccessModal" //saffi - hehe syempre import muna
 import { IconX, IconCircleCheck, IconHourglass, IconClock, IconCircleX, IconFilter, IconChevronUp, IconChevronDown,} from "@tabler/icons-react"
 import LoadingPage from "@/components/shared/LoadingPage"
 import { useStudent } from "@/app/student/StudentContext"
@@ -309,7 +309,7 @@ export default function RequestsView() {
      .createSignedUrl(storagePath, 60 * 20) // valid for 20 min
 
    if (error || !data?.signedUrl) {
-     alert("Failed to open attachment")
+    showError("Failed to open attachment")
      return
    }
 
@@ -335,7 +335,7 @@ export default function RequestsView() {
    if (isTimeRequest) {
      const built = buildStructuredCorrection(timeCorrection, sessionOptions)
      if (!built.ok) {
-       alert(built.error)
+       showError(built.error)
        return
      }
      structured = built.value
@@ -344,7 +344,7 @@ export default function RequestsView() {
    startTransition(async () => {
      const {data: { user },} = await supabase.auth.getUser()
      if (!user) {
-       alert("Not authenticated")
+       showError("Not authenticated")
        return
      }
     
@@ -353,7 +353,7 @@ export default function RequestsView() {
        .list(user.id)
 
      if (listError) {
-       alert(`Failed to check existing attachments: ${listError.message}`)
+       showError(`Failed to check existing attachments: ${listError.message}`)
        return
      }
 
@@ -375,7 +375,7 @@ export default function RequestsView() {
          .upload(path, file)
 
        if (uploadError) {
-         alert(`Failed to upload ${file.name}: ${uploadError.message}`)
+        showError(`Failed to upload ${file.name}: ${uploadError.message}`)
          return
        }
 
@@ -403,10 +403,9 @@ export default function RequestsView() {
        setFormFiles([])
        setTimeCorrection(EMPTY_TIME_CORRECTION)
        setShowModal(false)
-       setSuccessMessage("Your request has been submitted successfully.")
-       setShowSuccessModal(true)
+       addToast("Your request has been submitted successfully.", "success")
      } else {
-       alert(res.error)
+      showError(res.error)
      }
    })
  }
@@ -449,7 +448,7 @@ export default function RequestsView() {
    if (editIsTimeRequest) {
      const built = buildStructuredCorrection(editTimeCorrection, sessionOptions)
      if (!built.ok) {
-       alert(built.error)
+      showError(built.error)
        return
      }
      structured = built.value
@@ -469,7 +468,7 @@ export default function RequestsView() {
        data: { user },
      } = await supabase.auth.getUser()
      if (!user) {
-       alert("Not authenticated")
+      showError("Not authenticated")
        return
      }
 
@@ -486,7 +485,7 @@ export default function RequestsView() {
          .from("request-attachments")
          .list(user.id)
        if (listError) {
-         alert(`Failed to check existing attachments: ${listError.message}`)
+        showError(`Failed to check existing attachments: ${listError.message}`)
          return
        }
        const existingNames = new Set(existingFiles?.map((f) => f.name) ?? [])
@@ -497,7 +496,7 @@ export default function RequestsView() {
            .from("request-attachments")
            .upload(path, file)
          if (uploadError) {
-           alert(`Failed to upload ${file.name}: ${uploadError.message}`)
+          showError(`Failed to upload ${file.name}: ${uploadError.message}`)
            return
          }
          uploadedAttachments.push({
@@ -527,10 +526,9 @@ export default function RequestsView() {
        setSelectedRequest(null)
        setEditNewFiles([])
        setEditTimeCorrection(EMPTY_TIME_CORRECTION)
-       setSuccessMessage("Your request has been updated successfully.")
-       setShowSuccessModal(true)
+       addToast("Your request has been updated successfully.", "success")
      } else {
-       alert(res.error || "Failed to update request or it is no longer 'Pending Review'.")
+      showError(res.error || "Failed to update request or it is no longer 'Pending Review'.")
      }
    })
  }
@@ -713,8 +711,28 @@ export default function RequestsView() {
    setCurrentPage(1)
  }, [activeFilter, itemsPerPage, requestSearch, activeRequestFilters])
 
-   const [showSuccessModal, setShowSuccessModal] = useState(false)
-   const [successMessage, setSuccessMessage] = useState("")
+ //saffi - until last closing of function showError
+ interface ToastItem {
+  id: number
+  message: string
+  type: "success" | "error"
+}
+
+const [toasts, setToasts] = useState<ToastItem[]>([])
+const toastIdRef = useRef(0)
+
+function addToast(message: string, type: "success" | "error" = "success") {
+  const id = toastIdRef.current++
+  setToasts((prev) => [...prev, { id, message, type }])
+}
+
+function removeToast(id: number) {
+  setToasts((prev) => prev.filter((t) => t.id !== id))
+}
+
+function showError(message: string) {
+  addToast(message, "error")
+}
 
    useEffect(() => {
        function handleClickOutsideRequestFilter(event: MouseEvent) {
@@ -847,12 +865,12 @@ if (loading || contextLoading) {
        box-shadow:0 10px 30px rgba(0,0,0,.06);
        }
 
-       .request-card-scroll{
-       max-height: 55vh;  
-       overflow-y: auto;
-       scrollbar-width: thin;
-       scrollbar-color: #CFCFCB transparent;
-       }
+       //.request-card-scroll{
+       //max-height: 55vh;  
+       //overflow-y: auto;
+       //scrollbar-width: thin;
+       //scrollbar-color: #CFCFCB transparent;
+       //}
 
        .request-top-bar{
        padding:16px 20px 16px;
@@ -2088,7 +2106,7 @@ if (loading || contextLoading) {
                    const files = Array.from(e.dataTransfer.files)
 
                    if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
-                   alert(
+                    showError(
                        `You can attach at most ${MAX_NUM_ATTACHMENT} file.`
                    )
                    return
@@ -2140,7 +2158,7 @@ if (loading || contextLoading) {
                        const files = Array.from(e.target.files)
 
                        if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
-                           alert(
+                        showError(
                            `You can attach at most ${MAX_NUM_ATTACHMENT} ${
                                MAX_NUM_ATTACHMENT === 1 ? "file" : "files"
                            }.`
@@ -2559,7 +2577,7 @@ if (loading || contextLoading) {
                      e.preventDefault()
                      const files = Array.from(e.dataTransfer.files)
                      if (editFiles.length + editNewFiles.length + files.length > MAX_NUM_ATTACHMENT) {
-                       alert(`You can attach at most ${MAX_NUM_ATTACHMENT} file.`)
+                      showError(`You can attach at most ${MAX_NUM_ATTACHMENT} file.`)
                        return
                      }
                      setEditNewFiles((prev) => [...prev, ...files])
@@ -2589,7 +2607,7 @@ if (loading || contextLoading) {
                        if (e.target.files) {
                          const files = Array.from(e.target.files)
                          if (editFiles.length + editNewFiles.length + files.length > MAX_NUM_ATTACHMENT) {
-                           alert(
+                          showError(
                              `You can attach at most ${MAX_NUM_ATTACHMENT} ${
                                MAX_NUM_ATTACHMENT === 1 ? "file" : "files"
                              }.`
@@ -2744,11 +2762,29 @@ if (loading || contextLoading) {
        </div>
      )}
 
-       <SuccessModal
-       show={showSuccessModal}
-       message={successMessage}
-       onClose={() => setShowSuccessModal(false)}
-       />
+     {/* saffi - hanggang last div */}
+      <div
+        style={{
+          position: "fixed",
+          top: 20,
+          right: 20,
+          zIndex: 300,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          pointerEvents: "none",
+        }}
+      >
+        {toasts.map((toast) => (
+          <SuccessModal
+            key={toast.id}
+            show={true}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
+      </div>
 
    </>
  )
