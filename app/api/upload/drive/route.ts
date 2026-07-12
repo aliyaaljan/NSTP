@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server"
 import { uploadToGoogleDrive } from "@/lib/google-drive"
+import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user || !user.email) {
+      return NextResponse.json(
+        { error: "Unauthorized access" },
+        { status: 401 }
+      )
+    }
     const formData = await req.formData()
     const file = formData.get("file") as File | null
 
@@ -17,8 +29,7 @@ export async function POST(req: Request) {
         { status: 500 }
       )
     }
-
-    const driveResponse = await uploadToGoogleDrive(file, folderId)
+    const driveResponse = await uploadToGoogleDrive(file, folderId, user.email)
 
     return NextResponse.json(
       {
