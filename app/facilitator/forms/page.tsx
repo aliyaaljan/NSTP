@@ -290,6 +290,7 @@ export default function FormsPage() {
   const [realEntries, setRealEntries] = useState<DisplayEntry[]>([])
   const [repoForms, setRepoForms] = useState<FormRequirement[]>([])
   const [isLoading, startTransition] = useTransition()
+  const [isPageLoading, setIsPageLoading] = useState(true)
 
   // Upload Modal States
   const [showUpload, setShowUpload] = useState(false)
@@ -768,6 +769,20 @@ export default function FormsPage() {
                                   <IconDownload size={14} stroke={1.75} />
                                 </button>
                               )}
+
+                              {f.section_id !== null && (
+                                <button
+                                  className="fm-icon-btn"
+                                  title="Edit"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    openEditModal(f)
+                                  }}
+                                  disabled={isLoading}
+                                >
+                                  <IconEdit size={14} stroke={1.75} />
+                                </button>
+                              )}
                               {f.section_id !== null && (
                                 <button
                                   className="fm-icon-btn danger"
@@ -821,64 +836,285 @@ export default function FormsPage() {
               label: isUploading ? "Uploading..." : "Upload",
               onClick: handleUploadSubmit,
               variant: "approve",
-              disabled: isUploading || !uploadFile,
+              disabled:
+                isUploading ||
+                !uploadFile ||
+                (uploadTitle === "Other" && !customTitle.trim()),
             },
           ]}
         >
-          <div>
-            <div className="nstp-modal-label">Form Type</div>
-            <select
-              value={uploadTitle}
-              onChange={(e) => setUploadTitle(e.target.value)}
-              style={{
-                width: "100%",
-                border: "1.5px solid var(--border)",
-                borderRadius: 10,
-                padding: "9px 12px",
-                fontSize: 13,
-                fontFamily: "var(--font)",
-                color: "var(--text)",
-                background: "var(--white)",
-                outline: "none",
-                marginTop: 4,
-              }}
-            >
-              <option>Daily Time Record</option>
-              <option>Accomplishment Report</option>
-              <option>Attendance Sheet</option>
-              <option>Incident Report</option>
-            </select>
-          </div>
-          <div>
-            <div className="nstp-modal-label">File</div>
-            <div
-              className="fm-upload-zone"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {uploadFile ? (
-                <div style={{ color: "var(--green)", fontWeight: "bold" }}>
-                  {uploadFile.name}
-                </div>
-              ) : (
-                <>
-                  <IconUpload size={28} stroke={1.5} color="var(--muted)" />
-                  <div className="fm-upload-zone-text">
-                    Click to browse or drag & drop
-                  </div>
-                  <div className="fm-upload-zone-sub">
-                    PDF, DOCX up to 200 KB
-                  </div>
-                </>
-              )}
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+          >
+            <div>
+              <div className="nstp-modal-label">Form Type</div>
+              <select
+                value={uploadTitle}
+                onChange={(e) => setUploadTitle(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  background: "var(--white)",
+                  outline: "none",
+                  marginTop: 4,
+                }}
+              >
+                <option>Daily Time Record</option>
+                <option>Accomplishment Report</option>
+                <option>Attendance Sheet</option>
+                <option>Incident Report</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            {uploadTitle === "Other" && (
+              <div>
+                <div className="nstp-modal-label">Custom Form Title</div>
+                <input
+                  type="text"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  placeholder="Enter custom form title"
+                  style={{
+                    width: "100%",
+                    border: "1.5px solid var(--border)",
+                    borderRadius: 10,
+                    padding: "9px 12px",
+                    fontSize: 13,
+                    fontFamily: "var(--font)",
+                    outline: "none",
+                    marginTop: 4,
+                  }}
+                />
+              </div>
+            )}
+
+            <div>
+              <div className="nstp-modal-label">Due Date (Optional)</div>
               <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={(e) =>
-                  e.target.files && setUploadFile(e.target.files[0])
-                }
-                style={{ display: "none" }}
+                type="date"
+                value={uploadDueDate}
+                onChange={(e) => setUploadDueDate(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  outline: "none",
+                  marginTop: 4,
+                }}
               />
+            </div>
+
+            <div>
+              <div className="nstp-modal-label">
+                Description / Instructions (Optional)
+              </div>
+              <textarea
+                value={uploadDescription}
+                onChange={(e) => setUploadDescription(e.target.value)}
+                placeholder="Add helpful instructions for your students..."
+                rows={3}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  outline: "none",
+                  marginTop: 4,
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <div>
+              <div className="nstp-modal-label">Template File (Optional)</div>
+              <div
+                className="fm-upload-zone"
+                onClick={() => fileInputRef.current?.click()}
+                style={{ marginTop: 4 }}
+              >
+                {uploadFile ? (
+                  <div style={{ color: "var(--green)", fontWeight: "bold" }}>
+                    {uploadFile.name}
+                  </div>
+                ) : (
+                  <>
+                    <IconUpload size={28} stroke={1.5} color="var(--muted)" />
+                    <div className="fm-upload-zone-text">
+                      Click to browse or drag & drop
+                    </div>
+                    <div className="fm-upload-zone-sub">
+                      PDF, DOCX up to 200 KB
+                    </div>
+                  </>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) =>
+                    e.target.files && setUploadFile(e.target.files[0])
+                  }
+                  style={{ display: "none" }}
+                />
+              </div>
+            </div>
+          </div>
+        </NstpModal>
+
+        {/* Edit modal */}
+        <NstpModal
+          open={showEdit}
+          onClose={() => setShowEdit(false)}
+          title="Edit Form Template"
+          size="md"
+          actions={[
+            {
+              label: "Cancel",
+              onClick: () => setShowEdit(false),
+              variant: "secondary",
+            },
+            {
+              label: isEditing ? "Saving..." : "Save Changes",
+              onClick: handleEditSubmit,
+              variant: "approve",
+              disabled: isEditing || !editTitle,
+            },
+          ]}
+        >
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+          >
+            <div>
+              <div className="nstp-modal-label">Form Type</div>
+              <select
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  background: "var(--white)",
+                  outline: "none",
+                  marginTop: 4,
+                }}
+              >
+                <option>Daily Time Record</option>
+                <option>Accomplishment Report</option>
+                <option>Attendance Sheet</option>
+                <option>Incident Report</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            {editTitle === "Other" && (
+              <div>
+                <div className="nstp-modal-label">Form Title</div>
+                <input
+                  type="text"
+                  value={editCustomTitle}
+                  onChange={(e) => setEditCustomTitle(e.target.value)}
+                  placeholder="Enter custom form title"
+                  style={{
+                    width: "100%",
+                    border: "1.5px solid var(--border)",
+                    borderRadius: 10,
+                    padding: "9px 12px",
+                    fontSize: 13,
+                    fontFamily: "var(--font)",
+                    outline: "none",
+                    marginTop: 4,
+                  }}
+                />
+              </div>
+            )}
+
+            <div>
+              <div className="nstp-modal-label">Due Date (Optional)</div>
+              <input
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  outline: "none",
+                  marginTop: 4,
+                }}
+              />
+            </div>
+
+            <div>
+              <div className="nstp-modal-label">Description / Instructions</div>
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  outline: "none",
+                  marginTop: 4,
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <div>
+              <div className="nstp-modal-label">
+                Replace Template File (Optional)
+              </div>
+              <div
+                className="fm-upload-zone"
+                onClick={() => fileInputRef.current?.click()}
+                style={{ marginTop: 4, padding: "20px" }}
+              >
+                {editFile ? (
+                  <div style={{ color: "var(--green)", fontWeight: "bold" }}>
+                    {editFile.name}
+                  </div>
+                ) : (
+                  <div className="fm-upload-zone-text">
+                    Click to upload a new file (Leave empty to keep current
+                    file)
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) =>
+                    e.target.files && setEditFile(e.target.files[0])
+                  }
+                  style={{ display: "none" }}
+                />
+              </div>
             </div>
           </div>
         </NstpModal>
