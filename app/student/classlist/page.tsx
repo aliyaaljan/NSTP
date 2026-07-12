@@ -414,6 +414,10 @@ const pages = []
             min-width:0;
         }
 
+        .mobile-sort-bar{
+            display:none;
+        }
+
         .table-head > div{
             min-width:0;
         }
@@ -872,7 +876,22 @@ const pages = []
           }
 
         .table-head{
-            display:none;
+          display:none;
+      }
+
+        .mobile-sort-bar{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            padding:12px 14px;
+            background:#F9FAFB;
+            border-top:1px solid #E7E7E7;
+            border-bottom:1px solid #E7E7E7;
+            color:${C.maroon};
+            font-size:11px;
+            font-weight:700;
+            letter-spacing:1px;
+            cursor:pointer;
         }
 
         .row{
@@ -1120,6 +1139,14 @@ const pages = []
                     SITE
                     {getSortIcons("site")}
                     </div>
+                    </div>
+
+                    <div
+                      className="mobile-sort-bar"
+                      onClick={() => handleSort("name")}
+                    >
+                      <span>STUDENT</span>
+                      {getSortIcons("name")}
                     </div>
 
                 <div>
