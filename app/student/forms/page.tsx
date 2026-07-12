@@ -28,6 +28,7 @@ import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createClient } from "@/lib/client"
 import LoadingPage from "@/components/shared/LoadingPage"
 import { useStudent } from "@/app/student/StudentContext"
+import SuccessToast from "@/components/shared/SuccessModal"
 
 import {
   getMyForms,
@@ -310,7 +311,10 @@ interface Form {
     url?: string
     submissionId?: string
   }[]
-  submittedLinks?: string[]
+  submittedLinks?: {
+    url: string
+    fileName?: string
+  }[]
   reviewerComment?: string | null
   submissionDate?: string
 }
@@ -327,6 +331,17 @@ export default function StudentFilesPage() {
   const [viewingForm, setViewingForm] = useState<Form | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
+  // Toast state
+  const [toast, setToast] = useState<{
+    show: boolean
+    message: string
+    type: "success" | "error"
+  }>({
+    show: false,
+    message: "",
+    type: "success",
+  })
+
   const [student, setStudent] = useState({
     initials: "ST",
     displayName: "Student",
@@ -338,7 +353,7 @@ export default function StudentFilesPage() {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-  const [links, setLinks] = useState<string[]>([])
+  const [links, setLinks] = useState<{ url: string; fileName: string }[]>([])
   const [linkInput, setLinkInput] = useState("")
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -465,7 +480,12 @@ export default function StudentFilesPage() {
         if (req.submission) {
           const path = req.submission.storage_path
           if (path.startsWith("gdrive:")) {
-            submittedLinks.push(path.replace("gdrive:", ""))
+            const url = path.replace("gdrive:", "")
+            const fileName = req.submission.file_name || "Google Drive File"
+            submittedLinks.push({
+              url: url,
+              fileName: fileName,
+            })
           } else {
             submittedFiles.push({
               name: req.submission.file_name || "Submission",
@@ -593,7 +613,10 @@ export default function StudentFilesPage() {
     setIsUploading(true)
 
     try {
-      if (selectedFiles.length > 0) {
+      const isFileUpload = selectedFiles.length > 0
+      const isLinkUpload = links.length > 0
+      
+      if (isFileUpload) {
         const file = selectedFiles[0]
         const formData = new FormData()
         formData.append("file", file)
@@ -614,24 +637,76 @@ export default function StudentFilesPage() {
           file.name
         )
         if (!dbRes.ok) throw new Error(dbRes.error)
-      } else if (links.length > 0) {
+      } else if (isLinkUpload) {
+        const link = links[0]
         const dbRes = await saveDriveSubmission(
           enrollmentId,
           selectedForm.id,
           "link_only",
-          links[0],
-          "External Link Submission"
+          link.url,
+          link.fileName || "External Link Submission"
         )
         if (!dbRes.ok) throw new Error(dbRes.error)
       }
 
+      // Makes button change to "Submitted" instantly after Uploading
+      const updatedForm: Form = {
+        ...selectedForm,
+        status: "uploaded",
+        realStatus: "submitted",
+        submittedFiles: isFileUpload && selectedFiles.length > 0 
+          ? [
+              ...(selectedForm.submittedFiles || []),
+              {
+                name: selectedFiles[0].name,
+                type: selectedFiles[0].name.split('.').pop()?.toUpperCase() || 'FILE',
+                size: formatFileSize(selectedFiles[0].size),
+                submissionId: 'pending',
+              }
+            ]
+          : selectedForm.submittedFiles || [],
+        submittedLinks: isLinkUpload && links.length > 0
+          ? [
+              ...(selectedForm.submittedLinks || []),
+              {
+                url: links[0].url,
+                fileName: links[0].fileName,
+              }
+            ]
+          : selectedForm.submittedLinks || [],
+        submissionDate: new Date().toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+      }
+
+      setForms((prevForms) =>
+        prevForms.map((form) =>
+          form.id === selectedForm.id ? updatedForm : form
+        )
+      )
+
+      // Close modal only after
       setShowModal(false)
       setSelectedFiles([])
       setLinks([])
+      
+      // Show success toast
+      setToast({
+        show: true,
+        message: "Your form has been submitted successfully!",
+        type: "success",
+      })
+
       loadData()
-      alert("Submitted Successfully!")
+      
     } catch (e: any) {
-      alert(`Upload failed: ${e.message}`)
+      setToast({
+        show: true,
+        message: e.message || "Upload failed. Please try again.",
+        type: "error",
+      })
     } finally {
       setIsUploading(false)
     }
@@ -797,6 +872,18 @@ export default function StudentFilesPage() {
     }
   }
 
+  // Extract filename from URL
+  const getFileNameFromUrl = (url: string) => {
+    try {
+      const urlObj = new URL(url)
+      const pathname = urlObj.pathname
+      const fileName = pathname.split('/').pop() || 'file'
+      return decodeURIComponent(fileName) || 'Google Drive File'
+    } catch {
+      return 'Google Drive File'
+    }
+  }
+
   // Merge files and links for display
   const mergedItems = [
     ...selectedFiles.map((file) => ({ type: "file" as const, data: file })),
@@ -865,6 +952,28 @@ export default function StudentFilesPage() {
             marginTop: responsivePadding.marginTop,
           }}
         >
+          {/* Toast Container */}
+          <div
+            style={{
+              position: "fixed",
+              top: 24,
+              right: 24,
+              zIndex: 9999,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 8,
+              pointerEvents: "none",
+            }}
+          >
+            <SuccessToast
+              show={toast.show}
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToast({ ...toast, show: false })}
+            />
+          </div>
+
           {/* Header */}
           <div className="sf-header">
             <div className="sf-header-left">
@@ -1425,7 +1534,7 @@ export default function StudentFilesPage() {
           {showModal && selectedForm && (
             <div
               className="sf-modal-backdrop"
-              onClick={() => setShowModal(false)}
+              onClick={() => !isUploading && setShowModal(false)}
             >
               <div className="sf-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="sf-modal-header">
@@ -1434,7 +1543,8 @@ export default function StudentFilesPage() {
                   </span>
                   <button
                     className="sf-modal-close"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => !isUploading && setShowModal(false)}
+                    disabled={isUploading}
                   >
                     <IconX size={20} stroke={2} />
                   </button>
@@ -1480,7 +1590,8 @@ export default function StudentFilesPage() {
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               if (isValidUrl(linkInput.trim())) {
-                                setLinks((p) => [...p, linkInput.trim()])
+                                const fileName = getFileNameFromUrl(linkInput.trim())
+                                setLinks((p) => [...p, { url: linkInput.trim(), fileName }])
                                 setLinkInput("")
                                 setShowLinkInput(false)
                               }
@@ -1494,7 +1605,8 @@ export default function StudentFilesPage() {
                           className="sf-link-add-btn"
                           onClick={() => {
                             if (isValidUrl(linkInput.trim())) {
-                              setLinks((p) => [...p, linkInput.trim()])
+                              const fileName = getFileNameFromUrl(linkInput.trim())
+                              setLinks((p) => [...p, { url: linkInput.trim(), fileName }])
                               setLinkInput("")
                               setShowLinkInput(false)
                             }
@@ -1559,6 +1671,7 @@ export default function StudentFilesPage() {
                                       p.filter((_, i) => i !== index)
                                     )
                                   }
+                                  disabled={isUploading}
                                 >
                                   <IconX size={18} stroke={2} />
                                 </button>
@@ -1582,7 +1695,7 @@ export default function StudentFilesPage() {
                                 </div>
                                 <div className="sf-file-preview-info">
                                   <div className="sf-file-preview-name">
-                                    {link}
+                                    {link.fileName || link.url}
                                   </div>
                                   <div className="sf-file-preview-meta">
                                     <span
@@ -1600,6 +1713,7 @@ export default function StudentFilesPage() {
                                       p.filter((_, i) => i !== index)
                                     )
                                   }
+                                  disabled={isUploading}
                                 >
                                   <IconX size={18} stroke={2} />
                                 </button>
@@ -1627,7 +1741,8 @@ export default function StudentFilesPage() {
                       <div className="sf-add-dropdown" ref={dropdownRef}>
                         <button
                           className="sf-add-btn"
-                          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                          onClick={() => !isUploading && setIsDropdownOpen(!isDropdownOpen)}
+                          disabled={isUploading}
                         >
                           <IconPlus
                             size={18}
@@ -1652,6 +1767,7 @@ export default function StudentFilesPage() {
                                 setIsDropdownOpen(false)
                                 document.getElementById("file-input")?.click()
                               }}
+                              disabled={isUploading}
                             >
                               <IconFile size={18} stroke={1.75} /> Add File
                             </button>
@@ -1669,6 +1785,7 @@ export default function StudentFilesPage() {
                                   50
                                 )
                               }}
+                              disabled={isUploading}
                             >
                               <IconLink size={18} stroke={1.75} /> Add Link
                             </button>
@@ -1863,9 +1980,9 @@ export default function StudentFilesPage() {
                                 color: "#1B4332",
                                 textDecoration: "underline",
                               }}
-                              onClick={() => window.open(link, "_blank")}
+                              onClick={() => window.open(link.url, "_blank")}
                             >
-                              Open in Google Drive
+                              {link.fileName || "Google Drive File"}
                             </div>
                             <div className="sf-file-preview-meta">
                               <span
