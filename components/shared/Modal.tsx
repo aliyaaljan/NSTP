@@ -19,6 +19,7 @@ interface NstpModalProps {
   subtitle?: string
   initials?: string
   size?: ModalSize
+  width?: number // optional pixel width, overrides the size preset
   twoCol?: boolean
   leftContent?: ReactNode
   rightContent?: ReactNode
@@ -178,18 +179,19 @@ const STYLES = `
   .nstp-modal-value { font-size: 14px; font-weight: 600; color: var(--text, #111827); }
   .nstp-modal-footer {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     padding: 14px 22px 20px;
     flex-shrink: 0;
     border-top: 1px solid var(--border, #E5E7EB);
   }
   .nstp-modal-btn {
-    flex: 1;
-    padding: 10px 16px;
-    border-radius: 12px;
+    flex: 0 1 auto;
+    padding: 8px 14px;
+    border-radius: 10px;
     border: none;
     cursor: pointer;
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-weight: 700;
     font-family: inherit;
     transition: background 0.13s, opacity 0.13s;
@@ -214,6 +216,7 @@ export function NstpModal({
   subtitle,
   initials,
   size = "md",
+  width: widthOverride,
   twoCol = false,
   leftContent,
   rightContent,
@@ -241,7 +244,7 @@ export function NstpModal({
 
   if (!open) return null
 
-  const width = SIZE_MAP[size]
+  const width = widthOverride ?? SIZE_MAP[size]
 
   return (
     <>

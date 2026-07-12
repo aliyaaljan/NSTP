@@ -421,6 +421,11 @@ export default async function AdminDashboardPage({
       ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, course_code, required_hour_total, term:term_id(school_year), app_user!inner(full_name)), attendance_session(duration_minute)`
       : `student_user_id, app_user(full_name, student_number), section(section_id, course_code, required_hour_total, term:term_id(school_year), app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
 
+  const gpsComplianceSelect =
+    selectedSection || selectedAdviser
+      ? "attendance_session_id, is_flagged, enrollment!inner(enrollment_status_id, section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name)))"
+      : "attendance_session_id, is_flagged, enrollment!inner(enrollment_status_id)"
+
   // ---  Base Queries ---
   let studentsQuery = supabase
     .from("app_user")
@@ -466,7 +471,20 @@ export default async function AdminDashboardPage({
     .select(enrollmentSelect)
     .eq("enrollment_status_id", activeStatusId)
 
+  let gpsComplianceQuery = supabase
+    .from("attendance_session")
+    .select(gpsComplianceSelect)
+    .eq("enrollment.enrollment_status_id", activeStatusId)
+    .gte("started_at", mondayISO)
+
   // ---  Conditional Filters ---
+  if (selectedSection) {
+    gpsComplianceQuery = gpsComplianceQuery.eq("enrollment.section.section_id", selectedSection)
+  }
+
+  if (selectedAdviser && filteredAdviserId) {
+    gpsComplianceQuery = gpsComplianceQuery.eq("enrollment.section.adviser_user_id", filteredAdviserId)
+  }
 
   if (selectedSection) {
     studentsQuery = studentsQuery.eq(
@@ -540,6 +558,7 @@ export default async function AdminDashboardPage({
     attendanceSessionStatusesRes,
     activeTermRes,
     currentUserRes,
+    gpsComplianceRes,
   ] = await Promise.all([
     // student counter call
     studentsQuery,
@@ -595,6 +614,8 @@ export default async function AdminDashboardPage({
           .eq("app_user_id", user.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+      
+    gpsComplianceQuery,
   ])
 
   const sectionFilterOptions: { sectionId: string; label: string }[] = (
@@ -626,7 +647,16 @@ export default async function AdminDashboardPage({
     advisersFilterRes.data?.map((a) => a.full_name) || []
 
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
-
+  const rawGpsSessions = gpsComplianceRes?.data || []
+  if (gpsComplianceRes?.error) {
+    console.error("GPS compliance query error:", gpsComplianceRes.error)
+  }
+  const totalGpsSessions = rawGpsSessions.length
+  const flaggedGpsSessions = rawGpsSessions.filter((s: any) => s.is_flagged).length
+  const computedGpsCompliance = totalGpsSessions > 0
+      ? Math.round(((totalGpsSessions - flaggedGpsSessions) / totalGpsSessions) * 100)
+      : 100
+      
   // calculating weekly attendance rate
   const totalActiveEnrollments = attendanceRateRes[0]?.count || 0
   const uniqueScansThisWeek = new Set(
@@ -919,9 +949,9 @@ export default async function AdminDashboardPage({
     },
     {
       icon: "ti-map-pin",
-      label: "GPS compliance",
-      value: `94%`,
-      note: "Logged within radius",
+      label: "GPS & Network Compliance Rate",
+      value: `${computedGpsCompliance}%`,
+      note: "Clear of location or network anomalies this week",
       href: "/admin/sites?status=active",
     },
   ]

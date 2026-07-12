@@ -420,16 +420,21 @@ export interface ProfileCardProps {
   email?: string;
   college?: string;
   component?: string;
+  avatarUrl?: string | null;
 }
 
-export function ProfileCard({ fullName = "", email = "", college = "", component = "" }: ProfileCardProps) {
+export function ProfileCard({ fullName = "", email = "", college = "", component = "", avatarUrl }: ProfileCardProps) {
   const initials = fullName ? getInitials(fullName) : "";
 
   return (
     <div className="pc-page">
       <div className="pc-card">
-        <div className="pc-avatar">
-          <span className="pc-avatar-text">{initials}</span>
+        <div className="pc-avatar overflow-hidden">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={fullName || "Profile Photo"} className="pc-avatar-img" />
+          ) : (
+            <span className="pc-avatar-text">{initials}</span>
+          )}
         </div>
         <h2 className="pc-name">{fullName}</h2>
         <div className="pc-info">

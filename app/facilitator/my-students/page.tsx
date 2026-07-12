@@ -12,7 +12,6 @@ import {
   IconCircleCheck,
   IconClock,
   IconAlertCircle,
-  IconAlertTriangle,
   IconX,
   IconPaperclip,
   IconPencil,
@@ -39,6 +38,7 @@ import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 import Link from "next/link";
 import LoadingPage from "@/components/shared/LoadingPage"
 import { flagLabel, type FlagReason } from "@/lib/attendance/flag-reasons"
+import { createPortal } from "react-dom"
 
 //Map
 import dynamic from "next/dynamic"
@@ -451,6 +451,7 @@ const myStudentsStyles = `
   .ms-session-table td { font-size: 12px; color: var(--text); padding: 8px; border-bottom: 1px solid #F3F4F6; }
   .ms-session-table tbody tr:last-child td { border-bottom: none; }
   .ms-session-table  tr:hover { background: #FAFAFA; }
+  .ms-session-table tr.ms-session-row-flagged { background: #FEE2E2; }
   .ms-session-action-btn {
     display: inline-flex;
     align-items: center;
@@ -585,6 +586,136 @@ function AnimatedBar({ pct, color }: { pct: number; color: string }) {
         style={{ width: `${width}%`, background: color, transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)" }}
       />
     </div>
+  )
+}
+
+function SessionRow({
+  sess,
+  selectedStudent,
+  supabase,
+  setEditingSession,
+  setEditDate,
+  setEditTimeIn,
+  setEditTimeOut,
+  setEditTermRange,
+  setEditStatus,
+  setVoidReason,
+  setViewMap,
+  sessionStatusStyle,
+  to24HourFormat,
+  formatDate,
+}: {
+  sess: StudentSession
+  selectedStudent: Student
+  supabase: ReturnType<typeof createClient>
+  setEditingSession: (s: StudentSession | null) => void
+  setEditDate: (v: string) => void
+  setEditTimeIn: (v: string) => void
+  setEditTimeOut: (v: string) => void
+  setEditTermRange: (v: { start_date: string; end_date: string } | null) => void
+  setEditStatus: (v: string) => void
+  setVoidReason: (v: string) => void
+  setViewMap: (v: { studentName: string; session: StudentSession } | null) => void
+  sessionStatusStyle: (status: string) => { bg: string; color: string }
+  to24HourFormat: (t: string | null) => string
+  formatDate: (d: string) => string
+}) {
+  const rowRef = useRef<HTMLTableRowElement>(null)
+  const [flagCoords, setFlagCoords] = useState<{ top: number; left: number } | null>(null)
+  return (
+    <tr
+      ref={rowRef}
+      className={sess.isFlagged ? "ms-session-row-flagged" : undefined}
+      onMouseEnter={() => {
+        if (!sess.isFlagged || !rowRef.current) return
+        const r = rowRef.current.getBoundingClientRect()
+        const tooltipWidth = 475
+        const left = Math.min(Math.max(r.left, 8), window.innerWidth - tooltipWidth - 8)
+        setFlagCoords({ top: r.top - 6, left })
+      }}
+      onMouseLeave={() => setFlagCoords(null)}
+    >
+      <td>{sess.date}</td>
+      <td>{sess.timeIn}</td>
+      <td>{sess.timeOut}</td>
+      <td>{sess.hours}</td>
+      <td>
+        <span
+          className="ms-session-status-badge"
+          style={{
+            background: sessionStatusStyle(sess.status).bg,
+            color: sessionStatusStyle(sess.status).color,
+          }}
+        >
+          {sess.status.charAt(0).toUpperCase() + sess.status.slice(1)}
+        </span>
+      </td>
+      <td className="flex flex-row gap-1">
+        <button
+          title="Edit Session"
+          className="ms-session-action-btn"
+          onClick={async (e) => {
+            e.stopPropagation()
+            setEditingSession(sess)
+            setEditDate(formatDate(sess.date))
+            setEditTimeIn(to24HourFormat(sess.timeIn))
+            setEditTimeOut(to24HourFormat(sess.timeOut))
+            setEditTermRange(null)
+            setEditStatus(sess.statusId)
+            setVoidReason("")
+            const { data, error } = await supabase.rpc("get_section_term_range", {
+              p_section_id: selectedStudent.section_id,
+            })
+            if (!error && data && data.length > 0) setEditTermRange(data[0])
+          }}
+        >
+          <IconPencil size={14} stroke={1.75} />
+        </button>
+        <button
+          title="View Location"
+          className="ms-session-action-btn"
+          onClick={(e) => {
+            e.stopPropagation()
+            setViewMap({ studentName: selectedStudent.student_name, session: sess })
+          }}
+        >
+          <RiRoadMapLine size={14} />
+        </button>
+      </td>
+
+      {flagCoords && typeof document !== "undefined" &&
+  createPortal(
+    <span
+      style={{
+        display: "block",
+        position: "fixed",
+        top: flagCoords.top,
+        left: flagCoords.left,
+        transform: "translateY(-100%)",
+        background: "#fff",
+        fontSize: 13,
+        borderRadius: 6,
+        padding: "3px 10px",
+        whiteSpace: "wrap",
+        wordBreak: "break-word",
+        zIndex: 9999,
+        pointerEvents: "none",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+        color: "var(--maroon)",
+        fontFamily: "Montserrat, 'Montserrat Fallback'",
+        fontWeight: 500,
+        maxWidth: 475,
+      }}
+    >
+      {(sess.flagReasons ?? []).map((r, i) => (
+        <span key={i} style={{ display: "block" }}>
+          <strong>{flagLabel(r.code)}</strong>: {r.message}
+        </span>
+      ))}
+    </span>,
+    document.body
+  )}
+    </tr>
   )
 }
 
@@ -2175,52 +2306,24 @@ function MyStudentsContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedStudent.sessions.map((sess, i) => (
-                      <tr key={sess.id}>
-                        <td>{sess.date}</td>
-                        <td>{sess.timeIn}</td>
-                        <td>{sess.timeOut}</td>
-                        <td>{sess.hours}</td>
-                        <td>
-                          <span
-                            className="ms-session-status-badge"
-                            style={{background: sessionStatusStyle(sess.status).bg, color: sessionStatusStyle(sess.status).color}}
-                          >
-                            {sess.status.charAt(0).toUpperCase() + sess.status.slice(1)}
-                          </span>
-                          {sess.isFlagged && (
-                            <span
-                              title={(sess.flagReasons ?? []).map((r) => `${flagLabel(r.code)}: ${r.message}`).join("\n")}
-                              style={{ marginLeft: 6, color: "#B45309", display: "inline-flex", verticalAlign: "middle" }}
-                            >
-                              <IconAlertTriangle size={14} stroke={2} />
-                            </span>
-                          )}
-                        </td>
-                        <td className="flex flex-row gap-1">
-                          <button title="Edit Session" className="ms-session-action-btn" onClick={async (e) => {
-                            e.stopPropagation()
-                            setEditingSession(sess)
-                            setEditDate(formatDate(sess.date))
-                            setEditTimeIn(to24HourFormat(sess.timeIn))
-                            setEditTimeOut(to24HourFormat(sess.timeOut))
-                            setEditTermRange(null)
-                            setEditStatus(sess.statusId)
-                            setVoidReason("")
-                            const { data, error } = await supabase.rpc("get_section_term_range", { p_section_id: selectedStudent.section_id })
-                            if (!error && data && data.length > 0) setEditTermRange(data[0])
-                          }}>
-                            <IconPencil size={14} stroke={1.75}/>
-                          </button>
-                          <button 
-                            title="View Location" 
-                            className="ms-session-action-btn" 
-                            // disabled={!sess.locations || sess.locations.length === 0}
-                            onClick={(e) => {e.stopPropagation(); setViewMap({ studentName: selectedStudent.student_name, session: sess }); console.log(selectedStudent)}}>
-                            <RiRoadMapLine size={14}/>
-                          </button>
-                        </td>
-                      </tr>
+                    {selectedStudent.sessions.map((sess) => (
+                      <SessionRow
+                        key={sess.id}
+                        sess={sess}
+                        selectedStudent={selectedStudent}
+                        supabase={supabase}
+                        setEditingSession={setEditingSession}
+                        setEditDate={setEditDate}
+                        setEditTimeIn={setEditTimeIn}
+                        setEditTimeOut={setEditTimeOut}
+                        setEditTermRange={setEditTermRange}
+                        setEditStatus={setEditStatus}
+                        setVoidReason={setVoidReason}
+                        setViewMap={setViewMap}
+                        sessionStatusStyle={sessionStatusStyle}
+                        to24HourFormat={to24HourFormat}
+                        formatDate={formatDate}
+                      />
                     ))}
                   </tbody>
                 </table>

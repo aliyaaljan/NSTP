@@ -7,7 +7,7 @@ import ListPagination from "@/components/shared/ListPagination"
 import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
-import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
+import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import SectionFormModal from "@/components/admin/SectionFormModal"
 import { adminClickableRowProps } from "@/components/admin/admin-list-row"
@@ -513,48 +513,61 @@ export default function SectionListClient({
       />
 
       {detailSection && (
-        <AdminRecordDetailModal
+        <NstpModal
           open
+          onClose={() => setDetailSection(null)}
           title={detailSection.name}
           subtitle={detailSection.adviserName}
-          fields={[
-            { label: "Adviser", value: detailSection.adviserName },
-            { label: "Students", value: `${detailSection.studentCount} enrolled` },
+          size="md"
+          actions={[
             {
-              label: "Required Hours",
-              value: `${detailSection.requiredHourTotal} hours`,
+              label: "Edit",
+              variant: "primary",
+              onClick: () => {
+                openEdit(detailSection)
+                setDetailSection(null)
+              },
             },
-            { label: "Daily Cutoff", value: detailSection.dailyCutoffTime },
             {
-              label: "Status",
-              value: (
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    background: SECTION_STATUS_BADGE[detailSection.statusCode].bg,
-                    color: SECTION_STATUS_BADGE[detailSection.statusCode].color,
-                  }}
-                >
-                  {detailSection.statusLabel}
-                </span>
-              ),
+              label: detailSection.studentCount ? "Archive" : "Delete",
+              variant: "danger",
+              disabled: isDeleting,
+              onClick: () => {
+                openDeleteConfirm(detailSection)
+                setDetailSection(null)
+              },
             },
           ]}
-          onClose={() => setDetailSection(null)}
-          onEdit={() => {
-            openEdit(detailSection)
-            setDetailSection(null)
-          }}
-          onDelete={() => {
-            openDeleteConfirm(detailSection)
-            setDetailSection(null)
-          }}
-          deleteDisabled={isDeleting}
-        />
+        >
+          <ModalRow>
+            <ModalField label="Adviser" value={detailSection.adviserName} />
+            <ModalField label="Students" value={`${detailSection.studentCount} enrolled`} />
+          </ModalRow>
+          <ModalRow>
+            <ModalField
+              label="Required Hours"
+              value={`${detailSection.requiredHourTotal} hours`}
+            />
+            <ModalField label="Daily Cutoff" value={detailSection.dailyCutoffTime} />
+          </ModalRow>
+          <ModalRow>
+            <ModalField label="Status">
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: SECTION_STATUS_BADGE[detailSection.statusCode].bg,
+                  color: SECTION_STATUS_BADGE[detailSection.statusCode].color,
+                }}
+              >
+                {detailSection.statusLabel}
+              </span>
+            </ModalField>
+          </ModalRow>
+        </NstpModal>
       )}
 
       <ConfirmDeleteModal

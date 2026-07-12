@@ -776,7 +776,7 @@ export default function RequestsView() {
 const [isMobile, setIsMobile] = useState(false)
 
 useEffect(() => {
-  const check = () => setIsMobile(window.innerWidth <= 767)
+  const check = () => setIsMobile(window.innerWidth <= 768)
 
   check()
   window.addEventListener("resize", check)
@@ -931,7 +931,7 @@ if (loading || contextLoading) {
        border-radius:20px;
        padding:20px;
        box-shadow:0 12px 30px rgba(0,0,0,.12);
-       z-index:9999;
+       z-index:40;
        display:flex;
        flex-direction:column;
        gap:8px;
@@ -940,6 +940,7 @@ if (loading || contextLoading) {
        .filter-section{
        display:flex;
        flex-direction:column;
+       z-index:40;
        }
 
        .filter-title{
@@ -948,6 +949,14 @@ if (loading || contextLoading) {
        letter-spacing:1px;
        color:${C.maroon};
        margin-bottom:4px;
+       }
+
+       .request-filter-dropdown{
+       position:relative;
+       }
+
+       .request-filter-dropdown > div{
+       z-index:40 !important;
        }
 
        .filter-header{
@@ -1220,6 +1229,7 @@ if (loading || contextLoading) {
 
         .requests-main{
             padding:28px 20px;
+            margin-left:105px;
         }
 
         .requests-maintitle{
@@ -1245,7 +1255,7 @@ if (loading || contextLoading) {
 
     }
 
-      @media (max-width:768px){
+      @media (max-width:820px){
 
         .requests-main{
             padding:28px 20px;
@@ -1421,7 +1431,6 @@ if (loading || contextLoading) {
 
       .request-date{
           font-size:9px !important;
-          margin-top:6px !important;
       }
 
       .request-note-box{
@@ -1596,6 +1605,7 @@ if (loading || contextLoading) {
                </button>
 
                {showRequestFilters && (
+                <div className="request-filter-dropdown">
                    <AdminFilterPanel
                    groups={[
                        {
@@ -1611,6 +1621,7 @@ if (loading || contextLoading) {
                    onChange={(next) => setActiveRequestFilters(next)}
                    onClear={() => setActiveRequestFilters({})}
                    />
+                   </div>
                )}
                </div>
 
@@ -1678,43 +1689,44 @@ if (loading || contextLoading) {
                           borderRadius: 10,
                       }}
                     />
-                    <div className="request-top">
-                        <div>
+                    <div className="request-top" style={{ flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8,}}>
+                        <StatusBadge status={request.status} />
+                        <div
+                            className="request-type-pill"
+                            style={{
+                                display: "flex",
+                                width: "fit-content",
+                                alignItems: "center",
+                                padding: "4px 10px",
+                                borderRadius: 999,
+                                background: "#e4e4e4",
+                                color: C.textDark,
+                                fontSize: 10,
+                                fontWeight: 600,
+                                border: `1px solid ${C.textDark}20`,
+                            }}
+                        >
+                            {request.type}
+                        </div>
+                    </div>
+
+                    <div>
                         <div className="request-title">{request.title}</div>
 
                         <div
-                          className="request-type-pill"
-                          style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              padding: "4px 10px",
-                              marginTop: 5,
-                              borderRadius: 999,
-                              background: "#cccc",
-                              color: C.green,
-                              fontSize: 10,
-                              fontWeight: 700,
-                              border: `1px solid ${C.green}20`,
-                          }}
-                      >
-                          {request.type}
-                      </div>
-
-                      <div
-                          className="request-date"
-                          style={{ fontSize: 11, color: "#999", marginTop: 6 }}
-                      >
-                          Submitted{" "}
-                          {new Date(request.date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                          })}
-                      </div>
+                            className="request-date"
+                            style={{ fontSize: 11, color: "#999", marginTop: 2 }}
+                        >
+                            Submitted{" "}
+                            {new Date(request.date).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                            })}
                         </div>
-
-                        <StatusBadge status={request.status} />
                     </div>
+                </div>
 
                     <div className="request-body">{request.body}</div>
 

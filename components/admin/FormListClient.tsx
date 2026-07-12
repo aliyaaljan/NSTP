@@ -7,7 +7,7 @@ import ListPagination from "@/components/shared/ListPagination"
 import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
-import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
+import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import FormDetailModal from "@/components/admin/FormDetailModal"
 import FormSubmissionsModal from "@/components/admin/FormSubmissionsModal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
@@ -507,82 +507,83 @@ export default function FormListClient({
       />
 
       {detailForm && (
-        <AdminRecordDetailModal
+        <NstpModal
           open
-          maxWidth={680}
-          footerNoWrap
+          onClose={() => setDetailForm(null)}
           title={detailForm.formName}
           subtitle={`${detailForm.sectionName} · ${detailForm.adviserName}`}
-          fields={[
+          size="lg"
+          actions={[
             {
-              label: "Class",
-              value: detailForm.sectionName,
+              label: "View form",
+              variant: "secondary",
+              onClick: () => {
+                setFormDetailView(detailForm)
+                setDetailForm(null)
+              },
             },
             {
-              label: "Submissions",
-              value: (
-                <>
-                  {detailForm.submittedCount} of {detailForm.totalStudents}
-                  {" students"}
-                </>
-              ),
+              label: "View submissions",
+              variant: "secondary",
+              onClick: () => {
+                setSubmissionsView(detailForm)
+                setDetailForm(null)
+              },
             },
             {
-              label: "Deadline",
-              value: detailForm.dueDate
-                ? `${formatFormDeadline(detailForm.dueDate).date}${
-                    formatFormDeadline(detailForm.dueDate).time
-                      ? ` at ${formatFormDeadline(detailForm.dueDate).time}`
-                      : ""
-                  }`
-                : "No deadline",
+              label: "Edit",
+              variant: "primary",
+              disabled: detailForm.isSample,
+              onClick: () => {
+                setEditForm(detailForm)
+                setDetailForm(null)
+              },
             },
             {
-              label: "Scope",
-              value: detailForm.isGlobal ? "Global default" : "Class-specific",
+              label: "Delete",
+              variant: "danger",
+              disabled:
+                detailForm.isSample || (isDeleting && deletingId === detailForm.rowId),
+              onClick: () => {
+                openDeleteConfirm(detailForm)
+                setDetailForm(null)
+              },
             },
-            {
-              label: "Status",
-              value: detailForm.isActive ? "Active" : "Inactive",
-            },
-            ...(detailForm.isSample
-              ? [
-                  {
-                    label: "Note",
-                    value: "Sample preview row — not stored in the database.",
-                  },
-                ]
-              : [
-                  {
-                    label: "Requirement ID",
-                    value: detailForm.formRequirementId,
-                  },
-                ]),
           ]}
-          onClose={() => setDetailForm(null)}
-          onView={() => {
-            setFormDetailView(detailForm)
-            setDetailForm(null)
-          }}
-          onViewSecondary={() => {
-            setSubmissionsView(detailForm)
-            setDetailForm(null)
-          }}
-          viewLabel="View form"
-          viewSecondaryLabel="View submissions"
-          onEdit={() => {
-            setEditForm(detailForm)
-            setDetailForm(null)
-          }}
-          onDelete={() => {
-            openDeleteConfirm(detailForm)
-            setDetailForm(null)
-          }}
-          editDisabled={detailForm.isSample}
-          deleteDisabled={
-            detailForm.isSample || (isDeleting && deletingId === detailForm.rowId)
-          }
-        />
+        >
+          <ModalRow>
+            <ModalField label="Class" value={detailForm.sectionName} />
+            <ModalField label="Submissions">
+              {detailForm.submittedCount} of {detailForm.totalStudents} students
+            </ModalField>
+          </ModalRow>
+          <ModalRow>
+            <ModalField
+              label="Deadline"
+              value={
+                detailForm.dueDate
+                  ? `${formatFormDeadline(detailForm.dueDate).date}${
+                      formatFormDeadline(detailForm.dueDate).time
+                        ? ` at ${formatFormDeadline(detailForm.dueDate).time}`
+                        : ""
+                    }`
+                  : "No deadline"
+              }
+            />
+            <ModalField
+              label="Scope"
+              value={detailForm.isGlobal ? "Global default" : "Class-specific"}
+            />
+          </ModalRow>
+          <ModalRow>
+            <ModalField label="Status" value={detailForm.isActive ? "Active" : "Inactive"} />
+            {detailForm.isSample ? (
+              <ModalField label="Note" value="Sample preview row — not stored in the database." />
+            ) : (
+              <ModalField label="Requirement ID" value={detailForm.formRequirementId} />
+            )}
+          </ModalRow>
+        </NstpModal>
       )}
 
       {formDetailView && (

@@ -24,6 +24,7 @@ type ProfileData = {
   email: string
   college: string
   component: string
+  avatarUrl: string | null
 }
 
 export default function ProfilePage() {
@@ -34,7 +35,7 @@ export default function ProfilePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [isPageLoading, setIsPageLoading] = useState(true)
-
+  
   const fetchProfile = useCallback(async (uid: string) => {
     const { data, error } = await supabase
       .from("app_user")
@@ -46,12 +47,15 @@ export default function ProfilePage() {
       console.error("Database error:", error.message)
       return
     }
+     const {data: {user}} = await supabase.auth.getUser()
+    const avatarUrl = user?.identities?.[0]?.identity_data?.avatar_url ?? null
 
     setProfile({
       fullName: data.full_name ?? "",
       email: data.email ?? "",
       college: data.college?.name ?? "",
       component: data.nstp_component?.name ?? "",
+      avatarUrl
     })
   }, [supabase])
 
@@ -122,6 +126,7 @@ export default function ProfilePage() {
                   email={profile?.email}
                   college={profile?.college}
                   component={profile?.component}
+                  avatarUrl={profile?.avatarUrl}
                 />
               </div>
             </main>

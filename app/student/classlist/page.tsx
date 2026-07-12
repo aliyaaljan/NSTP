@@ -34,6 +34,14 @@ const classRank = (v: string) => {
   return i === -1 ? CLASSIFICATION_ORDER.length : i
 }
 
+const toSentenceCase = (word: string) =>
+  word.length === 0
+    ? word
+    : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+
+const formatName = (fullName: string) =>
+  fullName.trim().split(/\s+/).filter(Boolean).map(toSentenceCase).join(" ")
+
 type RosterRow = {
   name: string
   email: string
@@ -495,23 +503,22 @@ const pages = []
             font-weight:600;
             }
 
-        .filter-menu{
+        .filter-dropdown{
         position:absolute;
-        top:90px;
-        right:32px;
-        width:280px;
-        max-height:420px;
-        overflow-y:auto;
-        background:#fff;
-        border:1px solid #E5E7EB;
-        border-radius:20px;
-        padding:20px;
-        box-shadow:0 12px 30px rgba(0,0,0,.12);
-        z-index:9999;
+        top:calc(100% + 10px);
+        right:0;
+        max-width:calc(100vw - 24px);
+        z-index:40;
+        }
 
-        display:flex;
-        flex-direction:column;
-        gap:8px;
+        .filter-dropdown > div{
+        box-sizing:border-box !important;
+        max-width:calc(100vw - 40px) !important;
+        }
+
+        .filter-dropdown > div > div:nth-child(2) > div{
+        min-width:100px !important;
+        max-width:260px !important;
         }
 
 
@@ -734,7 +741,7 @@ const pages = []
         @media (max-width:1024px){
 
           .class-main{
-              margin-left:90px;
+              margin-left:105px;
               padding:24px;
           }
 
@@ -835,8 +842,8 @@ const pages = []
         .pagination-btn{
             font-size:9px;
             font-weight: 100;
-            width:20px;
-            height:20px;
+            width:18px;
+            height:18px;
             border-radius:5px;
         }
 
@@ -846,7 +853,7 @@ const pages = []
 
         .rows-select {
             height:20px;
-            width:40px;
+            width:35px;
             font-size: 8px;
             padding:0 2px;
         }
@@ -863,8 +870,73 @@ const pages = []
           }
 
         .table-head{
-            font-size: 9px;
-            align-items: center;
+            display:none;
+        }
+
+        .row{
+            display:flex;
+            flex-direction:column;
+            grid-template-columns:none;
+            gap:10px;
+            padding:16px 14px;
+        }
+
+        .row:first-child{
+            border-top:1px solid #E7E7E7;
+        }
+
+        .student-course,
+        .student-year,
+        .site{
+            display:flex;
+            align-items:center;
+            gap:6px;
+        }
+
+        .student-course::before,
+        .student-year::before,
+        .site::before{
+            font-size:9px;
+            font-weight:800;
+            letter-spacing:.5px;
+            color:${C.maroon};
+            flex-shrink:0;
+        }
+
+        .student-course::before{
+            content:"COURSE:";
+        }
+
+        .student-year::before{
+            content:"YEAR LEVEL:";
+        }
+
+        .site::before{
+            content:"SITE:";
+        }
+
+        .filter-dropdown{
+            left:0;
+            right:0;
+            max-width:calc(100vw - 32px);
+            z-index:40;
+        }
+
+        .filter-dropdown > div{
+            width:calc(100vw - 32px) !important;
+            max-width:calc(100vw - 85px) !important;
+            max-height:70vh;
+            overflow-y:auto;
+        }
+
+        .filter-dropdown > div > div:nth-child(2){
+            flex-direction:column !important;
+            gap:16px !important;
+        }
+
+        .filter-dropdown > div > div:nth-child(2) > div{
+            width:100% !important;
+            max-width:100% !important;
         }
 
         }
@@ -978,15 +1050,7 @@ const pages = []
 
                 {/* filter */}
                 {showFilters && (
-                    <div
-                    style={{
-                        position: "absolute",
-                        top: "100%",
-                        right: 0,
-                        marginTop: "10px",
-                        zIndex: 9999,
-                    }}
-                    >
+                    <div className="filter-dropdown">
                     <AdminFilterPanel
                         groups={[
                         {
@@ -1008,6 +1072,7 @@ const pages = []
                         activeFilters={activeFilters}
                         onChange={(next) => setActiveFilters(next)}
                         onClear={() => setActiveFilters({})}
+                        width={isMobile ? undefined : 760}
                     />
                     </div>
                 )}
@@ -1067,7 +1132,7 @@ const pages = []
                     >
 
                     <div className="student">
-                        <div className="student-name">{student.name}</div>
+                        <div className="student-name">{formatName(student.name)}</div>
                         <div className="student-email">{student.email}</div>
                     </div>
 

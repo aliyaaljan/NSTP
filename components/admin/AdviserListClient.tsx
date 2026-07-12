@@ -6,7 +6,7 @@ import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from
 import ListPagination from "@/components/shared/ListPagination"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
-import AdminRecordDetailModal from "@/components/admin/AdminRecordDetailModal"
+import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddAdviserModal from "@/components/admin/AddAdviserModal"
@@ -590,55 +590,57 @@ export default function AdviserListClient({
       <ImportAdvisersModal open={importOpen} onClose={() => setImportOpen(false)} />
 
       {detailAdviser && (
-        <AdminRecordDetailModal
+        <NstpModal
           open
+          onClose={() => setDetailAdviser(null)}
           title={detailAdviser.fullName}
           subtitle={detailAdviser.email}
-          fields={[
+          initials={detailAdviser.initials}
+          size="md"
+          actions={[
             {
-              label: "Photo",
-              align: "center",
-              value: (
-                <AdviserAvatar
-                  fullName={detailAdviser.fullName}
-                  initials={detailAdviser.initials}
-                  photoUrl={resolvePhotoUrl(detailAdviser)}
-                  size={72}
-                />
-              ),
+              label: "Edit",
+              variant: "primary",
+              onClick: () => {
+                setEditAdviser(detailAdviser)
+                setDetailAdviser(null)
+              },
             },
             {
-              label: "Sections",
-              value:
-                detailAdviser.sectionNames.length > 0
-                  ? detailAdviser.sectionNames.join(", ")
-                  : "—",
-            },
-            { label: "Students", value: String(detailAdviser.studentCount) },
-            {
-              label: "Avg Completion",
-              value: <AvgCompletionBar pct={detailAdviser.avgCompletionPct} wide />,
-            },
-            {
-              label: "Pending Requests",
-              value: String(detailAdviser.pendingRequestCount),
-            },
-            {
-              label: "Status",
-              value: detailAdviser.isActive ? "Active" : "Inactive",
+              label: "Deactivate",
+              variant: "danger",
+              disabled: isDeleting && deletingId === detailAdviser.adviserUserId,
+              onClick: () => {
+                openDeleteConfirm(detailAdviser)
+                setDetailAdviser(null)
+              },
             },
           ]}
-          onClose={() => setDetailAdviser(null)}
-          onEdit={() => {
-            setEditAdviser(detailAdviser)
-            setDetailAdviser(null)
-          }}
-          onDelete={() => {
-            openDeleteConfirm(detailAdviser)
-            setDetailAdviser(null)
-          }}
-          deleteDisabled={isDeleting && deletingId === detailAdviser.adviserUserId}
-        />
+        >
+          <ModalRow>
+            <ModalField
+              label="Sections"
+              value={
+                detailAdviser.sectionNames.length > 0
+                  ? detailAdviser.sectionNames.join(", ")
+                  : "—"
+              }
+            />
+            <ModalField label="Students" value={String(detailAdviser.studentCount)} />
+          </ModalRow>
+          <ModalRow>
+            <ModalField label="Avg Completion">
+              <AvgCompletionBar pct={detailAdviser.avgCompletionPct} wide />
+            </ModalField>
+          </ModalRow>
+          <ModalRow>
+            <ModalField
+              label="Pending Requests"
+              value={String(detailAdviser.pendingRequestCount)}
+            />
+            <ModalField label="Status" value={detailAdviser.isActive ? "Active" : "Inactive"} />
+          </ModalRow>
+        </NstpModal>
       )}
 
       <EditAdviserModal
