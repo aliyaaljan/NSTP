@@ -42,16 +42,28 @@ export default function LoadingPage({
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
   const [isSmallMobile, setIsSmallMobile] = useState(false)
+  const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
-    const handleResize = () => {
+    // Calculate sizes immediately on mount
+    const calculateSizes = () => {
       const width = window.innerWidth
-      setIsMobile(width < 768)
-      setIsTablet(width >= 768 && width < 1024)
-      setIsSmallMobile(width < 480)
+      const mobile = width < 768
+      const tablet = width >= 768 && width < 1024
+      const smallMobile = width < 480
+      
+      setIsMobile(mobile)
+      setIsTablet(tablet)
+      setIsSmallMobile(smallMobile)
+      setIsReady(true)
+    }
+
+    calculateSizes()
+
+    const handleResize = () => {
+      calculateSizes()
     }
     
-    handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
@@ -89,6 +101,64 @@ export default function LoadingPage({
 
   const responsivePadding = getResponsivePadding()
 
+  // Get size values based on current state
+  const getLogoSize = () => {
+    if (isSmallMobile) return 120
+    if (isMobile) return 160
+    return 220
+  }
+
+  const getImageSize = () => {
+    if (isSmallMobile) return 96
+    if (isMobile) return 130
+    return 180
+  }
+
+  const getTitleSize = () => {
+    if (isSmallMobile) return "24px"
+    if (isMobile) return "28px"
+    return "36px"
+  }
+
+  const getSubtitleSize = () => {
+    if (isSmallMobile) return "10px"
+    if (isMobile) return "12px"
+    return "14px"
+  }
+
+  const getDotSize = () => {
+    if (isSmallMobile) return 6
+    if (isMobile) return 8
+    return 10
+  }
+
+  const getGapSize = () => {
+    if (isSmallMobile) return "16px"
+    if (isMobile) return "20px"
+    return "24px"
+  }
+
+  const getFontSize = () => {
+    if (isSmallMobile) return "12px"
+    return "13px"
+  }
+
+  // Don't render until sizes are calculated
+  if (!isReady) {
+    return (
+      <div style={{
+        background: C.pageBg,
+        height: "100vh",
+        width: "100vw",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+        <div style={{ opacity: 0 }}>Loading...</div>
+      </div>
+    )
+  }
+
   return (
     <div
       className={montserrat.variable}
@@ -96,11 +166,16 @@ export default function LoadingPage({
         fontFamily: "'Montserrat', 'Fallback Montserrat'",
         background: C.pageBg,
         height: "100vh", 
+        width: "100vw",
         display: "flex",
-        fontSize: isSmallMobile ? "12px" : "13px",
+        fontSize: getFontSize(),
         paddingBottom: isMobile ? 'env(safe-area-inset-bottom)' : 0,
         overflow: "hidden", 
-        position: "relative", 
+        position: "relative",
+        touchAction: "manipulation",
+        WebkitTextSizeAdjust: "100%",
+        MozTextSizeAdjust: "100%",
+        textSizeAdjust: "100%",
       }}
     >
       <Sidebar />
@@ -122,25 +197,30 @@ export default function LoadingPage({
           maxWidth: "100%",
           transition: "padding 0.3s ease",
           marginTop: isMobile ? '60px' : 0,
+          transform: "translateZ(0)",
+          WebkitTransform: "translateZ(0)",
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
         }}
       >
-
-        {/* Loading Content */}
         <div style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: isSmallMobile ? "16px" : isMobile ? "20px" : "24px",
+          gap: getGapSize(),
+          transform: "translateZ(0)",
+          WebkitTransform: "translateZ(0)",
         }}>
           {/* NSTP Logo */}
           <div style={{
             position: "relative",
-            width: isSmallMobile ? 120 : isMobile ? 160 : 220,
-            height: isSmallMobile ? 120 : isMobile ? 160 : 220,
+            width: getLogoSize(),
+            height: getLogoSize(),
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            flexShrink: 0,
           }}>
             <div style={{
               width: "100%",
@@ -153,20 +233,25 @@ export default function LoadingPage({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              transform: "translateZ(0)",
+              WebkitTransform: "translateZ(0)",
             }}>
               <Image
                 src="/nstp-logo.jpg"
                 alt="NSTP UP Baguio Logo"
-                width={isSmallMobile ? 96 : isMobile ? 130 : 180}
-                height={isSmallMobile ? 96 : isMobile ? 130 : 180}
+                width={getImageSize()}
+                height={getImageSize()}
                 style={{
                   borderRadius: "50%",
                   objectFit: "cover",
                   width: "100%",
                   height: "100%",
                   animation: "logoInnerPump 1.8s ease-in-out infinite",
+                  transform: "translateZ(0)",
+                  WebkitTransform: "translateZ(0)",
                 }}
                 priority
+                sizes="(max-width: 480px) 96px, (max-width: 768px) 130px, 180px"
               />
             </div>
           </div>
@@ -175,26 +260,31 @@ export default function LoadingPage({
           <div style={{
             textAlign: "center",
             marginTop: isSmallMobile ? "2px" : isMobile ? "3px" : "4px",
+            // Prevent zoom issues
+            transform: "translateZ(0)",
+            WebkitTransform: "translateZ(0)",
           }}>
             <div className={goblin.className}
               style={{
-                fontSize: isSmallMobile ? "24px" : isMobile ? "28px" : "36px",
+                fontSize: getTitleSize(),
                 fontWeight: 100,
                 color: C.maroon,
                 letterSpacing: 2,
                 marginBottom: isSmallMobile ? 0 : isMobile ? 0 : 1,
+                lineHeight: 1.2,
               }}
             >
               NSTP
             </div>
             <div className={cormorant.className}
               style={{
-                fontSize: isSmallMobile ? "10px" : isMobile ? "12px" : "14px",
+                fontSize: getSubtitleSize(),
                 fontWeight: 900,
                 color: C.maroon,
                 opacity: 0.7,
                 letterSpacing: 0.5,
                 fontFamily: "'Cormorant', 'Fallback Cormorant'",
+                lineHeight: 1.4,
               }}
             >
               University of the Philippines Baguio
@@ -208,30 +298,35 @@ export default function LoadingPage({
             alignItems: "center",
             justifyContent: "center",
             marginTop: isSmallMobile ? 2 : isMobile ? 3 : 4,
+            transform: "translateZ(0)",
+            WebkitTransform: "translateZ(0)",
           }}>
             <span style={{
-              width: isSmallMobile ? 6 : isMobile ? 8 : 10,
-              height: isSmallMobile ? 6 : isMobile ? 8 : 10,
+              width: getDotSize(),
+              height: getDotSize(),
               borderRadius: "50%",
               background: C.maroon,
               opacity: 0.2,
               animation: "dotPulse 1.4s ease-in-out infinite",
+              flexShrink: 0,
             }} />
             <span style={{
-              width: isSmallMobile ? 6 : isMobile ? 8 : 10,
-              height: isSmallMobile ? 6 : isMobile ? 8 : 10,
+              width: getDotSize(),
+              height: getDotSize(),
               borderRadius: "50%",
               background: C.maroon,
               opacity: 0.2,
               animation: "dotPulse 1.4s ease-in-out infinite 0.2s",
+              flexShrink: 0,
             }} />
             <span style={{
-              width: isSmallMobile ? 6 : isMobile ? 8 : 10,
-              height: isSmallMobile ? 6 : isMobile ? 8 : 10,
+              width: getDotSize(),
+              height: getDotSize(),
               borderRadius: "50%",
               background: C.maroon,
               opacity: 0.2,
               animation: "dotPulse 1.4s ease-in-out infinite 0.4s",
+              flexShrink: 0,
             }} />
           </div>
         </div>

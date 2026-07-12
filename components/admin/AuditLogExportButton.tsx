@@ -16,6 +16,7 @@ import {
 import AdminExportTriggerButton from "@/components/admin/AdminExportTriggerButton"
 import { FONT_BODY, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS } from "@/lib/admin-theme"
+import { getExportEventCount } from "@/lib/admin/audit-log-actions"
 
 const COLORS = {
   textDark: ADMIN_COLORS.text,
@@ -107,8 +108,29 @@ export default function AuditLogExportButton({
   const [action, setAction] = useState(defaultAction)
   const [dateRange, setDateRange] = useState(defaultDateRange)
   const [error, setError] = useState<string | null>(null)
+  const [dbCount, setDbCount] = useState<number | null>(null)
+  const [loadingCount, setLoadingCount] = useState(false)
 
   const close = useCallback(() => setOpen(false), [])
+  // Fetch the reliable database event count dynamically based on matching server parameters
+  useEffect(() => {
+    if (!open) return
+
+    let isCurrent = true
+    async function updateCount() {
+      setLoadingCount(true)
+      const count = await getExportEventCount({ action, dateRange, search })
+      if (isCurrent) {
+        setDbCount(count)
+        setLoadingCount(false)
+      }
+    }
+
+    updateCount()
+    return () => {
+      isCurrent = false
+    }
+  }, [open, action, dateRange, search])
 
   useEffect(() => {
     if (!open) return
@@ -140,6 +162,7 @@ export default function AuditLogExportButton({
     setFileType("")
     setAction(defaultAction)
     setDateRange(defaultDateRange)
+    setDbCount(null)
     setError(null)
     setOpen(true)
   }
@@ -177,9 +200,13 @@ export default function AuditLogExportButton({
   }
 
   const canExport = Boolean(
-    fileType && action && dateRange && exportRows.length > 0
+    fileType &&
+      action &&
+      dateRange &&
+      !loadingCount &&
+      dbCount !== null &&
+      dbCount > 0
   )
-
   return (
     <>
       <AdminExportTriggerButton onClick={resetAndOpen} />
@@ -305,13 +332,22 @@ export default function AuditLogExportButton({
               </ExportSelect>
 
               <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: 0 }}>
-                {exportRows.length === 0
-                  ? "No events match the selected filters."
-                  : `${exportRows.length} event${
-                      exportRows.length === 1 ? "" : "s"
-                    } will be exported`}
+                {loadingCount ? (
+                  <span style={{ color: COLORS.textGray }}>
+                    Calculating event total...
+                  </span>
+                ) : dbCount === 0 ? (
+                  <span style={{ color: COLORS.error }}>
+                    No matching events found in the database.
+                  </span>
+                ) : (
+                  <span>
+                    Exactly <strong>{dbCount}</strong> event
+                    {dbCount === 1 ? "" : "s"} will be included in this export.
+                  </span>
+                )}
                 {search.trim()
-                  ? ` (includes current search: "${search.trim()}")`
+                  ? ` (Includes active search filter: "${search.trim()}")`
                   : ""}
               </p>
 

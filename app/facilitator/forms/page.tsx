@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
-import { useState, useRef, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import {
   IconSearch,
   IconCircleCheck,
@@ -15,41 +15,43 @@ import {
   IconChevronUp,
   IconChevronDown,
   IconSelector,
-} from "@tabler/icons-react";
-import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
-import { signOutWithAudit } from "@/lib/auth-actions";
-import { ChartStyles } from "@/components/shared/ChartModule";
-import { createClient } from "@/lib/client";
-import { googleAvatarUrl } from "@/lib/auth/avatar";
-import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal";
-import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
+  IconEdit,
+} from "@tabler/icons-react"
+import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
+import { signOutWithAudit } from "@/lib/auth-actions"
+import { ChartStyles } from "@/components/shared/ChartModule"
+import { createClient } from "@/lib/client"
+import { googleAvatarUrl } from "@/lib/auth/avatar"
+import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
+import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
 import LoadingPage from "@/components/shared/LoadingPage"
 import {
   getSubmissionsByForm,
   getFacilitatorSectionId,
   type SubmissionByFormEntry,
-} from "@/lib/forms/submission-actions";
+} from "@/lib/forms/submission-actions"
 
 import {
   getRequirementsForSection,
   deleteSectionRequirement,
   uploadRequirementFromData,
   getTemplateDownloadUrl,
+  updateRequirementFromData,
   type FormRequirement,
-} from "@/lib/forms/requirement-actions";
+} from "@/lib/forms/requirement-actions"
 
 // ── Types ──────────────────────────────────────────────────────────────
-type FormStatus = "Submitted" | "Not Yet Submitted";
+type FormStatus = "Submitted" | "Not Yet Submitted"
 type FormType =
   | "Daily Time Record"
   | "Accomplishment Report"
   | "Attendance Sheet"
   | "Incident Report"
-  | "All";
+  | "All"
 
 interface DisplayEntry extends SubmissionByFormEntry {
-  type: string;
-  dueDate: string | null;
+  type: string
+  dueDate: string | null
 }
 
 const statusConfig: Record<string, { bg: string; color: string }> = {
@@ -59,7 +61,7 @@ const statusConfig: Record<string, { bg: string; color: string }> = {
   submitted: { bg: "#D1FAE5", color: "#065F46" },
   approved: { bg: "#D1FAE5", color: "#065F46" },
   rejected: { bg: "#FEE2E2", color: "#991B1B" },
-};
+}
 
 const typeConfig: Record<string, { bg: string; color: string }> = {
   "Daily Time Record": { bg: "#F3E8FF", color: "#6B21A8" },
@@ -67,7 +69,7 @@ const typeConfig: Record<string, { bg: string; color: string }> = {
   "Attendance Sheet": { bg: "#DBEAFE", color: "#1E40AF" },
   "Incident Report": { bg: "#FEE2E2", color: "#991B1B" },
   default: { bg: "#F3F4F6", color: "#374151" },
-};
+}
 
 // The four standard NSTP form types, shown first; any other/custom form
 // type added later is appended after these, sorted alphabetically.
@@ -76,61 +78,61 @@ const OFFICIAL_FORM_ORDER = [
   "Accomplishment Report",
   "Attendance Sheet",
   "Incident Report",
-];
+]
 
 function sortFormTypes(types: string[]): string[] {
   return [...types].sort((a, b) => {
-    const ai = OFFICIAL_FORM_ORDER.indexOf(a);
-    const bi = OFFICIAL_FORM_ORDER.indexOf(b);
-    if (ai !== -1 && bi !== -1) return ai - bi;
-    if (ai !== -1) return -1;
-    if (bi !== -1) return 1;
-    return a.localeCompare(b);
-  });
+    const ai = OFFICIAL_FORM_ORDER.indexOf(a)
+    const bi = OFFICIAL_FORM_ORDER.indexOf(b)
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return a.localeCompare(b)
+  })
 }
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
-  const gap = 2;
-  const shown = new Set<number>();
+  const gap = 2
+  const shown = new Set<number>()
 
-  shown.add(1);
-  shown.add(total);
-  let start = current - gap;
-  let end = current + gap;
+  shown.add(1)
+  shown.add(total)
+  let start = current - gap
+  let end = current + gap
 
   if (start < 1) {
-    end += 1 - start;
-    start = 1;
+    end += 1 - start
+    start = 1
   }
 
   if (end > total) {
-    start -= end - total;
-    end = total;
+    start -= end - total
+    end = total
   }
 
   for (let i = Math.max(1, start); i <= Math.min(total, end); i++) {
-    shown.add(i);
+    shown.add(i)
   }
 
-  const sorted = Array.from(shown).sort((a, b) => a - b);
-  const result: (number | "...")[] = [];
+  const sorted = Array.from(shown).sort((a, b) => a - b)
+  const result: (number | "...")[] = []
 
   for (let i = 0; i < sorted.length; i++) {
     if (total <= 7) {
-      return Array.from({ length: total }, (_, i) => i + 1);
+      return Array.from({ length: total }, (_, i) => i + 1)
     }
     if (i > 0) {
-      const gap = sorted[i] - sorted[i - 1];
+      const gap = sorted[i] - sorted[i - 1]
       if (gap === 2) {
-        result.push(sorted[i - 1] + 1);
+        result.push(sorted[i - 1] + 1)
       } else if (gap > 2) {
-        result.push("...");
+        result.push("...")
       }
     }
-    result.push(sorted[i]);
+    result.push(sorted[i])
   }
 
-  return result;
+  return result
 }
 
 const formsStyles = `
@@ -193,124 +195,137 @@ const formsStyles = `
   .fm-upload-zone:hover { border-color: var(--green); background: #F0FDF4; }
   .fm-upload-zone-text { font-size: 13px; color: var(--muted); margin-top: 8px; }
   .fm-upload-zone-sub  { font-size: 11.5px; color: var(--light); margin-top: 4px; }
-`;
+`
 
 export default function FormsPage() {
-  const router = useRouter();
-  const supabase = createClient();
+  const router = useRouter()
+  const supabase = createClient()
 
-  const [userId, setUserId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Whether the Submission Bin table (merged into Repository) is visible.
   // Becomes true once the user clicks a KPI card.
-  const [showSubmissionBin, setShowSubmissionBin] = useState(false);
+  const [showSubmissionBin, setShowSubmissionBin] = useState(false)
 
   // Filters
-  const [search, setSearch] = useState("");
-  const [binSearch, setBinSearch] = useState("");
-  type SubmissionFilterField = "status" | "type";
+  const [search, setSearch] = useState("")
+  const [binSearch, setBinSearch] = useState("")
+  type SubmissionFilterField = "status" | "type"
   type SubmissionActiveFilters = Partial<
     Record<SubmissionFilterField, string[]>
-  >;
+  >
   const [activeFilters, setActiveFilters] = useState<SubmissionActiveFilters>(
-    {},
-  );
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const filterPanelRef = useRef<HTMLDivElement>(null);
+    {}
+  )
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const filterPanelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!showFilterPanel) return;
+    if (!showFilterPanel) return
     function handleClickOutside(e: MouseEvent) {
       if (
         filterPanelRef.current &&
         !filterPanelRef.current.contains(e.target as Node)
       ) {
-        setShowFilterPanel(false);
+        setShowFilterPanel(false)
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showFilterPanel]);
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showFilterPanel])
 
   function toggleFilter(field: SubmissionFilterField, value: string) {
     setActiveFilters((prev) => {
-      const current = prev[field] ?? [];
+      const current = prev[field] ?? []
       const updated = current.includes(value)
         ? current.filter((v) => v !== value)
-        : [...current, value];
-      const next = { ...prev };
-      if (updated.length === 0) delete next[field];
-      else next[field] = updated;
-      return next;
-    });
-    setCurrentPage(1);
+        : [...current, value]
+      const next = { ...prev }
+      if (updated.length === 0) delete next[field]
+      else next[field] = updated
+      return next
+    })
+    setCurrentPage(1)
   }
 
   // Closes the Submission Bin modal and clears the active form-type filter
   // so no card is left visually highlighted once it's dismissed.
   function closeSubmissionBin() {
-    setShowSubmissionBin(false);
+    setShowSubmissionBin(false)
     setActiveFilters((prev) => {
-      const next = { ...prev };
-      delete next.type;
-      return next;
-    });
+      const next = { ...prev }
+      delete next.type
+      return next
+    })
   }
-  const [sectionFilter, setSectionFilter] = useState("All");
+  const [sectionFilter, setSectionFilter] = useState("All")
 
   // Dropdown toggles
-  const [showSectionDrop, setShowSectionDrop] = useState(false);
+  const [showSectionDrop, setShowSectionDrop] = useState(false)
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   // Submissions table sorting
-  type SubmissionSortField = "name" | "type" | "date" | "status";
-  const [sortField, setSortField] = useState<SubmissionSortField | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  type SubmissionSortField = "name" | "type" | "date" | "status"
+  const [sortField, setSortField] = useState<SubmissionSortField | null>(null)
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
   function toggleSort(field: SubmissionSortField) {
     if (sortField === field) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"))
     } else {
-      setSortField(field);
-      setSortDirection("asc");
+      setSortField(field)
+      setSortDirection("asc")
     }
   }
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [initials, setInitials] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [sectionId, setSectionId] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [initials, setInitials] = useState("")
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [sectionId, setSectionId] = useState<string | null>(null)
 
   // Data States
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [realEntries, setRealEntries] = useState<DisplayEntry[]>([]);
-  const [repoForms, setRepoForms] = useState<FormRequirement[]>([]);
-  const [isLoading, startTransition] = useTransition();
-
-  // Upload Modal States
-  const [showUpload, setShowUpload] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadTitle, setUploadTitle] = useState("Daily Time Record");
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [realEntries, setRealEntries] = useState<DisplayEntry[]>([])
+  const [repoForms, setRepoForms] = useState<FormRequirement[]>([])
+  const [isLoading, startTransition] = useTransition()
   const [isPageLoading, setIsPageLoading] = useState(true)
 
+  // Upload Modal States
+  const [showUpload, setShowUpload] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadTitle, setUploadTitle] = useState("Daily Time Record")
+  const [customTitle, setCustomTitle] = useState("")
+  const [uploadDescription, setUploadDescription] = useState("")
+  const [uploadDueDate, setUploadDueDate] = useState("")
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Edit Modal States
+  const [showEdit, setShowEdit] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editReqId, setEditReqId] = useState("")
+  const [editTitle, setEditTitle] = useState("Daily Time Record")
+  const [editCustomTitle, setEditCustomTitle] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [editDueDate, setEditDueDate] = useState("")
+  const [editFile, setEditFile] = useState<File | null>(null)
+
   const loadData = async () => {
-    const secRes = await getFacilitatorSectionId();
+    const secRes = await getFacilitatorSectionId()
     if (!secRes.ok) {
-      setErrorMsg(secRes.error);
-      return;
+      setErrorMsg(secRes.error)
+      return
     }
-    setSectionId(secRes.data);
+    setSectionId(secRes.data)
 
     const [subRes, reqRes] = await Promise.all([
       getSubmissionsByForm(secRes.data),
       getRequirementsForSection(secRes.data),
-    ]);
+    ])
 
     if (subRes.ok) {
       const flattened: DisplayEntry[] = subRes.data.flatMap((group) =>
@@ -318,187 +333,239 @@ export default function FormsPage() {
           ...entry,
           type: group.requirement.title,
           dueDate: group.requirement.due_date,
-        })),
-      );
-      setRealEntries(flattened);
+        }))
+      )
+      setRealEntries(flattened)
     }
 
-    if (reqRes.ok) setRepoForms(reqRes.data);
+    if (reqRes.ok) setRepoForms(reqRes.data)
     setIsPageLoading(false)
-
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  }
 
   useEffect(() => {
-    const supabase = createClient();
+    loadData()
+  }, [])
+
+  useEffect(() => {
+    const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
-      const full: string = user?.user_metadata?.full_name ?? "";
-      const parts = full.trim().split(" ");
-      const fName = parts[0] ?? "";
-      const lName = parts.at(-1) ?? "";
-      setFirstName(fName);
-      setLastName(lName);
-      setInitials((fName[0] ?? "") + (lName[0] ?? ""));
-      setAvatarUrl(googleAvatarUrl(user));
-      setUserId(user?.id ?? null);
-    });
-  }, []);
+      const full: string = user?.user_metadata?.full_name ?? ""
+      const parts = full.trim().split(" ")
+      const fName = parts[0] ?? ""
+      const lName = parts.at(-1) ?? ""
+      setFirstName(fName)
+      setLastName(lName)
+      setInitials((fName[0] ?? "") + (lName[0] ?? ""))
+      setAvatarUrl(googleAvatarUrl(user))
+      setUserId(user?.id ?? null)
+    })
+  }, [])
 
   useAdviserBroadcast(supabase, {
     adviserUserId: userId,
     tables: ["form_submission", "form_requirement"],
     onChange: () => {
-      loadData();
+      loadData()
     },
-  });
+  })
 
   async function handleSignOut() {
-    await signOutWithAudit();
-    router.push("/");
-    router.refresh();
+    await signOutWithAudit()
+    router.push("/")
+    router.refresh()
   }
-
   const handleUploadSubmit = async () => {
-    if (!uploadTitle.trim() || !sectionId) return;
-    setIsUploading(true);
+    const finalTitle = uploadTitle === "Other" ? customTitle : uploadTitle
+    if (!finalTitle.trim() || !sectionId) return
 
-    const formData = new FormData();
-    formData.append("title", uploadTitle);
-    if (uploadFile) formData.append("file", uploadFile);
+    setIsUploading(true)
+    const formData = new FormData()
+    formData.append("title", finalTitle.trim())
+    if (uploadDescription.trim())
+      formData.append("description", uploadDescription.trim())
+    if (uploadDueDate) formData.append("dueDate", uploadDueDate)
+    if (uploadFile) formData.append("file", uploadFile)
 
-    const res = await uploadRequirementFromData(formData, sectionId);
-    setIsUploading(false);
+    const res = await uploadRequirementFromData(formData, sectionId)
+    setIsUploading(false)
 
     if (res.ok) {
-      setShowUpload(false);
-      setUploadFile(null);
-      loadData();
+      setShowUpload(false)
+      setUploadFile(null)
+      setUploadTitle("Daily Time Record")
+      setCustomTitle("")
+      setUploadDescription("")
+      setUploadDueDate("")
+      loadData()
     } else {
-      alert(`Upload Failed: ${res.error}`);
+      alert(`Upload Failed: ${res.error}`)
     }
-  };
+  }
+
+  const openEditModal = (form: FormRequirement) => {
+    setEditReqId(form.form_requirement_id)
+    const standardTitles = [
+      "Daily Time Record",
+      "Accomplishment Report",
+      "Attendance Sheet",
+      "Incident Report",
+    ]
+
+    if (standardTitles.includes(form.title)) {
+      setEditTitle(form.title)
+      setEditCustomTitle("")
+    } else {
+      setEditTitle("Other")
+      setEditCustomTitle(form.title)
+    }
+
+    setEditDescription(form.description || "")
+    setEditDueDate(form.due_date ? form.due_date.split("T")[0] : "")
+    setEditFile(null)
+    setShowEdit(true)
+  }
+
+  const handleEditSubmit = async () => {
+    const finalTitle = editTitle === "Other" ? editCustomTitle : editTitle
+    if (!finalTitle.trim() || !sectionId || !editReqId) return
+
+    setIsEditing(true)
+    const formData = new FormData()
+    formData.append("title", finalTitle.trim())
+    if (editDescription.trim())
+      formData.append("description", editDescription.trim())
+    if (editDueDate) formData.append("dueDate", editDueDate)
+    if (editFile) formData.append("file", editFile)
+
+    const res = await updateRequirementFromData(editReqId, sectionId, formData)
+    setIsEditing(false)
+
+    if (res.ok) {
+      setShowEdit(false)
+      loadData()
+    } else {
+      alert(`Update Failed: ${res.error}`)
+    }
+  }
 
   const handleDelete = async (reqId: string) => {
-    if (!sectionId) return;
+    if (!sectionId) return
     if (
       !confirm(
-        "Are you sure you want to delete this form template? This action cannot be undone.",
+        "Are you sure you want to delete this form template? This action cannot be undone."
       )
     )
-      return;
+      return
 
     startTransition(async () => {
-      const res = await deleteSectionRequirement(reqId, sectionId);
-      if (res.ok) loadData();
-      else alert(`Delete Failed: ${res.error}`);
-    });
-  };
+      const res = await deleteSectionRequirement(reqId, sectionId)
+      if (res.ok) loadData()
+      else alert(`Delete Failed: ${res.error}`)
+    })
+  }
 
   const handleDownload = async (reqId: string) => {
-    const res = await getTemplateDownloadUrl(reqId);
-    if (res.ok) window.open(res.url, "_blank");
-    else alert(`Download Error: ${res.error}`);
-  };
+    const res = await getTemplateDownloadUrl(reqId)
+    if (res.ok) window.open(res.url, "_blank")
+    else alert(`Download Error: ${res.error}`)
+  }
 
   const filteredForms = repoForms.filter(
     (f) =>
       !search ||
       f.title.toLowerCase().includes(search.toLowerCase()) ||
       (f.template_file_name &&
-        f.template_file_name.toLowerCase().includes(search.toLowerCase())),
-  );
+        f.template_file_name.toLowerCase().includes(search.toLowerCase()))
+  )
 
   const filteredSubmissions = realEntries.filter((f) => {
-    const q = binSearch.trim().toLowerCase();
+    const q = binSearch.trim().toLowerCase()
     const matchSearch =
       !q ||
       f.full_name.toLowerCase().includes(q) ||
-      (f.student_number && f.student_number.includes(q));
+      (f.student_number && f.student_number.includes(q))
 
     const dbStatusMap: Record<string, string> = {
       Submitted: "submitted",
       "Not Yet Submitted": "missing",
-    };
-    const statusSelections = activeFilters.status ?? [];
+    }
+    const statusSelections = activeFilters.status ?? []
     const matchStatus =
       statusSelections.length === 0 ||
-      statusSelections.some((s) => dbStatusMap[s] === f.status);
+      statusSelections.some((s) => dbStatusMap[s] === f.status)
 
-    const typeSelections = activeFilters.type ?? [];
+    const typeSelections = activeFilters.type ?? []
     const matchType =
-      typeSelections.length === 0 || typeSelections.includes(f.type);
+      typeSelections.length === 0 || typeSelections.includes(f.type)
 
-    return matchSearch && matchStatus && matchType;
-  });
+    return matchSearch && matchStatus && matchType
+  })
 
   const sortedSubmissions = [...filteredSubmissions].sort((a, b) => {
-    if (!sortField) return 0;
-    const dir = sortDirection === "asc" ? 1 : -1;
+    if (!sortField) return 0
+    const dir = sortDirection === "asc" ? 1 : -1
 
-    let av: string | number = "";
-    let bv: string | number = "";
+    let av: string | number = ""
+    let bv: string | number = ""
 
     switch (sortField) {
       case "name":
-        av = a.full_name.toLowerCase();
-        bv = b.full_name.toLowerCase();
-        break;
+        av = a.full_name.toLowerCase()
+        bv = b.full_name.toLowerCase()
+        break
       case "type":
-        av = a.type.toLowerCase();
-        bv = b.type.toLowerCase();
-        break;
+        av = a.type.toLowerCase()
+        bv = b.type.toLowerCase()
+        break
       case "date":
         av = a.submission
           ? new Date(a.submission.submitted_at).getTime()
-          : -Infinity;
+          : -Infinity
         bv = b.submission
           ? new Date(b.submission.submitted_at).getTime()
-          : -Infinity;
-        break;
+          : -Infinity
+        break
       case "status":
-        av = a.status.toLowerCase();
-        bv = b.status.toLowerCase();
-        break;
+        av = a.status.toLowerCase()
+        bv = b.status.toLowerCase()
+        break
     }
 
-    if (av < bv) return -1 * dir;
-    if (av > bv) return 1 * dir;
-    return 0;
-  });
+    if (av < bv) return -1 * dir
+    if (av > bv) return 1 * dir
+    return 0
+  })
 
   const paginated = sortedSubmissions.slice(
     (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
+    currentPage * pageSize
+  )
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredSubmissions.length / pageSize),
-  );
+    Math.ceil(filteredSubmissions.length / pageSize)
+  )
 
   const formatBytes = (bytes: number | null) => {
-    if (!bytes) return "0 KB";
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  };
+    if (!bytes) return "0 KB"
+    return `${(bytes / 1024).toFixed(1)} KB`
+  }
 
   const filterGroups: {
-    label: string;
-    field: SubmissionFilterField;
-    values: () => string[];
+    label: string
+    field: SubmissionFilterField
+    values: () => string[]
   }[] = [
     {
       label: "Status",
       field: "status",
       values: () => ["Submitted", "Not Yet Submitted"],
     },
-  ];
+  ]
 
   const totalActiveFilters = Object.values(activeFilters).reduce(
     (sum, arr) => sum + (arr?.length ?? 0),
-    0,
-  );
+    0
+  )
 
   const BoundSidebar = () => (
     <Sidebar
@@ -506,14 +573,14 @@ export default function FormsPage() {
       activeNav="Forms"
       onToggle={() => setSidebarOpen((o) => !o)}
       onNavClick={(label) => {
-      setSidebarOpen(false);
-      router.push(navRoutes[label]);
+        setSidebarOpen(false)
+        router.push(navRoutes[label])
       }}
       onSignOut={handleSignOut}
     />
   )
 
-   if (isPageLoading) {
+  if (isPageLoading) {
     return (
       <>
         <style>{dashboardStyles}</style>
@@ -533,8 +600,8 @@ export default function FormsPage() {
           activeNav="Forms"
           onToggle={() => setSidebarOpen((o) => !o)}
           onNavClick={(label) => {
-            setSidebarOpen(false);
-            router.push(navRoutes[label]);
+            setSidebarOpen(false)
+            router.push(navRoutes[label])
           }}
           onSignOut={handleSignOut}
         />
@@ -629,10 +696,10 @@ export default function FormsPage() {
 
                   <div className="fm-repo-grid">
                     {filteredForms.map((f) => {
-                      const tc = typeConfig[f.title] || typeConfig.default;
+                      const tc = typeConfig[f.title] || typeConfig.default
                       const isActive =
                         (activeFilters.type ?? []).length === 1 &&
-                        activeFilters.type?.[0] === f.title;
+                        activeFilters.type?.[0] === f.title
                       return (
                         <div
                           key={f.form_requirement_id}
@@ -641,23 +708,23 @@ export default function FormsPage() {
                           }`}
                           onClick={() => {
                             if (isActive) {
-                              closeSubmissionBin();
-                              return;
+                              closeSubmissionBin()
+                              return
                             }
                             setActiveFilters((prev) => ({
                               ...prev,
                               type: [f.title],
-                            }));
-                            setCurrentPage(1);
-                            setShowSubmissionBin(true);
+                            }))
+                            setCurrentPage(1)
+                            setShowSubmissionBin(true)
                           }}
                           role="button"
                           tabIndex={0}
                           aria-pressed={isActive}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              e.currentTarget.click();
+                              e.preventDefault()
+                              e.currentTarget.click()
                             }
                           }}
                         >
@@ -683,7 +750,7 @@ export default function FormsPage() {
                                 {f.template_file_name || "No template attached"}
                                 {f.template_file_size_byte
                                   ? ` · ${formatBytes(
-                                      f.template_file_size_byte,
+                                      f.template_file_size_byte
                                     )}`
                                   : ""}
                               </div>
@@ -709,11 +776,25 @@ export default function FormsPage() {
                                   className="fm-icon-btn"
                                   title="Download"
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDownload(f.form_requirement_id);
+                                    e.stopPropagation()
+                                    handleDownload(f.form_requirement_id)
                                   }}
                                 >
                                   <IconDownload size={14} stroke={1.75} />
+                                </button>
+                              )}
+
+                              {f.section_id !== null && (
+                                <button
+                                  className="fm-icon-btn"
+                                  title="Edit"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    openEditModal(f)
+                                  }}
+                                  disabled={isLoading}
+                                >
+                                  <IconEdit size={14} stroke={1.75} />
                                 </button>
                               )}
                               {f.section_id !== null && (
@@ -721,8 +802,8 @@ export default function FormsPage() {
                                   className="fm-icon-btn danger"
                                   title="Delete"
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(f.form_requirement_id);
+                                    e.stopPropagation()
+                                    handleDelete(f.form_requirement_id)
                                   }}
                                   disabled={isLoading}
                                 >
@@ -732,7 +813,7 @@ export default function FormsPage() {
                             </div>
                           </div>
                         </div>
-                      );
+                      )
                     })}
                     {filteredForms.length === 0 && (
                       <div
@@ -769,64 +850,289 @@ export default function FormsPage() {
               label: isUploading ? "Uploading..." : "Upload",
               onClick: handleUploadSubmit,
               variant: "approve",
-              disabled: isUploading || !uploadFile,
+              disabled:
+                isUploading ||
+                !uploadFile ||
+                (uploadTitle === "Other" && !customTitle.trim()),
             },
           ]}
         >
-          <div>
-            <div className="nstp-modal-label">Form Type</div>
-            <select
-              value={uploadTitle}
-              onChange={(e) => setUploadTitle(e.target.value)}
-              style={{
-                width: "100%",
-                border: "1.5px solid var(--border)",
-                borderRadius: 10,
-                padding: "9px 12px",
-                fontSize: 13,
-                fontFamily: "var(--font)",
-                color: "var(--text)",
-                background: "var(--white)",
-                outline: "none",
-                marginTop: 4,
-              }}
-            >
-              <option>Daily Time Record</option>
-              <option>Accomplishment Report</option>
-              <option>Attendance Sheet</option>
-              <option>Incident Report</option>
-            </select>
-          </div>
-          <div>
-            <div className="nstp-modal-label">File</div>
-            <div
-              className="fm-upload-zone"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {uploadFile ? (
-                <div style={{ color: "var(--green)", fontWeight: "bold" }}>
-                  {uploadFile.name}
-                </div>
-              ) : (
-                <>
-                  <IconUpload size={28} stroke={1.5} color="var(--muted)" />
-                  <div className="fm-upload-zone-text">
-                    Click to browse or drag & drop
-                  </div>
-                  <div className="fm-upload-zone-sub">
-                    PDF, DOCX up to 200 KB
-                  </div>
-                </>
-              )}
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+          >
+            <div>
+              <div className="nstp-modal-label">Form Type</div>
+              <select
+                value={uploadTitle}
+                onChange={(e) => setUploadTitle(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  background: "var(--white)",
+                  outline: "none",
+                  marginTop: 4,
+                }}
+              >
+                <option>Daily Time Record</option>
+                <option>Accomplishment Report</option>
+                <option>Attendance Sheet</option>
+                <option>Incident Report</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            {uploadTitle === "Other" && (
+              <div>
+                <div className="nstp-modal-label">Custom Form Title</div>
+                <input
+                  type="text"
+                  value={customTitle}
+                  maxLength={100}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  placeholder="Enter custom form title"
+                  style={{
+                    width: "100%",
+                    border: "1.5px solid var(--border)",
+                    borderRadius: 10,
+                    padding: "9px 12px",
+                    fontSize: 13,
+                    fontFamily: "var(--font)",
+                    outline: "none",
+                    marginTop: 4,
+                  }}
+                />
+              </div>
+            )}
+
+            <div>
+              <div className="nstp-modal-label">Due Date (Optional)</div>
               <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={(e) =>
-                  e.target.files && setUploadFile(e.target.files[0])
-                }
-                style={{ display: "none" }}
+                type="date"
+                value={uploadDueDate}
+                onChange={(e) => setUploadDueDate(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  outline: "none",
+                  marginTop: 4,
+                }}
               />
+            </div>
+
+            <div>
+              <div className="nstp-modal-label">
+                Description / Instructions (Optional)
+              </div>
+              <textarea
+                value={uploadDescription}
+                maxLength={500}
+                onChange={(e) => setUploadDescription(e.target.value)}
+                placeholder="Add helpful instructions for your students..."
+                rows={3}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  outline: "none",
+                  marginTop: 4,
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <div>
+              <div className="nstp-modal-label">Template File (Optional)</div>
+              <div
+                className="fm-upload-zone"
+                onClick={() => fileInputRef.current?.click()}
+                style={{ marginTop: 4 }}
+              >
+                {uploadFile ? (
+                  <div style={{ color: "var(--green)", fontWeight: "bold" }}>
+                    {uploadFile.name}
+                  </div>
+                ) : (
+                  <>
+                    <IconUpload size={28} stroke={1.5} color="var(--muted)" />
+                    <div className="fm-upload-zone-text">
+                      Click to browse or drag & drop
+                    </div>
+                    <div className="fm-upload-zone-sub">
+                      PDF, DOCX up to 200 KB
+                    </div>
+                  </>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) =>
+                    e.target.files && setUploadFile(e.target.files[0])
+                  }
+                  style={{ display: "none" }}
+                />
+              </div>
+            </div>
+          </div>
+        </NstpModal>
+
+        {/* Edit modal */}
+        <NstpModal
+          open={showEdit}
+          onClose={() => setShowEdit(false)}
+          title="Edit Form Template"
+          size="md"
+          actions={[
+            {
+              label: "Cancel",
+              onClick: () => setShowEdit(false),
+              variant: "secondary",
+            },
+            {
+              label: isEditing ? "Saving..." : "Save Changes",
+              onClick: handleEditSubmit,
+              variant: "approve",
+              disabled: isEditing || !editTitle,
+            },
+          ]}
+        >
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+          >
+            <div>
+              <div className="nstp-modal-label">Form Type</div>
+              <select
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  background: "var(--white)",
+                  outline: "none",
+                  marginTop: 4,
+                }}
+              >
+                <option>Daily Time Record</option>
+                <option>Accomplishment Report</option>
+                <option>Attendance Sheet</option>
+                <option>Incident Report</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            {editTitle === "Other" && (
+              <div>
+                <div className="nstp-modal-label">Form Title</div>
+                <input
+                  type="text"
+                  value={editCustomTitle}
+                  maxLength={100}
+                  onChange={(e) => setEditCustomTitle(e.target.value)}
+                  placeholder="Enter custom form title"
+                  style={{
+                    width: "100%",
+                    border: "1.5px solid var(--border)",
+                    borderRadius: 10,
+                    padding: "9px 12px",
+                    fontSize: 13,
+                    fontFamily: "var(--font)",
+                    outline: "none",
+                    marginTop: 4,
+                  }}
+                />
+              </div>
+            )}
+
+            <div>
+              <div className="nstp-modal-label">Due Date (Optional)</div>
+              <input
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  outline: "none",
+                  marginTop: 4,
+                }}
+              />
+            </div>
+
+            <div>
+              <div className="nstp-modal-label">Description / Instructions</div>
+              <textarea
+                value={editDescription}
+                maxLength={500}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  fontFamily: "var(--font)",
+                  color: "var(--text)",
+                  outline: "none",
+                  marginTop: 4,
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <div>
+              <div className="nstp-modal-label">
+                Replace Template File (Optional)
+              </div>
+              <div
+                className="fm-upload-zone"
+                onClick={() => fileInputRef.current?.click()}
+                style={{ marginTop: 4, padding: "20px" }}
+              >
+                {editFile ? (
+                  <div style={{ color: "var(--green)", fontWeight: "bold" }}>
+                    {editFile.name}
+                  </div>
+                ) : (
+                  <div className="fm-upload-zone-text">
+                    Click to upload a new file (Leave empty to keep current
+                    file)
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) =>
+                    e.target.files && setEditFile(e.target.files[0])
+                  }
+                  style={{ display: "none" }}
+                />
+              </div>
             </div>
           </div>
         </NstpModal>
@@ -838,13 +1144,15 @@ export default function FormsPage() {
           title="Submission Bin"
           size="wide"
           width={1140}
-          actions={[
-            // {
-            //   label: "Close",
-            //   onClick: closeSubmissionBin,
-            //   variant: "secondary",
-            // },
-          ]}
+          actions={
+            [
+              // {
+              //   label: "Close",
+              //   onClick: closeSubmissionBin,
+              //   variant: "secondary",
+              // },
+            ]
+          }
         >
           <div className="adv-table-toolbar" style={{ paddingTop: 0 }}>
             <div>
@@ -880,11 +1188,11 @@ export default function FormsPage() {
                 <button
                   onClick={() => {
                     setActiveFilters((prev) => {
-                      const next = { ...prev };
-                      delete next.type;
-                      return next;
-                    });
-                    setCurrentPage(1);
+                      const next = { ...prev }
+                      delete next.type
+                      return next
+                    })
+                    setCurrentPage(1)
                   }}
                   style={{
                     border: "1.5px solid var(--border)",
@@ -908,8 +1216,8 @@ export default function FormsPage() {
                   className="adv-search-input"
                   value={binSearch}
                   onChange={(e) => {
-                    setBinSearch(e.target.value);
-                    setCurrentPage(1);
+                    setBinSearch(e.target.value)
+                    setCurrentPage(1)
                   }}
                   placeholder="Search student..."
                 />
@@ -999,8 +1307,8 @@ export default function FormsPage() {
                       {totalActiveFilters > 0 && (
                         <button
                           onClick={() => {
-                            setActiveFilters({});
-                            setCurrentPage(1);
+                            setActiveFilters({})
+                            setCurrentPage(1)
                           }}
                           style={{
                             background: "none",
@@ -1019,9 +1327,9 @@ export default function FormsPage() {
                     </div>
                     <div style={{ display: "flex", gap: 24 }}>
                       {filterGroups.map(({ label, field, values }) => {
-                        const opts = values();
-                        if (opts.length === 0) return null;
-                        const checked = activeFilters[field] ?? [];
+                        const opts = values()
+                        if (opts.length === 0) return null
+                        const checked = activeFilters[field] ?? []
                         return (
                           <div key={field} style={{ minWidth: 150 }}>
                             <div
@@ -1073,7 +1381,7 @@ export default function FormsPage() {
                               ))}
                             </div>
                           </div>
-                        );
+                        )
                       })}
                     </div>
                   </div>
@@ -1166,8 +1474,8 @@ export default function FormsPage() {
                   </tr>
                 ) : (
                   paginated.map((f, i) => {
-                    const tc = typeConfig[f.type] || typeConfig.default;
-                    const sc = statusConfig[f.status] || statusConfig.missing;
+                    const tc = typeConfig[f.type] || typeConfig.default
+                    const sc = statusConfig[f.status] || statusConfig.missing
                     return (
                       <tr key={i}>
                         <td>
@@ -1203,7 +1511,7 @@ export default function FormsPage() {
                         >
                           {f.submission
                             ? new Date(
-                                f.submission.submitted_at,
+                                f.submission.submitted_at
                               ).toLocaleDateString()
                             : "—"}
                         </td>
@@ -1214,7 +1522,7 @@ export default function FormsPage() {
                                 f.submission.storage_path.startsWith("gdrive:")
                                   ? f.submission.storage_path.replace(
                                       "gdrive:",
-                                      "",
+                                      ""
                                     )
                                   : f.submission.storage_path
                               }
@@ -1242,7 +1550,7 @@ export default function FormsPage() {
                           )}
                         </td>
                       </tr>
-                    );
+                    )
                   })
                 )}
               </tbody>
@@ -1303,7 +1611,7 @@ export default function FormsPage() {
                     >
                       {p}
                     </button>
-                  ),
+                  )
                 )}
                 <button
                   className="adv-page-btn"
@@ -1329,8 +1637,8 @@ export default function FormsPage() {
               <select
                 value={pageSize}
                 onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
+                  setPageSize(Number(e.target.value))
+                  setCurrentPage(1)
                 }}
                 style={{
                   border: "1.5px solid var(--border)",
@@ -1358,5 +1666,5 @@ export default function FormsPage() {
         </NstpModal>
       </div>
     </>
-  );
+  )
 }

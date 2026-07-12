@@ -519,6 +519,30 @@ export default function StudentFilesPage() {
         }
       })
       setForms(mappedForms)
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search)
+        const targetId = params.get("formId")
+        if (targetId) {
+          const targetForm = mappedForms.find((f) => f.id === targetId)
+          if (targetForm) {
+            if (targetForm.status === "uploaded") {
+              setViewingForm(targetForm)
+              setShowViewModal(true)
+            } else {
+              setSelectedForm(targetForm)
+              setShowModal(true)
+              // Reset upload modal states
+              setSelectedFiles([])
+              setLinks([])
+              setLinkInput("")
+              setShowLinkInput(false)
+              setIsDropdownOpen(false)
+            }
+            // Clean up the URL so refresh doesn't re-trigger the modal
+            window.history.replaceState(null, "", "/student/forms")
+          }
+        }
+      }
     }
     setLoading(false)
   }
@@ -1399,13 +1423,19 @@ export default function StudentFilesPage() {
 
           {/* Upload Modal */}
           {showModal && selectedForm && (
-            <div className="sf-modal-backdrop" onClick={() => setShowModal(false)}>
+            <div
+              className="sf-modal-backdrop"
+              onClick={() => setShowModal(false)}
+            >
               <div className="sf-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="sf-modal-header">
                   <span className="sf-modal-title">
                     Upload: {selectedForm.name}
                   </span>
-                  <button className="sf-modal-close" onClick={() => setShowModal(false)}>
+                  <button
+                    className="sf-modal-close"
+                    onClick={() => setShowModal(false)}
+                  >
                     <IconX size={20} stroke={2} />
                   </button>
                 </div>
@@ -1421,10 +1451,14 @@ export default function StudentFilesPage() {
                         if (e.target.files) {
                           const files = Array.from(e.target.files)
                           const MAX_SIZE = 10 * 1024 * 1024
-                          const validFiles = files.filter((f) => f.size <= MAX_SIZE)
+                          const validFiles = files.filter(
+                            (f) => f.size <= MAX_SIZE
+                          )
 
                           if (validFiles.length < files.length) {
-                            alert("Some files were ignored because they exceed the 10MB limit.")
+                            alert(
+                              "Some files were ignored because they exceed the 10MB limit."
+                            )
                           }
 
                           setSelectedFiles((prev) => [...prev, ...validFiles])
@@ -1472,7 +1506,11 @@ export default function StudentFilesPage() {
                             gap: "6px",
                           }}
                         >
-                          <IconPlus size={14} stroke={2} style={{ color: "#FFFFFF", flexShrink: 0 }} />
+                          <IconPlus
+                            size={14}
+                            stroke={2}
+                            style={{ color: "#FFFFFF", flexShrink: 0 }}
+                          />
                           <span style={{ whiteSpace: "nowrap" }}>Add</span>
                         </button>
                         <button
@@ -1494,14 +1532,21 @@ export default function StudentFilesPage() {
                           if (item.type === "file") {
                             const file = item.data
                             return (
-                              <div key={`file-${index}`} className="sf-file-preview-card">
+                              <div
+                                key={`file-${index}`}
+                                className="sf-file-preview-card"
+                              >
                                 <div className="sf-file-preview-icon-wrapper">
                                   {getFileIcon(file)}
                                 </div>
                                 <div className="sf-file-preview-info">
-                                  <div className="sf-file-preview-name">{file.name}</div>
+                                  <div className="sf-file-preview-name">
+                                    {file.name}
+                                  </div>
                                   <div className="sf-file-preview-meta">
-                                    <span className="sf-file-preview-type">FILE</span>
+                                    <span className="sf-file-preview-type">
+                                      FILE
+                                    </span>
                                     <span className="sf-file-preview-size">
                                       {formatFileSize(file.size)}
                                     </span>
@@ -1510,7 +1555,9 @@ export default function StudentFilesPage() {
                                 <button
                                   className="sf-file-preview-remove"
                                   onClick={() =>
-                                    setSelectedFiles((p) => p.filter((_, i) => i !== index))
+                                    setSelectedFiles((p) =>
+                                      p.filter((_, i) => i !== index)
+                                    )
                                   }
                                 >
                                   <IconX size={18} stroke={2} />
@@ -1520,24 +1567,39 @@ export default function StudentFilesPage() {
                           } else {
                             const link = item.data
                             return (
-                              <div key={`link-${index}`} className="sf-file-preview-card">
+                              <div
+                                key={`link-${index}`}
+                                className="sf-file-preview-card"
+                              >
                                 <div
                                   className="sf-file-preview-icon-wrapper"
-                                  style={{ background: "#E8EDE5", color: "#1B4332" }}
+                                  style={{
+                                    background: "#E8EDE5",
+                                    color: "#1B4332",
+                                  }}
                                 >
                                   <IconLink size={20} stroke={1.75} />
                                 </div>
                                 <div className="sf-file-preview-info">
-                                  <div className="sf-file-preview-name">{link}</div>
+                                  <div className="sf-file-preview-name">
+                                    {link}
+                                  </div>
                                   <div className="sf-file-preview-meta">
-                                    <span className="sf-file-preview-type" style={{ background: "#1B4332" }}>
+                                    <span
+                                      className="sf-file-preview-type"
+                                      style={{ background: "#1B4332" }}
+                                    >
                                       LINK
                                     </span>
                                   </div>
                                 </div>
                                 <button
                                   className="sf-file-preview-remove"
-                                  onClick={() => setLinks((p) => p.filter((_, i) => i !== index))}
+                                  onClick={() =>
+                                    setLinks((p) =>
+                                      p.filter((_, i) => i !== index)
+                                    )
+                                  }
                                 >
                                   <IconX size={18} stroke={2} />
                                 </button>
@@ -1552,7 +1614,9 @@ export default function StudentFilesPage() {
                       <div className="sf-empty-state">
                         <IconPlus size={40} stroke={1.5} />
                         <p>Click "Add" to get started</p>
-                        <p className="sf-empty-sub">Choose to upload a file or add a link</p>
+                        <p className="sf-empty-sub">
+                          Choose to upload a file or add a link
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1568,7 +1632,9 @@ export default function StudentFilesPage() {
                           <IconPlus
                             size={18}
                             stroke={2}
-                            className={isDropdownOpen ? "sf-add-icon-rotated" : ""}
+                            className={
+                              isDropdownOpen ? "sf-add-icon-rotated" : ""
+                            }
                             style={{ position: "absolute", left: "16px" }}
                           />
                           <span>Add File / Link</span>
@@ -1596,7 +1662,10 @@ export default function StudentFilesPage() {
                                 setShowLinkInput(true)
                                 setLinkInput("")
                                 setTimeout(
-                                  () => document.getElementById("link-input-field")?.focus(),
+                                  () =>
+                                    document
+                                      .getElementById("link-input-field")
+                                      ?.focus(),
                                   50
                                 )
                               }}
@@ -1629,13 +1698,19 @@ export default function StudentFilesPage() {
 
           {/* View Submitted Modal */}
           {showViewModal && viewingForm && (
-            <div className="sf-modal-backdrop" onClick={() => setShowViewModal(false)}>
+            <div
+              className="sf-modal-backdrop"
+              onClick={() => setShowViewModal(false)}
+            >
               <div className="sf-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="sf-modal-header">
                   <span className="sf-modal-title">
                     Submitted: {viewingForm.name}
                   </span>
-                  <button className="sf-modal-close" onClick={() => setShowViewModal(false)}>
+                  <button
+                    className="sf-modal-close"
+                    onClick={() => setShowViewModal(false)}
+                  >
                     <IconX size={20} stroke={2} />
                   </button>
                 </div>
@@ -1659,7 +1734,13 @@ export default function StudentFilesPage() {
                           marginBottom: 12,
                         }}
                       >
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#4B5563" }}>
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "#4B5563",
+                          }}
+                        >
                           Status:
                         </span>
                         <span
@@ -1694,10 +1775,22 @@ export default function StudentFilesPage() {
                             marginBottom: viewingForm.reviewerComment ? 12 : 0,
                           }}
                         >
-                          <span style={{ fontSize: 13, fontWeight: 600, color: "#4B5563" }}>
+                          <span
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "#4B5563",
+                            }}
+                          >
                             Submitted On:
                           </span>
-                          <span style={{ fontSize: 13, color: "#111827", fontWeight: 500 }}>
+                          <span
+                            style={{
+                              fontSize: 13,
+                              color: "#111827",
+                              fontWeight: 500,
+                            }}
+                          >
                             {viewingForm.submissionDate}
                           </span>
                         </div>
@@ -1752,7 +1845,10 @@ export default function StudentFilesPage() {
                     <div className="sf-file-grid">
                       {/* Submitted Links / Drive Web View */}
                       {viewingForm.submittedLinks?.map((link, index) => (
-                        <div key={`link-${index}`} className="sf-file-preview-card">
+                        <div
+                          key={`link-${index}`}
+                          className="sf-file-preview-card"
+                        >
                           <div
                             className="sf-file-preview-icon-wrapper"
                             style={{ background: "#E8EDE5", color: "#1B4332" }}
@@ -1772,7 +1868,10 @@ export default function StudentFilesPage() {
                               Open in Google Drive
                             </div>
                             <div className="sf-file-preview-meta">
-                              <span className="sf-file-preview-type" style={{ background: "#1B4332" }}>
+                              <span
+                                className="sf-file-preview-type"
+                                style={{ background: "#1B4332" }}
+                              >
                                 DRIVE
                               </span>
                             </div>
@@ -1782,7 +1881,10 @@ export default function StudentFilesPage() {
 
                       {/* Direct File Submissions (Supabase Storage) */}
                       {viewingForm.submittedFiles?.map((file, index) => (
-                        <div key={`file-${index}`} className="sf-file-preview-card">
+                        <div
+                          key={`file-${index}`}
+                          className="sf-file-preview-card"
+                        >
                           <div
                             className="sf-file-preview-icon-wrapper"
                             style={{ background: "#F3F4F6", color: "#4B5563" }}
@@ -1797,15 +1899,22 @@ export default function StudentFilesPage() {
                                 color: "#1B4332",
                                 textDecoration: "underline",
                               }}
-                              onClick={() => handleDirectFileDownload(file.submissionId)}
+                              onClick={() =>
+                                handleDirectFileDownload(file.submissionId)
+                              }
                             >
                               {file.name}
                             </div>
                             <div className="sf-file-preview-meta">
-                              <span className="sf-file-preview-type" style={{ background: "#4B5563" }}>
+                              <span
+                                className="sf-file-preview-type"
+                                style={{ background: "#4B5563" }}
+                              >
                                 {file.type}
                               </span>
-                              <span className="sf-file-preview-size">{file.size}</span>
+                              <span className="sf-file-preview-size">
+                                {file.size}
+                              </span>
                             </div>
                           </div>
                         </div>
