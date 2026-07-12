@@ -49,6 +49,7 @@ export default function LeaderScannerPage() {
     name: string
     initials: string
     section: string
+    avatarUrl: string | null
   } | null>(null)
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function LeaderScannerPage() {
         name: res.data.fullName,
         initials: getInitials(res.data.fullName),
         section: res.data.sectionName ?? "",
+        avatarUrl: res.data.avatarUrl ?? null,
       })
       setLoading(false)
     })

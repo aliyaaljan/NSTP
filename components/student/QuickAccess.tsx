@@ -20,6 +20,7 @@ interface QuickAccessProps {
   adviserName: string | null
   classmateCount: number
   classmateInitials: string[]
+  classmates?: { initials: string; avatarUrl: string | null }[]
   filesTotal: number
   filesSubmitted: number
   recentRequests: { title: string; status: string; time: string }[]
@@ -33,6 +34,7 @@ export default function QuickAccess({
   adviserName,
   classmateCount,
   classmateInitials,
+  classmates,
   filesTotal,
   filesSubmitted,
   recentRequests,
@@ -40,6 +42,9 @@ export default function QuickAccess({
 }: QuickAccessProps) {
   const [showQrGenerator, setShowQrGenerator] = useState(false)
   const [showQrScanner, setShowQrScanner] = useState(false)
+
+  const classmateStack =
+    classmates ?? classmateInitials.map((initials) => ({ initials, avatarUrl: null as string | null }))
 
   const statusStyles: Record<string, { bg: string; text: string }> = {
     "Pending Review": { bg: "#FFF3CD", text: "#8A6200" },
@@ -304,7 +309,7 @@ export default function QuickAccess({
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center" }}>
-              {classmateInitials.map((initials, i) => (
+              {classmateStack.map(({ initials, avatarUrl }, i) => (
                 <div
                   key={`${initials}-${i}`}
                   style={{
@@ -322,9 +327,19 @@ export default function QuickAccess({
                     marginLeft: i === 0 ? 0 : "-6px",
                     letterSpacing: "0.3px",
                     fontFamily: "Montserrat, 'Montserrat Fallback'",
+                    overflow: "hidden",
                   }}
                 >
-                  {initials}
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    initials
+                  )}
                 </div>
               ))}
               <div
@@ -344,7 +359,7 @@ export default function QuickAccess({
                   fontFamily: "Montserrat, 'Montserrat Fallback'",
                 }}
               >
-                +{Math.max(0, classmateCount - classmateInitials.length)}
+                +{Math.max(0, classmateCount - classmateStack.length)}
               </div>
             </div>
 

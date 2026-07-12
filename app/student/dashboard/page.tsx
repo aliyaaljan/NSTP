@@ -320,6 +320,7 @@ export default function StudentDashboardPage() {
             name={fullName}
             initials={initials}
             section={sectionName}
+            avatarUrl={dashboard?.avatarUrl ?? null}
           />
         </div>
 
@@ -351,6 +352,7 @@ export default function StudentDashboardPage() {
                 adviserName={dashboard?.adviserName ?? null}
                 classmateCount={dashboard?.classmateCount ?? 0}
                 classmateInitials={dashboard?.classmateInitials ?? []}
+                classmates={dashboard?.classmates}
                 filesTotal={formViews.length}
                 filesSubmitted={
                   formViews.filter(
@@ -443,6 +445,7 @@ export default function StudentDashboardPage() {
                 adviserName={dashboard?.adviserName ?? null}
                 classmateCount={dashboard?.classmateCount ?? 0}
                 classmateInitials={dashboard?.classmateInitials ?? []}
+                classmates={dashboard?.classmates}
                 filesTotal={formViews.length}
                 filesSubmitted={
                   formViews.filter(

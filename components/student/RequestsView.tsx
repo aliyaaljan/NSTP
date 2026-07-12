@@ -216,6 +216,7 @@ export default function RequestsView() {
    enrollmentId: "",
    fullName: "",
    sectionName: "",
+   avatarUrl: null as string | null,
  })
 
  // fetch profile and requests on load
@@ -253,6 +254,7 @@ export default function RequestsView() {
        enrollmentId: res.data.enrollmentId ?? "",
        fullName: res.data.fullName,
        sectionName: res.data.sectionName ?? "",
+       avatarUrl: res.data.avatarUrl ?? null,
      })
      if (res.data.enrollmentId) loadRequests(res.data.enrollmentId)
      setLoading(false)
@@ -1477,6 +1479,7 @@ if (loading || contextLoading) {
              name={profile.fullName}
              initials={getInitials(profile.fullName)}
              section={profile.sectionName}
+             avatarUrl={profile.avatarUrl}
            />
          </div>
          </div>

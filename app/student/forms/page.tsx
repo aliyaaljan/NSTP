@@ -331,6 +331,7 @@ export default function StudentFilesPage() {
     initials: "ST",
     displayName: "Student",
     section: "NSTP",
+    avatarUrl: null as string | null,
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [activeFilter, setActiveFilter] = useState<string>("All")
@@ -444,6 +445,7 @@ export default function StudentFilesPage() {
       setStudent((prev) => ({
         ...prev,
         section: dashboardRes.data.sectionName ?? "",
+        avatarUrl: dashboardRes.data.avatarUrl ?? null,
       }))
     }
 
@@ -856,6 +858,7 @@ export default function StudentFilesPage() {
                 name={student.displayName}
                 initials={student.initials}
                 section={student.section}
+                avatarUrl={student.avatarUrl}
               />
             )}
           </div>

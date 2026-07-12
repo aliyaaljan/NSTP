@@ -8,7 +8,6 @@ import {
   type AdviserEditPayload,
 } from "@/lib/admin/adviser-edit"
 import type { AdviserListRow } from "@/lib/admin/adviser-list"
-import AdviserPhotoUpload from "@/components/admin/AdviserPhotoUpload"
 import { clearFormSession, isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
@@ -88,14 +87,10 @@ function TextInput({
 export default function EditAdviserModal({
   open,
   adviser,
-  photoUrl,
-  onPhotoChange,
   onClose,
 }: {
   open: boolean
   adviser: AdviserListRow | null
-  photoUrl: string | null
-  onPhotoChange: (photoUrl: string | null) => void
   onClose: () => void
 }) {
   const [form, setForm] = useState<AdviserEditPayload | null>(null)
@@ -271,13 +266,6 @@ export default function EditAdviserModal({
             </div>
             <div style={{ marginTop: 4 }}>Section/s: {sectionsLabel}</div>
           </div>
-
-          <AdviserPhotoUpload
-            fullName={adviser.fullName}
-            initials={adviser.initials}
-            photoUrl={photoUrl}
-            onPhotoChange={onPhotoChange}
-          />
 
           <FormField label="Full Name">
             <TextInput

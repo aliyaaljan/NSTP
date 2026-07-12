@@ -10,6 +10,7 @@ import {
 } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { createClient } from "@/lib/client"
+import { googleAvatarUrl } from "@/lib/auth/avatar"
 import LoadingPage from "@/components/shared/LoadingPage"
 
 type RawProfileData = {
@@ -48,7 +49,7 @@ export default function ProfilePage() {
       return
     }
      const {data: {user}} = await supabase.auth.getUser()
-    const avatarUrl = user?.identities?.[0]?.identity_data?.avatar_url ?? null
+    const avatarUrl = googleAvatarUrl(user)
 
     setProfile({
       fullName: data.full_name ?? "",

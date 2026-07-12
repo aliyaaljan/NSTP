@@ -14,6 +14,7 @@ export type StudentDashboardData = {
   fullName: string
   studentNumber: string | null
   email: string | null
+  avatarUrl: string | null
   sectionName: string | null
   adviserName: string | null
   adviserEmail: string | null
@@ -24,6 +25,7 @@ export type StudentDashboardData = {
   renderedTimeByMonth: Record<number, Record<number, string>>
   classmateCount: number
   classmateInitials: string[]
+  classmates: { initials: string; avatarUrl: string | null }[]
   programName: string | null
   classificationName: string | null
   nstpType: string | null
@@ -58,7 +60,8 @@ function manilaMonthDay(iso: string): { month: number; day: number } | null {
 function emptyDashboard(
   fullName: string,
   studentNumber: string | null,
-  email: string | null
+  email: string | null,
+  avatarUrl: string | null
 ): StudentDashboardData {
   return {
     enrollmentId: null,
@@ -66,6 +69,7 @@ function emptyDashboard(
     fullName,
     studentNumber,
     email,
+    avatarUrl,
     sectionName: null,
     adviserName: null,
     adviserEmail: null,
@@ -76,6 +80,7 @@ function emptyDashboard(
     renderedTimeByMonth: {},
     classmateCount: 0,
     classmateInitials: [],
+    classmates: [],
     programName: null,
     classificationName: null,
     nstpType: null,
@@ -95,23 +100,24 @@ export async function getStudentDashboard(): Promise<ActionResult> {
 
     const { data: appUser } = await service
       .from("app_user")
-      .select("full_name, student_number, email")
+      .select("full_name, student_number, email, avatar_url")
       .eq("app_user_id", user.id)
       .single()
 
     const fullName = appUser?.full_name ?? ""
     const studentNumber = appUser?.student_number ?? null
     const email = appUser?.email ?? null
+    const avatarUrl = (appUser as any)?.avatar_url ?? null
 
     const primary = await resolveActiveStudentEnrollment(service, user.id)
 
     if (!primary) {
-      return { ok: true, data: emptyDashboard(fullName, studentNumber, email) }
+      return { ok: true, data: emptyDashboard(fullName, studentNumber, email, avatarUrl) }
     }
 
     const { data: classmates } = await service
       .from("enrollment")
-      .select("app_user:student_user_id(full_name)")
+      .select("app_user:student_user_id(full_name, avatar_url)")
       .eq("section_id", primary.section.section_id)
       .eq(
         "enrollment_status_id",
@@ -126,6 +132,15 @@ export async function getStudentDashboard(): Promise<ActionResult> {
       })
       .filter(Boolean)
       .slice(0, 4)
+    const classmateRows = (classmates ?? [])
+      .map((c) => {
+        const au = Array.isArray(c.app_user) ? c.app_user[0] : c.app_user
+        return au?.full_name
+          ? { initials: getInitials(au.full_name), avatarUrl: (au as any).avatar_url ?? null }
+          : null
+      })
+      .filter((c): c is { initials: string; avatarUrl: string | null } => c !== null)
+      .slice(0, 4)
 
     // Rendered hours count completed sessions only: 'closed' (normal/manual) + 'corrected' (edited via appeal/adviser).
     const { data: countedStatuses } = await service
@@ -137,7 +152,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
       return {
         ok: true,
         data: {
-          ...emptyDashboard(fullName, studentNumber, email),
+          ...emptyDashboard(fullName, studentNumber, email, avatarUrl),
           enrollmentId: primary.enrollmentId,
           isLeader: primary.isStudentLeader,
           sectionName: primary.section.label,
@@ -147,6 +162,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
           requiredHours: primary.section.required_hour_total ?? 60,
           classmateCount,
           classmateInitials,
+          classmates: classmateRows,
           programName: primary.programName,
           classificationName: primary.classificationName,
           nstpType: extractNstpType(primary.section.course_code),
@@ -205,6 +221,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
         fullName,
         studentNumber,
         email,
+        avatarUrl,
         sectionName: primary.section.label,
         adviserName: primary.adviserName,
         adviserEmail: primary.adviserEmail,
@@ -215,6 +232,7 @@ export async function getStudentDashboard(): Promise<ActionResult> {
         renderedTimeByMonth,
         classmateCount,
         classmateInitials,
+        classmates: classmateRows,
         programName: primary.programName,
         classificationName: primary.classificationName,
         nstpType: extractNstpType(primary.section.course_code),

@@ -13,7 +13,7 @@ import AddAdviserModal from "@/components/admin/AddAdviserModal"
 import EditAdviserModal from "@/components/admin/EditAdviserModal"
 import ImportAdvisersModal from "@/components/admin/ImportAdvisersModal"
 import { adminClickableCardProps } from "@/components/admin/admin-list-row"
-import { AdviserAvatar } from "@/components/admin/AdviserPhotoUpload"
+import { AdviserAvatar } from "@/components/admin/AdviserAvatar"
 import { deleteAdviser } from "@/lib/admin/adviser-list-actions"
 import {
   ADVISER_LIST_ALL_SECTIONS,
@@ -303,26 +303,6 @@ export default function AdviserListClient({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
-  const [photoOverrides, setPhotoOverrides] = useState<Record<string, string | null>>(
-    {}
-  )
-
-  function resolvePhotoUrl(adviser: AdviserListRow): string | null {
-    if (adviser.adviserUserId in photoOverrides) {
-      return photoOverrides[adviser.adviserUserId]
-    }
-    return adviser.photoUrl
-  }
-
-  function setAdviserPhoto(adviserUserId: string, photoUrl: string | null) {
-    setPhotoOverrides((prev) => {
-      const previous = prev[adviserUserId]
-      if (previous?.startsWith("blob:") && previous !== photoUrl) {
-        URL.revokeObjectURL(previous)
-      }
-      return { ...prev, [adviserUserId]: photoUrl }
-    })
-  }
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -557,7 +537,7 @@ export default function AdviserListClient({
                 <AdviserCard
                   key={adviser.adviserUserId}
                   adviser={adviser}
-                  photoUrl={resolvePhotoUrl(adviser)}
+                  photoUrl={adviser.photoUrl}
                   onSelect={setDetailAdviser}
                 />
               ))}
@@ -596,6 +576,7 @@ export default function AdviserListClient({
           title={detailAdviser.fullName}
           subtitle={detailAdviser.email}
           initials={detailAdviser.initials}
+          avatarUrl={detailAdviser.photoUrl}
           size="md"
           actions={[
             {
@@ -646,12 +627,6 @@ export default function AdviserListClient({
       <EditAdviserModal
         open={editAdviser !== null}
         adviser={editAdviser}
-        photoUrl={editAdviser ? resolvePhotoUrl(editAdviser) : null}
-        onPhotoChange={(photoUrl) => {
-          if (editAdviser) {
-            setAdviserPhoto(editAdviser.adviserUserId, photoUrl)
-          }
-        }}
         onClose={() => setEditAdviser(null)}
       />
       <ConfirmDeleteModal

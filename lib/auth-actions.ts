@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { decodeRoleClaim, roleFromDb } from "@/lib/auth/role"
 import { revokeLoginSession } from "@/lib/auth/session"
+import { googleAvatarUrl } from "@/lib/auth/avatar"
 
 export async function getAppUserRole(): Promise<string | null> {
   const supabase = await createSupabaseServerClient()
@@ -32,11 +33,18 @@ export async function ensureAppUser(): Promise<{ roleCode: string | null; create
 
   const { data: existing } = await service
     .from("app_user")
-    .select("role(code)")
+    .select("role(code), avatar_url")
     .eq("app_user_id", user.id)
     .maybeSingle()
 
   if (existing) {
+    const avatarUrl = googleAvatarUrl(user)
+    if (avatarUrl && avatarUrl !== (existing as any).avatar_url) {
+      await service
+        .from("app_user")
+        .update({ avatar_url: avatarUrl })
+        .eq("app_user_id", user.id)
+    }
     return { roleCode: (existing.role as any)?.code ?? "student", created: false }
   }
 
@@ -53,6 +61,7 @@ export async function ensureAppUser(): Promise<{ roleCode: string | null; create
       app_user_id: user.id,
       email: user.email.toLowerCase(),
       full_name: user.user_metadata?.full_name ?? "",
+      avatar_url: googleAvatarUrl(user),
       role_id: studentRole.role_id,
     })
     .select("role(code)")

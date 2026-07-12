@@ -69,7 +69,7 @@ export async function getAdviserPendingRequests(): Promise<
               enrollment_id,
               student_user_id,
               section_id,
-              app_user!inner (full_name, student_number),
+              app_user!inner (full_name, student_number, avatar_url),
               section!inner (course_code, adviser_user_id, term:term_id (school_year))
           )
         `
@@ -89,6 +89,7 @@ export async function getAdviserPendingRequests(): Promise<
         enrollment_id: app.enrollment?.enrollment_id || "",
         section_id: app.enrollment?.section_id || "",
         student_name: student?.full_name || "Unknown Student",
+        student_avatar_url: student?.avatar_url ?? null,
         student_number: student?.student_number || "—",
         section_name: formatClassLabel({
           courseCode: app.enrollment?.section?.course_code,

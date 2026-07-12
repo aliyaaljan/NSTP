@@ -18,6 +18,7 @@ interface NstpModalProps {
   title: string
   subtitle?: string
   initials?: string
+  avatarUrl?: string | null
   size?: ModalSize
   width?: number // optional pixel width, overrides the size preset
   twoCol?: boolean
@@ -215,6 +216,7 @@ export function NstpModal({
   title,
   subtitle,
   initials,
+  avatarUrl,
   size = "md",
   width: widthOverride,
   twoCol = false,
@@ -259,9 +261,17 @@ export function NstpModal({
       >
         <div className="nstp-modal" style={{ width, maxWidth: "100%" }}>
           <div className="nstp-modal-header">
-            {initials && (
+            {avatarUrl ? (
+              <img
+                className="nstp-modal-avatar"
+                src={avatarUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                style={{ objectFit: "cover" }}
+              />
+            ) : initials ? (
               <div className="nstp-modal-avatar" aria-hidden="true">{initials}</div>
-            )}
+            ) : null}
             <div className="nstp-modal-header-info">
               <div className="nstp-modal-title">{title}</div>
               {subtitle && <div className="nstp-modal-subtitle">{subtitle}</div>}

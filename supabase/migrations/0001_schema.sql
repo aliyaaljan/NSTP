@@ -112,6 +112,7 @@ create table app_user (
   full_name      text not null,
   student_number text,
   sais_id        text,
+  avatar_url     text,                               -- Google photo URL, synced on login
   college_id        uuid references college(college_id),
   nstp_component_id uuid references nstp_component(nstp_component_id),
   partnership_type  text,

@@ -13,12 +13,14 @@ interface ProfilePillProps {
   name:string
   initials:string
   section:string
+  avatarUrl?: string | null
 }
 
 export default function ProfilePill({
   name,
   initials,
-  section
+  section,
+  avatarUrl
 }:ProfilePillProps){
 
   const pathname = usePathname()
@@ -55,10 +57,20 @@ export default function ProfilePill({
           justifyContent:"center",
           fontSize:11,
           fontWeight:700,
-          color:C.goldText
+          color:C.goldText,
+          overflow:"hidden"
         }}
       >
-        {initials}
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt=""
+            referrerPolicy="no-referrer"
+            style={{ width:36, height:36, borderRadius:"50%", objectFit:"cover", display:"block" }}
+          />
+        ) : (
+          initials
+        )}
       </div>
 
       <div>

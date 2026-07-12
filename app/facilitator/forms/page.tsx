@@ -20,6 +20,7 @@ import { Sidebar, dashboardStyles, navRoutes } from "../facilitator";
 import { signOutWithAudit } from "@/lib/auth-actions";
 import { ChartStyles } from "@/components/shared/ChartModule";
 import { createClient } from "@/lib/client";
+import { googleAvatarUrl } from "@/lib/auth/avatar";
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal";
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 import LoadingPage from "@/components/shared/LoadingPage"
@@ -281,6 +282,7 @@ export default function FormsPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [initials, setInitials] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [sectionId, setSectionId] = useState<string | null>(null);
 
   // Data States
@@ -340,6 +342,7 @@ export default function FormsPage() {
       setFirstName(fName);
       setLastName(lName);
       setInitials((fName[0] ?? "") + (lName[0] ?? ""));
+      setAvatarUrl(googleAvatarUrl(user));
       setUserId(user?.id ?? null);
     });
   }, []);
@@ -548,7 +551,18 @@ export default function FormsPage() {
             <header className="header">
               <h1 className="header-greeting">Forms</h1>
               <div className="profile-pill">
-                <div className="profile-avatar">{initials || "A"}</div>
+                <div className="profile-avatar">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    initials || "A"
+                  )}
+                </div>
                 <div>
                   <div className="profile-name">
                     {lastName ? `${lastName}, ${firstName}` : "Adviser"}

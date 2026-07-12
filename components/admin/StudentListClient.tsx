@@ -585,6 +585,7 @@ export default function StudentListClient({
           title={detailStudent.fullName}
           subtitle={detailStudent.email}
           initials={initialsFromName(detailStudent.fullName)}
+          avatarUrl={detailStudent.avatarUrl}
           size="md"
           actions={[
             {

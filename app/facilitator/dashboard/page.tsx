@@ -28,6 +28,7 @@ import {
 import { QrScanner } from "@/components/shared/QrScanner"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { createClient } from "@/lib/client"
+import { googleAvatarUrl } from "@/lib/auth/avatar"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
 import Link from "next/link";
@@ -108,6 +109,7 @@ export default function DashboardPage() {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [initials, setInitials] = useState("")
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [sections, setSections] = useState<{ id: string; name: string; isActive: boolean; termStartDate: string | null }[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardRow[]>([])
   const [recentActivity, setRecentActivity] = useState<{ summary: string; created_at_hours: string }[]>([])
@@ -175,6 +177,7 @@ export default function DashboardPage() {
       setFirstName(parts[0] ?? "")
       setLastName(parts.at(-1) ?? "")
       setInitials(((parts[0] ?? "")[0] ?? "") + ((parts.at(-1) ?? "")[0] ?? ""))
+      setAvatarUrl(googleAvatarUrl(user))
       setUserId(user?.id ?? null)
       if (user?.id) await fetchDashboardBundle(user.id)
       setIsPageLoading(false)
@@ -303,7 +306,18 @@ export default function DashboardPage() {
                 />
               </div>
               <Link href={"/facilitator/profile"} className="profile-pill">
-                <div className="profile-avatar">{initials}</div>
+                <div className="profile-avatar">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    initials
+                  )}
+                </div>
                 <div>
                   <div className="profile-name">
                     {lastName ? `${lastName}, ${firstName}` : "Adviser"}

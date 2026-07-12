@@ -8,7 +8,7 @@ export function PageHeader({
   profile,
 }: {
   isMobile: boolean
-  profile?: { name: string; initials: string; section: string }
+  profile?: { name: string; initials: string; section: string; avatarUrl?: string | null }
 }) {
   return (
     <div
@@ -41,6 +41,7 @@ export function PageHeader({
             name={profile?.name ?? ""}
             initials={profile?.initials ?? ""}
             section={profile?.section ?? ""}
+            avatarUrl={profile?.avatarUrl ?? null}
           />
         </div>
       )}

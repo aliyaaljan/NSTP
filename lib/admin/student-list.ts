@@ -32,6 +32,7 @@ export interface StudentListRow {
   hoursRequired: number
   completionPct: number
   progressStatus: StudentProgressStatus
+  avatarUrl: string | null
 }
 
 export interface StudentListSectionOption {
@@ -98,7 +99,7 @@ export const ENROLLMENT_LIST_SELECT = `
   enrollment_id,
   student_user_id,
   section_id,
-  app_user(full_name, email, student_number),
+  app_user(full_name, email, student_number, avatar_url),
   section:section_id(
     section_id,
     course_code,
@@ -119,6 +120,7 @@ export interface EnrollmentListDbRow {
     full_name: string
     email: string
     student_number: string | null
+    avatar_url: string | null
   } | null
   section: {
     section_id: string
@@ -174,6 +176,7 @@ export function mapEnrollmentToStudentListRow(
     hoursRequired,
     completionPct: pct,
     progressStatus: progressStatusFromPct(pct),
+    avatarUrl: student.avatar_url ?? null,
   }
 }
 

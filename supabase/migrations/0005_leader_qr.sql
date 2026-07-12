@@ -1193,9 +1193,14 @@ $function$;
 -- session object incl. statusId/status/isFlagged/flagReasons/locations/geofence)
 -- while keeping this file's already-correct guard, code-based lookups, and
 -- class_label() section naming.
+-- create or replace cannot change a return type, so the avatar_url column
+-- added 2026-07-12 requires a drop before recreating.
+drop function if exists public.get_my_students(uuid);
+
 create or replace function public.get_my_students(p_adviser_user_id uuid)
 returns table(
   section_id uuid, section_name text, enrollment_id uuid, student_name text,
+  student_avatar_url text,
   is_student_leader boolean, student_number text, sais_id numeric,
   section_geofence_id uuid, site_location text, program text, classification text,
   status text, hours_logged numeric, total_hours integer,
@@ -1302,6 +1307,7 @@ begin
     public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
     e.enrollment_id as enrollment_id,
     u.full_name as student_name,
+    u.avatar_url as student_avatar_url,
     e.is_student_leader as is_student_leader,
     u.student_number as student_number,
     u.sais_id::numeric as sais_id,
