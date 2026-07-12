@@ -84,22 +84,30 @@ function HoursCard({
       boxShadow: C.cardShadow,
     }}>
       <div
+      style={{
+        fontSize: "clamp(15px, 1.2vw, 15px)",
+        fontWeight: 700,
+        color: C.textDark,
+        marginBottom: 8,
+        textTransform: "uppercase",
+        letterSpacing: "0.03em",
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: isMobile ? "flex-start" : "flex-end",
+        gap: 6,
+        width: "100%",
+      }}
+    >
+      <span>Hours Accomplished:</span>
+
+      <div
         style={{
-          fontSize: "clamp(15px, 1.2vw, 15px)",
-          fontWeight: 700,
-          color: C.textDark,
-          marginBottom: 8,
-          textTransform: "uppercase",
-          letterSpacing: "0.03em",
           display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: isMobile ? "flex-start" : "flex-end",
+          flexDirection: "row",
+          alignItems: "flex-end",
           gap: 6,
-          width: "100%",
         }}
       >
-        <span>Hours Accomplished:</span>
-
         <span
           style={{
             fontWeight: 900,
@@ -112,22 +120,23 @@ function HoursCard({
         </span>
 
         <span>/ {target} hours</span>
-
-        {daysRemaining !== null && (
-          <span
-            style={{
-              marginLeft: isMobile ? 0 : "auto",
-              fontSize: "clamp(12px, 1vw, 14px)",
-              fontWeight: 700,
-              color: C.textMuted,
-              whiteSpace: "nowrap",
-              alignSelf: isMobile ? "flex-start" : "auto",
-            }}
-          >
-            {daysRemaining} days remaining
-          </span>
-        )}
       </div>
+
+      {daysRemaining !== null && (
+        <span
+          style={{
+            marginLeft: isMobile ? 0 : "auto",
+            fontSize: "clamp(12px, 1vw, 14px)",
+            fontWeight: 700,
+            color: C.textMuted,
+            whiteSpace: "nowrap",
+            alignSelf: isMobile ? "flex-start" : "auto",
+          }}
+        >
+          {daysRemaining} days remaining
+        </span>
+      )}
+    </div>
       <div style={{ 
         display: "flex", 
         alignItems: "center", 
@@ -186,8 +195,8 @@ export default function StudentDashboardPage() {
 
     const handleResize = () => {
       const width = window.innerWidth
-      setIsMobile(width < 768)
-      setIsTablet(width >= 768 && width < 1024)
+      setIsMobile(width < 767)
+      setIsTablet(width >= 768 && width <= 1024)
       setIsVerySmall(width < 380)
     }
     handleResize()
@@ -249,7 +258,7 @@ export default function StudentDashboardPage() {
 
   // Calculate left padding (edited to cater yung nasa baba na navbar on mobile)
   const getLeftPadding = () => {
-    if (isMobile || isTablet) {
+    if (isMobile) {
       return "20px"
     }
   
@@ -306,6 +315,7 @@ export default function StudentDashboardPage() {
           flexWrap: "wrap",
           gap: isVerySmall ? "8px" : "12px",
           width: "100%",
+          paddingTop: isMobile ? "50px" : 0,
         }}>
           <h1 style={{ 
             fontSize: isVerySmall ? "clamp(18px, 5vw, 22px)" : isMobile ? "clamp(20px, 5vw, 26px)" : "clamp(24px, 2.5vw, 30px)", 
@@ -316,12 +326,14 @@ export default function StudentDashboardPage() {
           }}>
             Hello, {firstName}!
           </h1>
-          <ProfilePill
-            name={fullName}
-            initials={initials}
-            section={sectionName}
-            avatarUrl={dashboard?.avatarUrl ?? null}
-          />
+          {!isMobile && (
+            <ProfilePill
+              name={fullName}
+              initials={initials}
+              section={sectionName}
+              avatarUrl={dashboard?.avatarUrl ?? null}
+            />
+          )}
         </div>
 
         <HoursCard

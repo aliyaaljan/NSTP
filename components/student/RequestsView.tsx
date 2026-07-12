@@ -771,27 +771,6 @@ function showError(message: string) {
      t.appeal_type_id === editTypeId
  )
 
- useEffect(() => {
-  const updateKpiGrid = () => {
-    const grids = document.querySelectorAll(".db-kpi-grid")
-
-    grids.forEach((grid) => {
-      if (window.innerWidth <= 768) {
-        ;(grid as HTMLElement).style.gridTemplateColumns = "repeat(2, 1fr)"
-      } else {
-        ;(grid as HTMLElement).style.gridTemplateColumns = "repeat(4, 1fr)"
-      }
-    })
-  }
-
-  updateKpiGrid()
-
-  window.addEventListener("resize", updateKpiGrid)
-
-  return () => {
-    window.removeEventListener("resize", updateKpiGrid)
-  }
-}, [])
 
 const [isMobile, setIsMobile] = useState(false)
 
@@ -1242,7 +1221,9 @@ if (loading || contextLoading) {
        }
 
        .db-kpi-grid {
-          width:100%;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          width: 100%;
         }
 
        @media (max-width:1024px){
@@ -1317,6 +1298,12 @@ if (loading || contextLoading) {
         }
 
     }
+
+     @media (max-width: 768px) {
+        .db-kpi-grid {
+          grid-template-columns: repeat(2, 1fr) !important;
+        }
+      }
 
        @media (max-width:767px){
 
