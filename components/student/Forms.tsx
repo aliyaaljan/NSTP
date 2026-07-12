@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 
 export type FormStatus = "submitted" | "pending"
 
@@ -17,9 +18,22 @@ export interface FormsProps {
   maxListHeight?: number
 }
 
-const STATUS_META: Record<FormStatus, { label: string; color: string; bg: string; icon: string }> = {
-  submitted: { label: "Submitted", color: "#2D6A4F", bg: "rgba(45,106,79,0.10)", icon: "ti-check" },
-  pending: { label: "Pending", color: "#F3AA2C", bg: "rgba(243,170,44,0.12)", icon: "ti-clock" },
+const STATUS_META: Record<
+  FormStatus,
+  { label: string; color: string; bg: string; icon: string }
+> = {
+  submitted: {
+    label: "Submitted",
+    color: "#2D6A4F",
+    bg: "rgba(45,106,79,0.10)",
+    icon: "ti-check",
+  },
+  pending: {
+    label: "Pending",
+    color: "#F3AA2C",
+    bg: "rgba(243,170,44,0.12)",
+    icon: "ti-clock",
+  },
 }
 
 export default function Forms({
@@ -34,17 +48,18 @@ export default function Forms({
 }
 
 function FormsCompact({ Forms }: { Forms: FormItem[] }) {
+  const router = useRouter()
   const [filter, setFilter] = useState<"all" | FormStatus>("all")
   const [isMobile, setIsMobile] = useState(false)
   const [scrollIndex, setScrollIndex] = useState(0)
   const gridRef = useRef<HTMLDivElement>(null)
   const [itemsPerRow, setItemsPerRow] = useState(6)
-  
+
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth
       setIsMobile(width < 768)
-      
+
       if (width < 480) {
         setItemsPerRow(3)
       } else if (width < 768) {
@@ -56,13 +71,13 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
       }
     }
     handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [])
-  
+
   const submitted = Forms.filter((d) => d.status === "submitted")
   const pendingDocs = Forms.filter((d) => d.status === "pending")
-  
+
   const getFilteredForms = () => {
     if (filter === "all") {
       return [...pendingDocs, ...submitted]
@@ -95,11 +110,11 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
   const visibleItems = getVisibleItems()
 
   const handlePrev = () => {
-    setScrollIndex(prev => Math.max(0, prev - 1))
+    setScrollIndex((prev) => Math.max(0, prev - 1))
   }
 
   const handleNext = () => {
-    setScrollIndex(prev => Math.min(maxIndex, prev + 1))
+    setScrollIndex((prev) => Math.min(maxIndex, prev + 1))
   }
 
   const hasMore = totalItems > itemsPerRow
@@ -109,70 +124,76 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
   return (
     <div
       style={{
-        background: '#FFFFFF',
-        borderTopLeftRadius: '14px',
-        borderTopRightRadius: '14px',
-        borderBottomLeftRadius: '14px',
-        borderBottomRightRadius: '14px',
-        border: '1px solid #E5E7EB',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.07)',
-        padding: isMobile ? '28px 16px' : '28px 24px',
+        background: "#FFFFFF",
+        borderTopLeftRadius: "14px",
+        borderTopRightRadius: "14px",
+        borderBottomLeftRadius: "14px",
+        borderBottomRightRadius: "14px",
+        border: "1px solid #E5E7EB",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.07)",
+        padding: isMobile ? "28px 16px" : "28px 24px",
         display: "flex",
         flexDirection: "column",
         gap: isMobile ? "10px" : "14px",
         height: "100%",
         width: "100%",
-        fontFamily: 'var(--font-content, sans-serif)',
+        fontFamily: "var(--font-content, sans-serif)",
       }}
     >
-      <div style={{ 
-        display: "flex", 
-        alignItems: "baseline", 
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: "4px",
-        flexShrink: 0,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "4px",
+          flexShrink: 0,
+        }}
+      >
         <span
           style={{
             fontWeight: 700,
             fontSize: "13px",
-            color: '#111827',
+            color: "#111827",
             letterSpacing: "0.5px",
           }}
         >
           FORMS
         </span>
-        <span style={{ 
-          fontSize: "11px", 
-          color: '#6B7280', 
-          fontWeight: 400 
-        }}>
+        <span
+          style={{
+            fontSize: "11px",
+            color: "#6B7280",
+            fontWeight: 400,
+          }}
+        >
           {submitted.length}/{Forms.length} forms submitted
         </span>
       </div>
 
-      <div style={{ 
-        display: "flex", 
-        gap: isMobile ? "6px" : "8px", 
-        flexWrap: "wrap",
-        flexShrink: 0,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          gap: isMobile ? "6px" : "8px",
+          flexWrap: "wrap",
+          flexShrink: 0,
+        }}
+      >
         {(["all", "submitted", "pending"] as const).map((key) => {
           const active = filter === key
-          const isAll = key === "all"           
+          const isAll = key === "all"
           const meta = isAll ? null : STATUS_META[key]
-          
-          let activeColor = '#111827'         
-          let activeBg = '#F5F5F5'        
+
+          let activeColor = "#111827"
+          let activeBg = "#F5F5F5"
           let label = "All"
-          
+
           if (!isAll) {
-            activeColor = meta!.color          
+            activeColor = meta!.color
             activeBg = meta!.bg
             label = meta!.label
           }
-          
+
           return (
             <button
               key={key}
@@ -182,24 +203,24 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
                 fontWeight: 600,
                 padding: isMobile ? "4px 10px" : "6px 14px",
                 borderRadius: "999px",
-                border: `2px solid ${active ? activeColor : '#E5E7EB'}`,
-                background: active ? activeBg : '#FFFFFF',
-                color: active ? activeColor : '#6B7280',
+                border: `2px solid ${active ? activeColor : "#E5E7EB"}`,
+                background: active ? activeBg : "#FFFFFF",
+                color: active ? activeColor : "#6B7280",
                 cursor: "pointer",
                 whiteSpace: "nowrap",
                 transition: "all 0.15s",
-                fontFamily: 'var(--font-content, sans-serif)',
+                fontFamily: "var(--font-content, sans-serif)",
               }}
               onMouseEnter={(e) => {
                 if (!active) {
-                  e.currentTarget.style.background = '#F5F5F5'
-                  e.currentTarget.style.borderColor = '#6B7280'
+                  e.currentTarget.style.background = "#F5F5F5"
+                  e.currentTarget.style.borderColor = "#6B7280"
                 }
               }}
               onMouseLeave={(e) => {
                 if (!active) {
-                  e.currentTarget.style.background = '#FFFFFF'
-                  e.currentTarget.style.borderColor = '#E5E7EB'
+                  e.currentTarget.style.background = "#FFFFFF"
+                  e.currentTarget.style.borderColor = "#E5E7EB"
                 }
               }}
             >
@@ -209,11 +230,13 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
         })}
       </div>
 
-      <div style={{ 
-        position: "relative", 
-        flexShrink: 0,
-        padding: "0 32px",
-      }}>
+      <div
+        style={{
+          position: "relative",
+          flexShrink: 0,
+          padding: "0 32px",
+        }}
+      >
         <div
           ref={gridRef}
           style={{
@@ -230,18 +253,21 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
             return (
               <div
                 key={doc.id}
-                title={`${doc.name} — ${meta.label}${doc.note ? ` (${doc.note})` : ''}`}
+                onClick={() => router.push(`/student/forms?formId=${doc.id}`)}
+                title={`${doc.name} — ${meta.label}${
+                  doc.note ? ` (${doc.note})` : ""
+                }`}
                 style={{
                   width: "100%",
                   aspectRatio: "1 / 1",
                   borderRadius: "9px",
-                  border: `1.5px solid ${isSubmitted ? '#2D6A4F' : '#F3AA2C'}`,
-                  background: isSubmitted ? meta.bg : 'rgba(243,170,44,0.08)',
+                  border: `1.5px solid ${isSubmitted ? "#2D6A4F" : "#F3AA2C"}`,
+                  background: isSubmitted ? meta.bg : "rgba(243,170,44,0.08)",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: isSubmitted ? meta.color : '#B8860B',
+                  color: isSubmitted ? meta.color : "#B8860B",
                   transition: "all 0.2s ease-in-out",
                   cursor: "pointer",
                   fontSize: isMobile ? "14px" : "16px",
@@ -254,37 +280,50 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
                   e.currentTarget.style.borderWidth = "2px"
                   e.currentTarget.style.transform = "scale(1.05)"
                   e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"
-                  e.currentTarget.style.borderColor = isSubmitted ? '#2D6A4F' : '#F3AA2C'
+                  e.currentTarget.style.borderColor = isSubmitted
+                    ? "#2D6A4F"
+                    : "#F3AA2C"
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderWidth = "1.5px"
                   e.currentTarget.style.transform = "scale(1)"
                   e.currentTarget.style.boxShadow = "none"
-                  e.currentTarget.style.borderColor = isSubmitted ? '#2D6A4F' : '#F3AA2C'
+                  e.currentTarget.style.borderColor = isSubmitted
+                    ? "#2D6A4F"
+                    : "#F3AA2C"
                 }}
               >
-                <i className="ti ti-Form-text" style={{ fontSize: isMobile ? "14px" : "16px" }} />
-                <span style={{ 
-                  fontSize: isMobile ? "6px" : "7px", 
-                  fontWeight: 600,
-                  opacity: 0.8,
-                  maxWidth: "100%",
-                  textAlign: "center",
-                  wordBreak: "break-word",
-                  whiteSpace: "normal",
-                  lineHeight: "1.2",
-                  display: "block",
-                }}>
+                <i
+                  className="ti ti-Form-text"
+                  style={{ fontSize: isMobile ? "14px" : "16px" }}
+                />
+                <span
+                  style={{
+                    fontSize: isMobile ? "6px" : "7px",
+                    fontWeight: 600,
+                    opacity: 0.8,
+                    maxWidth: "100%",
+                    textAlign: "center",
+                    wordBreak: "break-word",
+                    whiteSpace: "normal",
+                    lineHeight: "1.2",
+                    display: "block",
+                  }}
+                >
                   {doc.name}
                 </span>
               </div>
             )
           })}
-          {visibleItems.length < itemsPerRow && 
-            Array.from({ length: itemsPerRow - visibleItems.length }).map((_, i) => (
-              <div key={`empty-${i}`} style={{ visibility: "hidden", aspectRatio: "1 / 1" }} />
-            ))
-          }
+          {visibleItems.length < itemsPerRow &&
+            Array.from({ length: itemsPerRow - visibleItems.length }).map(
+              (_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  style={{ visibility: "hidden", aspectRatio: "1 / 1" }}
+                />
+              )
+            )}
         </div>
 
         {hasMore && showLeftArrow && (
@@ -295,8 +334,8 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
               left: "0",
               top: "50%",
               transform: "translateY(-50%)",
-              background: '#FFFFFF',
-              border: '1px solid #E5E7EB',
+              background: "#FFFFFF",
+              border: "1px solid #E5E7EB",
               borderRadius: "50%",
               width: isMobile ? "24px" : "28px",
               height: isMobile ? "24px" : "28px",
@@ -310,20 +349,23 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
               padding: 0,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#F5F5F5'
+              e.currentTarget.style.background = "#F5F5F5"
               e.currentTarget.style.transform = "translateY(-50%) scale(1.1)"
               e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)"
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#FFFFFF'
+              e.currentTarget.style.background = "#FFFFFF"
               e.currentTarget.style.transform = "translateY(-50%) scale(1)"
               e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)"
             }}
           >
-            <i className="ti ti-chevron-left" style={{ 
-              fontSize: isMobile ? "12px" : "14px",
-              color: '#111827',
-            }} />
+            <i
+              className="ti ti-chevron-left"
+              style={{
+                fontSize: isMobile ? "12px" : "14px",
+                color: "#111827",
+              }}
+            />
           </button>
         )}
 
@@ -335,8 +377,8 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
               right: "0",
               top: "50%",
               transform: "translateY(-50%)",
-              background: '#FFFFFF',
-              border: '1px solid #E5E7EB',
+              background: "#FFFFFF",
+              border: "1px solid #E5E7EB",
               borderRadius: "50%",
               width: isMobile ? "24px" : "28px",
               height: isMobile ? "24px" : "28px",
@@ -350,43 +392,50 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
               padding: 0,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#F5F5F5'
+              e.currentTarget.style.background = "#F5F5F5"
               e.currentTarget.style.transform = "translateY(-50%) scale(1.1)"
               e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)"
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#FFFFFF'
+              e.currentTarget.style.background = "#FFFFFF"
               e.currentTarget.style.transform = "translateY(-50%) scale(1)"
               e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)"
             }}
           >
-            <i className="ti ti-chevron-right" style={{ 
-              fontSize: isMobile ? "12px" : "14px",
-              color: '#111827',
-            }} />
+            <i
+              className="ti ti-chevron-right"
+              style={{
+                fontSize: isMobile ? "12px" : "14px",
+                color: "#111827",
+              }}
+            />
           </button>
         )}
       </div>
 
-      <div style={{ 
-        height: "1px", 
-        background: '#F5F5F5',
-        flexShrink: 0,
-      }} />
+      <div
+        style={{
+          height: "1px",
+          background: "#F5F5F5",
+          flexShrink: 0,
+        }}
+      />
 
-      <div style={{ 
-        display: "flex", 
-        flexDirection: "column", 
-        gap: "8px", 
-        flex: 1,
-        minHeight: 0,
-        overflow: "hidden",
-      }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          flex: 1,
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
         <span
           style={{
             fontSize: "11px",
             fontWeight: 700,
-            color: '#111827',
+            color: "#111827",
             letterSpacing: "0.3px",
             flexShrink: 0,
           }}
@@ -394,37 +443,42 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
           {getSectionTitle()}
         </span>
         {displayForms.length === 0 ? (
-          <span style={{ 
-            fontSize: "11px", 
-            color: '#6B7280',
-            padding: "8px 0",
-          }}>
+          <span
+            style={{
+              fontSize: "11px",
+              color: "#6B7280",
+              padding: "8px 0",
+            }}
+          >
             No forms to show.
           </span>
         ) : (
-          <ul style={{ 
-            listStyle: "none", 
-            margin: 0, 
-            padding: 0,
-            paddingRight: "12px",
-            display: "flex", 
-            flexDirection: "column", 
-            gap: isMobile ? "5px" : "7px",
-            flex: 1,
-            overflowY: "auto",
-            scrollbarWidth: "thin",
-          }}>
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              paddingRight: "12px",
+              display: "flex",
+              flexDirection: "column",
+              gap: isMobile ? "5px" : "7px",
+              flex: 1,
+              overflowY: "auto",
+              scrollbarWidth: "thin",
+            }}
+          >
             {displayForms.map((doc) => {
               const meta = STATUS_META[doc.status]
               return (
                 <li
                   key={doc.id}
+                  onClick={() => router.push(`/student/forms?formId=${doc.id}`)}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: isMobile ? "6px" : "8px",
                     fontSize: "11px",
-                    color: '#6B7280',
+                    color: "#6B7280",
                     opacity: 0.8,
                     padding: "2px 0",
                     transition: "all 0.2s ease-in-out",
@@ -432,12 +486,12 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.opacity = "1"
-                    e.currentTarget.style.color = '#111827'
+                    e.currentTarget.style.color = "#111827"
                     e.currentTarget.style.transform = "translateX(4px)"
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.opacity = "0.8"
-                    e.currentTarget.style.color = '#6B7280'
+                    e.currentTarget.style.color = "#6B7280"
                     e.currentTarget.style.transform = "translateX(0)"
                   }}
                 >
@@ -450,20 +504,24 @@ function FormsCompact({ Forms }: { Forms: FormItem[] }) {
                       flexShrink: 0,
                     }}
                   />
-                  <span style={{ 
-                    whiteSpace: "nowrap", 
-                    overflow: "hidden", 
-                    textOverflow: "ellipsis",
-                    flex: 1,
-                  }}>
+                  <span
+                    style={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      flex: 1,
+                    }}
+                  >
                     {doc.name}
                   </span>
-                  <span style={{ 
-                    fontSize: "10px", 
-                    color: '#6B7280', 
-                    fontWeight: 600,
-                    flexShrink: 0,
-                  }}>
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      color: "#6B7280",
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
                     {doc.note || meta.label}
                   </span>
                 </li>
@@ -483,26 +541,30 @@ function FormsFull({
   Forms: FormItem[]
   maxListHeight: number
 }) {
+  const router = useRouter()
   const [filter, setFilter] = useState<"all" | FormStatus>("all")
   const [isMobile, setIsMobile] = useState(false)
-  
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768)
     }
     handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  const submittedCount = useMemo(() => Forms.filter((d) => d.status === "submitted").length, [Forms])
+  const submittedCount = useMemo(
+    () => Forms.filter((d) => d.status === "submitted").length,
+    [Forms]
+  )
   const total = Forms.length
   const pct = total === 0 ? 0 : Math.round((submittedCount / total) * 100)
 
   const getVisibleForms = () => {
     const pendingDocs = Forms.filter((d) => d.status === "pending")
     const submittedDocs = Forms.filter((d) => d.status === "submitted")
-    
+
     if (filter === "all") {
       return [...pendingDocs, ...submittedDocs]
     } else if (filter === "submitted") {
@@ -525,86 +587,96 @@ function FormsFull({
   return (
     <div
       style={{
-        background: '#FFFFFF',
-        borderTopLeftRadius: '14px',
-        borderTopRightRadius: '14px',
-        borderBottomLeftRadius: '14px',
-        borderBottomRightRadius: '14px',
-        border: '1px solid #E5E7EB',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.07)',
-        padding: isMobile ? '28px 16px' : '28px 24px',
+        background: "#FFFFFF",
+        borderTopLeftRadius: "14px",
+        borderTopRightRadius: "14px",
+        borderBottomLeftRadius: "14px",
+        borderBottomRightRadius: "14px",
+        border: "1px solid #E5E7EB",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.07)",
+        padding: isMobile ? "28px 16px" : "28px 24px",
         display: "flex",
         flexDirection: "column",
         gap: isMobile ? "12px" : "16px",
         height: "100%",
-        fontFamily: 'var(--font-content, sans-serif)',
+        fontFamily: "var(--font-content, sans-serif)",
       }}
     >
-      <div style={{ 
-        display: "flex", 
-        alignItems: "center", 
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: "8px",
-        flexShrink: 0,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "8px",
+          flexShrink: 0,
+        }}
+      >
         <span
           style={{
             fontWeight: 700,
             fontSize: "13px",
-            color: '#111827',
+            color: "#111827",
             letterSpacing: "0.5px",
           }}
         >
           FormS
         </span>
-        <span style={{ 
-          fontSize: "11px", 
-          color: '#6B7280', 
-          fontWeight: 600 
-        }}>
+        <span
+          style={{
+            fontSize: "11px",
+            color: "#6B7280",
+            fontWeight: 600,
+          }}
+        >
           {submittedCount} / {total} submitted
         </span>
       </div>
 
-      <div style={{ 
-        width: "100%", 
-        height: isMobile ? "6px" : "8px", 
-        borderRadius: "5px", 
-        background: '#F5F5F5', 
-        overflow: "hidden",
-        flexShrink: 0,
-      }}>
-        <div style={{ 
-          width: `${pct}%`, 
-          height: "100%", 
-          background: '#F3AA2C', 
-          borderRadius: "5px", 
-          transition: "width 0.3s ease" 
-        }} />
+      <div
+        style={{
+          width: "100%",
+          height: isMobile ? "6px" : "8px",
+          borderRadius: "5px",
+          background: "#F5F5F5",
+          overflow: "hidden",
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            background: "#F3AA2C",
+            borderRadius: "5px",
+            transition: "width 0.3s ease",
+          }}
+        />
       </div>
 
-      <div style={{ 
-        display: "flex", 
-        gap: isMobile ? "6px" : "8px", 
-        flexWrap: "wrap",
-        flexShrink: 0,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          gap: isMobile ? "6px" : "8px",
+          flexWrap: "wrap",
+          flexShrink: 0,
+        }}
+      >
         {(["all", "submitted", "pending"] as const).map((key) => {
           const active = filter === key
           const isAll = key === "all"
           const meta = isAll ? null : STATUS_META[key]
-          
-          let activeColor = '#111827'
-          let activeBg = '#F5F5F5'
+
+          let activeColor = "#111827"
+          let activeBg = "#F5F5F5"
           let label = "All"
-          
+
           if (!isAll) {
             activeColor = meta!.color
             activeBg = meta!.bg
             label = meta!.label
           }
-          
+
           return (
             <button
               key={key}
@@ -614,24 +686,24 @@ function FormsFull({
                 fontWeight: 600,
                 padding: isMobile ? "4px 10px" : "6px 14px",
                 borderRadius: "999px",
-                border: `2px solid ${active ? activeColor : '#E5E7EB'}`,
-                background: active ? activeBg : '#FFFFFF',
-                color: active ? activeColor : '#6B7280',
+                border: `2px solid ${active ? activeColor : "#E5E7EB"}`,
+                background: active ? activeBg : "#FFFFFF",
+                color: active ? activeColor : "#6B7280",
                 cursor: "pointer",
                 whiteSpace: "nowrap",
                 transition: "all 0.15s",
-                fontFamily: 'var(--font-content, sans-serif)',
+                fontFamily: "var(--font-content, sans-serif)",
               }}
               onMouseEnter={(e) => {
                 if (!active) {
-                  e.currentTarget.style.background = '#F5F5F5'
-                  e.currentTarget.style.borderColor = '#6B7280'
+                  e.currentTarget.style.background = "#F5F5F5"
+                  e.currentTarget.style.borderColor = "#6B7280"
                 }
               }}
               onMouseLeave={(e) => {
                 if (!active) {
-                  e.currentTarget.style.background = '#FFFFFF'
-                  e.currentTarget.style.borderColor = '#E5E7EB'
+                  e.currentTarget.style.background = "#FFFFFF"
+                  e.currentTarget.style.borderColor = "#E5E7EB"
                 }
               }}
             >
@@ -654,12 +726,14 @@ function FormsFull({
         }}
       >
         {visible.length === 0 && (
-          <div style={{ 
-            fontSize: "11px", 
-            color: '#BBBBBB', 
-            textAlign: "center", 
-            padding: "20px 0" 
-          }}>
+          <div
+            style={{
+              fontSize: "11px",
+              color: "#BBBBBB",
+              textAlign: "center",
+              padding: "20px 0",
+            }}
+          >
             Nothing here.
           </div>
         )}
@@ -669,14 +743,17 @@ function FormsFull({
           return (
             <div
               key={doc.id}
+              onClick={() => router.push(`/student/forms?formId=${doc.id}`)}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: isMobile ? "10px" : "12px",
                 padding: isMobile ? "8px 10px" : "10px 12px",
                 borderRadius: "10px",
-                border: `1.5px solid ${isSubmitted ? '#2D6A4F' : '#F3AA2C'}`,
-                background: isSubmitted ? 'rgba(45,106,79,0.06)' : 'rgba(243,170,44,0.08)',
+                border: `1.5px solid ${isSubmitted ? "#2D6A4F" : "#F3AA2C"}`,
+                background: isSubmitted
+                  ? "rgba(45,106,79,0.06)"
+                  : "rgba(243,170,44,0.08)",
                 transition: "all 0.2s ease-in-out",
                 cursor: "pointer",
               }}
@@ -684,13 +761,17 @@ function FormsFull({
                 e.currentTarget.style.borderWidth = "2.5px"
                 e.currentTarget.style.transform = "scale(1.02)"
                 e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"
-                e.currentTarget.style.borderColor = isSubmitted ? '#2D6A4F' : '#F3AA2C'
+                e.currentTarget.style.borderColor = isSubmitted
+                  ? "#2D6A4F"
+                  : "#F3AA2C"
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderWidth = "1.5px"
                 e.currentTarget.style.transform = "scale(1)"
                 e.currentTarget.style.boxShadow = "none"
-                e.currentTarget.style.borderColor = isSubmitted ? '#2D6A4F' : '#F3AA2C'
+                e.currentTarget.style.borderColor = isSubmitted
+                  ? "#2D6A4F"
+                  : "#F3AA2C"
               }}
             >
               <span
@@ -699,15 +780,18 @@ function FormsFull({
                   height: isMobile ? "30px" : "34px",
                   flexShrink: 0,
                   borderRadius: "8px",
-                  border: `1.5px solid ${isSubmitted ? '#2D6A4F' : '#F3AA2C'}`,
+                  border: `1.5px solid ${isSubmitted ? "#2D6A4F" : "#F3AA2C"}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: isSubmitted ? meta.bg : 'rgba(243,170,44,0.15)',
-                  color: isSubmitted ? meta.color : '#B8860B',
+                  background: isSubmitted ? meta.bg : "rgba(243,170,44,0.15)",
+                  color: isSubmitted ? meta.color : "#B8860B",
                 }}
               >
-                <i className="ti ti-Form-text" style={{ fontSize: isMobile ? "15px" : "17px" }} />
+                <i
+                  className="ti ti-Form-text"
+                  style={{ fontSize: isMobile ? "15px" : "17px" }}
+                />
               </span>
 
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -715,7 +799,7 @@ function FormsFull({
                   style={{
                     fontSize: "11px",
                     fontWeight: 600,
-                    color: isSubmitted ? '#2D6A4F' : '#B8860B',
+                    color: isSubmitted ? "#2D6A4F" : "#B8860B",
                     wordBreak: "break-word",
                     whiteSpace: "normal",
                     lineHeight: "1.3",
@@ -724,16 +808,18 @@ function FormsFull({
                   {doc.name}
                 </div>
                 {doc.note && (
-                  <div style={{ 
-                    fontSize: "11px", 
-                    fontWeight: 500,
-                    color: isSubmitted ? '#2D6A4F' : '#B8860B', 
-                    marginTop: "1px",
-                    opacity: 0.7,
-                    wordBreak: "break-word",
-                    whiteSpace: "normal",
-                    lineHeight: "1.2",
-                  }}>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 500,
+                      color: isSubmitted ? "#2D6A4F" : "#B8860B",
+                      marginTop: "1px",
+                      opacity: 0.7,
+                      wordBreak: "break-word",
+                      whiteSpace: "normal",
+                      lineHeight: "1.2",
+                    }}
+                  >
                     {doc.note}
                   </div>
                 )}
@@ -746,8 +832,8 @@ function FormsFull({
                   gap: "4px",
                   fontSize: "10px",
                   fontWeight: 700,
-                  color: isSubmitted ? '#2D6A4F' : '#B8860B',
-                  background: isSubmitted ? meta.bg : 'rgba(243,170,44,0.15)',
+                  color: isSubmitted ? "#2D6A4F" : "#B8860B",
+                  background: isSubmitted ? meta.bg : "rgba(243,170,44,0.15)",
                   padding: isMobile ? "3px 8px" : "4px 9px",
                   borderRadius: "999px",
                   flexShrink: 0,
