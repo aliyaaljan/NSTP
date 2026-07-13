@@ -1109,13 +1109,13 @@ export default function StudentFilesPage() {
           <div
             style={{
               position: "fixed",
-              top: 24,
-              right: 24,
-              zIndex: 9999,
+              top: isMobile ? 70 : 20,
+              right: isMobile ? 12 : 20,
+              left: isMobile ? 12 : "auto",
+              zIndex: 300,
               display: "flex",
               flexDirection: "column",
-              alignItems: "flex-end",
-              gap: 8,
+              gap: isMobile ? 10 : 14,
               pointerEvents: "none",
             }}
           >
