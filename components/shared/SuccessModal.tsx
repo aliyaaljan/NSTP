@@ -19,6 +19,15 @@ export default function SuccessToast({
   const [isLeaving, setIsLeaving] = useState(false)
   const DURATION = 5000
 
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 767)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
   const onCloseRef = useRef(onClose)
   useEffect(() => {
     onCloseRef.current = onClose
@@ -61,8 +70,9 @@ export default function SuccessToast({
   return (
     <div
       style={{
-        width: 340,
-        marginBottom: 14,
+        width: isMobile ? "100%" : 340,
+        maxWidth: isMobile ? "calc(100vw - 24px)" : 340,
+        marginBottom: isMobile ? 10 : 14,
         fontFamily: "var(--font-montserrat), sans-serif",
         animation: isLeaving
           ? "toastOut .25s ease forwards"
@@ -75,20 +85,20 @@ export default function SuccessToast({
           position: "relative",
           background: "#FFFFFF",
           border: `1px solid ${theme.border}`,
-          borderRadius: 16,
-          padding: "16px 16px 16px 14px",
+          borderRadius: isMobile ? 14 : 16,
+          padding: isMobile ? "13px 13px 13px 12px" : "16px 16px 16px 14px",
           display: "flex",
           alignItems: "flex-start",
-          gap: 12,
+          gap: isMobile ? 10 : 12,
           boxShadow: "0 4px 12px rgba(0,0,0,.05), 0 12px 32px rgba(0,0,0,.09)",
           overflow: "hidden",
         }}
       >
         <div
           style={{
-            width: 34,
-            height: 34,
-            minWidth: 34,
+            width: isMobile ? 28 : 34,
+            height: isMobile ? 28 : 34,
+            minWidth: isMobile ? 28 : 34,
             borderRadius: "50%",
             background: theme.iconBg,
             display: "flex",
@@ -98,16 +108,16 @@ export default function SuccessToast({
           }}
         >
           {isError ? (
-            <IconAlertCircle size={19} stroke={2} color={theme.iconColor} />
+            <IconAlertCircle size={isMobile ? 16 : 19} stroke={2} color={theme.iconColor} />
           ) : (
-            <IconCircleCheck size={19} stroke={2} color={theme.iconColor} />
+            <IconCircleCheck size={isMobile ? 16 : 19} stroke={2} color={theme.iconColor} />
           )}
         </div>
 
         <div style={{ flex: 1, paddingTop: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: 13.5,
+              fontSize: isMobile ? 12.5 : 13.5,
               fontWeight: 700,
               color: "#1F1F1D",
               marginBottom: 3,
@@ -118,7 +128,7 @@ export default function SuccessToast({
           </div>
           <div
             style={{
-              fontSize: 12.5,
+              fontSize: isMobile ? 11.5 : 12.5,
               color: "#7A7A7A",
               lineHeight: 1.5,
               wordBreak: "break-word",
@@ -143,6 +153,7 @@ export default function SuccessToast({
             alignItems: "center",
             justifyContent: "center",
             transition: "background .15s, color .15s",
+            flexShrink: 0,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "#F3F3F1"
@@ -153,7 +164,7 @@ export default function SuccessToast({
             e.currentTarget.style.color = "#B5B5B0"
           }}
         >
-          <IconX size={16} stroke={2.25} />
+          <IconX size={isMobile ? 14 : 16} stroke={2.25} />
         </button>
 
         <div
@@ -161,11 +172,11 @@ export default function SuccessToast({
             position: "absolute",
             left: 0,
             bottom: 0,
-            height: 3,
+            height: isMobile ? 2.5 : 3,
             width: "100%",
             background: theme.barColor,
             opacity: 0.85,
-            borderRadius: "0 0 0 16px",
+            borderRadius: isMobile ? "0 0 0 14px" : "0 0 0 16px",
             animation: show
               ? `toastProgress ${DURATION}ms linear forwards`
               : "none",
