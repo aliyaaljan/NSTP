@@ -297,24 +297,32 @@ export default function StudentSidebar({
     router.refresh()
   }
 
+  const toggleSidebar = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (target.closest('a') || target.closest('button')) {
+      return
+    }
+    setExpanded(prev => !prev)
+  }
+
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
       if (
         sidebarRef.current &&
-        !sidebarRef.current.contains(event.target as Node)
+        !sidebarRef.current.contains(event.target as Node) &&
+        expanded &&
+        !isMobile
       ) {
         setExpanded(false)
       }
     }
 
-    if (!isMobile) {
-      document.addEventListener("mousedown", handleOutsideClick)
-    }
+    document.addEventListener("mousedown", handleOutsideClick)
 
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick)
     }
-  }, [isMobile])
+  }, [expanded, isMobile])
 
   // Dynamic styles for mobile
   const mobileStyles = isMobile ? {
@@ -439,6 +447,13 @@ export default function StudentSidebar({
             fontSize: 15,
             fontWeight: 600,
             color: active ? C.greenDark : C.idleText,
+            maxWidth: expanded ? 200 : 0,
+            opacity: expanded ? 1 : 0,
+            overflow: 'hidden',
+            textOverflow: 'clip',
+            whiteSpace: 'nowrap',
+            display: 'inline-block',
+            transition: 'max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease 0.1s',
           }}
         >
           {item.label}
@@ -464,30 +479,63 @@ export default function StudentSidebar({
           overflow: hidden;
           white-space: nowrap;
           z-index: 60;
-          transition: width 0.25s ease;
+          transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: pointer;
         }
 
         .nstp-rail.expanded {
           width: ${EXPANDED_W}px;
-        }
-
-        .nstp-rail.expanded .nstp-expand {
-          opacity: 1;
+          cursor: default;
         }
 
         .nstp-expand {
           opacity: 0;
-          transition: opacity 0.2s ease;
+          max-width: 0;
+          overflow: hidden;
+          text-overflow: clip;
+          white-space: nowrap;
+          display: inline-block;
+          transition: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease 0.1s;
+        }
+
+        .nstp-rail.expanded .nstp-expand {
+          opacity: 1;
+          max-width: 200px;
+        }
+
+        .nstp-header .nstp-expand {
+          max-width: 0;
+          transition: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease 0.1s;
+        }
+
+        .nstp-rail.expanded .nstp-header .nstp-expand {
+          max-width: 200px;
         }
 
         .nstp-link {
-          transition: color 0.13s;
+          transition: color 0.13s, background 0.13s;
           border-radius: 999px;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: flex-start;
           color: ${C.idleText};
+          position: relative;
+        }
+
+        .nstp-link .nstp-expand {
+          max-width: 0;
+          opacity: 0;
+          overflow: hidden;
+          text-overflow: clip;
+          white-space: nowrap;
+          display: inline-block;
+          transition: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease 0.1s;
+        }
+
+        .nstp-rail.expanded .nstp-link .nstp-expand {
+          max-width: 200px;
+          opacity: 1;
         }
 
         .nstp-link:hover:not(.active) {
@@ -543,6 +591,7 @@ export default function StudentSidebar({
             background: rgba(20,73,46,.92);
             border: 1px solid rgba(255,255,255,.15);
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            cursor: default;
           }
 
           .nstp-header,
@@ -856,11 +905,7 @@ export default function StudentSidebar({
       <aside
         ref={sidebarRef}
         className={`nstp-rail ${expanded ? "expanded" : ""}`}
-        onClick={(e) => {
-          if (!isMobile) {
-            setExpanded((prev) => !prev)
-          }
-        }}
+        onClick={toggleSidebar}
       >
         {/* header */}
         <div
@@ -901,9 +946,11 @@ export default function StudentSidebar({
             className="nstp-expand"
             style={{
               marginLeft: expanded ? 10 : 0,
-              width: expanded ? "auto" : 0,
               overflow: "hidden",
               flexShrink: 0,
+              maxWidth: expanded ? 200 : 0,
+              opacity: expanded ? 1 : 0,
+              transition: 'max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease 0.1s',
             }}
           >
             <div className={goblin.className}
@@ -971,9 +1018,11 @@ export default function StudentSidebar({
                     color: "rgba(255,255,255,0.45)",
                     letterSpacing: 1.2,
                     textTransform: "uppercase",
-                    opacity: expanded ? 1 : 0,
-                    transition: "opacity 0.2s ease",
                     whiteSpace: "nowrap",
+                    maxWidth: expanded ? 200 : 0,
+                    overflow: "hidden",
+                    opacity: expanded ? 1 : 0,
+                    transition: "max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease 0.15s",
                   }}
                 >
                   MAIN
@@ -1051,9 +1100,11 @@ export default function StudentSidebar({
                         color: "rgba(255,255,255,0.45)",
                         letterSpacing: 1.2,
                         textTransform: "uppercase",
-                        opacity: expanded ? 1 : 0,
-                        transition: "opacity 0.2s ease",
                         whiteSpace: "nowrap",
+                        maxWidth: expanded ? 200 : 0,
+                        overflow: "hidden",
+                        opacity: expanded ? 1 : 0,
+                        transition: "max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease 0.15s",
                       }}
                     >
                       {group.heading}
@@ -1123,6 +1174,12 @@ export default function StudentSidebar({
                 fontSize: 13,
                 fontWeight: 500,
                 color: C.logout,
+                maxWidth: expanded ? 200 : 0,
+                opacity: expanded ? 1 : 0,
+                transition: 'max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease 0.1s',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                display: 'inline-block',
               }}
             >
               Log Out
