@@ -1495,8 +1495,9 @@ if (loading || contextLoading) {
 
          <KpiStatCardGrid columns={4}>
            {stats.map((stat) => {
-               const isHovered = hoveredCard === stat.label
                const isActive = activeFilter === stat.label
+               const isHovered = hoveredCard === stat.label
+               const isHighlighted = isActive || isHovered
 
                return (
                    <div
@@ -1514,26 +1515,17 @@ if (loading || contextLoading) {
                        overflow: "hidden",
                        background: COLORS.cardBg,
                     
-                       color:
-                         hoveredCard === stat.label || activeFilter === stat.label
-                           ? stat.color.icon
-                           : "#666",
+                       color: isHighlighted ? stat.color.icon : "#666",
                     
-                       border: `2px solid ${
-                         hoveredCard === stat.label || activeFilter === stat.label
-                           ? stat.color.icon
-                           : COLORS.border
-                       }`,
+                       border: `2px solid ${isHighlighted ? stat.color.icon : COLORS.border}`,
                     
-                       transform:
-                           hoveredCard === stat.label
-                               ? "translateY(-1.5px)"
-                               : "translateY(0)",
+                       transform: isHovered
+                           ? "translateY(-8px)"
+                           : "translateY(0)",
 
-                       boxShadow:
-                           hoveredCard === stat.label
-                               ? "0 6px 14px rgba(0,0,0,.07)"
-                               : "0 4px 10px rgba(0,0,0,.05)",
+                       boxShadow: isHovered
+                           ? "0 6px 14px rgba(0,0,0,.07)"
+                           : "0 4px 10px rgba(0,0,0,.05)",
                     
                        transition:
                            "transform .2s ease, box-shadow .2s ease, border-color .18s ease, color .18s ease",
@@ -2750,28 +2742,29 @@ if (loading || contextLoading) {
      )}
 
      {/* saffi - hanggang last div */}
-      <div
-        style={{
-          position: "fixed",
-          top: 20,
-          right: 20,
-          zIndex: 300,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          pointerEvents: "none",
-        }}
-      >
-        {toasts.map((toast) => (
-          <SuccessModal
-            key={toast.id}
-            show={true}
-            message={toast.message}
-            type={toast.type}
-            onClose={() => removeToast(toast.id)}
-          />
-        ))}
-      </div>
+     <div
+      style={{
+        position: "fixed",
+        top: isMobile ? 70 : 20,
+        right: isMobile ? 12 : 20,
+        left: isMobile ? 12 : "auto",
+        zIndex: 300,
+        display: "flex",
+        flexDirection: "column",
+        gap: isMobile ? 10 : 14,
+        pointerEvents: "none",
+      }}
+    >
+      {toasts.map((toast) => (
+        <SuccessModal
+          key={toast.id}
+          show={true}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => removeToast(toast.id)}
+        />
+      ))}
+    </div>
 
    </>
  )
