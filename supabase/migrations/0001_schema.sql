@@ -185,6 +185,7 @@ create table qr_current_token (
   expires_at          timestamptz not null,   -- generated_at + 1 minute
   is_consumed         boolean not null default false,
   consumed_at         timestamptz,
+  generated_meta      jsonb,  -- server-stored QR generation metadata (geo/device); QR token itself only carries {enrollmentId, nonce, expiry}
   updated_at          timestamptz not null default now()
 );
 

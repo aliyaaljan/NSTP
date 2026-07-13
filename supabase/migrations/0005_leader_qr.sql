@@ -208,16 +208,20 @@ grant  execute on function public.get_leader_section_dashboard() to authenticate
 -- 4. record_attendance_scan — QR scan → time-IN for a student
 --
 --    Called exclusively via the service-role key from Node server actions.
---    The Node action verifies scanner authz before calling this function.
---    This function trusts only the DB token row — never the QR payload's
---    enrollment or section fields. p_generated_meta carries the student's
---    device/location snapshot; p_scan_meta carries the scanner's.
+--    Scanner authz (admin / section adviser / active student leader) is
+--    verified in-SQL against the trusted p_recorded_by, since auth.uid() is
+--    NULL under the service-role client. This function trusts only the DB
+--    token row — never the QR payload's enrollment or section fields. The
+--    student's device/location snapshot at generation time comes from
+--    qr_current_token.generated_meta (returned by the CAS UPDATE below);
+--    p_scan_meta carries the scanner's.
 -- ============================================================
+drop function if exists public.record_attendance_scan(uuid, text, uuid, jsonb, jsonb);
+
 create or replace function public.record_attendance_scan(
   p_enrollment_id  uuid,
   p_nonce          text,
   p_recorded_by    uuid,
-  p_generated_meta jsonb,
   p_scan_meta      jsonb
 ) returns jsonb
 language plpgsql security definer
@@ -228,7 +232,8 @@ declare
   v_status_open    uuid;
   v_session_id     uuid;
   v_effective_at   timestamptz;
-  v_rows_updated   int;
+  v_section_id     uuid;
+  v_meta           jsonb;
   -- fraud-flag rule state
   v_student_user   uuid;
   v_student_name   text;
@@ -256,14 +261,39 @@ begin
   select attendance_event_source_id   into v_source_qr    from public.attendance_event_source   where code = 'qr_scan';
   select attendance_session_status_id into v_status_open  from public.attendance_session_status where code = 'open';
 
-  -- Serialize concurrent time-ins for the same student; resolve the student.
-  select e.student_user_id into v_student_user
+  -- Serialize concurrent time-ins for the same student; resolve student + section.
+  select e.student_user_id, e.section_id into v_student_user, v_section_id
   from   public.enrollment e
   where  e.enrollment_id = p_enrollment_id
   for update;
 
   if v_student_user is null then
     raise exception 'enrollment not found';
+  end if;
+
+  -- Authz (moved from the TS-side app_leads_section/app_advises_section RPC
+  -- calls — auth.uid() is NULL under the service client, so this keys on the
+  -- trusted p_recorded_by from the caller's already-validated session):
+  -- admin, the section's adviser, or an active student leader of an active section.
+  if not (
+    exists (select 1 from public.app_user u
+            join   public.role r on r.role_id = u.role_id
+            where  u.app_user_id = p_recorded_by and r.code = 'admin')
+    or exists (select 1 from public.section s
+               where  s.section_id = v_section_id
+                 and  s.adviser_user_id = p_recorded_by)
+    or exists (select 1
+               from   public.enrollment le
+               join   public.enrollment_status les on les.enrollment_status_id = le.enrollment_status_id
+               join   public.section           ls  on ls.section_id = le.section_id
+               join   public.section_status    lss on lss.section_status_id = ls.section_status_id
+               where  le.section_id        = v_section_id
+                 and  le.student_user_id   = p_recorded_by
+                 and  le.is_student_leader = true
+                 and  les.code             = 'active'
+                 and  lss.code             = 'active')
+  ) then
+    raise exception 'not authorised to scan for this section';
   end if;
 
   select u.full_name into v_student_name
@@ -279,34 +309,38 @@ begin
     raise exception 'student already has an open attendance session';
   end if;
 
-  -- CAS consume: the single authoritative validity check.
-  -- Correct nonce + not yet consumed + not expired (DB clock).
+  -- CAS consume: the single authoritative validity check, plus fetch the
+  -- server-stored generation metadata (the QR token itself no longer carries it).
   update public.qr_current_token
   set    is_consumed = true,
          consumed_at = now()
   where  enrollment_id = p_enrollment_id
     and  current_nonce = p_nonce
     and  is_consumed   = false
-    and  expires_at    > now();
+    and  expires_at    > now()
+  returning generated_meta into v_meta;
 
-  get diagnostics v_rows_updated = row_count;
-  if v_rows_updated = 0 then
+  if not found then
     raise exception 'QR token is invalid, expired, or already used';
   end if;
+
+  -- Rows written before this deploy have NULL meta: fraud rules R1-R3 below
+  -- simply see no data and don't fire (never a false flag, never a blocked scan).
+  v_meta := coalesce(v_meta, '{}'::jsonb);
 
   v_effective_at := now();
   v_at           := to_char(v_effective_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
   v_manila_day   := (v_effective_at at time zone 'Asia/Manila')::date;
 
-  v_gen_device  := nullif(p_generated_meta->>'device_id', '');
-  v_gen_dev_new := coalesce((p_generated_meta->>'device_id_is_new')::boolean, false);
-  v_gen_ip      := nullif(p_generated_meta->>'ip_address', '')::inet;
-  v_gen_devtype := nullif(p_generated_meta->>'device_type', '');
-  v_gen_browser := nullif(p_generated_meta->>'browser', '');
-  v_gen_os      := nullif(p_generated_meta->>'os', '');
-  v_gen_lat     := (p_generated_meta->>'latitude')::numeric;
-  v_gen_lng     := (p_generated_meta->>'longitude')::numeric;
-  v_gen_acc     := (p_generated_meta->>'accuracy_meter')::numeric;
+  v_gen_device  := nullif(v_meta->>'device_id', '');
+  v_gen_dev_new := coalesce((v_meta->>'device_id_is_new')::boolean, false);
+  v_gen_ip      := nullif(v_meta->>'ip_address', '')::inet;
+  v_gen_devtype := nullif(v_meta->>'device_type', '');
+  v_gen_browser := nullif(v_meta->>'browser', '');
+  v_gen_os      := nullif(v_meta->>'os', '');
+  v_gen_lat     := (v_meta->>'latitude')::numeric;
+  v_gen_lng     := (v_meta->>'longitude')::numeric;
+  v_gen_acc     := (v_meta->>'accuracy_meter')::numeric;
   v_scan_lat    := (p_scan_meta->>'latitude')::numeric;
   v_scan_lng    := (p_scan_meta->>'longitude')::numeric;
   v_scan_acc    := (p_scan_meta->>'accuracy_meter')::numeric;
@@ -480,8 +514,8 @@ begin
       v_effective_at,
       p_recorded_by,
       p_nonce,
-      p_generated_meta->>'signature',
-      (p_generated_meta->>'generated_at')::timestamptz,
+      v_meta->>'signature',
+      (v_meta->>'generated_at')::timestamptz,
       v_gen_lat,
       v_gen_lng,
       v_gen_acc,
@@ -526,16 +560,18 @@ begin
 
   -- Deliberately no flag info in the return value — the scanner may be the accomplice.
   return jsonb_build_object(
-    'event_type',   'time_in',
-    'session_id',   v_session_id,
-    'effective_at', v_effective_at
+    'event_type',      'time_in',
+    'session_id',      v_session_id,
+    'effective_at',    v_effective_at,
+    'student_name',    v_student_name,
+    'student_user_id', v_student_user
   );
 end;
 $$;
 
-revoke execute on function public.record_attendance_scan(uuid, text, uuid, jsonb, jsonb) from public;
-revoke execute on function public.record_attendance_scan(uuid, text, uuid, jsonb, jsonb) from anon;
-revoke execute on function public.record_attendance_scan(uuid, text, uuid, jsonb, jsonb) from authenticated;
+revoke execute on function public.record_attendance_scan(uuid, text, uuid, jsonb) from public;
+revoke execute on function public.record_attendance_scan(uuid, text, uuid, jsonb) from anon;
+revoke execute on function public.record_attendance_scan(uuid, text, uuid, jsonb) from authenticated;
 
 -- ============================================================
 -- 5. record_leader_time_in — leader self-opens their own session

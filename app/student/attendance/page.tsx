@@ -301,12 +301,13 @@ export default function QRGenerationPage() {
 
   useEffect(() => {
     if (!generated) return
+    const PREFETCH_MS = 5000
     const id = setInterval(() => {
       setNow(Date.now())
       const d = displayRef.current
       if (
         d &&
-        new Date(d.expiresAt).getTime() <= Date.now() &&
+        new Date(d.expiresAt).getTime() - Date.now() <= PREFETCH_MS &&
         !generatingRef.current
       ) {
         runGenerate({ silent: true })
@@ -559,8 +560,8 @@ export default function QRGenerationPage() {
       }
 
         .qr-code {
-          width: 220px;
-          height: 220px;
+          width: 300px;
+          height: 300px;
           border-radius: 8px;
           user-select: none;
           -webkit-user-select: none;
@@ -838,8 +839,8 @@ export default function QRGenerationPage() {
 
 
           .qr-code {
-            width: 160px;
-            height: 160px;
+            width: 280px;
+            height: 280px;
           }
 
           .qr-generate-button {
@@ -881,8 +882,8 @@ export default function QRGenerationPage() {
           }
 
           .qr-code {
-            width: 130px;
-            height: 130px;
+            width: 240px;
+            height: 240px;
           }
 
           .qr-box {
@@ -1161,17 +1162,17 @@ export default function QRGenerationPage() {
                   <div className="qr-display">
                     <div className="qr-active">● QR ACTIVE</div>
 
-                    <div 
-                      className="qr-code" 
+                    <div
+                      className="qr-code"
                       style={{
-                        width: isSmallMobile ? 130 : isMobile ? 160 : 220,
-                        height: isSmallMobile ? 130 : isMobile ? 160 : 220,
+                        width: isSmallMobile ? 240 : isMobile ? 280 : 300,
+                        height: isSmallMobile ? 240 : isMobile ? 280 : 300,
                       }}
                     >
                       {token && !qrHidden && (
                         <QRCodeSVG
                           value={token}
-                          size={isSmallMobile ? 130 : isMobile ? 160 : 220}
+                          size={isSmallMobile ? 240 : isMobile ? 280 : 300}
                           level="M"
                           style={{
                             width: "100%",

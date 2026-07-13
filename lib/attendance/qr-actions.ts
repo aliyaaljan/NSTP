@@ -2,34 +2,19 @@
 
 import { randomBytes } from "crypto"
 import { headers } from "next/headers"
+import { after } from "next/server"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { getActiveLeaderEnrollment } from "@/lib/auth/leader"
 import { resolveActiveStudentEnrollment } from "@/lib/student/enrollment"
 import { parseUserAgent } from "@/lib/user-agent"
-import { encryptQrPayload, decryptQrPayload } from "@/lib/attendance/qr-crypto"
+import { encryptQrBinary, decryptQrToken, type DecryptedQr } from "@/lib/attendance/qr-crypto"
 import { lookupId } from "@/lib/lookups"
 import { getOrCreateDeviceId } from "@/lib/attendance/device-id"
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-export type QrTokenPayload = {
-  enrollmentId: string
-  nonce: string
-  generatedAt: string
-  expiresAt: string
-  latitude: number
-  longitude: number
-  accuracy_meter: number
-  device_type: string | null
-  browser: string | null
-  os: string | null
-  ip_address: string | null
-  device_id: string | null
-  device_id_is_new: boolean
-}
 
 export type QrDisplayInfo = {
   generatedAt: string
@@ -129,11 +114,11 @@ export async function generateQrToken(
   const { device_type, browser, os, ip_address: ip } = await getRequestClientMeta()
   const dev = await getOrCreateDeviceId()
 
-  const payload: QrTokenPayload = {
-    enrollmentId,
-    nonce,
-    generatedAt: generatedAt.toISOString(),
-    expiresAt: expiresAt.toISOString(),
+  // Everything the old QR payload carried now lives server-side; the scan RPC
+  // reads these exact keys back out of qr_current_token.generated_meta.
+  const generatedMeta = {
+    signature: null,
+    generated_at: generatedAt.toISOString(),
     latitude: geo.latitude,
     longitude: geo.longitude,
     accuracy_meter: geo.accuracy_meter ?? 0,
@@ -147,7 +132,11 @@ export async function generateQrToken(
 
   let token: string
   try {
-    token = encryptQrPayload(payload)
+    token = encryptQrBinary({
+      enrollmentId,
+      nonceHex: nonce,
+      expiresAtMs: expiresAt.getTime(),
+    })
   } catch (e) {
     console.error("[generateQrToken] encryption failed", e)
     return {
@@ -166,6 +155,7 @@ export async function generateQrToken(
         expires_at: expiresAt.toISOString(),
         is_consumed: false,
         consumed_at: null,
+        generated_meta: generatedMeta,
       },
       { onConflict: "enrollment_id" }
     )
@@ -206,9 +196,9 @@ export async function recordScan(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "Not authenticated", code: "not_authenticated" }
 
-  let payload: Record<string, unknown> | null
+  let decrypted: DecryptedQr
   try {
-    payload = decryptQrPayload(token)
+    decrypted = decryptQrToken(token)
   } catch (e) {
     console.error("[recordScan] QR key misconfigured", e)
     return {
@@ -217,61 +207,43 @@ export async function recordScan(
       code: "unknown",
     }
   }
-  if (!payload || !payload.enrollmentId || !payload.nonce) {
+  if (!decrypted) return { ok: false, error: "Invalid or tampered QR", code: "invalid" }
+
+  // v1 = legacy JSON tokens, valid for ~60s after this deploy; remove this
+  // mapping once no pre-deploy tokens can still be in flight.
+  const enrollmentId =
+    decrypted.v === 2 ? decrypted.enrollmentId : String(decrypted.legacy.enrollmentId ?? "")
+  const nonce = decrypted.v === 2 ? decrypted.nonceHex : String(decrypted.legacy.nonce ?? "")
+  const expiresAtMs =
+    decrypted.v === 2
+      ? decrypted.expiresAtMs
+      : new Date(String(decrypted.legacy.expiresAt)).getTime()
+
+  if (!enrollmentId || !nonce) {
     return { ok: false, error: "Invalid or tampered QR", code: "invalid" }
   }
-
-  const expiresAtMs = new Date(payload.expiresAt as string).getTime()
   if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
     return { ok: false, error: "QR code has expired", code: "expired" }
   }
 
-  const { data: enrollmentRow } = await service
-    .from("enrollment")
-    .select("section_id, student_user_id")
-    .eq("enrollment_id", payload.enrollmentId)
-    .maybeSingle()
-
-  if (!enrollmentRow) return { ok: false, error: "Enrollment not found", code: "not_found" }
-
-  const { data: leadsData } = await supabase.rpc("app_leads_section", {
-    p_section_id: enrollmentRow.section_id,
-  })
-  const { data: advisesData } = await supabase.rpc("app_advises_section", {
-    p_section_id: enrollmentRow.section_id,
-  })
-
-  if (!leadsData && !advisesData) {
-    return { ok: false, error: "Not authorised to scan for this section", code: "unauthorized" }
-  }
-
   const scannerMeta = await buildScannerMeta(scannerGeo)
 
-  const generatedMeta = {
-    signature: null,
-    generated_at: payload.generatedAt ?? null,
-    latitude: payload.latitude ?? null,
-    longitude: payload.longitude ?? null,
-    accuracy_meter: payload.accuracy_meter ?? null,
-    device_type: payload.device_type ?? null,
-    browser: payload.browser ?? null,
-    os: payload.os ?? null,
-    ip_address: payload.ip_address ?? null,
-    device_id: (payload.device_id as string | undefined) ?? null,
-    device_id_is_new: (payload.device_id_is_new as boolean | undefined) ?? false,
-  }
-
   const { data, error } = await service.rpc("record_attendance_scan", {
-    p_enrollment_id: payload.enrollmentId,
-    p_nonce: payload.nonce,
+    p_enrollment_id: enrollmentId,
+    p_nonce: nonce,
     p_recorded_by: user.id,
-    p_generated_meta: generatedMeta,
     p_scan_meta: scannerMeta,
   })
 
   if (error) {
     console.error("[recordScan] rpc failed", error)
     const msg = (error.message ?? "").toLowerCase()
+    if (msg.includes("not authorised")) {
+      return { ok: false, error: "Not authorised to scan for this section", code: "unauthorized" }
+    }
+    if (msg.includes("enrollment not found")) {
+      return { ok: false, error: "Enrollment not found", code: "not_found" }
+    }
     if (msg.includes("already has an open")) {
       return { ok: false, error: "This student is already timed in.", code: "already_open" }
     }
@@ -288,28 +260,35 @@ export async function recordScan(
     }
   }
 
-  const { data: studentRow } = await service
-    .from("app_user")
-    .select("full_name")
-    .eq("app_user_id", enrollmentRow.student_user_id)
-    .maybeSingle()
-
-  const result = data as AttendanceResult
-
-  try {
-    const channel = service.channel(`attendance-user:${enrollmentRow.student_user_id}`, {
-      config: { private: true },
-    })
-    await channel.httpSend("scanned", { event_type: result.event_type })
-    await service.removeChannel(channel)
-  } catch (e) {
-    console.warn("[recordScan] realtime broadcast failed", e)
+  const row = data as {
+    event_type: AttendanceResult["event_type"]
+    session_id: string
+    effective_at: string
+    student_name: string | null
+    student_user_id: string
   }
+
+  // Post-response: don't make the scanner wait on the realtime broadcast.
+  after(async () => {
+    try {
+      const channel = service.channel(`attendance-user:${row.student_user_id}`, {
+        config: { private: true },
+      })
+      await channel.httpSend("scanned", { event_type: row.event_type })
+      await service.removeChannel(channel)
+    } catch (e) {
+      console.warn("[recordScan] realtime broadcast failed", e)
+    }
+  })
 
   return {
     ok: true,
-    result,
-    studentName: studentRow?.full_name ?? null,
+    result: {
+      event_type: row.event_type,
+      session_id: row.session_id,
+      effective_at: row.effective_at,
+    },
+    studentName: row.student_name ?? null,
   }
 }
 

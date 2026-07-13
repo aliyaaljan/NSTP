@@ -31,13 +31,7 @@ export async function resolveActiveStudentEnrollment(
   service: SupabaseClient,
   userId: string
 ): Promise<ActiveStudentEnrollment | null> {
-  const { data: activeSectionStatus } = await service
-    .from("section_status")
-    .select("section_status_id")
-    .eq("code", "active")
-    .single()
-
-  if (!activeSectionStatus) return null
+  const activeSectionStatusId = await lookupId("section_status", "active")
 
   const { data: enrollments } = await service
     .from("enrollment")
@@ -81,7 +75,7 @@ export async function resolveActiveStudentEnrollment(
     .filter(
       (e) =>
         e.section &&
-        e.section.section_status_id === activeSectionStatus.section_status_id
+        e.section.section_status_id === activeSectionStatusId
     )
     .sort((a, b) => {
       const termA = Array.isArray(a.section.term) ? a.section.term[0] : a.section.term

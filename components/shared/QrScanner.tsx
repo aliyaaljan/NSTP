@@ -6,7 +6,51 @@ import { recordScan } from "@/lib/attendance/qr-actions"
 import { captureGeo, geoErrorMessage } from "@/lib/attendance/geo-client"
 import { playSuccessSound, playErrorSound, primeAudio } from "@/lib/attendance/sounds"
 
-const SCAN_COOLDOWN_MS = 2500
+const FEEDBACK_MS = 2500 // how long a scan result stays on screen
+const DUPLICATE_WINDOW_MS = 4000 // ignore re-decodes of the same physical QR
+
+const CAMERA_STORAGE_KEY = "nstp_scanner_camera"
+// Never exclude plain "wide": iPhone's main logical camera is "Back Dual Wide Camera".
+const EXCLUDE_LENS_RE = /ultra|telephoto|macro|depth|0\.5/i
+const BACK_LABEL_RE = /back|rear|facing back/i
+
+type CameraInfo = { id: string; label: string }
+
+// Multi-lens phones often expose the 0.5x ultra-wide as the default back
+// camera, which is fixed-focus and can't resolve a QR at arm's length.
+// Prefer the main sensor: remembered choice > excluded-lens filter > label heuristics.
+function pickBackCamera(cameras: CameraInfo[]): CameraInfo | null {
+  const stored =
+    typeof localStorage !== "undefined" ? localStorage.getItem(CAMERA_STORAGE_KEY) : null
+  const storedCam = cameras.find((c) => c.id === stored)
+  if (storedCam) return storedCam
+
+  const back = cameras.filter((c) => BACK_LABEL_RE.test(c.label))
+  const pool = back.length > 0 ? back : cameras
+  const candidates = pool.filter((c) => !EXCLUDE_LENS_RE.test(c.label))
+  if (candidates.length === 0) return pool[0] ?? null
+
+  // iOS main lens: "Back Camera" / "Back Dual Camera" / "Back Dual Wide Camera" / "Back Triple Camera"
+  const iosMain = candidates.find((c) =>
+    /^back(\s+dual(\s+wide)?|\s+triple)?\s+camera$/i.test(c.label.trim())
+  )
+  if (iosMain) return iosMain
+
+  // Android Chrome labels like "camera2 0, facing back" — lowest index is
+  // conventionally the main sensor.
+  const withIndex = candidates
+    .map((c) => ({ c, idx: Number((c.label.match(/camera2?\s+(\d+)/i) ?? [])[1]) }))
+    .filter((x) => Number.isFinite(x.idx))
+    .sort((a, b) => a.idx - b.idx)
+  return withIndex[0]?.c ?? candidates[0]
+}
+
+function friendlyLensLabel(label: string): string {
+  if (/ultra|0\.5/i.test(label)) return "Ultra-wide 0.5×"
+  if (/telephoto|tele\b/i.test(label)) return "Telephoto"
+  if (/macro/i.test(label)) return "Macro"
+  return "Main"
+}
 
 interface QrScannerProps {
   onClose: () => void
@@ -21,6 +65,8 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<any>(null)
   const isProcessingRef = useRef<boolean>(false)
+  const lastTokenRef = useRef<{ token: string; at: number } | null>(null)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scannerGeoRef = useRef<{
     latitude: number
     longitude: number
@@ -37,6 +83,8 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [geoState, setGeoState] = useState<GeoState>("checking")
   const [geoMessage, setGeoMessage] = useState<string>("")
+  const [cameras, setCameras] = useState<CameraInfo[]>([])
+  const [activeCameraId, setActiveCameraId] = useState<string | null>(null)
 
   useEffect(() => {
     primeAudio()
@@ -89,11 +137,22 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
     }
   }, [])
 
+  const showFeedback = (fb: Feedback) => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    setFeedback(fb)
+    feedbackTimerRef.current = setTimeout(() => setFeedback(null), FEEDBACK_MS)
+  }
+
   const processDecodedToken = async (decodedText: string) => {
     if (isProcessingRef.current) return
     if (geoState !== "ready" || !scannerGeoRef.current) return
+
+    const last = lastTokenRef.current
+    if (last && last.token === decodedText && Date.now() - last.at < DUPLICATE_WINDOW_MS) {
+      return
+    }
+    lastTokenRef.current = { token: decodedText, at: Date.now() }
     isProcessingRef.current = true
-    setFeedback(null)
 
     try {
       const geo = scannerGeoRef.current
@@ -105,42 +164,53 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
 
       if (!res.ok) {
         if (res.code === "already_open") {
-          setFeedback({ kind: "info", text: res.error })
+          showFeedback({ kind: "info", text: res.error })
         } else {
           playErrorSound()
-          setFeedback({ kind: "error", text: res.error })
+          showFeedback({ kind: "error", text: res.error })
         }
-        setTimeout(() => {
-          isProcessingRef.current = false
-          setFeedback(null)
-        }, SCAN_COOLDOWN_MS)
         return
       }
 
       playSuccessSound()
       const verb = res.result.event_type === "time_out" ? "timed out" : "timed in"
-      setFeedback({
+      showFeedback({
         kind: "success",
         text: res.studentName
           ? `✓ ${res.studentName} ${verb}`
           : `✓ ${verb === "timed out" ? "Timed out" : "Timed in"}`,
       })
       if (onScanSuccess) onScanSuccess()
-
-      setTimeout(() => {
-        isProcessingRef.current = false
-        setFeedback(null)
-      }, SCAN_COOLDOWN_MS)
     } catch {
       playErrorSound()
-      setFeedback({
+      showFeedback({
         kind: "error",
         text: "Network exception. Connection to server failed.",
       })
-      setTimeout(() => {
-        isProcessingRef.current = false
-        setFeedback(null)
-      }, SCAN_COOLDOWN_MS)
+    } finally {
+      isProcessingRef.current = false
+    }
+  }
+
+  // Best-effort continuous autofocus; unsupported browsers/tracks throw — ignore.
+  const applyContinuousFocus = async () => {
+    try {
+      const stream = videoRef.current?.srcObject as MediaStream | null
+      const track = stream?.getVideoTracks()[0]
+      await track?.applyConstraints({ advanced: [{ focusMode: "continuous" } as any] })
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const selectCamera = async (id: string) => {
+    try {
+      await scannerRef.current?.setCamera(id)
+      setActiveCameraId(id)
+      localStorage.setItem(CAMERA_STORAGE_KEY, id)
+      await applyContinuousFocus()
+    } catch {
+      /* keep the previous camera on failure */
     }
   }
 
@@ -167,6 +237,19 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
               preferredCamera: facingMode,
               highlightScanRegion: false,
               highlightCodeOutline: false,
+              calculateScanRegion: (video: HTMLVideoElement) => {
+                const smaller = Math.min(video.videoWidth, video.videoHeight)
+                const size = Math.round(smaller * 0.8)
+                return {
+                  x: Math.round((video.videoWidth - size) / 2),
+                  y: Math.round((video.videoHeight - size) / 2),
+                  width: size,
+                  height: size,
+                  // Default is 400x400, which starves dense QR codes of pixels.
+                  downScaledWidth: 768,
+                  downScaledHeight: 768,
+                }
+              },
             }
           )
 
@@ -181,6 +264,22 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
 
           setScanning(true)
           setCameraError(null)
+
+          try {
+            const cams: CameraInfo[] = await QrScannerLib.listCameras(true)
+            if (cancelled) return
+            setCameras(cams)
+            if (facingMode === "environment") {
+              const best = pickBackCamera(cams)
+              if (best) {
+                await qrScanner.setCamera(best.id)
+                setActiveCameraId(best.id)
+              }
+            }
+            await applyContinuousFocus()
+          } catch {
+            /* camera enumeration/focus tuning is best-effort */
+          }
         } catch (err) {
           console.error("Camera initialization failed:", err)
           if (!cancelled) setCameraError("Unable to open camera.")
@@ -197,6 +296,12 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
       }
     }
   }, [facingMode, restartNonce, geoState])
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    }
+  }, [])
 
   const flipCamera = () => {
     setFacingMode((prev) =>
@@ -222,6 +327,10 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
       : feedback?.kind === "info"
         ? "#FFF3E0"
         : "#FDE8E8"
+
+  const backCameras = cameras.filter((c) => BACK_LABEL_RE.test(c.label))
+  const showLensPicker =
+    facingMode === "environment" && backCameras.length > 1 && !cameraError && geoState === "ready"
 
   return (
     <div className="scanner-backdrop" onClick={onClose}>
@@ -327,6 +436,20 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
                 </div>
               )}
 
+              {showLensPicker && (
+                <div className="lens-picker" onClick={(e) => e.stopPropagation()}>
+                  {backCameras.map((cam) => (
+                    <button
+                      key={cam.id}
+                      className={`lens-pill ${activeCameraId === cam.id ? "active" : ""}`}
+                      onClick={() => selectCamera(cam.id)}
+                    >
+                      {friendlyLensLabel(cam.label)}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {isMobile && (
                 <button
                   onClick={(e) => {
@@ -340,7 +463,7 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
                 </button>
               )}
 
-              {isMobile && (
+              {isMobile && !showLensPicker && (
                 <div className="camera-mode-indicator">
                   {facingMode === "environment"
                     ? "Back Camera"
@@ -542,6 +665,34 @@ export function QrScanner({ onClose, onScanSuccess }: QrScannerProps) {
           letter-spacing: 0.3px;
           border: 1px solid rgba(255, 255, 255, 0.1);
           font-family: 'Montserrat', sans-serif;
+        }
+
+        .lens-picker {
+          position: absolute;
+          top: 16px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 10;
+          display: flex;
+          gap: 6px;
+        }
+        .lens-pill {
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.25);
+          padding: 5px 12px;
+          border-radius: 20px;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.3px;
+          font-family: 'Montserrat', sans-serif;
+          cursor: pointer;
+        }
+        .lens-pill.active {
+          background: #14492E;
+          border-color: #14492E;
         }
 
         .scanner-error {
