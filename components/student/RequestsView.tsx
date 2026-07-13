@@ -34,6 +34,7 @@ import SuccessModal from "@/components/shared/SuccessModal" //saffi - hehe syemp
 import { IconX, IconCircleCheck, IconHourglass, IconClock, IconCircleX, IconFilter, IconChevronUp, IconChevronDown,} from "@tabler/icons-react"
 import LoadingPage from "@/components/shared/LoadingPage"
 import { useStudent } from "@/app/student/StudentContext"
+import { IconUpload } from "@tabler/icons-react"
 
 const MAX_NUM_ATTACHMENT = 1
 
@@ -187,6 +188,7 @@ export default function RequestsView() {
  const [editFiles, setEditFiles] = useState<{ storage_path: string; file_name: string }[]>([])
  const [editNewFiles, setEditNewFiles] = useState<File[]>([])
  const [activeFilter, setActiveFilter] = useState("All")
+ const [editUploadZoneHover, setEditUploadZoneHover] = useState(false)
 
  const [requestSearch, setRequestSearch] = useState("")
  const [showRequestFilters, setShowRequestFilters] = useState(false)
@@ -207,6 +209,7 @@ export default function RequestsView() {
  const [formTypeId, setFormTypeId] = useState<string>("")
  const [editTypeId, setEditTypeId] = useState<string>("")
  const [selectedTypeId, setSelectedTypeId] = useState<string>("")
+ const [uploadZoneHover, setUploadZoneHover] = useState(false)
 
  const isEditable =
  selectedRequest &&
@@ -793,6 +796,13 @@ if (loading || contextLoading) {
    <ChartStyles />
 
      <style>{`
+      .request-status-bar {
+        background: var(--bar-color);
+        transition: background 0.15s, filter 0.15s;
+      }
+      .request-item:hover .request-status-bar {
+        filter: brightness(1.15);
+      }
 
        .requests-page{
          min-height:100vh;
@@ -1451,12 +1461,6 @@ if (loading || contextLoading) {
         white-space:normal;
     }
 
-    .request-status-bar{
-        --status-width: 4px;
-        --status-height: 18%;
-        top:12px !important;
-        border-radius:8px !important;
-    }
 
     .status-badge{
     font-size:8px !important;
@@ -1657,26 +1661,26 @@ if (loading || contextLoading) {
 
             return (
                 <div
-                key={request.id}
-                className="request-item"
-                onClick={() => {
-                    setSelectedRequest(request)
-                    setEditTitle(request.title)
-                    setEditBody(request.body)
-                    setEditFiles(request.attachments ?? [])
+                  key={request.id}
+                  className="request-item"
+                  onClick={() => {
+                      setSelectedRequest(request)
+                      setEditTitle(request.title)
+                      setEditBody(request.body)
+                      setEditFiles(request.attachments ?? [])
 
-                     // Find the UUID that matches string name
-                     const matchingType = requestType.find(
-                       (t) => t.name === request.type
-                     )
-                     setEditTypeId(
-                       matchingType
-                         ? matchingType.appeal_type_id
-                         : requestType[0]?.appeal_type_id || ""
-                     )
-                   }}
-                 style={{ position: "relative", paddingLeft: 34, cursor: "pointer" }}
-        >
+                      // Find the UUID that matches string name
+                      const matchingType = requestType.find(
+                        (t) => t.name === request.type
+                      )
+                      setEditTypeId(
+                        matchingType
+                          ? matchingType.appeal_type_id
+                          : requestType[0]?.appeal_type_id || ""
+                      )
+                    }}
+                  style={{ position: "relative", paddingLeft: 34, cursor: "pointer" }}
+                >
                     <div
                       className="request-status-bar"
                       style={{
@@ -1685,7 +1689,7 @@ if (loading || contextLoading) {
                           top: isMobile ? 12 : 15,
                           width: isMobile ? 4 : 6,
                           height: "20%",
-                          background: statusColor,
+                          ["--bar-color" as any]: statusColor,
                           borderRadius: 10,
                       }}
                     />
@@ -2076,81 +2080,107 @@ if (loading || contextLoading) {
                  Attachment (Optional)
                </label>
 
-               {formFiles.length < MAX_NUM_ATTACHMENT && (
-               <label
-               onDragOver={(e) => e.preventDefault()}
-               onDrop={(e) => {
-                   e.preventDefault()
+                {formFiles.length < MAX_NUM_ATTACHMENT && (
+                  <label
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      const files = Array.from(e.dataTransfer.files)
+                      if (editFiles.length + editNewFiles.length + files.length > MAX_NUM_ATTACHMENT) {
+                        showError(`You can attach at most ${MAX_NUM_ATTACHMENT} file.`)
+                        return
+                      }
+                      setEditNewFiles((prev) => [...prev, ...files])
+                    }}
+                    onMouseEnter={() => setEditUploadZoneHover(true)}
+                    onMouseLeave={() => setEditUploadZoneHover(false)}
+                    style={{
+                      width: "100%",
+                      height: 170,
+                      border: `2px dashed ${editUploadZoneHover ? C.green : "#E5E7EB"}`,
+                      borderRadius: 14,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      background: editUploadZoneHover ? "#F0FDF4" : "#FAFAF7",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit",
+                      transition: "border-color 0.15s, background 0.15s",
+                    }}
+                  >
+                    <div className="items-center flex flex-col pt-4">
+                      <div 
+                        style={{
+                          width: "44px",
+                          height: "44px",
+                          borderRadius: "50%",
+                          background: "#E8EDE5",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#1B4332",
+                          transition: "background 0.15s",
+                        }}
+                      >
+                          <IconUpload size={24} stroke={1.5} color={C.green} />
+                        </div>
+                      
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: C.textDark,
+                          marginTop: 8,
+                          fontWeight: 700
+                        }}
+                      >
+                        Click to browse files or drag & drop files here
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11.5,
+                          color: C.textMuted,
+                          marginTop: 4,
+                          paddingTop: 12,
+                        }}
+                      >
+                        Max file size: <strong>500 KB</strong>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11.5,
+                          color: C.textMuted,
+                          marginTop: 4,
+                        }}
+                      >
+                        Supported file types: <strong>PNG, JPEG, PDF, DOC, DOCX</strong>
+                      </div>
+                    </div>
 
-                   const files = Array.from(e.dataTransfer.files)
+                    <input
+                      type="file"
+                      hidden
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          const files = Array.from(e.target.files)
 
-                   if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
-                    showError(
-                       `You can attach at most ${MAX_NUM_ATTACHMENT} file.`
-                   )
-                   return
-                   }
+                          if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
+                            showError(
+                              `You can attach at most ${MAX_NUM_ATTACHMENT} ${
+                                MAX_NUM_ATTACHMENT === 1 ? "file" : "files"
+                              }.`
+                            )
+                            return
+                          }
 
-                   setFormFiles((prev) => [...prev, ...files])
-               }}
-                   style={{
-                   width: "100%",
-                   height: 120,
-                   border: "2px dashed #E5E7EB",
-                   borderRadius: 14,
-                   display: "flex",
-                   flexDirection: "column",
-                   alignItems: "center",
-                   justifyContent: "center",
-                   cursor: "pointer",
-                   background: "#FAFAF7",
-                   boxSizing: "border-box",
-                   fontFamily: "inherit",
-                   }}
-               >
-                   <span
-                   style={{
-                       fontSize: 13,
-                       fontWeight: 700,
-                       color: C.green,
-                   }}
-                   >
-                   Drop your file here
-                   </span>
-
-                   <span
-                   style={{
-                       fontSize: 12,
-                       color: C.textMuted,
-                       marginTop: 4,
-                   }}
-                   >
-                   or click to browse
-                   </span>
-
-                   <input
-                   type="file"
-                   hidden
-                   multiple
-                   onChange={(e) => {
-                       if (e.target.files) {
-                       const files = Array.from(e.target.files)
-
-                       if (formFiles.length + files.length > MAX_NUM_ATTACHMENT) {
-                        showError(
-                           `You can attach at most ${MAX_NUM_ATTACHMENT} ${
-                               MAX_NUM_ATTACHMENT === 1 ? "file" : "files"
-                           }.`
-                           )
-                           return
-                       }
-
-                       setFormFiles((prev) => [...prev, ...files])
-                       }
-                   }}
-                   />
-               </label>
-               )}
+                          setFormFiles((prev) => [...prev, ...files])
+                        }
+                      }}
+                    />
+                  </label>
+                )}
 
                {formFiles.length > 0 && (
                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -2769,3 +2799,4 @@ if (loading || contextLoading) {
    </>
  )
 }
+

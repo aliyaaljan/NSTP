@@ -3,7 +3,7 @@ import { randomUUID } from "crypto"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 
 const BUCKET = "forms"
-const MAX_SIZE_BYTES = 200 * 1024 // 200 KB
+const MAX_SIZE_BYTES = 2 * 1024 * 1024
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
   ".pdf": "application/pdf",

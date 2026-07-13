@@ -44,6 +44,8 @@ import {
 import { getTemplateDownloadUrl } from "@/lib/forms/requirement-actions"
 import { getStudentDashboard } from "@/lib/student/dashboard-actions"
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
+
 const studentFilesStyles = `
   .sf-root { display: flex; min-height: 100vh; background: #F0F0F0; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; color: #111827; }
   .sf-main { flex: 1; display: flex; flex-direction: column; min-width: 0; width: 100%; max-width: 100%; transition: padding 0.3s ease; }
@@ -317,6 +319,58 @@ const studentFilesStyles = `
     .sf-modal-title { font-size: 15px; }
     .sf-modal-footer { padding: 10px 16px 16px; }
   }
+
+  .sf-dropzone {
+    width: 100%;
+    min-height: 150px;
+    border: 2px dashed #E5E7EB;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: #FAFAF7;
+    box-sizing: border-box;
+    font-family: var(--font-montserrat, 'Montserrat', sans-serif);
+    transition: border-color 0.15s, background 0.15s;
+    padding: 24px 20px;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .sf-dropzone:hover,
+  .sf-dropzone.sf-dropzone-active {
+    border-color: #1B4332;
+    background: #F0FDF4;
+  }
+  .sf-dropzone-icon-wrapper {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #E8EDE5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1B4332;
+    transition: background 0.15s;
+  }
+  .sf-dropzone.sf-dropzone-active .sf-dropzone-icon-wrapper {
+    background: #D1E7C8;
+  }
+  .sf-dropzone-text { font-size: 13.5px; color: #111827; margin-top: 10px; font-weight: 700; }
+  .sf-dropzone-sub { font-size: 11.5px; color: #7A7A7A; margin-top: 4px; }
+  .sf-dropzone-link-btn {
+    margin-top: 12px;
+    background: none;
+    border: none;
+    color: #1B4332;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    font-family: inherit;
+    padding: 0;
+  }
   
   @media (min-width: 768px) and (max-width: 1023px) {
     .sf-main { padding: 24px 24px 24px 100px !important; }
@@ -373,7 +427,8 @@ export default function StudentFilesPage() {
   const [showViewModal, setShowViewModal] = useState(false)
   const [viewingForm, setViewingForm] = useState<Form | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-
+  const [isDragActive, setIsDragActive] = useState(false)
+  
   // Toast state
   const [toast, setToast] = useState<{
     show: boolean
@@ -649,6 +704,17 @@ export default function StudentFilesPage() {
   }, [])
 
   // Handlers
+  const handleFilesSelected = (fileList: FileList | File[]) => {
+    const files = Array.from(fileList)
+    const validFiles = files.filter((f) => f.size <= MAX_FILE_SIZE)
+
+    if (validFiles.length < files.length) {
+      alert("Some files were ignored because they exceed the 10MB limit.")
+    }
+
+    setSelectedFiles((prev) => [...prev, ...validFiles])
+    setIsDropdownOpen(false)
+  }
 
   const handleUploadClick = (form: Form) => {
     setSelectedForm(form)
@@ -1713,7 +1779,7 @@ export default function StudentFilesPage() {
                       onChange={(e) => {
                         if (e.target.files) {
                           const files = Array.from(e.target.files)
-                          const MAX_SIZE = 10 * 1024 * 1024
+                          const MAX_SIZE = 10 * 1024 * 1024 //10 MB
                           const validFiles = files.filter(
                             (f) => f.size <= MAX_SIZE
                           )
@@ -1877,14 +1943,61 @@ export default function StudentFilesPage() {
                       </div>
                     )}
 
-                    {mergedItems.length === 0 && !showLinkInput && (
-                      <div className="sf-empty-state">
-                        <IconPlus size={40} stroke={1.5} />
-                        <p>Click "Add" to get started</p>
-                        <p className="sf-empty-sub">
-                          Choose to upload a file or add a link
-                        </p>
-                      </div>
+                    {!showLinkInput && (
+                      <label
+                        htmlFor="file-input"
+                        className={`sf-dropzone${isDragActive ? " sf-dropzone-active" : ""}`}
+                        onDragEnter={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setIsDragActive(true)
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setIsDragActive(false)
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setIsDragActive(false)
+                          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            handleFilesSelected(e.dataTransfer.files)
+                          }
+                        }}
+                      >
+                        <div className="sf-dropzone-icon-wrapper">
+                          <IconUpload size={20} stroke={1.75} />
+                        </div>
+                        <div className="sf-dropzone-text">
+                          Click to browse or drag & drop files here
+                        </div>
+                        <div className="sf-dropzone-sub pt-3">
+                          Max file size: <strong>10 MB</strong> 
+                        </div>
+                        <div className="sf-dropzone-sub">
+                          Supported file types: <strong>PNG, JPEG, PDF, DOC, DOCX</strong>
+                        </div>
+                        <button
+                          type="button"
+                          className="sf-dropzone-link-btn"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setShowLinkInput(true)
+                            setLinkInput("")
+                            setTimeout(
+                              () => document.getElementById("link-input-field")?.focus(),
+                              50
+                            )
+                          }}
+                        >
+                          or add a link instead
+                        </button>
+                      </label>
                     )}
                   </div>
 

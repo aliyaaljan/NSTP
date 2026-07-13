@@ -966,15 +966,18 @@ export default function FormsPage() {
                     {uploadFile.name}
                   </div>
                 ) : (
-                  <>
+                  <div className="items-center flex flex-col pt-4">
                     <IconUpload size={28} stroke={1.5} color="var(--muted)" />
                     <div className="fm-upload-zone-text">
-                      Click to browse or drag & drop
+                      Click to browse files or drag & drop files here
+                    </div>
+                    <div className="fm-upload-zone-sub pt-3">
+                      Max file size: <strong>2 MB</strong> 
                     </div>
                     <div className="fm-upload-zone-sub">
-                      PDF, DOCX up to 200 KB
+                      Supported file types: <strong>PDF, DOC, DOCX</strong>
                     </div>
-                  </>
+                  </div>
                 )}
                 <input
                   ref={fileInputRef}

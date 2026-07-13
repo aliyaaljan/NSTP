@@ -3,6 +3,9 @@ const nextConfig = {
     reactStrictMode: false,
     experimental: {
         reactDebugChannel: false,
+        serverActions: {
+            bodySizeLimit: "2mb", 
+        },
     },
 }
 
