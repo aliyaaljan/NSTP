@@ -46,16 +46,16 @@ const redIcon = divIcon({
   html: renderToStaticMarkup(<FaMapMarkerAlt size={40} color="#B91C1C" />),
   className: "",
   iconSize: [40, 40],
-  iconAnchor: [15, 30],
-  popupAnchor: [0, -30],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40],
 })
 
 const blueIcon = divIcon({
   html: renderToStaticMarkup(<FaMapMarkerAlt size={40} color="blue" />),
   className: "",
   iconSize: [40, 40],
-  iconAnchor: [15, 30],
-  popupAnchor: [0, -30],
+  iconAnchor: [10, 40], //original: 20,40 offset so that if too close they both can be seen
+  popupAnchor: [10, -40],
 })
 
 export default function Map({ student_name, session }: MapProps) {
@@ -96,13 +96,17 @@ export default function Map({ student_name, session }: MapProps) {
                 </Popup>
                 </Marker>
             )}
-            {/* {loc.scanLat != null && loc.scanLong != null && (
+            {loc.scanLat != null && loc.scanLong != null && (
                 <Marker position={[loc.scanLat as number, loc.scanLong as number]} icon={blueIcon}>
                 <Popup>
-                Scanned by {loc.recordedBy ?? "Unknown"}
+                     <div className="flex flex-col p-1" style={{ minWidth: 160 }}>
+                        <strong style={{margin: "0 0 4px 0", display: "block", overflowWrap: "break-word"}}>{loc.recordedBy ?? "Unknown"}</strong>
+                        <span style={{fontSize: "12px", color: "#555"}}>Attendance Scanner</span>
+                        <span style={{fontSize: "12px", color: "#555"}}>Recorded at: {loc.recordedAt}</span>
+                    </div>
                 </Popup>
             </Marker>
-            )} */}
+            )}
             </Fragment>
         ))}
         </MapContainer>
