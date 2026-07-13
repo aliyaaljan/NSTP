@@ -433,8 +433,8 @@ export default function GroupSummaryPage() {
                   className="search-input"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search section or student..."
-                  aria-label="Search section or student"
+                  placeholder="Search site or student..."
+                  aria-label="Search site or student"
                 />
               </div>
               <Link href={"/facilitator/profile"} className="profile-pill">
