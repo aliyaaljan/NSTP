@@ -6,6 +6,8 @@ import { ChartStyles, KpiStatCard, KpiStatCardGrid, type KpiStatCardProps } from
 import ListPagination from "@/components/shared/ListPagination"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import DeleteImpactModal from "@/components/admin/DeleteImpactModal"
+import ReassignClassModal from "@/components/admin/ReassignClassModal"
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
@@ -14,7 +16,12 @@ import EditAdviserModal from "@/components/admin/EditAdviserModal"
 import ImportAdvisersModal from "@/components/admin/ImportAdvisersModal"
 import { adminClickableCardProps } from "@/components/admin/admin-list-row"
 import { AdviserAvatar } from "@/components/admin/AdviserAvatar"
-import { deleteAdviser } from "@/lib/admin/adviser-list-actions"
+import {
+  deleteAdviser,
+  getAdviserDeleteImpactAction,
+  getClassReassignmentDataAction,
+  hardDeleteAdviser,
+} from "@/lib/admin/adviser-list-actions"
 import {
   ADVISER_LIST_ALL_SECTIONS,
   ADVISER_LIST_PAGE_SIZE,
@@ -27,7 +34,10 @@ import {
   type AdviserListSectionOption,
   type AdviserListStatusFilter,
   type AdviserListSummary,
+  type AdviserProfileLookups,
 } from "@/lib/admin/adviser-list"
+import type { ClassReassignmentData } from "@/lib/admin/class-reassign"
+import type { DependentItem, DeleteImpact } from "@/lib/admin/dependent-checks"
 import {
   type ActiveFilters,
   type FilterGroupDef,
@@ -271,6 +281,7 @@ function StatRow({
 export default function AdviserListClient({
   advisers,
   sections,
+  lookups,
   summary,
   meta,
   currentUser,
@@ -278,6 +289,7 @@ export default function AdviserListClient({
 }: {
   advisers: AdviserListRow[]
   sections: AdviserListSectionOption[]
+  lookups: AdviserProfileLookups
   summary: AdviserListSummary
   meta: AdviserListMeta
   currentUser: AdminCurrentUser
@@ -303,6 +315,18 @@ export default function AdviserListClient({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
+
+  // Class reassignment (offered after deactivation, or from the hard-delete
+  // blocker list). `reassignSource` decides what "Skip"/success should do.
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [reassignData, setReassignData] = useState<ClassReassignmentData | null>(null)
+  const [reassignSource, setReassignSource] = useState<"deactivate" | "blocker" | null>(null)
+
+  // Hard delete (only ever available for an already-inactive facilitator).
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<AdviserListRow | null>(null)
+  const [hardDeleteImpact, setHardDeleteImpact] = useState<DeleteImpact | null>(null)
+  const [hardDeleteError, setHardDeleteError] = useState<string | null>(null)
+  const [isHardDeleting, startHardDeleteTransition] = useTransition()
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -412,9 +436,118 @@ export default function AdviserListClient({
         setDeleteError(result.error)
         return
       }
+      if (deleteTarget.sectionCount > 0) {
+        const res = await getClassReassignmentDataAction(deleteTarget.id)
+        if (res.ok && res.data.classes.length > 0) {
+          setDeleteTarget(null)
+          setReassignData(res.data)
+          setReassignSource("deactivate")
+          setReassignOpen(true)
+          return // no reload — the reassign modal's Skip/Done reloads instead
+        }
+      }
       setDeleteTarget(null)
       window.location.reload()
     })
+  }
+
+  function closeReassignModal() {
+    setReassignOpen(false)
+    if (reassignSource === "deactivate") {
+      window.location.reload()
+      return
+    }
+    // Opened from the hard-delete blocker list — just return to that modal.
+    setReassignSource(null)
+    setReassignData(null)
+  }
+
+  function handleReassigned() {
+    setReassignOpen(false)
+    if (reassignSource === "blocker" && hardDeleteTarget) {
+      setReassignSource(null)
+      setReassignData(null)
+      // Re-check the impact in place so the admin can continue to delete
+      // without losing their spot.
+      getAdviserDeleteImpactAction(hardDeleteTarget.adviserUserId).then((res) => {
+        if (res.ok) setHardDeleteImpact(res.impact)
+      })
+      return
+    }
+    window.location.reload()
+  }
+
+  function openHardDeleteConfirm(adviser: AdviserListRow) {
+    setHardDeleteError(null)
+    setHardDeleteImpact(null)
+    setHardDeleteTarget(adviser)
+    getAdviserDeleteImpactAction(adviser.adviserUserId).then((res) => {
+      if (res.ok) {
+        setHardDeleteImpact(res.impact)
+      } else {
+        setHardDeleteImpact({
+          state: "blocked",
+          lifecycleBlocked: res.error,
+          blockers: [],
+          cascades: [],
+          notes: [],
+        })
+      }
+    })
+  }
+
+  function closeHardDeleteConfirm() {
+    if (isHardDeleting) return
+    setHardDeleteTarget(null)
+    setHardDeleteImpact(null)
+    setHardDeleteError(null)
+  }
+
+  function confirmHardDelete() {
+    if (!hardDeleteTarget) return
+    setHardDeleteError(null)
+    startHardDeleteTransition(async () => {
+      const result = await hardDeleteAdviser(hardDeleteTarget.adviserUserId)
+      if (!result.ok) {
+        setHardDeleteError(result.error)
+        return
+      }
+      setHardDeleteTarget(null)
+      window.location.reload()
+    })
+  }
+
+  function openReassignFromBlocker() {
+    if (!hardDeleteTarget) return
+    getClassReassignmentDataAction(hardDeleteTarget.adviserUserId).then((res) => {
+      if (res.ok && res.data.classes.length > 0) {
+        setReassignData(res.data)
+        setReassignSource("blocker")
+        setReassignOpen(true)
+      }
+    })
+  }
+
+  function renderAdviserBlockerAction(item: DependentItem) {
+    if (item.key !== "sections") return null
+    return (
+      <button
+        type="button"
+        onClick={openReassignFromBlocker}
+        style={{
+          ...TYPE.bodyBold,
+          color: COLORS.green,
+          background: "none",
+          border: `1px solid ${COLORS.green}`,
+          borderRadius: 999,
+          padding: "6px 14px",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+        }}
+      >
+        Reassign…
+      </button>
+    )
   }
 
   const pctOfTotal = (count: number) =>
@@ -565,6 +698,7 @@ export default function AdviserListClient({
       />
       <AddAdviserModal
         open={addManualOpen}
+        lookups={lookups}
         onClose={() => setAddManualOpen(false)}
       />
       <ImportAdvisersModal open={importOpen} onClose={() => setImportOpen(false)} />
@@ -587,15 +721,25 @@ export default function AdviserListClient({
                 setDetailAdviser(null)
               },
             },
-            {
-              label: "Deactivate",
-              variant: "danger",
-              disabled: isDeleting && deletingId === detailAdviser.adviserUserId,
-              onClick: () => {
-                openDeleteConfirm(detailAdviser)
-                setDetailAdviser(null)
-              },
-            },
+            detailAdviser.isActive
+              ? {
+                  label: "Deactivate",
+                  variant: "danger",
+                  disabled: isDeleting && deletingId === detailAdviser.adviserUserId,
+                  onClick: () => {
+                    openDeleteConfirm(detailAdviser)
+                    setDetailAdviser(null)
+                  },
+                }
+              : {
+                  label: "Delete Permanently",
+                  variant: "danger",
+                  disabled: isHardDeleting,
+                  onClick: () => {
+                    openHardDeleteConfirm(detailAdviser)
+                    setDetailAdviser(null)
+                  },
+                },
           ]}
         >
           <ModalRow>
@@ -621,12 +765,20 @@ export default function AdviserListClient({
             />
             <ModalField label="Status" value={detailAdviser.isActive ? "Active" : "Inactive"} />
           </ModalRow>
+          <ModalRow>
+            <ModalField label="College" value={detailAdviser.collegeName ?? "—"} />
+            <ModalField label="NSTP Component" value={detailAdviser.nstpComponentName ?? "—"} />
+          </ModalRow>
+          <ModalRow>
+            <ModalField label="Partnership Type" value={detailAdviser.partnershipType ?? "—"} />
+          </ModalRow>
         </NstpModal>
       )}
 
       <EditAdviserModal
         open={editAdviser !== null}
         adviser={editAdviser}
+        lookups={lookups}
         onClose={() => setEditAdviser(null)}
       />
       <ConfirmDeleteModal
@@ -635,7 +787,7 @@ export default function AdviserListClient({
         subjectName={deleteTarget?.name}
         message={
           deleteTarget && deleteTarget.sectionCount > 0
-            ? `This facilitator still advises ${deleteTarget.sectionCount} section${deleteTarget.sectionCount !== 1 ? "s" : ""}. The account will be deactivated and can no longer sign in; reassign the section${deleteTarget.sectionCount !== 1 ? "s" : ""} in Section List.`
+            ? `This facilitator still advises ${deleteTarget.sectionCount} section${deleteTarget.sectionCount !== 1 ? "s" : ""}. The account will be deactivated and can no longer sign in; you can move their class to another facilitator in the next step.`
             : "The account will be deactivated and can no longer sign in. History is kept."
         }
         confirmLabel="Deactivate"
@@ -643,6 +795,28 @@ export default function AdviserListClient({
         error={deleteError}
         onClose={closeDeleteConfirm}
         onConfirm={confirmDelete}
+      />
+
+      <ReassignClassModal
+        open={reassignOpen}
+        sourceClass={reassignData?.classes[0] ?? null}
+        candidates={reassignData?.candidates ?? []}
+        onClose={closeReassignModal}
+        onReassigned={handleReassigned}
+      />
+
+      <DeleteImpactModal
+        open={hardDeleteTarget !== null}
+        title="Delete Facilitator"
+        subjectName={hardDeleteTarget?.fullName}
+        impact={hardDeleteImpact}
+        requireTypedConfirm
+        confirmLabel="Delete Permanently"
+        isPending={isHardDeleting}
+        error={hardDeleteError}
+        onClose={closeHardDeleteConfirm}
+        onConfirm={confirmHardDelete}
+        renderBlockerAction={renderAdviserBlockerAction}
       />
     </>
   )

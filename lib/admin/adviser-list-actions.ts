@@ -15,6 +15,7 @@ import {
   type AdviserListQuery,
   type AdviserListSectionOption,
   type AdviserPendingAppealDbRow,
+  type AdviserProfileLookups,
 } from "@/lib/admin/adviser-list"
 import {
   validateAdviserEditPayload,
@@ -35,6 +36,18 @@ import {
   syncUserEmail,
 } from "@/lib/admin/user-provision"
 import { ensureFacilitatorClass } from "@/lib/admin/class-provision"
+import {
+  getClassReassignmentData,
+  reassignClass,
+  type ClassReassignmentData,
+  type ReassignClassMode,
+  type ReassignClassOutcome,
+} from "@/lib/admin/class-reassign"
+import {
+  getAdviserDeleteImpact,
+  isForeignKeyViolation,
+  type DeleteImpact,
+} from "@/lib/admin/dependent-checks"
 import { formatClassLabel } from "@/lib/shared/class-label"
 import { mapRows, parseImportFile } from "@/lib/admin/import/parse"
 import {
@@ -57,6 +70,12 @@ import {
   type RevalidateAdviserRowsResult,
 } from "@/lib/admin/adviser-import"
 
+const SEMESTER_LABELS: Record<string, string> = {
+  first: "1st Semester",
+  second: "2nd Semester",
+  midyear: "Midyear",
+}
+
 /**
  * Fetches everything the admin adviser list page needs.
  *
@@ -64,11 +83,13 @@ import {
  * 1. Keep returning `AdviserListPageData` — no UI changes required.
  * 2. Add term scoping (`term.is_active`) on `section` when multi-term is live.
  * 3. Move `filterAdviserListRows()` / pagination into SQL when the list grows large.
- * 4. Replace hardcoded `meta` with a `term` table lookup.
  */
 export async function getAdviserListData(
   query: AdviserListQuery
 ): Promise<AdviserListPageData> {
+  const role = await getAppUserRole()
+  if (role !== "admin") throw new Error("Unauthorized")
+
   const supabase = await createSupabaseServerClient()
   const [adviserRoleId, activeStatusId, openStatusId, underReviewStatusId] =
     await Promise.all([
@@ -102,7 +123,7 @@ export async function getAdviserListData(
     enrollment(enrollment_id, section:section_id(adviser_user_id))
   `
 
-  const [advisersRes, sectionsRes, appealsRes, { data: authData }] =
+  const [advisersRes, sectionsRes, appealsRes, collegesRes, componentsRes, termsRes, { data: authData }] =
     await Promise.all([
       adviserQuery,
       supabase
@@ -112,8 +133,15 @@ export async function getAdviserListData(
         .from("appeal")
         .select(pendingAppealsSelect)
         .in("appeal_status_id", [openStatusId, underReviewStatusId]),
+      supabase.from("college").select("college_id, code, name").order("name"),
+      supabase.from("nstp_component").select("nstp_component_id, code, name").order("name"),
+      supabase
+        .from("term")
+        .select("school_year, semester, is_active")
+        .order("school_year", { ascending: false }),
       supabase.auth.getUser(),
     ])
+  const activeTerm = (termsRes.data ?? []).find((t) => t.is_active) ?? termsRes.data?.[0]
 
   if (advisersRes.error) {
     console.error("[getAdviserListData] adviser query failed", advisersRes.error)
@@ -151,17 +179,28 @@ export async function getAdviserListData(
     }))
     .sort((a, b) => a.label.localeCompare(b.label))
 
+  const lookups: AdviserProfileLookups = {
+    colleges: ((collegesRes.data ?? []) as { college_id: string; code: string; name: string }[]).map(
+      (c) => ({ id: c.college_id, label: c.name })
+    ),
+    components: ((componentsRes.data ?? []) as {
+      nstp_component_id: string
+      code: string
+      name: string
+    }[]).map((c) => ({ id: c.nstp_component_id, label: c.name })),
+  }
+
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
   const meta: AdviserListMeta = {
-    // TODO(backend): read from `term` where is_active = true
-    academicYear: "2025-2026",
-    semester: "2nd Semester",
+    academicYear: activeTerm?.school_year ?? "2025-2026",
+    semester: SEMESTER_LABELS[activeTerm?.semester ?? "second"] ?? "2nd Semester",
   }
 
   return {
     advisers,
     sections,
+    lookups,
     summary: buildAdviserListSummary(advisers),
     meta,
     currentUser,
@@ -174,7 +213,7 @@ async function resolveCurrentUser(
   userId?: string
 ): Promise<AdminCurrentUser> {
   if (!userId) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const { data: appUser } = await supabase
@@ -184,13 +223,13 @@ async function resolveCurrentUser(
     .maybeSingle()
 
   if (!appUser?.full_name) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const isAdmin = (appUser.role as { code?: string } | null)?.code === "admin"
 
   return {
-    name: isAdmin ? "Admin Test Account" : appUser.full_name,
+    name: appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
     avatarUrl: (appUser as any).avatar_url ?? undefined,
   }
@@ -227,6 +266,24 @@ export async function createAdviser(
     isActive: payload.isActive,
   })
   if (!result.ok) return result
+
+  // Facilitator profile metadata must land BEFORE ensureFacilitatorClass below —
+  // it derives the class's course_code from nstp_component_id.
+  const { error: metadataError } = await service
+    .from("app_user")
+    .update({
+      college_id: payload.collegeId,
+      nstp_component_id: payload.nstpComponentId,
+      partnership_type: payload.partnershipType?.trim() || null,
+    })
+    .eq("app_user_id", result.userId)
+  if (metadataError) {
+    console.error("[createAdviser] metadata update failed", metadataError)
+    return {
+      ok: false,
+      error: "Facilitator account created, but their profile details could not be saved.",
+    }
+  }
 
   // One class per facilitator per term: auto-create theirs for the active term.
   if (payload.isActive !== false) {
@@ -270,7 +327,7 @@ export async function updateAdviser(
 
   const { data: current, error: currentError } = await service
     .from("app_user")
-    .select("email, is_active")
+    .select("email, is_active, nstp_component_id")
     .eq("app_user_id", payload.adviserUserId)
     .maybeSingle()
 
@@ -280,17 +337,18 @@ export async function updateAdviser(
   }
 
   const nextEmail = payload.email.trim().toLowerCase()
-  if (nextEmail !== (current.email ?? "").toLowerCase()) {
-    const emailResult = await syncUserEmail(service, payload.adviserUserId, nextEmail)
-    if (!emailResult.ok) return emailResult
-  }
 
+  // app_user commits FIRST: a 23505 (duplicate email) fails cleanly here with
+  // nothing else touched, instead of leaving auth.users ahead of app_user.
   const { error: updateError } = await service
     .from("app_user")
     .update({
       full_name: payload.fullName.trim(),
       email: nextEmail,
       is_active: payload.isActive,
+      college_id: payload.collegeId,
+      nstp_component_id: payload.nstpComponentId,
+      partnership_type: payload.partnershipType?.trim() || null,
     })
     .eq("app_user_id", payload.adviserUserId)
 
@@ -302,9 +360,54 @@ export async function updateAdviser(
     return { ok: false, error: "Failed to update the facilitator." }
   }
 
+  // auth email sync AFTER; revert app_user.email if auth rejects it, so the
+  // two never end up out of lockstep.
+  if (nextEmail !== (current.email ?? "").toLowerCase()) {
+    const emailResult = await syncUserEmail(service, payload.adviserUserId, nextEmail)
+    if (!emailResult.ok) {
+      await service
+        .from("app_user")
+        .update({ email: current.email })
+        .eq("app_user_id", payload.adviserUserId)
+      return emailResult
+    }
+  }
+
+  // auth ban sync AFTER; revert is_active if the ban call fails, preserving
+  // the documented ban ⇔ !is_active invariant.
   if (current.is_active !== payload.isActive) {
     const banResult = await syncAuthBan(service, payload.adviserUserId, payload.isActive)
-    if (!banResult.ok) return banResult
+    if (!banResult.ok) {
+      await service
+        .from("app_user")
+        .update({ is_active: current.is_active })
+        .eq("app_user_id", payload.adviserUserId)
+      return banResult
+    }
+  }
+
+  // Reactivation re-provisions/restores the facilitator's class.
+  if (!current.is_active && payload.isActive) {
+    const classResult = await ensureFacilitatorClass(service, payload.adviserUserId)
+    if (!classResult.ok) {
+      return {
+        ok: false,
+        error: `Facilitator reactivated, but their class could not be created: ${classResult.error}`,
+      }
+    }
+  } else if (
+    payload.isActive &&
+    current.nstp_component_id !== payload.nstpComponentId
+  ) {
+    // The component changed while active — ensureFacilitatorClass refreshes
+    // the class's course_code from the new component.
+    const classResult = await ensureFacilitatorClass(service, payload.adviserUserId)
+    if (!classResult.ok) {
+      return {
+        ok: false,
+        error: `Facilitator updated, but their class could not be refreshed: ${classResult.error}`,
+      }
+    }
   }
 
   return { ok: true }
@@ -330,6 +433,97 @@ export async function deleteAdviser(
 
   const service = createSupabaseServiceClient()
   return deactivateUser(service, adviserUserId)
+}
+
+/** Everything the ReassignClassModal needs for one facilitator's class(es). */
+export async function getClassReassignmentDataAction(
+  adviserUserId: string
+): Promise<{ ok: true; data: ClassReassignmentData } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+  const service = createSupabaseServiceClient()
+  return { ok: true, data: await getClassReassignmentData(service, adviserUserId) }
+}
+
+/** Transfer a class to a free facilitator, or merge its students into a busy one's class. */
+export async function reassignClassAction(input: {
+  sectionId: string
+  targetAdviserUserId: string
+  mode: ReassignClassMode
+}): Promise<ReassignClassOutcome | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+  const service = createSupabaseServiceClient()
+  return reassignClass(service, input)
+}
+
+export async function getAdviserDeleteImpactAction(
+  adviserUserId: string
+): Promise<{ ok: true; impact: DeleteImpact } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+  const service = createSupabaseServiceClient()
+  return { ok: true, impact: await getAdviserDeleteImpact(service, adviserUserId) }
+}
+
+/**
+ * Hard step: only inactive facilitators, and only once no historical records
+ * reference their account (classes advised, recorded events, resolved
+ * appeals, audit trail, etc — see getUserAccountBlockers). Deletes the
+ * `app_user` row and the auth.users account; admins are refused outright
+ * (managed on Access Control instead).
+ */
+export async function hardDeleteAdviser(
+  adviserUserId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+  if (!adviserUserId) return { ok: false, error: "Adviser ID is required." }
+
+  const service = createSupabaseServiceClient()
+
+  const impact = await getAdviserDeleteImpact(service, adviserUserId)
+  if (impact.state === "blocked") {
+    return {
+      ok: false,
+      error:
+        impact.lifecycleBlocked ??
+        "Cannot delete: this account is referenced by historical records, which are never deleted.",
+    }
+  }
+
+  // login_session has no cascade (operational rows) — clear it first.
+  await service.from("login_session").delete().eq("app_user_id", adviserUserId)
+
+  // app_user row first, auth user second (no FK between them). If the row is
+  // already gone (retry after a half-completed delete), skip straight to auth.
+  const { data: existing } = await service
+    .from("app_user")
+    .select("app_user_id")
+    .eq("app_user_id", adviserUserId)
+    .maybeSingle()
+  if (existing) {
+    const { error } = await service.from("app_user").delete().eq("app_user_id", adviserUserId)
+    if (error) {
+      if (isForeignKeyViolation(error)) {
+        return { ok: false, error: "Cannot delete: other records still reference this account." }
+      }
+      console.error("[hardDeleteAdviser] app_user delete failed", error)
+      return { ok: false, error: "Failed to delete the facilitator." }
+    }
+  }
+
+  const { error: authError } = await service.auth.admin.deleteUser(adviserUserId)
+  if (authError && authError.status !== 404) {
+    console.error("[hardDeleteAdviser] auth delete failed", authError)
+    return {
+      ok: false,
+      error:
+        "Account data was deleted, but the sign-in account could not be removed. Run Delete again to finish.",
+    }
+  }
+
+  return { ok: true }
 }
 
 /** Max upload size; also bounded by Next's 1 MB server-action body limit. */

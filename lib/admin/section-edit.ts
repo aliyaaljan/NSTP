@@ -21,8 +21,16 @@ import type {
   SectionStatusCode,
 } from "@/lib/admin/section-list"
 
-/** Allowed NSTP course options for section create/edit. */
+/**
+ * Allowed NSTP course options for section create/edit. `ensureFacilitatorClass`
+ * (lib/admin/class-provision.ts) derives "NSTP 1 …" for first-semester terms
+ * and "NSTP 2 …" for second-semester terms from the facilitator's component —
+ * both levels must be selectable here or the edit form blanks the course.
+ */
 export const SECTION_COURSE_OPTIONS = [
+  "NSTP 1 CWTS",
+  "NSTP 1 LTS",
+  "NSTP 1 ROTC",
   "NSTP 2 CWTS",
   "NSTP 2 LTS",
   "NSTP 2 ROTC",

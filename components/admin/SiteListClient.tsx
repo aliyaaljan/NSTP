@@ -10,10 +10,10 @@ import AdminAddButton from "@/components/admin/AdminAddButton"
 import AddGpsSiteModal from "@/components/admin/AddGpsSiteModal"
 import EditGpsSiteModal from "@/components/admin/EditGpsSiteModal"
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
-import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import DeleteImpactModal from "@/components/admin/DeleteImpactModal"
 import { adminClickableRowProps } from "@/components/admin/admin-list-row"
-import { deleteSite } from "@/lib/admin/site-list-actions"
-import { validateSiteDelete } from "@/lib/admin/site-edit"
+import { deleteSite, getSiteDeleteImpactAction } from "@/lib/admin/site-list-actions"
+import type { DeleteImpact } from "@/lib/admin/dependent-checks"
 import {
   matchesActiveFilters,
   type ActiveFilters,
@@ -140,6 +140,7 @@ export default function SiteListClient({
   const [editSite, setEditSite] = useState<SiteListRow | null>(null)
   const [detailSite, setDetailSite] = useState<SiteListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SiteListRow | null>(null)
+  const [deleteImpact, setDeleteImpact] = useState<DeleteImpact | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
     initialFiltersFromQuery(query)
@@ -272,23 +273,32 @@ export default function SiteListClient({
 
   function openDeleteConfirm(site: SiteListRow) {
     setDeleteError(null)
+    setDeleteImpact(null)
     setDeleteTarget(site)
+    getSiteDeleteImpactAction(site.geofenceId).then((res) => {
+      if (res.ok) {
+        setDeleteImpact(res.impact)
+      } else {
+        setDeleteImpact({
+          state: "blocked",
+          lifecycleBlocked: res.error,
+          blockers: [],
+          cascades: [],
+          notes: [],
+        })
+      }
+    })
   }
 
   function closeDeleteConfirm() {
     if (isDeleting) return
     setDeleteTarget(null)
+    setDeleteImpact(null)
     setDeleteError(null)
   }
 
   function confirmDelete() {
     if (!deleteTarget) return
-
-    const validationError = validateSiteDelete(deleteTarget)
-    if (validationError) {
-      setDeleteError(validationError)
-      return
-    }
 
     setDeleteError(null)
     startDeleteTransition(async () => {
@@ -539,7 +549,6 @@ export default function SiteListClient({
             {
               label: "Edit",
               variant: "primary",
-              disabled: detailSite.isSample,
               onClick: () => {
                 setEditSite(detailSite)
                 setDetailSite(null)
@@ -548,7 +557,7 @@ export default function SiteListClient({
             {
               label: "Delete",
               variant: "danger",
-              disabled: isDeleting || detailSite.isSample,
+              disabled: isDeleting,
               onClick: () => {
                 openDeleteConfirm(detailSite)
                 setDetailSite(null)
@@ -575,15 +584,11 @@ export default function SiteListClient({
         </NstpModal>
       )}
 
-      <ConfirmDeleteModal
+      <DeleteImpactModal
         open={Boolean(deleteTarget)}
         title="Delete GPS Site"
         subjectName={deleteTarget?.siteName}
-        message={
-          deleteTarget
-            ? `Remove "${deleteTarget.siteName}" from the GPS site list? This action cannot be undone.`
-            : ""
-        }
+        impact={deleteImpact}
         confirmLabel="Delete"
         isPending={isDeleting}
         error={deleteError}

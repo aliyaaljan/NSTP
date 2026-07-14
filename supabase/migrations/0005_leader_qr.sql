@@ -45,7 +45,8 @@ revoke execute on function public.app_leads_section(uuid) from anon;
 grant  execute on function public.app_leads_section(uuid) to authenticated;
 
 create or replace function public.class_label_surname(p_full_name text)
-returns text language sql immutable as $$
+returns text language sql immutable
+set search_path = public, pg_temp as $$
   select case
     when position(',' in p_full_name) > 0 then trim(split_part(p_full_name, ',', 1))
     else (regexp_split_to_array(trim(p_full_name), '\s+'))[
@@ -57,7 +58,8 @@ $$;
 drop function if exists public.class_label(text, text);
 
 create or replace function public.class_label(p_course_code text, p_facilitator_name text, p_school_year text)
-returns text language sql immutable as $$
+returns text language sql immutable
+set search_path = public, pg_temp as $$
   select case
     when coalesce(trim(p_course_code), '') <> '' and coalesce(trim(p_facilitator_name), '') <> ''
       then trim(p_course_code) || ' — ' || public.class_label_surname(p_facilitator_name)
@@ -1072,8 +1074,17 @@ end;
 $function$;
 
 -- get_adviser_recent_activity — last 7 days of audit activity for the adviser
+--
+-- Reconciled 2026-07 against live drift: the deployed function had been
+-- hand-edited to return a human-readable "X mins/hours/days ago" string
+-- (created_at_hours) instead of this migration's raw created_at timestamptz —
+-- app/facilitator/dashboard/page.tsx reads `item.created_at_hours`, so the
+-- live shape is the one the app actually needs. That hand-edit also dropped
+-- the auth.uid() guard below (any signed-in user could read any adviser's
+-- activity feed) and the pinned search_path. This version keeps the live
+-- return shape and formatting logic, restores the guard, and pins search_path.
 create or replace function public.get_adviser_recent_activity(p_adviser_user_id uuid)
-returns table(summary text, created_at timestamptz)
+returns table(summary text, created_at_hours text)
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
@@ -1083,7 +1094,28 @@ begin
   end if;
 
   return query
-  select ar.summary, ar.created_at
+  select
+    ar.summary,
+    case
+      when extract(epoch from (now() - ar.created_at)) < 3600 then
+        floor(extract(epoch from (now() - ar.created_at)) / 60)::text ||
+        case
+          when floor(extract(epoch from (now() - ar.created_at)) / 60) = 1 then ' min ago'
+          else ' mins ago'
+        end
+      when extract(epoch from (now() - ar.created_at)) > 86400 then
+        floor(extract(epoch from (now() - ar.created_at)) / 86400)::text ||
+        case
+          when floor(extract(epoch from (now() - ar.created_at)) / 86400) = 1 then ' day ago'
+          else ' days ago'
+        end
+      else
+        floor(extract(epoch from (now() - ar.created_at)) / 3600)::text ||
+        case
+          when floor(extract(epoch from (now() - ar.created_at)) / 3600) = 1 then ' hour ago'
+          else ' hours ago'
+        end
+    end as created_at_hours
   from public.audit_log_readable ar
   join app_user au on au.app_user_id = ar.app_user_id
   where ar.created_at >= now() - interval '7 days'
@@ -1105,8 +1137,18 @@ $function$;
 -- ------------------------------------------------------------
 
 -- get_active_sem — active-term end date + "days left" per adviser section
+--
+-- Reconciled 2026-07 against live drift: the deployed function had grown two
+-- extra return columns (holidays, deadlines — jsonb arrays consumed by the
+-- Calendar component on app/facilitator/dashboard/page.tsx) and an
+-- `and t.is_active = true` filter that this migration never had. The guard
+-- itself was already present live; only search_path was missing there. This
+-- version keeps the live return shape/filter and pins search_path.
 create or replace function public.get_active_sem(p_adviser_user_id uuid)
-returns table(section_id uuid, section_name text, sem_end_date date, remaining_days text)
+returns table(
+  section_id uuid, section_name text, sem_end_date date, remaining_days text,
+  holidays jsonb, deadlines jsonb
+)
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
@@ -1125,17 +1167,30 @@ begin
     public.class_label(s.course_code, v_adviser_name, t.school_year) as section_name,
     t.end_date as sem_end_date,
     case
-      when floor(t.end_date - current_date) <= 0 then 'Semester ended'
+      when (t.end_date - current_date) <= 0 then 'Semester ended'
       else
-        floor(t.end_date - current_date)::text ||
+        (t.end_date - current_date)::text ||
         case
-          when floor(t.end_date - current_date) = 1 then ' day left'
+          when (t.end_date - current_date) = 1 then ' day left'
           else ' days left'
         end
-    end as remaining_days
+    end as remaining_days,
+    coalesce(
+      (select jsonb_agg(jsonb_build_object('name', h.name, 'date', h.holiday_date) order by h.holiday_date)
+       from holiday h
+       where h.term_id = t.term_id),
+      '[]'::jsonb
+    ) as holidays,
+    coalesce(
+      (select jsonb_agg(jsonb_build_object('name', 'Deadline of ' || f.title, 'date', f.due_date) order by f.due_date)
+       from form_requirement f
+       where f.section_id = s.section_id),
+      '[]'::jsonb
+    ) as deadlines
   from section s
   join term t on t.term_id = s.term_id
-  where s.adviser_user_id = p_adviser_user_id;
+  where s.adviser_user_id = p_adviser_user_id
+    and t.is_active = true;
 end;
 $function$;
 
@@ -1458,6 +1513,52 @@ begin
 end;
 $function$;
 
+-- update_student_role — toggle is_student_leader for a student in the caller's section.
+--
+-- Captured 2026-07 against live drift: this RPC existed on the DB with no
+-- migration file backing it and NO caller guard at all — p_adviser_user_id
+-- was a fully client-trusted parameter, so any authenticated user (including
+-- a student) could toggle ANY enrollment's leader flag by passing an
+-- arbitrary adviser id alongside it. The p_adviser_user_id = auth.uid() OR
+-- app_is_admin() check below is the same pattern used by every other
+-- adviser-scoped RPC in this file; app/facilitator/my-students/page.tsx
+-- already only ever passes the caller's own uid, so this is a pure
+-- hardening fix with no behavior change for legitimate callers.
+create or replace function public.update_student_role(p_adviser_user_id uuid, p_enrollment_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_updated_id uuid;
+begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to update student roles for this adviser';
+  end if;
+
+  if p_enrollment_id is null then
+    raise exception 'Student not in database';
+  end if;
+
+  if p_adviser_user_id is null then
+    raise exception 'Adviser not identified';
+  end if;
+
+  update enrollment e
+  set is_student_leader = not is_student_leader
+  from section sec
+  where e.enrollment_id = p_enrollment_id
+    and e.section_id = sec.section_id
+    and sec.adviser_user_id = p_adviser_user_id
+  returning e.enrollment_id into v_updated_id;
+
+  if v_updated_id is null then
+    raise exception 'Enrollment not found or you are not authorized to edit this student';
+  end if;
+end;
+$function$;
+
 -- Lock down the RPC surface: authenticated only (the guard enforces row scope).
 do $$
 declare fn text;
@@ -1469,7 +1570,8 @@ begin
     'public.get_active_sem(uuid)',
     'public.get_students_stats(uuid)',
     'public.get_my_students(uuid)',
-    'public.update_attendance_session(uuid, uuid, date, time, time, uuid, text)'
+    'public.update_attendance_session(uuid, uuid, date, time, time, uuid, text)',
+    'public.update_student_role(uuid, uuid)'
   ] loop
     execute format('revoke execute on function %s from public;', fn);
     execute format('revoke execute on function %s from anon;', fn);
@@ -1662,3 +1764,216 @@ begin
       );
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Live-drift capture, 2026-07: these Realtime broadcast triggers and two
+-- small trigger/helper functions existed on the DB with no migration file
+-- backing them at all (found via a Supabase security-advisor pass flagging
+-- "Function Search Path Mutable"). Bodies captured verbatim via
+-- pg_get_functiondef; the only change here is pinning search_path so the
+-- functions cannot be redirected by a session-level search_path change —
+-- no behavioral difference otherwise.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.broadcast_appeal_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_adviser_user_id uuid;
+begin
+  select s.adviser_user_id
+  into v_adviser_user_id
+  from public.enrollment e
+  join public.section s on s.section_id = e.section_id
+  where e.enrollment_id = coalesce(new.enrollment_id, old.enrollment_id);
+
+  if v_adviser_user_id is not null then
+    perform realtime.broadcast_changes(
+      'adviser:' || v_adviser_user_id::text,
+      TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, new, old
+    );
+  end if;
+
+  return null;
+end;
+$function$;
+
+create or replace function public.broadcast_attendance_session_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_adviser_user_id uuid;
+begin
+  select s.adviser_user_id
+  into v_adviser_user_id
+  from public.enrollment e
+  join public.section s on s.section_id = e.section_id
+  where e.enrollment_id = coalesce(new.enrollment_id, old.enrollment_id);
+
+  if v_adviser_user_id is not null then
+    perform realtime.broadcast_changes(
+      'adviser:' || v_adviser_user_id::text,
+      TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, new, old
+    );
+  end if;
+
+  return null;
+end;
+$function$;
+
+create or replace function public.broadcast_enrollment_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_adviser_user_id uuid;
+begin
+  select s.adviser_user_id
+  into v_adviser_user_id
+  from public.section s
+  where s.section_id = coalesce(new.section_id, old.section_id);
+
+  if v_adviser_user_id is not null then
+    perform realtime.broadcast_changes(
+      'adviser:' || v_adviser_user_id::text,
+      TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, new, old
+    );
+  end if;
+
+  return null;
+end;
+$function$;
+
+create or replace function public.broadcast_section_reassignment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+begin
+  -- Only fire the reassignment broadcast when the adviser actually changed
+  if TG_OP = 'UPDATE' and new.adviser_user_id is distinct from old.adviser_user_id then
+    perform realtime.broadcast_changes(
+      'adviser:' || old.adviser_user_id::text,
+      TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, new, old
+    );
+    perform realtime.broadcast_changes(
+      'adviser:' || new.adviser_user_id::text,
+      TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, new, old
+    );
+  elsif TG_OP in ('INSERT', 'DELETE') then
+    perform realtime.broadcast_changes(
+      'adviser:' || coalesce(new.adviser_user_id, old.adviser_user_id)::text,
+      TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, new, old
+    );
+  end if;
+
+  return null;
+end;
+$function$;
+
+create or replace function public.broadcast_form_changes()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_adviser_user_id uuid;
+begin
+  if TG_TABLE_NAME = 'form_requirement' then
+    select s.adviser_user_id into v_adviser_user_id
+    from section s
+    where s.section_id = coalesce(NEW.section_id, OLD.section_id);
+
+  elsif TG_TABLE_NAME = 'form_submission' then
+    select s.adviser_user_id into v_adviser_user_id
+    from enrollment e
+    join section s on s.section_id = e.section_id
+    where e.enrollment_id = coalesce(NEW.enrollment_id, OLD.enrollment_id);
+  end if;
+
+  if v_adviser_user_id is null then
+    return coalesce(NEW, OLD);
+  end if;
+
+  perform realtime.send(
+    jsonb_build_object(
+      'operation',  TG_OP,
+      'table',      TG_TABLE_NAME,
+      'schema',     TG_TABLE_SCHEMA,
+      'record',     case when TG_OP = 'DELETE' then null else to_jsonb(NEW) end,
+      'old_record', case when TG_OP = 'INSERT' then null else to_jsonb(OLD) end
+    ),
+    TG_OP,
+    'adviser:' || v_adviser_user_id::text,
+    true
+  );
+
+  return coalesce(NEW, OLD);
+end;
+$function$;
+
+create or replace function public.enforce_max_appeal_attachments()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $function$
+declare
+  v_count integer;
+  v_max constant integer := 1;
+begin
+  select count(*) into v_count
+  from appeal_attachment
+  where appeal_id = new.appeal_id;
+
+  if v_count >= v_max then
+    raise exception 'An appeal can have at most % attachments', v_max;
+  end if;
+
+  return new;
+end;
+$function$;
+
+create or replace function public.get_section_term_range(p_section_id uuid)
+returns table(start_date date, end_date date)
+language sql
+stable
+set search_path = public, pg_temp
+as $function$
+  select t.start_date, t.end_date
+  from public.section s
+  join public.term t on t.term_id = s.term_id
+  where s.section_id = p_section_id
+    and t.is_active = true;
+$function$;
+
+-- These triggers are never meant to be called directly via REST/RPC — revoke
+-- from PUBLIC (the default grant on function creation) as well as anon and
+-- authenticated. NOTE: revoking from anon/authenticated alone is NOT enough;
+-- functions grant EXECUTE to PUBLIC by default, and anon/authenticated only
+-- inherit through that PUBLIC grant, so PUBLIC itself must be revoked too.
+revoke execute on function public.broadcast_appeal_change() from public;
+revoke execute on function public.broadcast_appeal_change() from anon, authenticated;
+revoke execute on function public.broadcast_attendance_session_change() from public;
+revoke execute on function public.broadcast_attendance_session_change() from anon, authenticated;
+revoke execute on function public.broadcast_enrollment_change() from public;
+revoke execute on function public.broadcast_enrollment_change() from anon, authenticated;
+revoke execute on function public.broadcast_form_changes() from public;
+revoke execute on function public.broadcast_form_changes() from anon, authenticated;
+revoke execute on function public.broadcast_section_reassignment() from public;
+revoke execute on function public.broadcast_section_reassignment() from anon, authenticated;
+
+-- get_summary: authenticated-only (self-guards via auth.uid()), matching the
+-- pattern already used for the other adviser RPCs above.
+revoke execute on function public.get_summary(uuid) from public;
+revoke execute on function public.get_summary(uuid) from anon;
+grant execute on function public.get_summary(uuid) to authenticated;

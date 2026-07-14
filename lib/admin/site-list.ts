@@ -42,8 +42,6 @@ export interface SiteListRow {
   supervisorName: string
   /** `section_geofence.is_active` */
   isActive: boolean
-  /** Preview row — not persisted */
-  isSample?: boolean
 }
 
 export interface SiteListSectionOption {
@@ -237,81 +235,6 @@ export function buildSiteListSummary(rows: SiteListRow[]): SiteListSummary {
     avgRadiusMeters:
       rows.length > 0 ? Math.round(radiusSum / rows.length) : 0,
   }
-}
-
-export function buildSampleSiteSections(): SiteListSectionOption[] {
-  return [
-    {
-      sectionId: "sample-section-001",
-      label: "CWTS — CWTS-2526A",
-      adviserUserId: "sample-adviser-001",
-      supervisorName: "Ana Reyes",
-    },
-    {
-      sectionId: "sample-section-002",
-      label: "CWTS — CWTS-2526B",
-      adviserUserId: "sample-adviser-002",
-      supervisorName: "Ben Santos",
-    },
-    {
-      sectionId: "sample-section-003",
-      label: "ROTC — ROTC-2526A",
-      adviserUserId: "sample-adviser-003",
-      supervisorName: "Clara Lim",
-    },
-  ]
-}
-
-export function buildSampleSiteAdvisers(): SiteListAdviserOption[] {
-  return [
-    { adviserUserId: "sample-adviser-001", fullName: "Ana Reyes" },
-    { adviserUserId: "sample-adviser-002", fullName: "Ben Santos" },
-    { adviserUserId: "sample-adviser-003", fullName: "Clara Lim" },
-  ]
-}
-
-export function buildSampleSites(): SiteListRow[] {
-  return [
-    {
-      geofenceId: "sample-geofence-001",
-      siteName: "Baguio City — Main Campus",
-      radiusMeters: 300,
-      centerLatitude: 16.4111,
-      centerLongitude: 120.5966,
-      sectionId: "sample-section-001",
-      sectionName: "CWTS-2526A",
-      adviserUserId: "sample-adviser-001",
-      supervisorName: "Ana Reyes",
-      isActive: true,
-      isSample: true,
-    },
-    {
-      geofenceId: "sample-geofence-002",
-      siteName: "Baguio City — Social Hall",
-      radiusMeters: 200,
-      centerLatitude: 16.4108,
-      centerLongitude: 120.5962,
-      sectionId: "sample-section-002",
-      sectionName: "CWTS-2526B",
-      adviserUserId: "sample-adviser-002",
-      supervisorName: "Ben Santos",
-      isActive: true,
-      isSample: true,
-    },
-    {
-      geofenceId: "sample-geofence-003",
-      siteName: "Baguio City — Gymnasium",
-      radiusMeters: 250,
-      centerLatitude: 16.412,
-      centerLongitude: 120.597,
-      sectionId: "sample-section-003",
-      sectionName: "ROTC-2526A",
-      adviserUserId: "sample-adviser-003",
-      supervisorName: "Clara Lim",
-      isActive: true,
-      isSample: true,
-    },
-  ]
 }
 
 export function formatSiteCoordinates(site: SiteListRow): string {

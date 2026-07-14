@@ -23,6 +23,11 @@ import {
 } from "@/lib/admin/section-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import {
+  getSectionDeleteImpact,
+  isForeignKeyViolation,
+  type DeleteImpact,
+} from "@/lib/admin/dependent-checks"
 
 const SEMESTER_LABELS: Record<string, string> = {
   first: "1st Semester",
@@ -36,6 +41,9 @@ const SEMESTER_LABELS: Record<string, string> = {
 export async function getSectionListData(
   query: SectionListQuery
 ): Promise<SectionListPageData> {
+  const role = await getAppUserRole()
+  if (role !== "admin") throw new Error("Unauthorized")
+
   const supabase = await createSupabaseServerClient()
   const activeStatusId = await lookupId("enrollment_status", "active")
 
@@ -69,7 +77,7 @@ export async function getSectionListData(
       .eq("enrollment_status_id", activeStatusId),
     supabase
       .from("app_user")
-      .select("app_user_id, full_name")
+      .select("app_user_id, full_name, is_active")
       .eq("role_id", adviserRoleId)
       .order("full_name"),
   ])
@@ -98,6 +106,7 @@ export async function getSectionListData(
     advisersRes.data?.map((row) => ({
       adviserUserId: row.app_user_id,
       fullName: row.full_name ?? "Unknown",
+      isActive: row.is_active,
     })) ?? []
 
   const statuses: SectionListStatusOption[] =
@@ -134,7 +143,7 @@ async function resolveCurrentUser(
   userId?: string
 ): Promise<AdminCurrentUser> {
   if (!userId) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const { data: appUser } = await supabase
@@ -144,13 +153,13 @@ async function resolveCurrentUser(
     .maybeSingle()
 
   if (!appUser?.full_name) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const isAdmin = (appUser.role as { code?: string } | null)?.code === "admin"
 
   return {
-    name: isAdmin ? "Admin Test Account" : appUser.full_name,
+    name: appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
     avatarUrl: (appUser as any).avatar_url ?? undefined,
   }
@@ -162,6 +171,26 @@ async function resolveStatusId(code: string): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+/** Rejects an inactive/non-facilitator adviser id. Never trust a client-supplied id. */
+async function assertActiveAdviser(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  adviserUserId: string
+): Promise<string | null> {
+  const { data } = await service
+    .from("app_user")
+    .select("is_active, role:role_id(code)")
+    .eq("app_user_id", adviserUserId)
+    .maybeSingle()
+  if (!data) return "Facilitator not found."
+  if ((data.role as { code?: string } | null)?.code !== "adviser") {
+    return "Selected user is not a facilitator."
+  }
+  if (!data.is_active) {
+    return "This facilitator's account is deactivated. Reactivate the account or choose an active facilitator."
+  }
+  return null
 }
 
 /**
@@ -181,6 +210,10 @@ export async function createSection(
     return { ok: false, error: validationError }
   }
 
+  if (payload.statusCode !== "active") {
+    return { ok: false, error: "A new class must start out Active." }
+  }
+
   if (!activeTermId) {
     return {
       ok: false,
@@ -194,6 +227,9 @@ export async function createSection(
   }
 
   const service = createSupabaseServiceClient()
+
+  const adviserError = await assertActiveAdviser(service, payload.adviserUserId)
+  if (adviserError) return { ok: false, error: adviserError }
 
   const { error } = await service.from("section").insert({
     term_id: activeTermId,
@@ -237,6 +273,22 @@ export async function updateSection(
   }
 
   const service = createSupabaseServiceClient()
+
+  const { data: current } = await service
+    .from("section")
+    .select("adviser_user_id")
+    .eq("section_id", payload.sectionId)
+    .maybeSingle()
+  if (!current) return { ok: false, error: "Class not found." }
+
+  // Only re-validate the adviser when it's actually changing — an admin must
+  // still be able to fix hours/status on a class whose adviser was just
+  // deactivated without being forced to reassign it first.
+  if (current.adviser_user_id !== payload.adviserUserId) {
+    const adviserError = await assertActiveAdviser(service, payload.adviserUserId)
+    if (adviserError) return { ok: false, error: adviserError }
+  }
+
   const { error } = await service
     .from("section")
     .update({
@@ -261,9 +313,54 @@ export async function updateSection(
 }
 
 /**
- * Removes a section from the list.
- * - Sections with active enrollments are archived (soft delete).
- * - Empty sections are hard-deleted from the database.
+ * Soft step: archives a class regardless of enrollment count. Enrollments and
+ * history are kept; the class can be restored later by setting it back to Active.
+ */
+export async function archiveSection(sectionId: string): Promise<SectionMutationResult> {
+  const role = await getAppUserRole()
+  if (role !== "admin") {
+    return { ok: false, error: "Unauthorized" }
+  }
+
+  if (!sectionId.trim()) {
+    return { ok: false, error: "Section ID is required." }
+  }
+
+  const archivedStatusId = await resolveStatusId("archived")
+  if (!archivedStatusId) {
+    return { ok: false, error: "Archived status not found." }
+  }
+
+  const service = createSupabaseServiceClient()
+  const { error } = await service
+    .from("section")
+    .update({
+      section_status_id: archivedStatusId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("section_id", sectionId)
+
+  if (error) {
+    console.error("[archiveSection] failed", error)
+    return { ok: false, error: "Failed to archive the class." }
+  }
+
+  return { ok: true }
+}
+
+export async function getSectionDeleteImpactAction(
+  sectionId: string
+): Promise<{ ok: true; impact: DeleteImpact } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+  const service = createSupabaseServiceClient()
+  return { ok: true, impact: await getSectionDeleteImpact(service, sectionId) }
+}
+
+/**
+ * Hard step: only archived/draft classes, and only once no attendance or
+ * request history exists on ANY of its enrollments (active, completed, or
+ * dropped) — a finished class with completed students is NOT "empty".
  */
 export async function deleteSection(
   sectionId: string
@@ -277,53 +374,26 @@ export async function deleteSection(
     return { ok: false, error: "Section ID is required." }
   }
 
-  const supabase = await createSupabaseServerClient()
-  const activeStatusId = await lookupId("enrollment_status", "active")
-
-  // check if section has active enrollments
-  const { count, error: countError } = await supabase
-    .from("enrollment")
-    .select("enrollment_id", { count: "exact", head: true })
-    .eq("section_id", sectionId)
-    .eq("enrollment_status_id", activeStatusId)
-
-  if (countError) {
-    console.error("[deleteSection] enrollment count failed", countError)
-    return { ok: false, error: "Failed to check enrollments." }
-  }
-
   const service = createSupabaseServiceClient()
-  // SOFT DELETE: If students are enrolled, it just becomes archived
-  if ((count ?? 0) > 0) {
-    const archivedStatusId = await resolveStatusId("archived")
-    if (!archivedStatusId) {
-      return { ok: false, error: "Archived status not found." }
+
+  const impact = await getSectionDeleteImpact(service, sectionId)
+  if (impact.state === "blocked") {
+    return {
+      ok: false,
+      error:
+        impact.lifecycleBlocked ??
+        "Cannot delete: this class has attendance or request history, which is never deleted.",
     }
-
-    const { error } = await service
-      .from("section")
-      .update({
-        section_status_id: archivedStatusId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("section_id", sectionId)
-
-    if (error) {
-      console.error("[deleteSection] archive failed", error)
-      return { ok: false, error: "Failed to archive section." }
-    }
-
-    return { ok: true }
   }
-  // HARD DELETE: If empty, remove the section entirely
-  const { error } = await service
-    .from("section")
-    .delete()
-    .eq("section_id", sectionId)
+
+  const { error } = await service.from("section").delete().eq("section_id", sectionId)
 
   if (error) {
+    if (isForeignKeyViolation(error)) {
+      return { ok: false, error: "Cannot delete: other records still reference this class." }
+    }
     console.error("[deleteSection] hard delete failed", error)
-    return { ok: false, error: "Failed to delete section." }
+    return { ok: false, error: "Failed to delete the class." }
   }
 
   return { ok: true }

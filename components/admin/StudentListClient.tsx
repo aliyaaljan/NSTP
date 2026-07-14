@@ -11,10 +11,16 @@ import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddStudentModal from "@/components/admin/AddStudentModal"
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import DeleteImpactModal from "@/components/admin/DeleteImpactModal"
 import EditStudentModal from "@/components/admin/EditStudentModal"
 import ImportStudentsModal from "@/components/admin/ImportStudentsModal"
 import { adminClickableRowProps } from "@/components/admin/admin-list-row"
-import { deleteStudent } from "@/lib/admin/student-list-actions"
+import {
+  deleteStudent,
+  getStudentDeleteImpactAction,
+  hardDeleteStudent,
+} from "@/lib/admin/student-list-actions"
+import type { DeleteImpact } from "@/lib/admin/dependent-checks"
 import {
   matchesActiveFilters,
   type ActiveFilters,
@@ -212,6 +218,14 @@ export default function StudentListClient({
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
 
+  // Dropped-view hard delete (two-step lifecycle: drop, then delete).
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<StudentListRow | null>(null)
+  const [hardDeleteImpact, setHardDeleteImpact] = useState<DeleteImpact | null>(null)
+  const [hardDeleteError, setHardDeleteError] = useState<string | null>(null)
+  const [isHardDeleting, startHardDeleteTransition] = useTransition()
+
+  const isDroppedView = query.view === "dropped"
+
   useEffect(() => {
     setSearchInput(query.search)
   }, [query.search])
@@ -341,6 +355,46 @@ export default function StudentListClient({
     })
   }
 
+  function openHardDeleteConfirm(student: StudentListRow) {
+    setHardDeleteError(null)
+    setHardDeleteImpact(null)
+    setHardDeleteTarget(student)
+    getStudentDeleteImpactAction(student.enrollmentId).then((res) => {
+      if (res.ok) {
+        setHardDeleteImpact(res.impact)
+      } else {
+        setHardDeleteImpact({
+          state: "blocked",
+          lifecycleBlocked: res.error,
+          blockers: [],
+          cascades: [],
+          notes: [],
+        })
+      }
+    })
+  }
+
+  function closeHardDeleteConfirm() {
+    if (isHardDeleting) return
+    setHardDeleteTarget(null)
+    setHardDeleteImpact(null)
+    setHardDeleteError(null)
+  }
+
+  function confirmHardDelete() {
+    if (!hardDeleteTarget) return
+    setHardDeleteError(null)
+    startHardDeleteTransition(async () => {
+      const result = await hardDeleteStudent(hardDeleteTarget.enrollmentId)
+      if (!result.ok) {
+        setHardDeleteError(result.error)
+        return
+      }
+      setHardDeleteTarget(null)
+      window.location.reload()
+    })
+  }
+
   const pctOfTotal = (count: number) =>
     summary.total > 0 ? `${Math.round((count / summary.total) * 100)}%` : "0%"
 
@@ -408,12 +462,38 @@ export default function StudentListClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Student List</h1>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>
+            {isDroppedView ? "Dropped Students" : "Student List"}
+          </h1>
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
         </div>
         <ProfilePill user={currentUser} />
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {(["active", "dropped"] as const).map((v) => {
+          const active = (query.view ?? "active") === v
+          return (
+            <button
+              key={v}
+              type="button"
+              onClick={() => pushParams({ view: v === "active" ? null : v, page: "1" })}
+              style={{
+                ...TYPE.bodyBold,
+                padding: "8px 18px",
+                borderRadius: 999,
+                border: "none",
+                cursor: "pointer",
+                background: active ? COLORS.maroon : COLORS.iconBg,
+                color: active ? "#fff" : COLORS.textGray,
+              }}
+            >
+              {v === "active" ? "Active" : "Dropped"}
+            </button>
+          )
+        })}
       </div>
 
       <div className="admin-list-kpi-sticky" style={{ marginBottom: 16 }}>
@@ -426,7 +506,7 @@ export default function StudentListClient({
 
       <div className="admin-table-card">
         <AdminTableToolbar
-          title="All Students"
+          title={isDroppedView ? "Dropped Students" : "All Students"}
           count={`${filteredCount} student${filteredCount !== 1 ? "s" : ""} found`}
           searchValue={searchInput}
           onSearchChange={setSearchInput}
@@ -591,25 +671,39 @@ export default function StudentListClient({
           initials={initialsFromName(detailStudent.fullName)}
           avatarUrl={detailStudent.avatarUrl}
           size="md"
-          actions={[
-            {
-              label: "Edit",
-              variant: "primary",
-              onClick: () => {
-                setEditStudent(detailStudent)
-                setDetailStudent(null)
-              },
-            },
-            {
-              label: "Remove",
-              variant: "danger",
-              disabled: isDeleting && deletingId === detailStudent.enrollmentId,
-              onClick: () => {
-                openDeleteConfirm(detailStudent.enrollmentId, detailStudent.fullName)
-                setDetailStudent(null)
-              },
-            },
-          ]}
+          actions={
+            isDroppedView
+              ? [
+                  {
+                    label: "Delete Permanently",
+                    variant: "danger",
+                    disabled: isHardDeleting,
+                    onClick: () => {
+                      openHardDeleteConfirm(detailStudent)
+                      setDetailStudent(null)
+                    },
+                  },
+                ]
+              : [
+                  {
+                    label: "Edit",
+                    variant: "primary",
+                    onClick: () => {
+                      setEditStudent(detailStudent)
+                      setDetailStudent(null)
+                    },
+                  },
+                  {
+                    label: "Remove",
+                    variant: "danger",
+                    disabled: isDeleting && deletingId === detailStudent.enrollmentId,
+                    onClick: () => {
+                      openDeleteConfirm(detailStudent.enrollmentId, detailStudent.fullName)
+                      setDetailStudent(null)
+                    },
+                  },
+                ]
+          }
         >
           <ModalRow>
             <ModalField label="Student ID" value={detailStudent.studentNumber ?? "—"} />
@@ -656,13 +750,27 @@ export default function StudentListClient({
       />
       <ConfirmDeleteModal
         open={deleteTarget !== null}
-        title="Remove Student"
+        title="Remove from Class"
         subjectName={deleteTarget?.name}
-        message="Remove this student from the list? This action cannot be undone."
+        message="The student will be marked as dropped. Attendance history is kept and the student can be re-enrolled later. Dropped students appear in the Dropped view."
+        confirmLabel="Remove"
         isPending={isDeleting}
         error={deleteError}
         onClose={closeDeleteConfirm}
         onConfirm={confirmDelete}
+      />
+
+      <DeleteImpactModal
+        open={hardDeleteTarget !== null}
+        title="Delete Student"
+        subjectName={hardDeleteTarget?.fullName}
+        impact={hardDeleteImpact}
+        requireTypedConfirm
+        confirmLabel="Delete Permanently"
+        isPending={isHardDeleting}
+        error={hardDeleteError}
+        onClose={closeHardDeleteConfirm}
+        onConfirm={confirmHardDelete}
       />
     </>
   )

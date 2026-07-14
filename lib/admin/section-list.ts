@@ -43,6 +43,8 @@ export interface SectionListAdviserOption {
   /** `app_user.app_user_id` */
   adviserUserId: string
   fullName: string
+  /** `app_user.is_active` — inactive advisers cannot be assigned to a class. */
+  isActive: boolean
 }
 
 export interface SectionListStatusOption {

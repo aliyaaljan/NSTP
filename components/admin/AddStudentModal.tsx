@@ -12,6 +12,7 @@ import {
   validateStudentCreatePayload,
   type StudentCreatePayload,
 } from "@/lib/admin/student-edit"
+import { isFormDirty } from "@/lib/admin/form-dirty"
 import type { PriorDecision } from "@/lib/admin/student-import"
 import type {
   StudentEnrollmentLookups,
@@ -292,6 +293,13 @@ export default function AddStudentModal({
     onClose()
   }, [onClose, reset])
 
+  const isDirty = isFormDirty(emptyStudentCreatePayload(), form)
+
+  const requestClose = useCallback(() => {
+    if (isDirty && !window.confirm("Discard unsaved changes?")) return
+    close()
+  }, [isDirty, close])
+
   useEffect(() => {
     if (open) {
       setForm(emptyStudentCreatePayload())
@@ -306,7 +314,7 @@ export default function AddStudentModal({
     if (!open) return
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close()
+      if (e.key === "Escape") requestClose()
     }
 
     document.body.style.overflow = "hidden"
@@ -315,7 +323,7 @@ export default function AddStudentModal({
       document.body.style.overflow = ""
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [open, close])
+  }, [open, requestClose])
 
   useEffect(() => {
     if (checkTimeoutRef.current) clearTimeout(checkTimeoutRef.current)
@@ -421,7 +429,7 @@ export default function AddStudentModal({
   return (
     <div
       role="presentation"
-      onClick={close}
+      onClick={requestClose}
       style={{
         position: "fixed",
         inset: 0,
@@ -462,7 +470,7 @@ export default function AddStudentModal({
           </h2>
           <button
             type="button"
-            onClick={close}
+            onClick={requestClose}
             aria-label="Close"
             style={{
               background: "none",
@@ -656,7 +664,7 @@ export default function AddStudentModal({
         >
           <button
             type="button"
-            onClick={close}
+            onClick={requestClose}
             disabled={isPending}
             style={{
               ...TYPE.bodyBold,

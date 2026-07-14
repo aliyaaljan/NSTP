@@ -158,6 +158,11 @@ create table section_geofence (
   updated_at          timestamptz not null default now()
 );
 
+-- Site names are globally unique (case/whitespace-insensitive). NULL labels exempt.
+create unique index if not exists uq_section_geofence_label
+  on section_geofence (lower(trim(label)))
+  where label is not null;
+
 create table enrollment (
   enrollment_id        uuid primary key default gen_random_uuid(),
   section_id           uuid not null references section(section_id) on delete cascade,
@@ -486,6 +491,39 @@ drop trigger if exists enforce_one_active_enrollment on enrollment;
 create trigger enforce_one_active_enrollment
   before insert or update on enrollment
   for each row execute function public.enforce_one_active_enrollment();
+
+-- ============================================================
+-- An enrollment's assigned_geofence_id must belong to its own section.
+-- Captured from live drift 2026-07 — existed on the DB with no migration
+-- file backing it. Guards against a section move (e.g. facilitator class
+-- reassignment/merge) leaving a student's site pointer on the old class.
+-- ============================================================
+create or replace function public.enforce_enrollment_geofence_section_match()
+returns trigger language plpgsql set search_path = public, pg_temp as $$
+declare
+  v_geofence_section_id uuid;
+begin
+  if new.assigned_geofence_id is null then
+    return new;
+  end if;
+
+  select section_id into v_geofence_section_id
+  from public.section_geofence
+  where section_geofence_id = new.assigned_geofence_id;
+
+  if v_geofence_section_id is distinct from new.section_id then
+    raise exception 'assigned_geofence_id % does not belong to section %',
+      new.assigned_geofence_id, new.section_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists enrollment_geofence_section_match on enrollment;
+create trigger enrollment_geofence_section_match
+  before insert or update of assigned_geofence_id, section_id on enrollment
+  for each row execute function public.enforce_enrollment_geofence_section_match();
 
 -- ============================================================
 -- Seed data (lookup tables) — idempotent

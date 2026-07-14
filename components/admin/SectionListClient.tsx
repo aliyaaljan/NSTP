@@ -7,11 +7,17 @@ import ListPagination from "@/components/shared/ListPagination"
 import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
+import DeleteImpactModal from "@/components/admin/DeleteImpactModal"
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import SectionFormModal from "@/components/admin/SectionFormModal"
 import { adminClickableRowProps } from "@/components/admin/admin-list-row"
-import { deleteSection } from "@/lib/admin/section-list-actions"
+import {
+  archiveSection,
+  deleteSection,
+  getSectionDeleteImpactAction,
+} from "@/lib/admin/section-list-actions"
+import type { DeleteImpact } from "@/lib/admin/dependent-checks"
 import { sectionRowToEditPayload } from "@/lib/admin/section-edit"
 import {
   SECTION_LIST_ALL_ADVISERS,
@@ -116,7 +122,9 @@ export default function SectionListClient({
   const [formMode, setFormMode] = useState<"create" | "edit">("create")
   const [editSection, setEditSection] = useState<SectionListRow | null>(null)
   const [detailSection, setDetailSection] = useState<SectionListRow | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<SectionListRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SectionListRow | null>(null)
+  const [deleteImpact, setDeleteImpact] = useState<DeleteImpact | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
     initialFiltersFromQuery(query)
@@ -248,14 +256,55 @@ export default function SectionListClient({
     setEditSection(null)
   }
 
-  function openDeleteConfirm(section: SectionListRow) {
+  /** Status-dependent danger action: non-archived classes archive; archived classes hard-delete. */
+  function openDangerAction(section: SectionListRow) {
     setDeleteError(null)
+    if (section.statusCode !== "archived") {
+      setArchiveTarget(section)
+      return
+    }
+    setDeleteImpact(null)
     setDeleteTarget(section)
+    getSectionDeleteImpactAction(section.sectionId).then((res) => {
+      if (res.ok) {
+        setDeleteImpact(res.impact)
+      } else {
+        setDeleteImpact({
+          state: "blocked",
+          lifecycleBlocked: res.error,
+          blockers: [],
+          cascades: [],
+          notes: [],
+        })
+      }
+    })
+  }
+
+  function closeArchiveConfirm() {
+    if (isDeleting) return
+    setArchiveTarget(null)
+    setDeleteError(null)
+  }
+
+  function confirmArchive() {
+    if (!archiveTarget) return
+
+    setDeleteError(null)
+    startDeleteTransition(async () => {
+      const result = await archiveSection(archiveTarget.sectionId)
+      if (!result.ok) {
+        setDeleteError(result.error)
+        return
+      }
+      setArchiveTarget(null)
+      window.location.reload()
+    })
   }
 
   function closeDeleteConfirm() {
     if (isDeleting) return
     setDeleteTarget(null)
+    setDeleteImpact(null)
     setDeleteError(null)
   }
 
@@ -274,10 +323,6 @@ export default function SectionListClient({
       window.location.reload()
     })
   }
-
-  const deleteMessage = deleteTarget?.studentCount
-    ? "This class has enrolled students and will be archived instead of permanently deleted. You can restore it later by changing its status."
-    : "This class has no enrolled students and will be permanently removed. This action cannot be undone."
 
   const pctOfTotal = (count: number) =>
     summary.total > 0 ? `${Math.round((count / summary.total) * 100)}%` : "0%"
@@ -529,11 +574,11 @@ export default function SectionListClient({
               },
             },
             {
-              label: detailSection.studentCount ? "Archive" : "Delete",
+              label: detailSection.statusCode === "archived" ? "Delete" : "Archive",
               variant: "danger",
               disabled: isDeleting,
               onClick: () => {
-                openDeleteConfirm(detailSection)
+                openDangerAction(detailSection)
                 setDetailSection(null)
               },
             },
@@ -571,11 +616,24 @@ export default function SectionListClient({
       )}
 
       <ConfirmDeleteModal
+        open={Boolean(archiveTarget)}
+        title="Archive Class"
+        message="The class will be archived. Enrollments and history are kept; you can restore it by changing its status back to Active."
+        subjectName={archiveTarget?.name}
+        confirmLabel="Archive Class"
+        isPending={isDeleting}
+        error={deleteError}
+        onClose={closeArchiveConfirm}
+        onConfirm={confirmArchive}
+      />
+
+      <DeleteImpactModal
         open={Boolean(deleteTarget)}
         title="Delete Class"
-        message={deleteMessage}
         subjectName={deleteTarget?.name}
-        confirmLabel={deleteTarget?.studentCount ? "Archive Class" : "Delete Class"}
+        impact={deleteImpact}
+        requireTypedConfirm
+        confirmLabel="Delete Permanently"
         isPending={isDeleting}
         error={deleteError}
         onClose={closeDeleteConfirm}

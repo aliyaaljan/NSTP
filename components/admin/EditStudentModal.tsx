@@ -173,6 +173,13 @@ export default function EditStudentModal({
     onClose()
   }, [onClose])
 
+  const isDirty = form && initialForm ? isFormDirty(initialForm, form) : false
+
+  const requestClose = useCallback(() => {
+    if (isDirty && !window.confirm("Discard unsaved changes?")) return
+    close()
+  }, [isDirty, close])
+
   useEffect(() => {
     if (
       !shouldLoadFormSession(
@@ -195,7 +202,7 @@ export default function EditStudentModal({
     if (!open) return
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close()
+      if (e.key === "Escape") requestClose()
     }
 
     document.body.style.overflow = "hidden"
@@ -204,7 +211,7 @@ export default function EditStudentModal({
       document.body.style.overflow = ""
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [open, close])
+  }, [open, requestClose])
 
   function patchForm(updates: Partial<StudentEditPayload>) {
     setForm((prev) => (prev ? { ...prev, ...updates } : prev))
@@ -233,9 +240,6 @@ export default function EditStudentModal({
 
   if (!open || !student || !form) return null
 
-  const isDirty =
-    form && initialForm ? isFormDirty(initialForm, form) : false
-
   const canSave =
     !isPending &&
     isDirty &&
@@ -244,7 +248,7 @@ export default function EditStudentModal({
   return (
     <div
       role="presentation"
-      onClick={close}
+      onClick={requestClose}
       style={{
         position: "fixed",
         inset: 0,
@@ -285,7 +289,7 @@ export default function EditStudentModal({
           </h2>
           <button
             type="button"
-            onClick={close}
+            onClick={requestClose}
             aria-label="Close"
             style={{
               background: "none",
@@ -419,7 +423,7 @@ export default function EditStudentModal({
         >
           <button
             type="button"
-            onClick={close}
+            onClick={requestClose}
             disabled={isPending}
             style={{
               ...TYPE.bodyBold,

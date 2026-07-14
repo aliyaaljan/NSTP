@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react"
 import { createAdviser } from "@/lib/admin/adviser-list-actions"
+import { isFormDirty } from "@/lib/admin/form-dirty"
 import {
   emptyAdviserCreatePayload,
   validateAdviserCreatePayload,
   type AdviserCreatePayload,
 } from "@/lib/admin/adviser-edit"
+import type { AdviserLookupOption, AdviserProfileLookups } from "@/lib/admin/adviser-list"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
@@ -81,11 +83,65 @@ function TextInput({
   )
 }
 
+function LookupSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string | null
+  onChange: (value: string | null) => void
+  options: AdviserLookupOption[]
+}) {
+  return (
+    <div style={{ position: "relative" }}>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        style={{
+          width: "100%",
+          ...TYPE.body,
+          fontStyle: "normal",
+          color: value ? COLORS.textDark : COLORS.textGray,
+          background: COLORS.fieldBg,
+          border: "none",
+          borderRadius: 6,
+          padding: "12px 40px 12px 14px",
+          appearance: "none",
+          cursor: "pointer",
+          outline: "none",
+        }}
+      >
+        {/* Enabled (not disabled) so the value can be cleared back to null. */}
+        <option value="">—</option>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <i
+        className="ti ti-chevron-down"
+        style={{
+          position: "absolute",
+          right: 14,
+          top: "50%",
+          transform: "translateY(-50%)",
+          fontSize: 16,
+          color: COLORS.textGray,
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  )
+}
+
 export default function AddAdviserModal({
   open,
+  lookups,
   onClose,
 }: {
   open: boolean
+  lookups: AdviserProfileLookups
   onClose: () => void
 }) {
   const [form, setForm] = useState<AdviserCreatePayload>(emptyAdviserCreatePayload())
@@ -102,6 +158,13 @@ export default function AddAdviserModal({
     onClose()
   }, [onClose, reset])
 
+  const isDirty = isFormDirty(emptyAdviserCreatePayload(), form)
+
+  const requestClose = useCallback(() => {
+    if (isDirty && !window.confirm("Discard unsaved changes?")) return
+    close()
+  }, [isDirty, close])
+
   useEffect(() => {
     if (open) {
       setForm(emptyAdviserCreatePayload())
@@ -113,7 +176,7 @@ export default function AddAdviserModal({
     if (!open) return
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close()
+      if (e.key === "Escape") requestClose()
     }
 
     document.body.style.overflow = "hidden"
@@ -122,7 +185,7 @@ export default function AddAdviserModal({
       document.body.style.overflow = ""
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [open, close])
+  }, [open, requestClose])
 
   function patchForm(updates: Partial<AdviserCreatePayload>) {
     setForm((prev) => ({ ...prev, ...updates }))
@@ -155,7 +218,7 @@ export default function AddAdviserModal({
   return (
     <div
       role="presentation"
-      onClick={close}
+      onClick={requestClose}
       style={{
         position: "fixed",
         inset: 0,
@@ -196,7 +259,7 @@ export default function AddAdviserModal({
           </h2>
           <button
             type="button"
-            onClick={close}
+            onClick={requestClose}
             aria-label="Close"
             style={{
               background: "none",
@@ -235,6 +298,35 @@ export default function AddAdviserModal({
               value={form.email}
               onChange={(email) => patchForm({ email })}
               placeholder="name@up.edu.ph"
+            />
+          </FormField>
+
+          <FormField label="College">
+            <LookupSelect
+              value={form.collegeId}
+              onChange={(collegeId) => patchForm({ collegeId })}
+              options={lookups.colleges}
+            />
+          </FormField>
+
+          <FormField
+            label="NSTP Component"
+            hint="Determines the facilitator's auto-created class (e.g. NSTP 2 LTS)."
+          >
+            <LookupSelect
+              value={form.nstpComponentId}
+              onChange={(nstpComponentId) => patchForm({ nstpComponentId })}
+              options={lookups.components}
+            />
+          </FormField>
+
+          <FormField label="Partnership Type">
+            <TextInput
+              value={form.partnershipType ?? ""}
+              onChange={(partnershipType) =>
+                patchForm({ partnershipType: partnershipType || null })
+              }
+              placeholder="e.g. LGU, NGO, School"
             />
           </FormField>
 
@@ -278,7 +370,7 @@ export default function AddAdviserModal({
         >
           <button
             type="button"
-            onClick={close}
+            onClick={requestClose}
             disabled={isPending}
             style={{
               ...TYPE.bodyBold,

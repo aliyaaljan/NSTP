@@ -99,6 +99,11 @@ function TextInput({
   )
 }
 
+/** Loose bounding box around the Philippines — a sanity hint, not a hard rule. */
+function isOutsidePhilippines(lat: number, lng: number): boolean {
+  return lat < 4 || lat > 21 || lng < 116 || lng > 127
+}
+
 export default function EditGpsSiteModal({
   open,
   site,
@@ -112,6 +117,8 @@ export default function EditGpsSiteModal({
 }) {
   const [form, setForm] = useState<SiteUpdatePayload | null>(null)
   const [initialForm, setInitialForm] = useState<SiteUpdatePayload | null>(null)
+  const [latInput, setLatInput] = useState("")
+  const [lngInput, setLngInput] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const loadedSessionRef = useRef<string | null>(null)
@@ -139,6 +146,13 @@ export default function EditGpsSiteModal({
     onClose()
   }, [onClose])
 
+  const isDirty = form && initialForm ? isFormDirty(initialForm, form) : false
+
+  const requestClose = useCallback(() => {
+    if (isDirty && !window.confirm("Discard unsaved changes?")) return
+    close()
+  }, [isDirty, close])
+
   useEffect(() => {
     if (
       !shouldLoadFormSession(open, site?.geofenceId ?? null, loadedSessionRef) ||
@@ -150,6 +164,8 @@ export default function EditGpsSiteModal({
     const next = snapshotForm(siteRowToUpdatePayload(site))
     setForm(next)
     setInitialForm(snapshotForm(next))
+    setLatInput(String(next.centerLatitude))
+    setLngInput(String(next.centerLongitude))
     setError(null)
   }, [open, site])
 
@@ -157,7 +173,7 @@ export default function EditGpsSiteModal({
     if (!open) return
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close()
+      if (e.key === "Escape") requestClose()
     }
 
     document.body.style.overflow = "hidden"
@@ -166,14 +182,42 @@ export default function EditGpsSiteModal({
       document.body.style.overflow = ""
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [open, close])
+  }, [open, requestClose])
 
   function patchForm(updates: Partial<SiteUpdatePayload>) {
     setForm((prev) => (prev ? { ...prev, ...updates } : prev))
   }
 
+  const parsedLat = Number.parseFloat(latInput)
+  const latValid = Number.isFinite(parsedLat) && parsedLat >= -90 && parsedLat <= 90
+  const parsedLng = Number.parseFloat(lngInput)
+  const lngValid = Number.isFinite(parsedLng) && parsedLng >= -180 && parsedLng <= 180
+
+  // Keep the map/payload in sync with the latest VALID coordinate only — an
+  // in-progress or invalid keystroke never silently collapses to 0.
+  useEffect(() => {
+    if (latValid) patchForm({ centerLatitude: parsedLat })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latValid, parsedLat])
+  useEffect(() => {
+    if (lngValid) patchForm({ centerLongitude: parsedLng })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lngValid, parsedLng])
+
+  const showOutsidePhWarning =
+    latValid && lngValid && isOutsidePhilippines(parsedLat, parsedLng)
+
   function handleSave() {
     if (!form) return
+
+    if (!latValid) {
+      setError("Latitude must be a number between -90 and 90.")
+      return
+    }
+    if (!lngValid) {
+      setError("Longitude must be a number between -180 and 180.")
+      return
+    }
 
     const validationError = validateSiteUpdatePayload(form)
     if (validationError) {
@@ -195,18 +239,17 @@ export default function EditGpsSiteModal({
 
   if (!open || !site || !form) return null
 
-  const isDirty =
-    form && initialForm ? isFormDirty(initialForm, form) : false
-
   const canSave =
     !isPending &&
     isDirty &&
+    latValid &&
+    lngValid &&
     Boolean(form.siteName.trim() && form.sectionId && form.radiusMeters > 0)
 
   return (
     <div
       role="presentation"
-      onClick={close}
+      onClick={requestClose}
       style={{
         position: "fixed",
         inset: 0,
@@ -250,7 +293,7 @@ export default function EditGpsSiteModal({
           </h2>
           <button
             type="button"
-            onClick={close}
+            onClick={requestClose}
             aria-label="Close"
             style={{
               background: "none",
@@ -364,10 +407,15 @@ export default function EditGpsSiteModal({
                       id="gps_center_latitude"
                       name="center_latitude"
                       type="number"
-                      value={String(form.centerLatitude)}
-                      onChange={(v) => patchForm({ centerLatitude: parseFloat(v) || 0 })}
+                      value={latInput}
+                      onChange={setLatInput}
                       placeholder="16.411100"
                     />
+                    {!latValid && (
+                      <p style={{ ...TYPE.caption, color: COLORS.error, margin: "6px 0 0" }}>
+                        Must be between -90 and 90.
+                      </p>
+                    )}
                   </FormField>
                 </div>
 
@@ -377,13 +425,25 @@ export default function EditGpsSiteModal({
                       id="gps_center_longitude"
                       name="center_longitude"
                       type="number"
-                      value={String(form.centerLongitude)}
-                      onChange={(v) => patchForm({ centerLongitude: parseFloat(v) || 0 })}
+                      value={lngInput}
+                      onChange={setLngInput}
                       placeholder="120.596600"
                     />
+                    {!lngValid && (
+                      <p style={{ ...TYPE.caption, color: COLORS.error, margin: "6px 0 0" }}>
+                        Must be between -180 and 180.
+                      </p>
+                    )}
                   </FormField>
                 </div>
               </div>
+
+              {showOutsidePhWarning && (
+                <p style={{ ...TYPE.caption, color: "#8A6D00", margin: 0 }}>
+                  These coordinates are outside the Philippines — double-check
+                  latitude/longitude aren&apos;t swapped.
+                </p>
+              )}
 
               <label
                 style={{
@@ -418,13 +478,17 @@ export default function EditGpsSiteModal({
                 overflow: "hidden",
               }}
             >
-              <Map
-                center={[form.centerLatitude, form.centerLongitude]}
-                radius={form.radiusMeters}
-                onCenterChange={(lat, lng) =>
-                  patchForm({ centerLatitude: lat, centerLongitude: lng })
-                }
-              />
+              {latValid && lngValid && (
+                <Map
+                  center={[form.centerLatitude, form.centerLongitude]}
+                  radius={form.radiusMeters}
+                  onCenterChange={(lat, lng) => {
+                    patchForm({ centerLatitude: lat, centerLongitude: lng })
+                    setLatInput(String(lat))
+                    setLngInput(String(lng))
+                  }}
+                />
+              )}
             </div>
           </div>
 

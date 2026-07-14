@@ -68,6 +68,9 @@ export type StudentListSortKey = "name" | "section" | "adviser"
 
 export type StudentListStatusFilter = StudentProgressStatus | "all"
 
+/** Two-step lifecycle view: Active roster, or Dropped students (disable step). */
+export type StudentListView = "active" | "dropped"
+
 /** Sentinel for "all sections" in filters / query strings. */
 export const STUDENT_LIST_ALL_SECTIONS = "all"
 
@@ -83,6 +86,7 @@ export interface StudentListQuery {
   dir: "asc" | "desc"
   /** 1-based page index. */
   page: number
+  view: StudentListView
 }
 
 export interface StudentListMeta {
@@ -245,6 +249,7 @@ export function parseStudentListQuery(params: {
   sort?: string
   dir?: string
   page?: string
+  view?: string
 }): StudentListQuery {
   const pageNum = Math.max(1, parseInt(params.page ?? "1", 10) || 1)
 
@@ -264,6 +269,7 @@ export function parseStudentListQuery(params: {
           : "name",
     dir: params.dir === "desc" ? "desc" : "asc",
     page: pageNum,
+    view: params.view === "dropped" ? "dropped" : "active",
   }
 }
 

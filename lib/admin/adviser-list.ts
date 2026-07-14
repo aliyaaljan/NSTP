@@ -29,6 +29,29 @@ export interface AdviserListRow {
   /** Open + under-review appeals assigned to this adviser. */
   pendingRequestCount: number
   isActive: boolean
+  /** `app_user.college_id` */
+  collegeId: string | null
+  /** `college.name` via `college_id` */
+  collegeName: string | null
+  /** `app_user.nstp_component_id` — drives the facilitator's class course_code. */
+  nstpComponentId: string | null
+  /** `nstp_component.name` via `nstp_component_id` */
+  nstpComponentName: string | null
+  /** `app_user.partnership_type` */
+  partnershipType: string | null
+}
+
+/** One row of a lookup table (`college` / `nstp_component`), shaped for a <select>. */
+export interface AdviserLookupOption {
+  /** The lookup table's PK UUID — submitted as the FK value. */
+  id: string
+  label: string
+}
+
+/** Dropdown options for the facilitator profile fields on Add/Edit Facilitator. */
+export interface AdviserProfileLookups {
+  colleges: AdviserLookupOption[]
+  components: AdviserLookupOption[]
 }
 
 export interface AdviserListSectionOption {
@@ -77,6 +100,7 @@ export interface AdminCurrentUser {
 export interface AdviserListPageData {
   advisers: AdviserListRow[]
   sections: AdviserListSectionOption[]
+  lookups: AdviserProfileLookups
   summary: AdviserListSummary
   meta: AdviserListMeta
   currentUser: AdminCurrentUser
@@ -93,6 +117,11 @@ export const ADVISER_LIST_SELECT = `
   email,
   avatar_url,
   is_active,
+  college_id,
+  college:college_id(name),
+  nstp_component_id,
+  nstp_component:nstp_component_id(name),
+  partnership_type,
   section:section_adviser_user_id_fkey(
     section_id,
     course_code,
@@ -113,6 +142,11 @@ export interface AdviserListDbRow {
   email: string
   avatar_url: string | null
   is_active: boolean
+  college_id: string | null
+  college: { name: string } | null
+  nstp_component_id: string | null
+  nstp_component: { name: string } | null
+  partnership_type: string | null
   section:
     | Array<{
         section_id: string
@@ -203,6 +237,11 @@ export function mapAdviserDbRowToListRow(
     avgCompletionPct,
     pendingRequestCount: pendingCount,
     isActive: row.is_active,
+    collegeId: row.college_id,
+    collegeName: row.college?.name ?? null,
+    nstpComponentId: row.nstp_component_id,
+    nstpComponentName: row.nstp_component?.name ?? null,
+    partnershipType: row.partnership_type,
   }
 }
 

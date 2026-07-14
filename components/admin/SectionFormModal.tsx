@@ -169,11 +169,22 @@ export default function SectionFormModal({
     }
   }, [open, mode, initialEdit, reset])
 
+  const hasUnsavedChanges =
+    mode === "edit" && initialForm
+      ? isFormDirty(initialForm, form)
+      : isFormDirty(emptySectionCreatePayload(), form)
+
+  const requestClose = useCallback(() => {
+    if (isPending) return
+    if (hasUnsavedChanges && !window.confirm("Discard unsaved changes?")) return
+    onClose()
+  }, [isPending, hasUnsavedChanges, onClose])
+
   useEffect(() => {
     if (!open) return
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !isPending) onClose()
+      if (e.key === "Escape") requestClose()
     }
 
     document.body.style.overflow = "hidden"
@@ -182,15 +193,28 @@ export default function SectionFormModal({
       document.body.style.overflow = ""
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [open, isPending, onClose])
+  }, [open, requestClose])
 
   const adviserOptions = useMemo(
     () =>
-      advisers.map((adviser) => ({
-        value: adviser.adviserUserId,
-        label: adviser.fullName,
-      })),
-    [advisers]
+      advisers
+        .filter(
+          (adviser) =>
+            adviser.isActive ||
+            (mode === "edit" && adviser.adviserUserId === initialEdit?.adviserUserId)
+        )
+        .map((adviser) => ({
+          value: adviser.adviserUserId,
+          label: adviser.isActive ? adviser.fullName : `${adviser.fullName} (inactive)`,
+        })),
+    [advisers, mode, initialEdit?.adviserUserId]
+  )
+
+  // A brand-new class must start Active; edit mode keeps the full lifecycle
+  // (Active/Completed/Archived — this is also the unarchive/restore path).
+  const statusOptions = useMemo(
+    () => (mode === "create" ? statuses.filter((s) => s.code === "active") : statuses),
+    [mode, statuses]
   )
 
   if (!open) return null
@@ -250,12 +274,15 @@ export default function SectionFormModal({
   const canSubmit =
     Boolean(form.courseCode.trim()) &&
     Boolean(form.adviserUserId) &&
+    form.requiredHourTotal >= 1 &&
+    form.requiredHourTotal <= 999 &&
+    /^\d{2}:\d{2}$/.test(form.dailyCutoffTime) &&
     isDirty
 
   return (
     <div
       role="presentation"
-      onClick={isPending ? undefined : onClose}
+      onClick={requestClose}
       style={{
         position: "fixed",
         inset: 0,
@@ -303,7 +330,7 @@ export default function SectionFormModal({
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isPending}
             aria-label="Close"
             style={{
@@ -353,12 +380,54 @@ export default function SectionFormModal({
                 patchForm({ statusCode: statusCode as SectionCreatePayload["statusCode"] })
               }
             >
-              {statuses.map((status) => (
+              {statusOptions.map((status) => (
                 <option key={status.sectionStatusId} value={status.code}>
                   {status.name}
                 </option>
               ))}
             </NativeSelect>
+          </FormField>
+
+          <FormField label="Required Hours">
+            <input
+              type="number"
+              min={1}
+              max={999}
+              value={form.requiredHourTotal}
+              onChange={(e) =>
+                patchForm({ requiredHourTotal: parseInt(e.target.value, 10) || 0 })
+              }
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                ...TYPE.body,
+                color: COLORS.textDark,
+                background: COLORS.fieldBg,
+                border: "none",
+                borderRadius: 6,
+                padding: "12px 14px",
+                outline: "none",
+              }}
+            />
+          </FormField>
+
+          <FormField label="Daily Cutoff">
+            <input
+              type="time"
+              value={form.dailyCutoffTime}
+              onChange={(e) => patchForm({ dailyCutoffTime: e.target.value })}
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                ...TYPE.body,
+                color: COLORS.textDark,
+                background: COLORS.fieldBg,
+                border: "none",
+                borderRadius: 6,
+                padding: "12px 14px",
+                outline: "none",
+              }}
+            />
           </FormField>
 
           {error && (
@@ -376,7 +445,7 @@ export default function SectionFormModal({
         >
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isPending}
             style={{
               ...TYPE.bodyBold,

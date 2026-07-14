@@ -63,32 +63,34 @@ export function emptySiteCreatePayload(): SiteCreatePayload {
   }
 }
 
+function validateSiteCoordinatesAndRadius(payload: {
+  radiusMeters: number
+  centerLatitude: number
+  centerLongitude: number
+}): string | null {
+  if (!Number.isFinite(payload.radiusMeters) || payload.radiusMeters < 10 || payload.radiusMeters > 1000) {
+    return "Radius must be between 10 and 1000 meters."
+  }
+  if (!Number.isFinite(payload.centerLatitude)) return "Latitude is required."
+  if (payload.centerLatitude < -90 || payload.centerLatitude > 90) {
+    return "Latitude must be between -90 and 90."
+  }
+  if (!Number.isFinite(payload.centerLongitude)) return "Longitude is required."
+  if (payload.centerLongitude < -180 || payload.centerLongitude > 180) {
+    return "Longitude must be between -180 and 180."
+  }
+  return null
+}
+
 export function validateSiteCreatePayload(payload: SiteCreatePayload): string | null {
   if (!payload.siteName.trim()) return "Site name is required."
   if (!payload.sectionId.trim()) return "Section is required."
-  if (!Number.isFinite(payload.radiusMeters) || payload.radiusMeters < 1) {
-    return "Radius must be at least 1 meter."
-  }
-  if (!Number.isFinite(payload.centerLatitude)) return "Latitude is required."
-  if (!Number.isFinite(payload.centerLongitude)) return "Longitude is required."
-  return null
+  return validateSiteCoordinatesAndRadius(payload)
 }
 
 export function validateSiteUpdatePayload(payload: SiteUpdatePayload): string | null {
   if (!payload.geofenceId.trim()) return "Site ID is required."
   if (!payload.sectionId.trim()) return "Section is required."
   if (!payload.siteName.trim()) return "Site name is required."
-  if (!Number.isFinite(payload.radiusMeters) || payload.radiusMeters < 1) {
-    return "Radius must be at least 1 meter."
-  }
-  if (!Number.isFinite(payload.centerLatitude)) return "Latitude is required."
-  if (!Number.isFinite(payload.centerLongitude)) return "Longitude is required."
-  return null
-}
-
-export function validateSiteDelete(site: SiteListRow): string | null {
-  if (site.isSample) {
-    return "Sample GPS sites cannot be deleted until database sites are available."
-  }
-  return null
+  return validateSiteCoordinatesAndRadius(payload)
 }

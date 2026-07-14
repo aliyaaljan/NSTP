@@ -3,9 +3,6 @@
 import { getAppUserRole } from "@/lib/auth-actions"
 import { lookupId } from "@/lib/lookups"
 import {
-  buildSampleSiteAdvisers,
-  buildSampleSiteSections,
-  buildSampleSites,
   buildSiteListSummary,
   mapSiteListDbRow,
   SITE_LIST_SELECT,
@@ -19,14 +16,19 @@ import {
 } from "@/lib/admin/site-list"
 import {
   validateSiteCreatePayload,
-  validateSiteDelete,
   validateSiteUpdatePayload,
   type SiteCreatePayload,
   type SiteMutationResult,
   type SiteUpdatePayload,
 } from "@/lib/admin/site-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { formatClassLabel } from "@/lib/shared/class-label"
+import {
+  getSiteDeleteImpact,
+  isForeignKeyViolation,
+  type DeleteImpact,
+} from "@/lib/admin/dependent-checks"
 
 const SEMESTER_LABELS: Record<string, string> = {
   first: "1st Semester",
@@ -36,14 +38,11 @@ const SEMESTER_LABELS: Record<string, string> = {
 
 /**
  * Fetches everything the admin site list page needs.
- *
- * Backend checklist:
- * 1. Keep returning `SiteListPageData` — no UI changes required.
- * 2. Scope section options to the active term (already done).
- * 3. Move `filterSiteListRows()` into SQL when the list grows large.
- * 4. Remove sample fallbacks once production data exists.
  */
 export async function getSiteListData(query: SiteListQuery): Promise<SiteListPageData> {
+  const role = await getAppUserRole()
+  if (role !== "admin") throw new Error("Unauthorized")
+
   const supabase = await createSupabaseServerClient()
 
   const [termsRes, geofencesRes, adviserRoleId, { data: authData }] = await Promise.all([
@@ -66,13 +65,15 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
   const terms = termsRes.data ?? []
   const activeTerm = terms.find((t) => t.is_active) ?? terms[0]
 
+  // Archived classes are not valid Add-Site targets.
   const sectionsRes = activeTerm?.term_id
     ? await supabase
         .from("section")
         .select(
-          "section_id, course_code, adviser_user_id, adviser:adviser_user_id(full_name)"
+          "section_id, course_code, adviser_user_id, adviser:adviser_user_id(full_name), status:section_status_id!inner(code)"
         )
         .eq("term_id", activeTerm.term_id)
+        .neq("status.code", "archived")
     : { data: null, error: null }
 
   const advisersRes = await supabase
@@ -85,14 +86,12 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
     console.error("[getSiteListData] section query failed", sectionsRes.error)
   }
 
-  const dbSites =
+  const sites =
     (geofencesRes.data as SiteListDbRow[] | null)
       ?.map(mapSiteListDbRow)
       .filter((row): row is NonNullable<typeof row> => row !== null) ?? []
 
-  const sites = dbSites.length > 0 ? dbSites : buildSampleSites()
-
-  const dbSections: SiteListSectionOption[] =
+  const sections: SiteListSectionOption[] =
     sectionsRes.data
       ?.map((row) => ({
         sectionId: row.section_id as string,
@@ -107,15 +106,11 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
       }))
       .sort((a, b) => a.label.localeCompare(b.label)) ?? []
 
-  const sections = dbSections.length > 0 ? dbSections : buildSampleSiteSections()
-
-  const dbAdvisers: SiteListAdviserOption[] =
+  const advisers: SiteListAdviserOption[] =
     advisersRes.data?.map((row) => ({
       adviserUserId: row.app_user_id as string,
       fullName: row.full_name ?? "Unknown",
     })) ?? []
-
-  const advisers = dbAdvisers.length > 0 ? dbAdvisers : buildSampleSiteAdvisers()
 
   const semesterCode = activeTerm?.semester ?? "first"
   const meta: SiteListMeta = {
@@ -136,6 +131,25 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
   }
 }
 
+/** True if `label` already belongs to another site (case/whitespace-insensitive). */
+async function findDuplicateSiteName(
+  service: ReturnType<typeof createSupabaseServiceClient>,
+  siteName: string,
+  excludeGeofenceId?: string
+): Promise<boolean> {
+  const normalized = siteName.trim().toLowerCase()
+  let query = service.from("section_geofence").select("section_geofence_id, label")
+  if (excludeGeofenceId) {
+    query = query.neq("section_geofence_id", excludeGeofenceId)
+  }
+  const { data } = await query
+  return (data ?? []).some((row) => (row.label ?? "").trim().toLowerCase() === normalized)
+}
+
+function duplicateNameError(siteName: string): string {
+  return `A site named "${siteName.trim()}" already exists. Site names must be unique.`
+}
+
 export async function createSite(payload: SiteCreatePayload): Promise<SiteMutationResult> {
   const role = await getAppUserRole()
   if (role !== "admin") return { ok: false, error: "Unauthorized." }
@@ -143,9 +157,23 @@ export async function createSite(payload: SiteCreatePayload): Promise<SiteMutati
   const validationError = validateSiteCreatePayload(payload)
   if (validationError) return { ok: false, error: validationError }
 
-  const supabase = await createSupabaseServerClient()
+  const service = createSupabaseServiceClient()
 
-  const { error } = await supabase.from("section_geofence").insert({
+  const { data: section } = await service
+    .from("section")
+    .select("status:section_status_id(code)")
+    .eq("section_id", payload.sectionId)
+    .maybeSingle()
+  if (!section) return { ok: false, error: "Class not found." }
+  if ((section.status as { code?: string } | null)?.code === "archived") {
+    return { ok: false, error: "Cannot assign a site to an archived class." }
+  }
+
+  if (await findDuplicateSiteName(service, payload.siteName)) {
+    return { ok: false, error: duplicateNameError(payload.siteName) }
+  }
+
+  const { error } = await service.from("section_geofence").insert({
     section_id: payload.sectionId,
     label: payload.siteName.trim(),
     radius_meter: Math.round(payload.radiusMeters),
@@ -155,6 +183,9 @@ export async function createSite(payload: SiteCreatePayload): Promise<SiteMutati
   })
 
   if (error) {
+    if ((error as { code?: string }).code === "23505") {
+      return { ok: false, error: duplicateNameError(payload.siteName) }
+    }
     console.error("[createSite] insert failed", error)
     return { ok: false, error: "Failed to add GPS site." }
   }
@@ -176,9 +207,23 @@ export async function updateSite(payload: SiteUpdatePayload): Promise<SiteMutati
     }
   }
 
-  const supabase = await createSupabaseServerClient()
+  const service = createSupabaseServiceClient()
 
-  const { error } = await supabase
+  const { data: section } = await service
+    .from("section")
+    .select("status:section_status_id(code)")
+    .eq("section_id", payload.sectionId)
+    .maybeSingle()
+  if (!section) return { ok: false, error: "Class not found." }
+  if ((section.status as { code?: string } | null)?.code === "archived") {
+    return { ok: false, error: "Cannot assign a site to an archived class." }
+  }
+
+  if (await findDuplicateSiteName(service, payload.siteName, payload.geofenceId)) {
+    return { ok: false, error: duplicateNameError(payload.siteName) }
+  }
+
+  const { error } = await service
     .from("section_geofence")
     .update({
       section_id: payload.sectionId,
@@ -191,6 +236,9 @@ export async function updateSite(payload: SiteUpdatePayload): Promise<SiteMutati
     .eq("section_geofence_id", payload.geofenceId)
 
   if (error) {
+    if ((error as { code?: string }).code === "23505") {
+      return { ok: false, error: duplicateNameError(payload.siteName) }
+    }
     console.error("[updateSite] update failed", error)
     return { ok: false, error: "Failed to update GPS site." }
   }
@@ -198,6 +246,26 @@ export async function updateSite(payload: SiteUpdatePayload): Promise<SiteMutati
   return { ok: true }
 }
 
+export async function getSiteDeleteImpactAction(
+  geofenceId: string
+): Promise<{ ok: true; impact: DeleteImpact } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized." }
+  if (geofenceId.startsWith("sample-")) {
+    return {
+      ok: false,
+      error: "Sample GPS sites cannot be deleted until database sites are available.",
+    }
+  }
+  const service = createSupabaseServiceClient()
+  return { ok: true, impact: await getSiteDeleteImpact(service, geofenceId) }
+}
+
+/**
+ * Two-step lifecycle: a site must be deactivated (Edit Site → uncheck Active)
+ * before it can be hard-deleted, and delete is blocked while any student is
+ * still assigned to it (`enrollment.assigned_geofence_id`).
+ */
 export async function deleteSite(geofenceId: string): Promise<SiteMutationResult> {
   const role = await getAppUserRole()
   if (role !== "admin") return { ok: false, error: "Unauthorized." }
@@ -211,14 +279,36 @@ export async function deleteSite(geofenceId: string): Promise<SiteMutationResult
     }
   }
 
-  const supabase = await createSupabaseServerClient()
+  const service = createSupabaseServiceClient()
 
-  const { error } = await supabase
+  const impact = await getSiteDeleteImpact(service, geofenceId)
+  if (impact.state === "blocked") {
+    return {
+      ok: false,
+      error:
+        impact.lifecycleBlocked ??
+        `Cannot delete: ${impact.blockers
+          .map((b) => `${b.count} ${b.label.toLowerCase()}`)
+          .join(", ")}.`,
+    }
+  }
+
+  const { error } = await service
     .from("section_geofence")
     .delete()
     .eq("section_geofence_id", geofenceId)
 
   if (error) {
+    if (isForeignKeyViolation(error)) {
+      const recheck = await getSiteDeleteImpact(service, geofenceId)
+      return {
+        ok: false,
+        error:
+          `Cannot delete: ${recheck.blockers
+            .map((b) => `${b.count} ${b.label.toLowerCase()}`)
+            .join(", ") || "referenced by other records"}.`,
+      }
+    }
     console.error("[deleteSite] delete failed", error)
     return { ok: false, error: "Failed to delete GPS site." }
   }
@@ -231,7 +321,7 @@ async function resolveCurrentUser(
   userId?: string
 ): Promise<AdminCurrentUser> {
   if (!userId) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const { data: appUser } = await supabase
@@ -241,13 +331,13 @@ async function resolveCurrentUser(
     .maybeSingle()
 
   if (!appUser?.full_name) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const isAdmin = (appUser.role as { code?: string } | null)?.code === "admin"
 
   return {
-    name: isAdmin ? "Admin Test Account" : appUser.full_name,
+    name: appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
     avatarUrl: (appUser as any).avatar_url ?? undefined,
   }

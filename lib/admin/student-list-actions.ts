@@ -26,6 +26,11 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { provisionUser, syncUserEmail, findAppUserByEmail } from "@/lib/admin/user-provision"
+import {
+  getStudentDeleteImpact,
+  isForeignKeyViolation,
+  type DeleteImpact,
+} from "@/lib/admin/dependent-checks"
 import { mapRows, parseImportFile } from "@/lib/admin/import/parse"
 import {
   getStudentImportLookups,
@@ -63,6 +68,12 @@ import { formatClassLabel } from "@/lib/shared/class-label"
 /** Academic year-level order for the Classification dropdown. */
 const CLASSIFICATION_CODE_ORDER = ["freshman", "sophomore", "junior", "senior"]
 
+const SEMESTER_LABELS: Record<string, string> = {
+  first: "1st Semester",
+  second: "2nd Semester",
+  midyear: "Midyear",
+}
+
 function classificationRank(code: string): number {
   const idx = CLASSIFICATION_CODE_ORDER.indexOf(code)
   return idx === -1 ? CLASSIFICATION_CODE_ORDER.length : idx
@@ -80,13 +91,19 @@ function classificationRank(code: string): number {
 export async function getStudentListData(
   query: StudentListQuery
 ): Promise<StudentListPageData> {
+  const role = await getAppUserRole()
+  if (role !== "admin") throw new Error("Unauthorized")
+
   const supabase = await createSupabaseServerClient()
-  const activeStatusId = await lookupId("enrollment_status", "active")
+  const statusId = await lookupId(
+    "enrollment_status",
+    query.view === "dropped" ? "dropped" : "active"
+  )
 
   let enrollmentQuery = supabase
     .from("enrollment")
     .select(ENROLLMENT_LIST_SELECT)
-    .eq("enrollment_status_id", activeStatusId)
+    .eq("enrollment_status_id", statusId)
     .order("joined_at", { ascending: true })
 
   // Server-side section filter — backend can extend with adviser, term, etc.
@@ -100,17 +117,28 @@ export async function getStudentListData(
     programsRes,
     classificationsRes,
     enlistmentRes,
+    termsRes,
     { data: authData },
   ] = await Promise.all([
     enrollmentQuery,
+    // Add/Edit Student may only enroll into an active-term, non-archived class.
     supabase
       .from("section")
-      .select("section_id, course_code, term:term_id(school_year), app_user:adviser_user_id(full_name)"),
+      .select(
+        "section_id, course_code, term:term_id!inner(school_year, is_active), app_user:adviser_user_id(full_name), status:section_status_id!inner(code)"
+      )
+      .eq("term.is_active", true)
+      .neq("status.code", "archived"),
     supabase.from("program").select("program_id, code, name").order("code"),
     supabase.from("student_classification").select("student_classification_id, code, name"),
     supabase.from("enlistment_status").select("enlistment_status_id, code, name"),
+    supabase
+      .from("term")
+      .select("school_year, semester, is_active")
+      .order("school_year", { ascending: false }),
     supabase.auth.getUser(),
   ])
+  const activeTerm = (termsRes.data ?? []).find((t) => t.is_active) ?? termsRes.data?.[0]
 
   if (enrollmentsRes.error) {
     console.error("[getStudentListData] enrollment query failed", enrollmentsRes.error)
@@ -167,9 +195,8 @@ export async function getStudentListData(
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
   const meta: StudentListMeta = {
-    // TODO(backend): read from `term` where is_active = true
-    academicYear: "2025-2026",
-    semester: "2nd Semester",
+    academicYear: activeTerm?.school_year ?? "2025-2026",
+    semester: SEMESTER_LABELS[activeTerm?.semester ?? "second"] ?? "2nd Semester",
   }
 
   return {
@@ -188,7 +215,7 @@ async function resolveCurrentUser(
   userId?: string
 ): Promise<AdminCurrentUser> {
   if (!userId) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const { data: appUser } = await supabase
@@ -198,13 +225,13 @@ async function resolveCurrentUser(
     .maybeSingle()
 
   if (!appUser?.full_name) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const isAdmin = (appUser.role as { code?: string } | null)?.code === "admin"
 
   return {
-    name: isAdmin ? "Admin Test Account" : appUser.full_name,
+    name: appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
     avatarUrl: (appUser as any).avatar_url ?? undefined,
   }
@@ -308,12 +335,26 @@ export async function updateStudent(
     return { ok: false, error: "Student not found." }
   }
 
-  const nextEmail = payload.email.trim().toLowerCase()
-  if (nextEmail !== (current.email ?? "").toLowerCase()) {
-    const emailResult = await syncUserEmail(service, payload.studentUserId, nextEmail)
-    if (!emailResult.ok) return emailResult
+  // The enrollment and student ids are submitted independently — verify they
+  // actually belong together before mutating either one.
+  const { data: enrollment, error: enrollmentError } = await service
+    .from("enrollment")
+    .select("student_user_id, section_id, program_id, student_classification_id, enlistment_status_id")
+    .eq("enrollment_id", payload.enrollmentId)
+    .maybeSingle()
+
+  if (enrollmentError || !enrollment) {
+    console.error("[updateStudent] enrollment lookup failed", enrollmentError)
+    return { ok: false, error: "Enrollment not found." }
+  }
+  if (enrollment.student_user_id !== payload.studentUserId) {
+    return { ok: false, error: "Enrollment does not match the student." }
   }
 
+  const nextEmail = payload.email.trim().toLowerCase()
+
+  // app_user commits FIRST: a 23505 (duplicate email) fails cleanly here with
+  // nothing else touched, instead of leaving auth.users ahead of app_user.
   const { error: userError } = await service
     .from("app_user")
     .update({
@@ -332,15 +373,17 @@ export async function updateStudent(
     return { ok: false, error: "Failed to update the student." }
   }
 
-  const { data: enrollment, error: enrollmentError } = await service
-    .from("enrollment")
-    .select("section_id, program_id, student_classification_id, enlistment_status_id")
-    .eq("enrollment_id", payload.enrollmentId)
-    .maybeSingle()
-
-  if (enrollmentError || !enrollment) {
-    console.error("[updateStudent] enrollment lookup failed", enrollmentError)
-    return { ok: false, error: "Enrollment not found." }
+  // auth email sync AFTER; revert app_user.email if auth rejects it, so the
+  // two never end up out of lockstep.
+  if (nextEmail !== (current.email ?? "").toLowerCase()) {
+    const emailResult = await syncUserEmail(service, payload.studentUserId, nextEmail)
+    if (!emailResult.ok) {
+      await service
+        .from("app_user")
+        .update({ email: current.email })
+        .eq("app_user_id", payload.studentUserId)
+      return emailResult
+    }
   }
 
   const enrollmentUpdates: Record<string, string | null> = {}
@@ -377,9 +420,11 @@ export async function updateStudent(
 }
 
 /**
- * Archive-only removal: sets the enrollment's status to `dropped`. The
- * `app_user` account and all attendance/audit history are kept — nothing is
- * hard-deleted.
+ * Disable step (two-step lifecycle): sets the enrollment's status to
+ * `dropped`. The `app_user` account and all attendance/audit history are
+ * kept — nothing is hard-deleted. Hard delete is a separate, later step
+ * (`hardDeleteStudent`) available only once the enrollment is dropped and
+ * has no history.
  */
 export async function deleteStudent(
   enrollmentId: string
@@ -407,6 +452,78 @@ export async function deleteStudent(
   }
 
   return { ok: true }
+}
+
+export async function getStudentDeleteImpactAction(
+  enrollmentId: string
+): Promise<
+  | { ok: true; impact: DeleteImpact; willDeleteAccount: boolean }
+  | { ok: false; error: string }
+> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+  const service = createSupabaseServiceClient()
+  const { impact, willDeleteAccount } = await getStudentDeleteImpact(service, enrollmentId)
+  return { ok: true, impact, willDeleteAccount }
+}
+
+/**
+ * Hard step: only dropped enrollments, and only once no attendance/appeal/
+ * form-submission history exists on it. When the account has no other
+ * enrollments and no other historical references, the `app_user` and
+ * `auth.users` rows are deleted too (a mistaken import, never logged in).
+ */
+export async function hardDeleteStudent(
+  enrollmentId: string
+): Promise<{ ok: true; accountDeleted: boolean } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+  if (!enrollmentId) return { ok: false, error: "Enrollment ID is required." }
+
+  const service = createSupabaseServiceClient()
+
+  // Re-run the full check server-side — never trust the modal's earlier fetch.
+  const { impact, willDeleteAccount, studentUserId } = await getStudentDeleteImpact(
+    service,
+    enrollmentId
+  )
+  if (impact.state === "blocked") {
+    return {
+      ok: false,
+      error:
+        impact.lifecycleBlocked ??
+        "Cannot delete: this student has attendance or request history, which is never deleted.",
+    }
+  }
+
+  const { error } = await service.from("enrollment").delete().eq("enrollment_id", enrollmentId)
+  if (error) {
+    if (isForeignKeyViolation(error)) {
+      return { ok: false, error: "Cannot delete: other records still reference this enrollment." }
+    }
+    console.error("[hardDeleteStudent] enrollment delete failed", error)
+    return { ok: false, error: "Failed to delete the student." }
+  }
+
+  if (willDeleteAccount && studentUserId) {
+    // login_session has no cascade — clear it first (operational, not historical).
+    await service.from("login_session").delete().eq("app_user_id", studentUserId)
+    const { error: userError } = await service
+      .from("app_user")
+      .delete()
+      .eq("app_user_id", studentUserId)
+    if (userError) {
+      console.error("[hardDeleteStudent] app_user delete failed", userError)
+      return { ok: true, accountDeleted: false } // enrollment is gone; report honestly
+    }
+    const { error: authError } = await service.auth.admin.deleteUser(studentUserId)
+    if (authError && authError.status !== 404) {
+      console.error("[hardDeleteStudent] auth delete failed", authError)
+    }
+    return { ok: true, accountDeleted: true }
+  }
+
+  return { ok: true, accountDeleted: false }
 }
 
 /** Max upload size; also bounded by Next's 1 MB server-action body limit. */
