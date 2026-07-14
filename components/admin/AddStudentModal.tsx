@@ -648,7 +648,7 @@ export default function AddStudentModal({
 
         <div
           style={{
-            padding: "0 22px 22px",
+            padding: "14px 22px 20px",
             display: "flex",
             justifyContent: "flex-end",
             gap: 10,
