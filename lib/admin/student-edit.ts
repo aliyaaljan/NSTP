@@ -22,6 +22,16 @@ import type { StudentListRow } from "@/lib/admin/student-list"
 /** UP student numbers are exactly 9 digits (e.g. 201201234). */
 export const STUDENT_NUMBER_PATTERN = /^\d{9}$/
 
+/**
+ * Normalize a roster-format student name ("SURNAME, First Middle") to the
+ * stored "SURNAME First Middle" form: commas become spaces, whitespace is
+ * collapsed. Surname-first order is preserved (the export puts the surname
+ * before the comma). Casing, periods, and hyphens are untouched.
+ */
+export function normalizeStudentFullName(raw: string): string {
+  return raw.replace(/,/g, " ").replace(/\s+/g, " ").trim()
+}
+
 export interface StudentEditPayload {
   /** `enrollment.enrollment_id` */
   enrollmentId: string

@@ -14,7 +14,7 @@
  */
 
 import type { ErrorRow, ImportColumnSpec, RowIssue } from "@/lib/admin/import/types"
-import { STUDENT_NUMBER_PATTERN } from "@/lib/admin/student-edit"
+import { normalizeStudentFullName, STUDENT_NUMBER_PATTERN } from "@/lib/admin/student-edit"
 
 export const STUDENT_IMPORT_COLUMNS: readonly ImportColumnSpec[] = [
   { key: "course_code", aliases: ["Course Code"], required: false },
@@ -36,7 +36,7 @@ export interface StudentImportRow {
   courseCode: string
   studentNumber: string
   saisId: string
-  /** Stored verbatim — client format is "SURNAME, First Middle". */
+  /** Normalized from the roster's "SURNAME, First Middle" to "SURNAME First Middle" (comma stripped, surname kept first). */
   fullName: string
   /** Lowercased @up.edu.ph address. */
   email: string
@@ -162,7 +162,7 @@ export function validateStudentImportValues(
   rowNumber: number
 ): { row: StudentImportRow | null; issues: RowIssue[] } {
   const issues: RowIssue[] = []
-  const fullName = (values.full_name ?? "").trim()
+  const fullName = normalizeStudentFullName(values.full_name ?? "")
   const email = (values.email ?? "").trim().toLowerCase()
   const studentNumber = (values.student_number ?? "").trim()
   const facilitator = (values.facilitator ?? "").trim()

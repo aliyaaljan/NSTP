@@ -26,7 +26,7 @@ describe("validateStudentImportValues", () => {
       courseCode: "NSTP 2 CWTS",
       studentNumber: "201201234",
       saisId: "1007569",
-      fullName: "SANTOS, MARIA TRAVERTINE XYZ",
+      fullName: "SANTOS MARIA TRAVERTINE XYZ",
       email: "mxsantos@up.edu.ph",
       enlistmentStatus: "Enlisted",
       program: "BSBiology",
