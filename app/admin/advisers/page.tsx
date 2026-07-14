@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import AdminLoadingFallback from "@/components/admin/AdminLoadingFallback"
 import AdviserListClient from "@/components/admin/AdviserListClient"
 import { parseAdviserListQuery } from "@/lib/admin/adviser-list"
 import { getAdviserListData } from "@/lib/admin/adviser-list-actions"
@@ -43,7 +44,7 @@ export default function AdminAdvisersPage({
   }>
 }) {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading facilitator list…</div>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <AdviserListContent searchParams={searchParams} />
     </Suspense>
   )

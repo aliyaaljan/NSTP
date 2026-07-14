@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import AdminLoadingFallback from "@/components/admin/AdminLoadingFallback"
 import StudentListClient from "@/components/admin/StudentListClient"
 import { filterStudentListRows, parseStudentListQuery } from "@/lib/admin/student-list"
 import { getStudentListData } from "@/lib/admin/student-list-actions"
@@ -49,7 +50,7 @@ export default function AdminStudentsPage({
   }>
 }) {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading student list…</div>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <StudentListContent searchParams={searchParams} />
     </Suspense>
   )

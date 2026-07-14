@@ -33,11 +33,14 @@ const COLLAPSED_W = 88
 const RAIL_MARGIN = 16
 
 interface LoadingPageProps {
-  Sidebar: React.ComponentType
+  Sidebar?: React.ComponentType
+  /** When true, render only the loading animation (no sidebar / full-page shell). */
+  embedded?: boolean
 }
 
-export default function LoadingPage({ 
-  Sidebar, 
+export default function LoadingPage({
+  Sidebar,
+  embedded = false,
 }: LoadingPageProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
@@ -143,66 +146,31 @@ export default function LoadingPage({
     return "13px"
   }
 
-  // Don't render until sizes are calculated
-  if (!isReady) {
-    return (
-      <div style={{
-        background: C.pageBg,
-        height: "100vh",
-        width: "100vw",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}>
-        <div style={{ opacity: 0 }}>Loading...</div>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className={montserrat.variable}
+  const loadingContent = (
+    <main
       style={{
-        fontFamily: "'Montserrat', 'Fallback Montserrat'",
-        background: C.pageBg,
-        height: "100vh", 
-        width: "100vw",
+        flex: embedded ? undefined : 1,
+        paddingLeft: embedded ? 0 : responsivePadding.paddingLeft,
+        paddingRight: embedded ? 0 : responsivePadding.paddingRight,
+        paddingTop: embedded ? 0 : responsivePadding.paddingTop,
+        paddingBottom: embedded ? 0 : responsivePadding.paddingBottom,
         display: "flex",
-        fontSize: getFontSize(),
-        paddingBottom: isMobile ? 'env(safe-area-inset-bottom)' : 0,
-        overflow: "hidden", 
-        position: "relative",
-        touchAction: "manipulation",
-        WebkitTextSizeAdjust: "100%",
-        MozTextSizeAdjust: "100%",
-        textSizeAdjust: "100%",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: embedded ? getGapSize() : responsivePadding.gap,
+        minWidth: 0,
+        width: "100%",
+        maxWidth: "100%",
+        minHeight: embedded ? "min(70vh, 640px)" : undefined,
+        transition: embedded ? undefined : "padding 0.3s ease",
+        marginTop: embedded ? 0 : isMobile ? "60px" : 0,
+        transform: "translateZ(0)",
+        WebkitTransform: "translateZ(0)",
+        backfaceVisibility: "hidden",
+        WebkitBackfaceVisibility: "hidden",
       }}
     >
-      <Sidebar />
-
-      <main
-        style={{
-          flex: 1,
-          paddingLeft: responsivePadding.paddingLeft,
-          paddingRight: responsivePadding.paddingRight,
-          paddingTop: responsivePadding.paddingTop,
-          paddingBottom: responsivePadding.paddingBottom,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center", 
-          alignItems: "center", 
-          gap: responsivePadding.gap,
-          minWidth: 0,
-          width: "100%",
-          maxWidth: "100%",
-          transition: "padding 0.3s ease",
-          marginTop: isMobile ? '60px' : 0,
-          transform: "translateZ(0)",
-          WebkitTransform: "translateZ(0)",
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-        }}
-      >
         <div style={{
           display: "flex",
           flexDirection: "column",
@@ -330,10 +298,11 @@ export default function LoadingPage({
             }} />
           </div>
         </div>
-      </main>
+    </main>
+  )
 
-      {/* Animations */}
-      <style>{`
+  const loadingAnimations = (
+    <style>{`
         @keyframes logoPump {
           0%, 100% {
             transform: scale(1);
@@ -365,6 +334,61 @@ export default function LoadingPage({
           }
         }
       `}</style>
+  )
+
+  // Don't render until sizes are calculated
+  if (!isReady) {
+    return (
+      <div
+        style={{
+          background: embedded ? "transparent" : C.pageBg,
+          height: embedded ? "min(70vh, 640px)" : "100vh",
+          width: embedded ? "100%" : "100vw",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ opacity: 0 }}>Loading...</div>
+      </div>
+    )
+  }
+
+  if (embedded) {
+    return (
+      <div className={montserrat.variable} style={{ width: "100%" }}>
+        {loadingContent}
+        {loadingAnimations}
+      </div>
+    )
+  }
+
+  if (!Sidebar) {
+    throw new Error("LoadingPage requires a Sidebar when embedded is false")
+  }
+
+  return (
+    <div
+      className={montserrat.variable}
+      style={{
+        fontFamily: "'Montserrat', 'Fallback Montserrat'",
+        background: C.pageBg,
+        height: "100vh",
+        width: "100vw",
+        display: "flex",
+        fontSize: getFontSize(),
+        paddingBottom: isMobile ? "env(safe-area-inset-bottom)" : 0,
+        overflow: "hidden",
+        position: "relative",
+        touchAction: "manipulation",
+        WebkitTextSizeAdjust: "100%",
+        MozTextSizeAdjust: "100%",
+        textSizeAdjust: "100%",
+      }}
+    >
+      <Sidebar />
+      {loadingContent}
+      {loadingAnimations}
     </div>
   )
 }

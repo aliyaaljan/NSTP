@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import AdminLoadingFallback from "@/components/admin/AdminLoadingFallback"
 import AccessControlClient from "@/components/admin/AccessControlClient"
 import { parseAccessControlQuery } from "@/lib/admin/access-control"
 import { getAccessControlData } from "@/lib/admin/access-control-actions"
@@ -46,7 +47,7 @@ export default function AdminAccessControlPage({
   }>
 }) {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading access control…</div>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <AccessControlContent searchParams={searchParams} />
     </Suspense>
   )
