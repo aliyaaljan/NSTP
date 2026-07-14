@@ -12,8 +12,11 @@ import {
   IconBook,
   IconChevronUp,
   IconChevronDown,
+  IconSettings
 } from "@tabler/icons-react"
 import LoadingPage from "@/components/shared/LoadingPage"
+import { getNotificationPreferences, setEmailNotifications, setPushNotifications } from "@/lib/settings/NotificationPreferences"
+import { usePushSubscription } from "@/lib/push/usePushSubscription"
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -51,6 +54,184 @@ type SortDirection = "asc" | "desc" | null;
 interface ProfileProps {
   Sidebar: React.ComponentType
   classTypeBadge?: boolean
+}
+
+function isIosSafariNotInstalled() {
+  if (typeof window === "undefined") return false
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true
+  return isIos && !isStandalone
+}
+
+function ToggleSwitch({ checked, onClick, disabled }: { checked: boolean; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        position: "relative",
+        width: 36,
+        height: 20,
+        borderRadius: 999,
+        border: "none",
+        cursor: disabled ? "not-allowed" : "pointer",
+        background: checked ? C.green : "#D1D5DB",
+        flexShrink: 0,
+        padding: 0,
+        opacity: disabled ? 0.6 : 1,
+        transition: "background 0.15s",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: 2,
+          left: checked ? 18 : 2,
+          width: 16,
+          height: 16,
+          background: "#fff",
+          borderRadius: "50%",
+          transition: "left 0.15s",
+        }}
+      />
+    </button>
+  )
+}
+
+function StudentEmailNotification({ isSmallMobile }: { isSmallMobile: boolean }) {
+  const [enabled, setEnabled] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    getNotificationPreferences().then((res) => {
+      if (res.ok) setEnabled(res.data.email_notifications_enabled)
+      setLoading(false)
+    })
+  }, [])
+
+  async function toggle() {
+    const next = !enabled
+    setEnabled(next)
+    setBusy(true)
+    const res = await setEmailNotifications(next)
+    if (!res.ok) setEnabled(!next)
+    setBusy(false)
+  }
+
+  if (loading) return null
+
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: isSmallMobile ? "8px 4px" : "10px 4px",
+      fontFamily: "'Montserrat', 'Fallback Montserrat'",
+    }}>
+      <div style={{
+        width: isSmallMobile ? 28 : 32,
+        height: isSmallMobile ? 28 : 32,
+        borderRadius: 8,
+        background: "#F3F4F6",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        <i className="ti ti-mail" style={{ fontSize: isSmallMobile ? 15 : 17, color: C.textGray }} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: isSmallMobile ? 11 : 12.5, fontWeight: 700, color: C.textDark, margin: 0, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
+          Email notifications
+        </p>
+        <p style={{ fontSize: isSmallMobile ? 10 : 11, color: C.textGray, margin: "1px 0 0", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
+          Sent to your @up.edu.ph address
+        </p>
+      </div>
+      <ToggleSwitch checked={enabled} onClick={toggle} disabled={busy} />
+    </div>
+  )
+}
+
+function StudentPushNotification({ isSmallMobile }: { isSmallMobile: boolean }) {
+  const { subscribe, unsubscribe, isSubscribed, isSupported } = usePushSubscription()
+  const [enabled, setEnabled] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [needsInstall, setNeedsInstall] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    setNeedsInstall(isIosSafariNotInstalled())
+  }, [])
+
+  useEffect(() => {
+    getNotificationPreferences().then((res) => {
+      if (res.ok) setEnabled(res.data.email_notifications_enabled)
+      setLoading(false)
+    })
+  }, [])
+
+  async function toggle() {
+    setBusy(true)
+    try {
+      if (isSubscribed) {
+        await unsubscribe()
+        await setPushNotifications(false)
+      } else {
+        await subscribe()
+        await setPushNotifications(true)
+      }
+    } catch (err) {
+      console.error("Push toggle failed:", err)
+      alert("Could not update push notification settings.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (loading) return null
+
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: isSmallMobile ? "8px 4px" : "10px 4px",
+      fontFamily: "'Montserrat', 'Fallback Montserrat'",
+    }}>
+      <div style={{
+        width: isSmallMobile ? 28 : 32,
+        height: isSmallMobile ? 28 : 32,
+        borderRadius: 8,
+        background: "#F3F4F6",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        <i className="ti ti-bell" style={{ fontSize: isSmallMobile ? 15 : 17, color: C.textGray }} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: isSmallMobile ? 11 : 12.5, fontWeight: 700, color: C.textDark, margin: 0, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
+          Push notifications
+        </p>
+        <p style={{ fontSize: isSmallMobile ? 10 : 11, color: C.textGray, margin: "1px 0 0", fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>
+          {needsInstall ? "Add to home screen to enable on iOS." : "Receive instant alerts for new updates"}
+        </p>
+      </div>
+
+      {needsInstall ? (
+        <i className="ti ti-info-circle" style={{ fontSize: 16, color: C.textGray, flexShrink: 0 }} />
+      ) : !isSupported ? (
+        <span style={{ fontSize: 10.5, color: C.textGray, fontFamily: "'Montserrat', 'Fallback Montserrat'" }}>Not supported</span>
+      ) : (
+        <ToggleSwitch checked={isSubscribed && enabled} onClick={toggle} disabled={busy} />
+      )}
+    </div>
+  )
 }
 
 export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProps) {
@@ -323,7 +504,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
               letterSpacing: "-0.01em",
               fontFamily: "'Montserrat', 'Fallback Montserrat'",
             }}>
-              Profile
+              Profile & Settings
             </h1>
           </div>
         </div>
@@ -512,6 +693,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                 width: "100%",
                 borderTop: `1px solid ${C.border}`,
                 paddingTop: isSmallMobile ? 10 : isMobile ? 12 : 16,
+                marginBottom: isSmallMobile ? 10 : isMobile ? 12 : 16,
               }}>
                 <div style={{
                   display: "flex",
@@ -580,6 +762,45 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
                       <span style={{ fontSize: isSmallMobile ? "11px" : "13px", fontFamily: "'Montserrat', 'Fallback Montserrat'", wordBreak: "break-word" }}>{student.adviser}</span>
                     </>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Settings */}
+            {(student.studentNumber || student.email || student.course || student.year || student.classType || student.location || student.adviser) && (
+              <div style={{
+                width: "100%",
+                borderTop: `1px solid ${C.border}`,
+                paddingTop: isSmallMobile ? 10 : isMobile ? 12 : 16,
+              }}>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: isSmallMobile ? 6 : isMobile ? 8 : 10,
+                }}>
+                  <IconSettings size={isSmallMobile ? 12 : isMobile ? 14 : 16} color={C.maroon} strokeWidth={2} />
+                  <h3
+                    style={{
+                      fontSize: isSmallMobile ? "10px" : "11px",
+                      fontWeight: 700,
+                      color: C.textDark,
+                      margin: 0,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                    }}
+                  >
+                    settings
+                  </h3>
+                </div>
+                
+                <div style={{
+                  background: C.cardBg,
+                  overflow: "hidden",
+                }}>
+                  <StudentPushNotification isSmallMobile={isSmallMobile} />
+                  <StudentEmailNotification isSmallMobile={isSmallMobile} />
                 </div>
               </div>
             )}

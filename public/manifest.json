@@ -1,0 +1,12 @@
+{
+  "name": "NSTP Attendance Tracker",
+  "short_name": "NSTP",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f5132",
+  "icons": [
+    { "src": "/nstp-logo.jpg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any maskable" },
+    { "src": "/nstp-logo.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any maskable" }
+  ]
+}

@@ -5,6 +5,7 @@ import { lookupId } from "@/lib/lookups"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import type { StructuredCorrection } from "@/lib/student/time-correction"
 import { notifyAdviserOnAppeal } from "@/lib/email/notifications"
+import { notifyAdviserOnAppealPush } from "../push/notifications"
 
 const MAX_NUM_ATTACHMENT = 1
 
@@ -145,6 +146,7 @@ export async function submitStudentRequest(
     }
 
     await notifyAdviserOnAppeal(data.appeal_id).catch(console.error)
+    await notifyAdviserOnAppealPush(data.appeal_id).catch(console.error)
 
     return { ok: true, data: null }
   } catch (err: any) {

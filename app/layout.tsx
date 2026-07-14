@@ -26,8 +26,9 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  title: "UP Community Extension | Login",
-  description: "University of the Philippines — Community Extension Program",
+  manifest: '/manifest.json',
+  title: "UPB NSTP Attendance Tracker",
+  description: "University of the Philippines Baguio — NSTP Attendance Tracker",
 }
 
 export const viewport: Viewport = {

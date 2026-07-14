@@ -12,6 +12,8 @@ import { signOutWithAudit } from "@/lib/auth-actions"
 import { createClient } from "@/lib/client"
 import { googleAvatarUrl } from "@/lib/auth/avatar"
 import LoadingPage from "@/components/shared/LoadingPage"
+import { PushNotification } from "@/components/shared/PushNotification"
+import { EmailNotification } from "@/components/shared/EmailNotification";
 
 type RawProfileData = {
   full_name: string
@@ -118,10 +120,10 @@ export default function ProfilePage() {
           <div className="main-wrapper">
             <main className="main">
               <header className="header">
-                <h1 className="header-greeting">Profile</h1>
+                <h1 className="header-greeting">Profile & Settings</h1>
               </header>
 
-              <div className="body items-center">
+              <div className="items-start flex flex-row pr-8 gap-2">
                 <ProfileCard
                   fullName={profile?.fullName}
                   email={profile?.email}
@@ -129,6 +131,16 @@ export default function ProfilePage() {
                   component={profile?.component}
                   avatarUrl={profile?.avatarUrl}
                 />
+
+                <div style={{ minWidth: 450, maxWidth: 800, flex: 1,}}>
+                  {/* <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", letterSpacing: "0.4px", textTransform: "uppercase", margin: "0 0 8px 4px" }}>
+                    Settings
+                  </div> */}
+                  <div className="mt-14" style={{ background: "var(--white)", borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
+                    <PushNotification />
+                    <EmailNotification />
+                  </div>
+                </div>
               </div>
             </main>
           </div>
