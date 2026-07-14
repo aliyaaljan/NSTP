@@ -9,6 +9,7 @@ import {
   STUDENT_LIST_ALL_SECTIONS,
   type AdminCurrentUser,
   type EnrollmentListDbRow,
+  type StudentEnrollmentLookups,
   type StudentListMeta,
   type StudentListPageData,
   type StudentListQuery,
@@ -59,6 +60,14 @@ import { normalizeKey } from "@/lib/admin/import/normalize"
 import { ensureFacilitatorClass } from "@/lib/admin/class-provision"
 import { formatClassLabel } from "@/lib/shared/class-label"
 
+/** Academic year-level order for the Classification dropdown. */
+const CLASSIFICATION_CODE_ORDER = ["freshman", "sophomore", "junior", "senior"]
+
+function classificationRank(code: string): number {
+  const idx = CLASSIFICATION_CODE_ORDER.indexOf(code)
+  return idx === -1 ? CLASSIFICATION_CODE_ORDER.length : idx
+}
+
 /**
  * Fetches everything the admin student list page needs.
  *
@@ -85,11 +94,21 @@ export async function getStudentListData(
     enrollmentQuery = enrollmentQuery.eq("section_id", query.sectionId)
   }
 
-  const [enrollmentsRes, sectionsRes, { data: authData }] = await Promise.all([
+  const [
+    enrollmentsRes,
+    sectionsRes,
+    programsRes,
+    classificationsRes,
+    enlistmentRes,
+    { data: authData },
+  ] = await Promise.all([
     enrollmentQuery,
     supabase
       .from("section")
       .select("section_id, course_code, term:term_id(school_year), app_user:adviser_user_id(full_name)"),
+    supabase.from("program").select("program_id, code, name").order("code"),
+    supabase.from("student_classification").select("student_classification_id, code, name"),
+    supabase.from("enlistment_status").select("enlistment_status_id, code, name"),
     supabase.auth.getUser(),
   ])
 
@@ -118,6 +137,33 @@ export async function getStudentListData(
     }))
     .sort((a, b) => a.label.localeCompare(b.label))
 
+  for (const [label, res] of [
+    ["program", programsRes],
+    ["student_classification", classificationsRes],
+    ["enlistment_status", enlistmentRes],
+  ] as const) {
+    if (res.error) console.error(`[getStudentListData] ${label} lookup failed`, res.error)
+  }
+
+  const lookups: StudentEnrollmentLookups = {
+    programs: ((programsRes.data ?? []) as { program_id: string; code: string; name: string }[]).map(
+      (p) => ({ id: p.program_id, label: `${p.code} — ${p.name}` })
+    ),
+    classifications: ((classificationsRes.data ?? []) as {
+      student_classification_id: string
+      code: string
+      name: string
+    }[])
+      // Academic year-level order — row order in the lookup table is not guaranteed.
+      .sort((a, b) => classificationRank(a.code) - classificationRank(b.code))
+      .map((c) => ({ id: c.student_classification_id, label: c.name })),
+    enlistmentStatuses: ((enlistmentRes.data ?? []) as {
+      enlistment_status_id: string
+      code: string
+      name: string
+    }[]).map((e) => ({ id: e.enlistment_status_id, label: e.name })),
+  }
+
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
   const meta: StudentListMeta = {
@@ -129,6 +175,7 @@ export async function getStudentListData(
   return {
     students,
     sections,
+    lookups,
     summary: buildStudentListSummary(students),
     meta,
     currentUser,
@@ -194,13 +241,18 @@ export async function createStudent(
     fullName: payload.fullName,
     roleCode: "student",
     studentNumber: payload.studentNumber,
+    saisId: payload.saisId,
   })
   if (!provisioned.ok) return provisioned
 
   const { error: enrollError } = await service.from("enrollment").insert({
     section_id: payload.sectionId,
     student_user_id: provisioned.userId,
+    // enrollment_status_id = lifecycle (active); enlistment_status_id = optional import metadata.
     enrollment_status_id: activeStatusId,
+    program_id: payload.programId ?? null,
+    student_classification_id: payload.studentClassificationId ?? null,
+    enlistment_status_id: payload.enlistmentStatusId ?? null,
   })
 
   if (enrollError) {
@@ -268,6 +320,7 @@ export async function updateStudent(
       full_name: payload.fullName.trim(),
       email: nextEmail,
       student_number: payload.studentNumber?.trim() || null,
+      sais_id: payload.saisId?.trim() || null,
     })
     .eq("app_user_id", payload.studentUserId)
 
@@ -281,7 +334,7 @@ export async function updateStudent(
 
   const { data: enrollment, error: enrollmentError } = await service
     .from("enrollment")
-    .select("section_id")
+    .select("section_id, program_id, student_classification_id, enlistment_status_id")
     .eq("enrollment_id", payload.enrollmentId)
     .maybeSingle()
 
@@ -290,18 +343,33 @@ export async function updateStudent(
     return { ok: false, error: "Enrollment not found." }
   }
 
+  const enrollmentUpdates: Record<string, string | null> = {}
   if (enrollment.section_id !== payload.sectionId) {
-    const { error: moveError } = await service
+    enrollmentUpdates.section_id = payload.sectionId
+  }
+  if ((enrollment.program_id ?? null) !== payload.programId) {
+    enrollmentUpdates.program_id = payload.programId
+  }
+  if ((enrollment.student_classification_id ?? null) !== payload.studentClassificationId) {
+    enrollmentUpdates.student_classification_id = payload.studentClassificationId
+  }
+  if ((enrollment.enlistment_status_id ?? null) !== payload.enlistmentStatusId) {
+    enrollmentUpdates.enlistment_status_id = payload.enlistmentStatusId
+  }
+
+  if (Object.keys(enrollmentUpdates).length > 0) {
+    const { error: enrollUpdateError } = await service
       .from("enrollment")
-      .update({ section_id: payload.sectionId })
+      .update(enrollmentUpdates)
       .eq("enrollment_id", payload.enrollmentId)
 
-    if (moveError) {
-      console.error("[updateStudent] section move failed", moveError)
-      if ((moveError as { code?: string }).code === "23505") {
+    if (enrollUpdateError) {
+      console.error("[updateStudent] enrollment update failed", enrollUpdateError)
+      // A unique violation can only come from a section move, never from the metadata FKs.
+      if ((enrollUpdateError as { code?: string }).code === "23505") {
         return { ok: false, error: "This student already has an enrollment in that section." }
       }
-      return { ok: false, error: "Failed to move the student to the new section." }
+      return { ok: false, error: "Failed to update the enrollment." }
     }
   }
 
@@ -1310,6 +1378,9 @@ export async function enrollExistingStudent(payload: {
   studentUserId: string
   sectionId: string
   priorDecision?: PriorDecision
+  programId?: string | null
+  studentClassificationId?: string | null
+  enlistmentStatusId?: string | null
 }): Promise<CreateStudentResult> {
   const role = await getAppUserRole()
   if (role !== "admin") return { ok: false, error: "Unauthorized" }
@@ -1386,6 +1457,13 @@ export async function enrollExistingStudent(payload: {
     }
   }
 
+  // Optional enrollment metadata — mirrors commitStudentImportChunk's metadata pattern.
+  const metadata = {
+    program_id: payload.programId ?? null,
+    student_classification_id: payload.studentClassificationId ?? null,
+    enlistment_status_id: payload.enlistmentStatusId ?? null,
+  }
+
   const { data: existingEnrollment } = await service
     .from("enrollment")
     .select("enrollment_id")
@@ -1396,7 +1474,7 @@ export async function enrollExistingStudent(payload: {
   if (existingEnrollment) {
     const { error } = await service
       .from("enrollment")
-      .update({ enrollment_status_id: activeStatusId })
+      .update({ enrollment_status_id: activeStatusId, ...metadata })
       .eq("enrollment_id", existingEnrollment.enrollment_id)
     if (error) {
       console.error("[enrollExistingStudent] reactivation failed", error)
@@ -1407,6 +1485,7 @@ export async function enrollExistingStudent(payload: {
       section_id: payload.sectionId,
       student_user_id: payload.studentUserId,
       enrollment_status_id: activeStatusId,
+      ...metadata,
     })
     if (error) {
       console.error("[enrollExistingStudent] insert failed", error)

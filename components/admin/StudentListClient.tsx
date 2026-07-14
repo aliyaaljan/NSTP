@@ -27,6 +27,7 @@ import {
 } from "@/lib/admin/student-progress"
 import type {
   AdminCurrentUser,
+  StudentEnrollmentLookups,
   StudentListMeta,
   StudentListQuery,
   StudentListRow,
@@ -177,6 +178,7 @@ function initialFiltersFromQuery(query: StudentListQuery): ActiveFilters {
 export default function StudentListClient({
   students,
   sections,
+  lookups,
   summary,
   meta,
   currentUser,
@@ -184,6 +186,7 @@ export default function StudentListClient({
 }: {
   students: StudentListRow[]
   sections: StudentListSectionOption[]
+  lookups: StudentEnrollmentLookups
   summary: StudentListSummary
   meta: StudentListMeta
   currentUser: CurrentUser
@@ -574,6 +577,7 @@ export default function StudentListClient({
       <AddStudentModal
         open={addManualOpen}
         sections={sections}
+        lookups={lookups}
         onClose={() => setAddManualOpen(false)}
       />
       <ImportStudentsModal open={importOpen} onClose={() => setImportOpen(false)} />
@@ -647,6 +651,7 @@ export default function StudentListClient({
         open={editStudent !== null}
         student={editStudent}
         sections={sections}
+        lookups={lookups}
         onClose={() => setEditStudent(null)}
       />
       <ConfirmDeleteModal

@@ -25,6 +25,14 @@ export interface StudentListRow {
   fullName: string
   email: string
   studentNumber: string | null
+  /** `app_user.sais_id` */
+  saisId: string | null
+  /** `enrollment.program_id` */
+  programId: string | null
+  /** `enrollment.student_classification_id` */
+  studentClassificationId: string | null
+  /** `enrollment.enlistment_status_id` */
+  enlistmentStatusId: string | null
   /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   classLabel: string
   adviserName: string
@@ -40,6 +48,20 @@ export interface StudentListSectionOption {
   sectionId: string
   /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   label: string
+}
+
+/** One row of a lookup table (`program` / `student_classification` / `enlistment_status`), shaped for a <select>. */
+export interface StudentLookupOption {
+  /** The lookup table's PK UUID — submitted as the FK value. */
+  id: string
+  label: string
+}
+
+/** Dropdown options for the optional enrollment metadata fields on Add/Edit Student. */
+export interface StudentEnrollmentLookups {
+  programs: StudentLookupOption[]
+  classifications: StudentLookupOption[]
+  enlistmentStatuses: StudentLookupOption[]
 }
 
 export type StudentListSortKey = "name" | "section" | "adviser"
@@ -85,6 +107,7 @@ export interface AdminCurrentUser {
 export interface StudentListPageData {
   students: StudentListRow[]
   sections: StudentListSectionOption[]
+  lookups: StudentEnrollmentLookups
   summary: StudentListSummary
   meta: StudentListMeta
   currentUser: AdminCurrentUser
@@ -99,7 +122,10 @@ export const ENROLLMENT_LIST_SELECT = `
   enrollment_id,
   student_user_id,
   section_id,
-  app_user(full_name, email, student_number, avatar_url),
+  program_id,
+  student_classification_id,
+  enlistment_status_id,
+  app_user(full_name, email, student_number, sais_id, avatar_url),
   section:section_id(
     section_id,
     course_code,
@@ -116,10 +142,14 @@ export interface EnrollmentListDbRow {
   enrollment_id: string
   student_user_id: string
   section_id: string
+  program_id: string | null
+  student_classification_id: string | null
+  enlistment_status_id: string | null
   app_user: {
     full_name: string
     email: string
     student_number: string | null
+    sais_id: string | null
     avatar_url: string | null
   } | null
   section: {
@@ -166,6 +196,10 @@ export function mapEnrollmentToStudentListRow(
     fullName: student.full_name ?? "Unknown",
     email: student.email ?? "",
     studentNumber: student.student_number ?? null,
+    saisId: student.sais_id ?? null,
+    programId: row.program_id ?? null,
+    studentClassificationId: row.student_classification_id ?? null,
+    enlistmentStatusId: row.enlistment_status_id ?? null,
     classLabel: formatClassLabel({
       courseCode: section.course_code,
       facilitatorName: section.app_user?.full_name,

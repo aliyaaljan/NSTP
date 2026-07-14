@@ -8,7 +8,12 @@ import {
   validateStudentEditPayload,
   type StudentEditPayload,
 } from "@/lib/admin/student-edit"
-import type { StudentListRow, StudentListSectionOption } from "@/lib/admin/student-list"
+import type {
+  StudentEnrollmentLookups,
+  StudentListRow,
+  StudentListSectionOption,
+  StudentLookupOption,
+} from "@/lib/admin/student-list"
 import { clearFormSession, isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { PROGRESS_STATUS_LABELS } from "@/lib/admin/student-progress"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
@@ -89,15 +94,69 @@ function TextInput({
   )
 }
 
+function LookupSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string | null
+  onChange: (value: string | null) => void
+  options: StudentLookupOption[]
+}) {
+  return (
+    <div style={{ position: "relative" }}>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        style={{
+          width: "100%",
+          ...TYPE.body,
+          fontStyle: "normal",
+          color: value ? COLORS.textDark : COLORS.textGray,
+          background: COLORS.fieldBg,
+          border: "none",
+          borderRadius: 6,
+          padding: "12px 40px 12px 14px",
+          appearance: "none",
+          cursor: "pointer",
+          outline: "none",
+        }}
+      >
+        {/* Enabled (not disabled) so the value can be cleared back to null. */}
+        <option value="">—</option>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <i
+        className="ti ti-chevron-down"
+        style={{
+          position: "absolute",
+          right: 14,
+          top: "50%",
+          transform: "translateY(-50%)",
+          pointerEvents: "none",
+          fontSize: 16,
+          color: COLORS.textGray,
+        }}
+      />
+    </div>
+  )
+}
+
 export default function EditStudentModal({
   open,
   student,
   sections,
+  lookups,
   onClose,
 }: {
   open: boolean
   student: StudentListRow | null
   sections: StudentListSectionOption[]
+  lookups: StudentEnrollmentLookups
   onClose: () => void
 }) {
   const [form, setForm] = useState<StudentEditPayload | null>(null)
@@ -298,6 +357,14 @@ export default function EditStudentModal({
             />
           </FormField>
 
+          <FormField label="SAIS ID">
+            <TextInput
+              value={form.saisId ?? ""}
+              onChange={(value) => patchForm({ saisId: value.trim() || null })}
+              placeholder="SAIS ID"
+            />
+          </FormField>
+
           <FormField label="Class">
             <SearchableCombobox
               key={student.enrollmentId}
@@ -310,6 +377,30 @@ export default function EditStudentModal({
               placeholder="Select class"
               emptyMessage="No classes found"
               toggleAriaLabel="Toggle class list"
+            />
+          </FormField>
+
+          <FormField label="Program">
+            <LookupSelect
+              value={form.programId}
+              onChange={(programId) => patchForm({ programId })}
+              options={lookups.programs}
+            />
+          </FormField>
+
+          <FormField label="Classification">
+            <LookupSelect
+              value={form.studentClassificationId}
+              onChange={(studentClassificationId) => patchForm({ studentClassificationId })}
+              options={lookups.classifications}
+            />
+          </FormField>
+
+          <FormField label="Enlistment Status">
+            <LookupSelect
+              value={form.enlistmentStatusId}
+              onChange={(enlistmentStatusId) => patchForm({ enlistmentStatusId })}
+              options={lookups.enlistmentStatuses}
             />
           </FormField>
 

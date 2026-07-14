@@ -11,6 +11,10 @@
  *   email          → `app_user.email` (must satisfy @up.edu.ph check constraint)
  *   studentNumber  → `app_user.student_number`
  *   sectionId      → `enrollment.section_id` → `section.section_id`
+ *   saisId                  → `app_user.sais_id`
+ *   programId               → `enrollment.program_id`
+ *   studentClassificationId → `enrollment.student_classification_id`
+ *   enlistmentStatusId      → `enrollment.enlistment_status_id`
  */
 
 import type { StudentListRow } from "@/lib/admin/student-list"
@@ -29,6 +33,14 @@ export interface StudentEditPayload {
   email: string
   /** `app_user.student_number` */
   studentNumber: string | null
+  /** `app_user.sais_id` — optional */
+  saisId: string | null
+  /** `enrollment.program_id` — optional */
+  programId: string | null
+  /** `enrollment.student_classification_id` — optional */
+  studentClassificationId: string | null
+  /** `enrollment.enlistment_status_id` — optional */
+  enlistmentStatusId: string | null
   /** `enrollment.section_id` → `section.section_id` */
   sectionId: string
 }
@@ -44,6 +56,14 @@ export interface StudentCreatePayload {
   email: string
   /** `app_user.student_number` */
   studentNumber: string | null
+  /** `app_user.sais_id` — optional */
+  saisId: string | null
+  /** `enrollment.program_id` — optional */
+  programId: string | null
+  /** `enrollment.student_classification_id` — optional */
+  studentClassificationId: string | null
+  /** `enrollment.enlistment_status_id` — optional */
+  enlistmentStatusId: string | null
   /** `enrollment.section_id` → `section.section_id` */
   sectionId: string
 }
@@ -55,6 +75,10 @@ export function emptyStudentCreatePayload(): StudentCreatePayload {
     fullName: "",
     email: "",
     studentNumber: null,
+    saisId: null,
+    programId: null,
+    studentClassificationId: null,
+    enlistmentStatusId: null,
     sectionId: "",
   }
 }
@@ -67,6 +91,10 @@ export function studentRowToEditPayload(row: StudentListRow): StudentEditPayload
     fullName: row.fullName,
     email: row.email,
     studentNumber: row.studentNumber,
+    saisId: row.saisId,
+    programId: row.programId,
+    studentClassificationId: row.studentClassificationId,
+    enlistmentStatusId: row.enlistmentStatusId,
     sectionId: row.sectionId,
   }
 }

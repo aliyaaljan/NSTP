@@ -13,7 +13,11 @@ import {
   type StudentCreatePayload,
 } from "@/lib/admin/student-edit"
 import type { PriorDecision } from "@/lib/admin/student-import"
-import type { StudentListSectionOption } from "@/lib/admin/student-list"
+import type {
+  StudentEnrollmentLookups,
+  StudentListSectionOption,
+  StudentLookupOption,
+} from "@/lib/admin/student-list"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
 
 const COLORS = {
@@ -144,6 +148,58 @@ function SectionSelect({
   )
 }
 
+function LookupSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string | null
+  onChange: (value: string | null) => void
+  options: StudentLookupOption[]
+}) {
+  return (
+    <div style={{ position: "relative" }}>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        style={{
+          width: "100%",
+          ...TYPE.body,
+          fontStyle: "normal",
+          color: value ? COLORS.textDark : COLORS.textGray,
+          background: COLORS.fieldBg,
+          border: "none",
+          borderRadius: 6,
+          padding: "12px 40px 12px 14px",
+          appearance: "none",
+          cursor: "pointer",
+          outline: "none",
+        }}
+      >
+        {/* Enabled (not disabled) so the value can be cleared back to null. */}
+        <option value="">—</option>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <i
+        className="ti ti-chevron-down"
+        style={{
+          position: "absolute",
+          right: 14,
+          top: "50%",
+          transform: "translateY(-50%)",
+          pointerEvents: "none",
+          fontSize: 16,
+          color: COLORS.textGray,
+        }}
+      />
+    </div>
+  )
+}
+
 function DecisionToggle({
   value,
   onChange,
@@ -205,10 +261,12 @@ function HoursBadge({ met }: { met: boolean }) {
 export default function AddStudentModal({
   open,
   sections,
+  lookups,
   onClose,
 }: {
   open: boolean
   sections: StudentListSectionOption[]
+  lookups: StudentEnrollmentLookups
   onClose: () => void
 }) {
   const [form, setForm] = useState<StudentCreatePayload>(emptyStudentCreatePayload())
@@ -319,6 +377,9 @@ export default function AddStudentModal({
           studentUserId: existing.studentUserId,
           sectionId: form.sectionId,
           priorDecision: priorDecision ?? undefined,
+          programId: form.programId,
+          studentClassificationId: form.studentClassificationId,
+          enlistmentStatusId: form.enlistmentStatusId,
         })
         if (!result.ok) {
           setError(result.error)
@@ -494,6 +555,16 @@ export default function AddStudentModal({
             </FormField>
           )}
 
+          {!existing && (
+            <FormField label="SAIS ID">
+              <TextInput
+                value={form.saisId ?? ""}
+                onChange={(value) => patchForm({ saisId: value.trim() || null })}
+                placeholder="SAIS ID"
+              />
+            </FormField>
+          )}
+
           {sameTermConflict && (
             <div
               style={{
@@ -538,13 +609,36 @@ export default function AddStudentModal({
           )}
 
           {!isNonStudent && !sameTermConflict && (
-            <FormField label="Class">
-              <SectionSelect
-                value={form.sectionId}
-                onChange={(sectionId) => patchForm({ sectionId })}
-                sections={sections}
-              />
-            </FormField>
+            <>
+              <FormField label="Class">
+                <SectionSelect
+                  value={form.sectionId}
+                  onChange={(sectionId) => patchForm({ sectionId })}
+                  sections={sections}
+                />
+              </FormField>
+              <FormField label="Program">
+                <LookupSelect
+                  value={form.programId}
+                  onChange={(programId) => patchForm({ programId })}
+                  options={lookups.programs}
+                />
+              </FormField>
+              <FormField label="Classification">
+                <LookupSelect
+                  value={form.studentClassificationId}
+                  onChange={(studentClassificationId) => patchForm({ studentClassificationId })}
+                  options={lookups.classifications}
+                />
+              </FormField>
+              <FormField label="Enlistment Status">
+                <LookupSelect
+                  value={form.enlistmentStatusId}
+                  onChange={(enlistmentStatusId) => patchForm({ enlistmentStatusId })}
+                  options={lookups.enlistmentStatuses}
+                />
+              </FormField>
+            </>
           )}
 
           {error && (
