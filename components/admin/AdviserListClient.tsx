@@ -39,6 +39,8 @@ import {
 import type { ClassReassignmentData } from "@/lib/admin/class-reassign"
 import type { DependentItem, DeleteImpact } from "@/lib/admin/dependent-checks"
 import {
+  buildClassDimensionFilterGroups,
+  matchesClassDimensionFilters,
   type ActiveFilters,
   type FilterGroupDef,
 } from "@/lib/admin/filter-utils"
@@ -56,7 +58,8 @@ const ADVISER_STATUS_FILTER_OPTIONS: ReadonlyArray<{
 
 function adviserMatchesFilters(
   adviser: AdviserListRow,
-  activeFilters: ActiveFilters
+  activeFilters: ActiveFilters,
+  sections: AdviserListSectionOption[]
 ): boolean {
   const statusFilters = activeFilters.status
   if (statusFilters?.length) {
@@ -69,12 +72,29 @@ function adviserMatchesFilters(
     if (!matchesStatus) return false
   }
 
-  const sectionFilters = activeFilters.sectionId
-  if (sectionFilters?.length) {
-    const matchesSection = sectionFilters.some((sectionId) =>
-      adviser.sectionIds.includes(sectionId)
+  const hasClassDims =
+    (activeFilters.nstpType?.length ?? 0) > 0 ||
+    (activeFilters.schoolYear?.length ?? 0) > 0
+  if (hasClassDims) {
+    const adviserSections = sections.filter((section) =>
+      adviser.sectionIds.includes(section.sectionId)
     )
-    if (!matchesSection) return false
+    if (adviserSections.length === 0) return false
+    const matchesClass = adviserSections.some((section) =>
+      matchesClassDimensionFilters(
+        {
+          courseCode: section.courseCode,
+          schoolYear: section.schoolYear,
+        },
+        {
+          ...(activeFilters.nstpType ? { nstpType: activeFilters.nstpType } : {}),
+          ...(activeFilters.schoolYear
+            ? { schoolYear: activeFilters.schoolYear }
+            : {}),
+        }
+      )
+    )
+    if (!matchesClass) return false
   }
 
   return true
@@ -82,9 +102,6 @@ function adviserMatchesFilters(
 
 function initialFiltersFromQuery(query: AdviserListQuery): ActiveFilters {
   const filters: ActiveFilters = {}
-  if (query.sectionId !== ADVISER_LIST_ALL_SECTIONS) {
-    filters.sectionId = [query.sectionId]
-  }
   if (query.status !== "all") {
     filters.status = [query.status]
   }
@@ -355,16 +372,13 @@ export default function AdviserListClient({
       {
         label: "Status",
         field: "status",
+        singleSelect: true,
         options: ADVISER_STATUS_FILTER_OPTIONS.map((o) => ({
           value: o.value,
           label: o.label,
         })),
       },
-      {
-        label: "Class",
-        field: "sectionId",
-        options: sections.map((s) => ({ value: s.sectionId, label: s.label })),
-      },
+      ...buildClassDimensionFilterGroups(sections, { includeAdviser: false }),
     ],
     [sections]
   )
@@ -380,8 +394,11 @@ export default function AdviserListClient({
   )
 
   const filteredAdvisers = useMemo(
-    () => searchFiltered.filter((adviser) => adviserMatchesFilters(adviser, activeFilters)),
-    [searchFiltered, activeFilters]
+    () =>
+      searchFiltered.filter((adviser) =>
+        adviserMatchesFilters(adviser, activeFilters, sections)
+      ),
+    [searchFiltered, activeFilters, sections]
   )
 
   const { rows: pageAdvisers, totalPages, totalCount } = useMemo(
@@ -644,7 +661,7 @@ export default function AdviserListClient({
           }}
           onClearFilters={() => {
             setActiveFilters({})
-            pushParams({ sectionId: null, status: null, page: "1" })
+            pushParams({ status: null, page: "1" })
           }}
           actions={
             <AdminAddButton label="Add facilitator" onClick={() => setAddChoiceOpen(true)} />

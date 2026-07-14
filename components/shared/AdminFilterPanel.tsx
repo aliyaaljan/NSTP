@@ -74,8 +74,8 @@ export function AdminFilterPanel({
   const panelMaxWidth = maxWidthProp ?? maxWidth
   const totalActive = countActiveFilters(activeFilters)
 
-  function toggle(field: string, value: string) {
-    onChange(toggleFilterValue(activeFilters, field, value))
+  function toggle(field: string, value: string, singleSelect = false) {
+    onChange(toggleFilterValue(activeFilters, field, value, singleSelect))
   }
 
   return (
@@ -190,7 +190,9 @@ export function AdminFilterPanel({
                     key={value}
                     optLabel={optLabel}
                     checked={checked.includes(value)}
-                    onToggle={() => toggle(group.field, value)}
+                    onToggle={() =>
+                      toggle(group.field, value, group.singleSelect === true)
+                    }
                     compact
                   />
                 ))}

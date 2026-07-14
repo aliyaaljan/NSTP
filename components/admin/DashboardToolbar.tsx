@@ -10,35 +10,117 @@ import {
 } from "@/components/shared/AdminFilterPanel"
 import type { DashboardFilterSectionOption } from "@/components/shared/DashboardFilters"
 import {
+  buildClassDimensionFilterGroups,
   type ActiveFilters,
   type FilterGroupDef,
 } from "@/lib/admin/filter-utils"
 import type { ExportSectionOption } from "@/lib/admin/export-analytics"
+import { extractNstpType } from "@/lib/shared/class-label"
 
 function filtersFromParam(currentFilter: string): ActiveFilters {
   if (currentFilter.startsWith("section:")) {
     return { section: [currentFilter.slice("section:".length)] }
   }
   if (currentFilter.startsWith("adviser:")) {
-    return { adviser: [currentFilter.slice("adviser:".length)] }
+    return { adviserUserId: [currentFilter.slice("adviser:".length)] }
+  }
+  if (currentFilter.startsWith("nstp:")) {
+    return { nstpType: [currentFilter.slice("nstp:".length)] }
+  }
+  if (currentFilter.startsWith("year:")) {
+    return { schoolYear: [currentFilter.slice("year:".length)] }
   }
   return {}
 }
 
-function filterToParam(filters: ActiveFilters): string | null {
-  if (filters.section?.length === 1) {
-    return `section:${filters.section[0]}`
+/**
+ * Resolve dimension filters to a single dashboard URL filter param.
+ * Prefers a concrete section when dimensions pin one class; otherwise adviser /
+ * nstp / year sentinels the page understands.
+ */
+function filterToParam(
+  filters: ActiveFilters,
+  sections: DashboardFilterSectionOption[]
+): string | null {
+  const nstp = filters.nstpType?.[0]
+  const adviserId = filters.adviserUserId?.[0]
+  const year = filters.schoolYear?.[0]
+  const legacySection = filters.section?.[0]
+
+  if (legacySection && !nstp && !adviserId && !year) {
+    return `section:${legacySection}`
   }
-  if (filters.adviser?.length === 1) {
-    return `adviser:${filters.adviser[0]}`
+
+  const matched = sections.filter((section) => {
+    if (nstp && extractNstpType(section.courseCode) !== nstp) return false
+    if (adviserId && section.adviserUserId !== adviserId) return false
+    if (year && section.schoolYear !== year) return false
+    return Boolean(nstp || adviserId || year)
+  })
+
+  if (matched.length === 1) {
+    return `section:${matched[0].sectionId}`
   }
+
+  if (adviserId && !nstp && !year) {
+    const name = sections.find((s) => s.adviserUserId === adviserId)?.adviserName
+    if (name) return `adviser:${name}`
+  }
+
+  if (nstp && !adviserId && !year) {
+    return `nstp:${nstp}`
+  }
+
+  if (year && !nstp && !adviserId) {
+    return `year:${year}`
+  }
+
+  // Multiple dimensions that don't pin a single section: keep the tightest
+  // match the page can apply (prefer section list via nstp/year on the server).
+  if (matched.length > 1 && nstp) {
+    return `nstp:${nstp}`
+  }
+  if (matched.length > 1 && year) {
+    return `year:${year}`
+  }
+  if (adviserId) {
+    const name = sections.find((s) => s.adviserUserId === adviserId)?.adviserName
+    if (name) return `adviser:${name}`
+  }
+
   return null
+}
+
+function activeFiltersFromSections(
+  currentFilter: string,
+  sections: DashboardFilterSectionOption[]
+): ActiveFilters {
+  if (currentFilter.startsWith("section:")) {
+    const sectionId = currentFilter.slice("section:".length)
+    const section = sections.find((s) => s.sectionId === sectionId)
+    if (!section) return filtersFromParam(currentFilter)
+    const next: ActiveFilters = {}
+    const nstp = extractNstpType(section.courseCode)
+    if (nstp) next.nstpType = [nstp]
+    if (section.adviserUserId) next.adviserUserId = [section.adviserUserId]
+    if (section.schoolYear) next.schoolYear = [section.schoolYear]
+    return next
+  }
+  if (currentFilter.startsWith("adviser:")) {
+    const name = currentFilter.slice("adviser:".length)
+    const section = sections.find((s) => s.adviserName === name)
+    if (section?.adviserUserId) {
+      return { adviserUserId: [section.adviserUserId] }
+    }
+    return {}
+  }
+  return filtersFromParam(currentFilter)
 }
 
 export default function DashboardToolbar({
   currentFilter,
   sections,
-  advisers,
+  advisers: _advisers,
   exportSections,
 }: {
   currentFilter: string
@@ -51,52 +133,39 @@ export default function DashboardToolbar({
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useFilterPanelDismiss(filterOpen, () => setFilterOpen(false))
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
-    filtersFromParam(currentFilter)
+    activeFiltersFromSections(currentFilter, sections)
   )
 
   useEffect(() => {
-    setActiveFilters(filtersFromParam(currentFilter))
-  }, [currentFilter])
+    setActiveFilters(activeFiltersFromSections(currentFilter, sections))
+  }, [currentFilter, sections])
 
   const searchLower = search.trim().toLowerCase()
 
-  const filteredSections = useMemo(
-    () =>
-      searchLower
-        ? sections.filter((s) => s.label.toLowerCase().includes(searchLower))
-        : sections,
-    [sections, searchLower]
-  )
-
-  const filteredAdvisers = useMemo(
-    () =>
-      searchLower
-        ? advisers.filter((name) => name.toLowerCase().includes(searchLower))
-        : advisers,
-    [advisers, searchLower]
-  )
+  const filteredSources = useMemo(() => {
+    const sources = sections.map((s) => ({
+      courseCode: s.courseCode,
+      adviserUserId: s.adviserUserId,
+      adviserName: s.adviserName,
+      schoolYear: s.schoolYear,
+    }))
+    if (!searchLower) return sources
+    return sources.filter(
+      (s) =>
+        (s.courseCode ?? "").toLowerCase().includes(searchLower) ||
+        (s.adviserName ?? "").toLowerCase().includes(searchLower) ||
+        (s.schoolYear ?? "").toLowerCase().includes(searchLower) ||
+        extractNstpType(s.courseCode).toLowerCase().includes(searchLower)
+    )
+  }, [sections, searchLower])
 
   const filterGroups: FilterGroupDef[] = useMemo(
-    () => [
-      {
-        label: "Classes",
-        field: "section",
-        options: filteredSections.map((s) => ({
-          value: s.sectionId,
-          label: s.label,
-        })),
-      },
-      {
-        label: "Advisers",
-        field: "adviser",
-        options: filteredAdvisers.map((name) => ({ value: name, label: name })),
-      },
-    ],
-    [filteredSections, filteredAdvisers]
+    () => buildClassDimensionFilterGroups(filteredSources),
+    [filteredSources]
   )
 
   function pushFilters(filters: ActiveFilters) {
-    const param = filterToParam(filters)
+    const param = filterToParam(filters, sections)
     if (param) {
       router.push(`/admin/dashboard?filter=${encodeURIComponent(param)}`)
     } else {
@@ -105,28 +174,8 @@ export default function DashboardToolbar({
   }
 
   function handleFiltersChange(next: ActiveFilters) {
-    const prevSection = activeFilters.section ?? []
-    const prevAdviser = activeFilters.adviser ?? []
-    const nextSection = next.section ?? []
-    const nextAdviser = next.adviser ?? []
-
-    const addedSection = nextSection.find((id) => !prevSection.includes(id))
-    const addedAdviser = nextAdviser.find((name) => !prevAdviser.includes(name))
-
-    let resolved: ActiveFilters = {}
-
-    if (addedSection) {
-      resolved = { section: [addedSection] }
-    } else if (addedAdviser) {
-      resolved = { adviser: [addedAdviser] }
-    } else if (nextSection.length === 1) {
-      resolved = { section: [nextSection[0]] }
-    } else if (nextAdviser.length === 1) {
-      resolved = { adviser: [nextAdviser[0]] }
-    }
-
-    setActiveFilters(resolved)
-    pushFilters(resolved)
+    setActiveFilters(next)
+    pushFilters(next)
   }
 
   function clearFilters() {

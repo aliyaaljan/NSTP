@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import AdminLoadingFallback from "@/components/admin/AdminLoadingFallback"
 import FormListClient from "@/components/admin/FormListClient"
 import { parseFormListQuery } from "@/lib/admin/form-list"
 import { getFormListData } from "@/lib/admin/form-list-actions"
@@ -46,7 +47,7 @@ export default function AdminFormsPage({
   }>
 }) {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading forms…</div>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <FormListContent searchParams={searchParams} />
     </Suspense>
   )

@@ -22,7 +22,10 @@ import {
 } from "@/lib/admin/student-list-actions"
 import type { DeleteImpact } from "@/lib/admin/dependent-checks"
 import {
+  buildClassDimensionFilterGroups,
   matchesActiveFilters,
+  matchesClassDimensionFilters,
+  withoutClassDimensionFilters,
   type ActiveFilters,
   type FilterGroupDef,
 } from "@/lib/admin/filter-utils"
@@ -172,9 +175,6 @@ function initialsFromName(name: string): string {
 
 function initialFiltersFromQuery(query: StudentListQuery): ActiveFilters {
   const filters: ActiveFilters = {}
-  if (query.sectionId !== STUDENT_LIST_ALL_SECTIONS) {
-    filters.sectionId = [query.sectionId]
-  }
   if (query.progressStatus !== "all") {
     filters.progressStatus = [query.progressStatus]
   }
@@ -259,15 +259,12 @@ export default function StudentListClient({
       {
         label: "Status",
         field: "progressStatus",
+        singleSelect: true,
         options: PROGRESS_STATUS_FILTER_OPTIONS.filter((o) => o.value !== "all").map(
           (o) => ({ value: o.value, label: o.label })
         ),
       },
-      {
-        label: "Class",
-        field: "sectionId",
-        options: sections.map((s) => ({ value: s.sectionId, label: s.label })),
-      },
+      ...buildClassDimensionFilterGroups(sections),
     ],
     [sections]
   )
@@ -285,14 +282,20 @@ export default function StudentListClient({
 
   const visibleStudents = useMemo(
     () =>
-      searchFiltered.filter((student) =>
-        matchesActiveFilters(
-          {
-            sectionId: student.sectionId,
-            progressStatus: student.progressStatus,
-          },
-          activeFilters
-        )
+      searchFiltered.filter(
+        (student) =>
+          matchesActiveFilters(
+            { progressStatus: student.progressStatus },
+            withoutClassDimensionFilters(activeFilters)
+          ) &&
+          matchesClassDimensionFilters(
+            {
+              courseCode: student.courseCode,
+              adviserUserId: student.adviserUserId,
+              schoolYear: student.schoolYear,
+            },
+            activeFilters
+          )
       ),
     [searchFiltered, activeFilters]
   )
@@ -519,7 +522,7 @@ export default function StudentListClient({
           }}
           onClearFilters={() => {
             setActiveFilters({})
-            pushParams({ sectionId: null, status: null, page: "1" })
+            pushParams({ status: null, page: "1" })
           }}
           actions={
             <AdminAddButton label="Add student" onClick={() => setAddChoiceOpen(true)} />

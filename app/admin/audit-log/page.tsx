@@ -1,5 +1,6 @@
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
+import AdminLoadingFallback from "@/components/admin/AdminLoadingFallback"
 import AuditLogClient from "@/components/admin/AuditLogClient"
 import { parseAuditLogQuery } from "@/lib/admin/audit-log"
 import { getAuditLogData } from "@/lib/admin/audit-log-actions"
@@ -54,11 +55,7 @@ export default async function AdminAuditLogPage({
   return (
     <Suspense
       key={suspenseKey}
-      fallback={
-        <div className="p-6 text-sm text-gray-500 animate-pulse">
-          Loading system audit log records...
-        </div>
-      }
+      fallback={<AdminLoadingFallback />}
     >
       <AuditLogContent query={query} />
     </Suspense>

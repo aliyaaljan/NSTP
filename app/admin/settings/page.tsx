@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import AdminLoadingFallback from "@/components/admin/AdminLoadingFallback"
 import SettingsClient from "@/components/admin/SettingsClient"
 import { getSettingsData } from "@/lib/admin/settings-actions"
 
@@ -21,7 +22,7 @@ async function SettingsContent() {
 
 export default function AdminSettingsPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading settings…</div>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <SettingsContent />
     </Suspense>
   )

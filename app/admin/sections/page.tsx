@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import AdminLoadingFallback from "@/components/admin/AdminLoadingFallback"
 import SectionListClient from "@/components/admin/SectionListClient"
 import { parseSectionListQuery } from "@/lib/admin/section-list"
 import { getSectionListData } from "@/lib/admin/section-list-actions"
@@ -47,7 +48,7 @@ export default function AdminSectionsPage({
   }>
 }) {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading sections…</div>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <SectionListContent searchParams={searchParams} />
     </Suspense>
   )

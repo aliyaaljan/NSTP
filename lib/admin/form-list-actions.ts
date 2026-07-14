@@ -106,6 +106,10 @@ export async function getFormListData(query: FormListQuery): Promise<FormListPag
         facilitatorName: section.app_user?.full_name,
         schoolYear: section.term?.school_year,
       }),
+      courseCode: section.course_code,
+      adviserUserId: section.adviser_user_id,
+      adviserName: section.app_user?.full_name ?? "Unassigned",
+      schoolYear: section.term?.school_year ?? null,
     }))
     .sort((a, b) => a.label.localeCompare(b.label))
 

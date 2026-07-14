@@ -26,8 +26,14 @@ export interface FormListRow {
   formName: string
   /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   sectionName: string
+  /** `section.course_code` */
+  courseCode: string
+  /** `section.adviser_user_id` */
+  adviserUserId: string
   /** `section.adviser_user_id` → `app_user.full_name` */
   adviserName: string
+  /** `term.school_year` via section.term_id */
+  schoolYear: string | null
   /** Submissions in this section for this requirement */
   submittedCount: number
   /** Active enrollments in this section */
@@ -53,6 +59,14 @@ export interface FormListSectionOption {
   sectionId: string
   /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   label: string
+  /** `section.course_code` */
+  courseCode: string
+  /** `section.adviser_user_id` */
+  adviserUserId: string
+  /** `app_user.full_name` via section.adviser_user_id */
+  adviserName: string
+  /** `term.school_year` via section.term_id */
+  schoolYear: string | null
 }
 
 export type FormListSortKey = "name" | "section" | "deadline" | "analytics"
@@ -259,7 +273,10 @@ export function buildFormListRows(
           facilitatorName: section.app_user?.full_name,
           schoolYear: section.term?.school_year,
         }),
+        courseCode: section.course_code,
+        adviserUserId: section.adviser_user_id,
         adviserName: section.app_user?.full_name ?? "Unassigned",
+        schoolYear: section.term?.school_year ?? null,
         submittedCount: submissionCounts.get(countKey) ?? 0,
         totalStudents: enrollmentCounts.get(section.section_id) ?? 0,
         dueDate: requirement.due_date,

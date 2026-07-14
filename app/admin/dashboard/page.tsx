@@ -21,7 +21,7 @@ import {
   mapAuditLogDbRow,
   formatAuditLogTimestamp,
 } from "@/lib/admin/audit-log"
-import { formatClassLabel } from "@/lib/shared/class-label"
+import { formatClassLabel, extractNstpType } from "@/lib/shared/class-label"
 import { progressStatusFromPct } from "@/lib/admin/student-progress"
 
 export const revalidate = 0
@@ -311,14 +311,20 @@ export default async function AdminDashboardPage({
   const resolvedParams = await searchParams
   const currentFilter = resolvedParams.filter || ""
 
-  // for filtering either by section or by adviser
+  // for filtering by section, adviser, nstp type, or school year
   let selectedSection = ""
   let selectedAdviser = ""
+  let selectedNstpType = ""
+  let selectedSchoolYear = ""
 
   if (currentFilter.startsWith("section:")) {
     selectedSection = currentFilter.replace("section:", "")
   } else if (currentFilter.startsWith("adviser:")) {
     selectedAdviser = currentFilter.replace("adviser:", "")
+  } else if (currentFilter.startsWith("nstp:")) {
+    selectedNstpType = currentFilter.replace("nstp:", "")
+  } else if (currentFilter.startsWith("year:")) {
+    selectedSchoolYear = currentFilter.replace("year:", "")
   }
   const supabase = await createSupabaseServerClient()
   const {
@@ -350,6 +356,32 @@ export default async function AdminDashboardPage({
     lookupId("appeal_status", "under_review"),
     lookupId("attendance_event_type", "time_in"),
   ])
+
+  // Resolve nstp/year filters to a section before building filtered queries.
+  if (!selectedSection && (selectedNstpType || selectedSchoolYear)) {
+    const { data: earlySections } = await supabase
+      .from("section")
+      .select("section_id, course_code, term:term_id(school_year)")
+    const matched =
+      (
+        earlySections as unknown as {
+          section_id: string
+          course_code: string
+          term: { school_year: string } | null
+        }[] | null
+      )?.filter((s) => {
+        if (selectedNstpType && extractNstpType(s.course_code) !== selectedNstpType) {
+          return false
+        }
+        if (selectedSchoolYear && s.term?.school_year !== selectedSchoolYear) {
+          return false
+        }
+        return true
+      }) ?? []
+    if (matched.length > 0) {
+      selectedSection = matched[0].section_id
+    }
+  }
 
   const filteredAdviserRes = selectedAdviser
     ? await supabase
@@ -578,7 +610,7 @@ export default async function AdminDashboardPage({
     supabase
       .from("section")
       .select(
-        "section_id, course_code, term:term_id(school_year), app_user:adviser_user_id(full_name)"
+        "section_id, course_code, adviser_user_id, term:term_id(school_year), app_user:adviser_user_id(full_name)"
       ),
     // Filter dropdown for advisers list lookup
     supabase
@@ -618,10 +650,18 @@ export default async function AdminDashboardPage({
     gpsComplianceQuery,
   ])
 
-  const sectionFilterOptions: { sectionId: string; label: string }[] = (
+  const sectionFilterOptions: {
+    sectionId: string
+    label: string
+    courseCode: string
+    adviserUserId: string | null
+    adviserName: string
+    schoolYear: string | null
+  }[] = (
     (sectionsFilterRes.data ?? []) as unknown as {
       section_id: string
       course_code: string
+      adviser_user_id?: string | null
       term: { school_year: string } | null
       app_user: { full_name: string } | null
     }[]
@@ -633,6 +673,10 @@ export default async function AdminDashboardPage({
         facilitatorName: s.app_user?.full_name,
         schoolYear: s.term?.school_year,
       }),
+      courseCode: s.course_code,
+      adviserUserId: s.adviser_user_id ?? null,
+      adviserName: s.app_user?.full_name ?? "Unassigned",
+      schoolYear: s.term?.school_year ?? null,
     }))
     .sort((a, b) => a.label.localeCompare(b.label))
 

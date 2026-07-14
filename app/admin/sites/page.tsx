@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import AdminLoadingFallback from "@/components/admin/AdminLoadingFallback"
 import SiteListClient from "@/components/admin/SiteListClient"
 import { parseSiteListQuery } from "@/lib/admin/site-list"
 import { getSiteListData } from "@/lib/admin/site-list-actions"
@@ -49,7 +50,7 @@ export default function AdminSitesPage({
   }>
 }) {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading sites…</div>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <SiteListContent searchParams={searchParams} />
     </Suspense>
   )

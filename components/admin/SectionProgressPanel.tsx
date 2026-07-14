@@ -58,11 +58,10 @@ interface SectionProgressRow {
   pct: number
 }
 
-const SECTION_PROGRESS_GRID = {
-  display: "grid",
-  gridTemplateColumns: "minmax(220px, 1fr) 2fr auto",
-  columnGap: 14,
+const ROW_STYLE = {
+  display: "flex",
   alignItems: "center",
+  gap: 10,
 } as const
 
 function progressColor(pct: number) {
@@ -71,47 +70,92 @@ function progressColor(pct: number) {
   return COLORS.maroon
 }
 
-function SectionProgressHeader() {
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+function RowAvatar({ name }: { name: string }) {
+  const size = 36
   return (
-    <div style={{ ...SECTION_PROGRESS_GRID, marginBottom: 10 }}>
-      <span style={{ ...TYPE.body, color: COLORS.textDark }}>Section</span>
-      <span />
-      <span
-        style={{ ...TYPE.body, color: COLORS.textDark, textAlign: "right" }}
-      >
-        Progress
-      </span>
+    <div
+      aria-hidden
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: "#D1D5DB",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 12,
+        fontWeight: 700,
+        color: "#4B5563",
+        flexShrink: 0,
+        letterSpacing: "0.3px",
+      }}
+    >
+      {initialsFromName(name)}
     </div>
   )
 }
 
-function SectionProgressRowItem({ section, pct }: SectionProgressRow) {
+function SectionProgressRowItem({
+  section,
+  pct,
+  showAvatar = false,
+}: SectionProgressRow & { showAvatar?: boolean }) {
   return (
-    <div className="anim-list-item" style={SECTION_PROGRESS_GRID}>
-      <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>{section}</div>
-      <div
-        style={{
-          height: 8,
-          borderRadius: 999,
-          background: COLORS.track,
-          overflow: "hidden",
-        }}
-      >
+    <div className="anim-list-item" style={ROW_STYLE}>
+      {showAvatar && <RowAvatar name={section} />}
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            width: `${pct}%`,
-            height: "100%",
-            borderRadius: 999,
-            background: progressColor(pct),
+            ...TYPE.body,
+            fontWeight: 500,
+            color: COLORS.textDark,
+            marginBottom: 5,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
-        />
+          title={section}
+        >
+          {section}
+        </div>
+        <div
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${section}: ${pct}%`}
+          style={{
+            height: 8,
+            borderRadius: 999,
+            background: COLORS.track,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: `${pct}%`,
+              height: "100%",
+              borderRadius: 999,
+              background: progressColor(pct),
+            }}
+          />
+        </div>
       </div>
       <div
         style={{
-          ...TYPE.body,
+          fontSize: 12,
+          fontWeight: 600,
           color: COLORS.textGray,
           textAlign: "right",
-          paddingLeft: 12,
+          width: 40,
+          flexShrink: 0,
         }}
       >
         {pct}%
@@ -161,11 +205,12 @@ export default function SectionProgressPanel({
     setAnimKey((k) => k + 1)
   }
 
+  const showAvatars = rowLabel === "students"
+
   return (
     <>
       <ChartStyles />
       <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <SectionProgressHeader />
         <div
           key={animKey}
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
@@ -183,7 +228,11 @@ export default function SectionProgressPanel({
             </div>
           ) : (
             paginatedRows.map((row) => (
-              <SectionProgressRowItem key={row.id} {...row} />
+              <SectionProgressRowItem
+                key={row.id}
+                {...row}
+                showAvatar={showAvatars}
+              />
             ))
           )}
         </div>

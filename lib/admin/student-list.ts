@@ -35,6 +35,10 @@ export interface StudentListRow {
   enlistmentStatusId: string | null
   /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   classLabel: string
+  /** `section.course_code` */
+  courseCode: string
+  /** `term.school_year` via section.term_id */
+  schoolYear: string | null
   adviserName: string
   hoursCompleted: number
   hoursRequired: number
@@ -48,6 +52,14 @@ export interface StudentListSectionOption {
   sectionId: string
   /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   label: string
+  /** `section.course_code` */
+  courseCode: string
+  /** `section.adviser_user_id` */
+  adviserUserId: string | null
+  /** `app_user.full_name` via section.adviser_user_id */
+  adviserName: string
+  /** `term.school_year` via section.term_id */
+  schoolYear: string | null
 }
 
 /** One row of a lookup table (`program` / `student_classification` / `enlistment_status`), shaped for a <select>. */
@@ -209,6 +221,8 @@ export function mapEnrollmentToStudentListRow(
       facilitatorName: section.app_user?.full_name,
       schoolYear: section.term?.school_year,
     }),
+    courseCode: section.course_code,
+    schoolYear: section.term?.school_year ?? null,
     adviserName,
     hoursCompleted,
     hoursRequired,

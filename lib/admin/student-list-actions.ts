@@ -126,7 +126,7 @@ export async function getStudentListData(
     supabase
       .from("section")
       .select(
-        "section_id, course_code, term:term_id!inner(school_year, is_active), app_user:adviser_user_id(full_name), status:section_status_id!inner(code)"
+        "section_id, course_code, adviser_user_id, term:term_id!inner(school_year, is_active), app_user:adviser_user_id(full_name), status:section_status_id!inner(code)"
       )
       .eq("term.is_active", true)
       .neq("status.code", "archived"),
@@ -153,6 +153,7 @@ export async function getStudentListData(
   const sections: StudentListSectionOption[] = ((sectionsRes.data ?? []) as unknown as {
     section_id: string
     course_code: string
+    adviser_user_id: string | null
     term: { school_year: string } | null
     app_user: { full_name: string } | null
   }[])
@@ -163,6 +164,10 @@ export async function getStudentListData(
         facilitatorName: section.app_user?.full_name,
         schoolYear: section.term?.school_year,
       }),
+      courseCode: section.course_code,
+      adviserUserId: section.adviser_user_id,
+      adviserName: section.app_user?.full_name ?? "Unassigned",
+      schoolYear: section.term?.school_year ?? null,
     }))
     .sort((a, b) => a.label.localeCompare(b.label))
 

@@ -128,7 +128,7 @@ export async function getAdviserListData(
       adviserQuery,
       supabase
         .from("section")
-        .select("section_id, course_code, term:term_id(school_year), app_user:adviser_user_id(full_name)"),
+        .select("section_id, course_code, adviser_user_id, term:term_id(school_year), app_user:adviser_user_id(full_name)"),
       supabase
         .from("appeal")
         .select(pendingAppealsSelect)
@@ -164,6 +164,7 @@ export async function getAdviserListData(
     sectionsRes.data as unknown as {
       section_id: string
       course_code: string
+      adviser_user_id?: string
       term: { school_year: string } | null
       app_user: { full_name: string } | null
     }[]
@@ -176,6 +177,10 @@ export async function getAdviserListData(
         facilitatorName: section.app_user?.full_name,
         schoolYear: section.term?.school_year,
       }),
+      courseCode: section.course_code,
+      adviserUserId: section.adviser_user_id ?? "",
+      adviserName: section.app_user?.full_name ?? "Unassigned",
+      schoolYear: section.term?.school_year ?? null,
     }))
     .sort((a, b) => a.label.localeCompare(b.label))
 
