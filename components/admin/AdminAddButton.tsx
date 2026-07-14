@@ -1,6 +1,7 @@
 "use client"
 
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+import { FONT_BODY } from "@/lib/admin-typography"
 
 const BUTTON_SIZE = 44
 const ICON_SIZE = 22
@@ -20,6 +21,9 @@ export default function AdminAddButton({
       aria-label={label}
       title={label}
       style={{
+        fontFamily: FONT_BODY,
+        fontSize: "13.5px",
+        fontWeight: 600,
         width: "auto",
         height: "",
         borderRadius: 999,
