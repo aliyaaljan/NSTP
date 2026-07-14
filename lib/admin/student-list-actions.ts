@@ -16,6 +16,7 @@ import {
   type StudentListSectionOption,
 } from "@/lib/admin/student-list"
 import {
+  normalizeStudentFullName,
   validateStudentEditPayload,
   validateStudentCreatePayload,
   type StudentEditPayload,
@@ -270,7 +271,7 @@ export async function createStudent(
 
   const provisioned = await provisionUser(service, {
     email: payload.email,
-    fullName: payload.fullName,
+    fullName: normalizeStudentFullName(payload.fullName),
     roleCode: "student",
     studentNumber: payload.studentNumber,
     saisId: payload.saisId,
@@ -363,7 +364,7 @@ export async function updateStudent(
   const { error: userError } = await service
     .from("app_user")
     .update({
-      full_name: payload.fullName.trim(),
+      full_name: normalizeStudentFullName(payload.fullName),
       email: nextEmail,
       student_number: payload.studentNumber?.trim() || null,
       sais_id: payload.saisId?.trim() || null,

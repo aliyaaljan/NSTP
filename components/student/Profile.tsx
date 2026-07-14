@@ -597,6 +597,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             height: "auto", // Dynamic height
             fontFamily: "'Montserrat', 'Fallback Montserrat'",
             width: "100%", 
+            alignSelf: "start",
           }}>
             {/* Header */}
             <div
