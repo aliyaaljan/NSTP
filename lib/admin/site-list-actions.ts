@@ -100,6 +100,8 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
           facilitatorName: (row.adviser as { full_name?: string } | null)?.full_name,
           schoolYear: activeTerm?.school_year,
         }),
+        courseCode: row.course_code as string,
+        schoolYear: activeTerm?.school_year ?? null,
         adviserUserId: (row.adviser_user_id as string | null) ?? "",
         supervisorName:
           (row.adviser as { full_name?: string } | null)?.full_name ?? "Unassigned",

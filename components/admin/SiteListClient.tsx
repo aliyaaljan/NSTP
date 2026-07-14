@@ -15,7 +15,10 @@ import { adminClickableRowProps } from "@/components/admin/admin-list-row"
 import { deleteSite, getSiteDeleteImpactAction } from "@/lib/admin/site-list-actions"
 import type { DeleteImpact } from "@/lib/admin/dependent-checks"
 import {
+  buildClassDimensionFilterGroups,
   matchesActiveFilters,
+  matchesClassDimensionFilters,
+  withoutClassDimensionFilters,
   type ActiveFilters,
   type FilterGroupDef,
 } from "@/lib/admin/filter-utils"
@@ -108,9 +111,6 @@ function initialFiltersFromQuery(query: SiteListQuery): ActiveFilters {
   if (query.status !== SITE_LIST_ALL_STATUSES) {
     filters.statusCode = [query.status]
   }
-  if (query.sectionId !== SITE_LIST_ALL_SECTIONS) {
-    filters.sectionId = [query.sectionId]
-  }
   if (query.adviserId !== SITE_LIST_ALL_ADVISERS) {
     filters.adviserUserId = [query.adviserId]
   }
@@ -198,22 +198,21 @@ export default function SiteListClient({
       {
         label: "Status",
         field: "statusCode",
+        singleSelect: true,
         options: SITE_STATUS_FILTER_OPTIONS.filter(
           (o) => o.value !== SITE_LIST_ALL_STATUSES
         ).map((o) => ({ value: o.value, label: o.label })),
       },
-      {
-        label: "Class",
-        field: "sectionId",
-        options: sections.map((s) => ({ value: s.sectionId, label: s.label })),
-      },
-      {
-        label: "Adviser",
-        field: "adviserUserId",
-        options: advisers.map((a) => ({ value: a.adviserUserId, label: a.fullName })),
-      },
+      ...buildClassDimensionFilterGroups(
+        sections.map((s) => ({
+          courseCode: s.courseCode,
+          adviserUserId: s.adviserUserId,
+          adviserName: s.supervisorName,
+          schoolYear: s.schoolYear,
+        }))
+      ),
     ],
-    [sections, advisers]
+    [sections]
   )
 
   const searchFiltered = useMemo(
@@ -230,15 +229,20 @@ export default function SiteListClient({
 
   const visibleSites = useMemo(
     () =>
-      searchFiltered.filter((site) =>
-        matchesActiveFilters(
-          {
-            statusCode: site.isActive ? "active" : "inactive",
-            sectionId: site.sectionId,
-            adviserUserId: site.adviserUserId,
-          },
-          activeFilters
-        )
+      searchFiltered.filter(
+        (site) =>
+          matchesActiveFilters(
+            { statusCode: site.isActive ? "active" : "inactive" },
+            withoutClassDimensionFilters(activeFilters)
+          ) &&
+          matchesClassDimensionFilters(
+            {
+              courseCode: site.courseCode,
+              adviserUserId: site.adviserUserId,
+              schoolYear: site.schoolYear,
+            },
+            activeFilters
+          )
       ),
     [searchFiltered, activeFilters]
   )
@@ -405,7 +409,7 @@ export default function SiteListClient({
           }}
           onClearFilters={() => {
             setActiveFilters({})
-            pushParams({ status: null, sectionId: null, adviserId: null, page: "1" })
+            pushParams({ status: null, page: "1" })
           }}
           actions={<AdminAddButton label="Add site" onClick={() => setAddOpen(true)} />}
         />

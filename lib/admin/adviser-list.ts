@@ -59,6 +59,14 @@ export interface AdviserListSectionOption {
   sectionId: string
   /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   label: string
+  /** `section.course_code` */
+  courseCode: string
+  /** `section.adviser_user_id` */
+  adviserUserId: string
+  /** `app_user.full_name` via section.adviser_user_id */
+  adviserName: string
+  /** `term.school_year` via section.term_id */
+  schoolYear: string | null
 }
 
 export const ADVISER_LIST_ALL_SECTIONS = "all"

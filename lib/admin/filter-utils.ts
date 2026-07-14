@@ -1,3 +1,5 @@
+import { extractNstpType } from "@/lib/shared/class-label"
+
 export type ActiveFilters = Record<string, string[]>
 
 export type FilterGroupDef = {
@@ -6,6 +8,26 @@ export type FilterGroupDef = {
   options: { value: string; label: string }[]
   /** Split long option lists into multiple columns with this many items each. */
   optionsPerColumn?: number
+  /** When true, selecting an option replaces any other selection in this group. */
+  singleSelect?: boolean
+}
+
+/** Fields used by {@link buildClassDimensionFilterGroups}. */
+export const CLASS_DIMENSION_FIELDS = [
+  "nstpType",
+  "adviserUserId",
+  "schoolYear",
+] as const
+
+export type ClassDimensionField = (typeof CLASS_DIMENSION_FIELDS)[number]
+
+/** Minimal section/row shape for building and matching class dimension filters. */
+export type ClassFilterSource = {
+  courseCode?: string | null
+  nstpType?: string | null
+  adviserUserId?: string | null
+  adviserName?: string | null
+  schoolYear?: string | null
 }
 
 /** Admin dashboard filter dropdown — reference width for multi-group panels. */
@@ -83,17 +105,24 @@ export function countActiveFilters(activeFilters: ActiveFilters): number {
 export function toggleFilterValue(
   activeFilters: ActiveFilters,
   field: string,
-  value: string
+  value: string,
+  singleSelect = false
 ): ActiveFilters {
   const current = activeFilters[field] ?? []
-  const next = current.includes(value)
-    ? current.filter((v) => v !== value)
-    : [...current, value]
-  if (next.length === 0) {
-    const { [field]: _, ...rest } = activeFilters
-    return rest
+  if (current.includes(value)) {
+    const next = current.filter((v) => v !== value)
+    if (next.length === 0) {
+      const { [field]: _, ...rest } = activeFilters
+      return rest
+    }
+    return { ...activeFilters, [field]: next }
   }
-  return { ...activeFilters, [field]: next }
+
+  if (singleSelect) {
+    return { ...activeFilters, [field]: [value] }
+  }
+
+  return { ...activeFilters, [field]: [...current, value] }
 }
 
 /** Returns true when row passes all active checkbox filter groups (OR within group, AND across groups). */
@@ -106,5 +135,117 @@ export function matchesActiveFilters(
     const value = row[field]
     if (!value || !selected.includes(value)) return false
   }
+  return true
+}
+
+export function resolveClassNstpType(source: ClassFilterSource): string {
+  const explicit = source.nstpType?.trim()
+  if (explicit) return explicit
+  return extractNstpType(source.courseCode)
+}
+
+export function withoutClassDimensionFilters(
+  activeFilters: ActiveFilters
+): ActiveFilters {
+  const next: ActiveFilters = {}
+  for (const [field, values] of Object.entries(activeFilters)) {
+    if ((CLASS_DIMENSION_FIELDS as readonly string[]).includes(field)) continue
+    next[field] = values
+  }
+  return next
+}
+
+function uniqueSortedOptions(
+  values: Iterable<string>
+): { value: string; label: string }[] {
+  return [...new Set([...values].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b))
+    .map((value) => ({ value, label: value }))
+}
+
+/**
+ * Builds Class (NSTP type) / Adviser / School year filter groups from section-like sources.
+ * Each group is single-select; selections combine with AND across groups.
+ */
+export function buildClassDimensionFilterGroups(
+  sources: ClassFilterSource[],
+  options?: {
+    /** Include the Adviser group (default true). */
+    includeAdviser?: boolean
+  }
+): FilterGroupDef[] {
+  const includeAdviser = options?.includeAdviser !== false
+
+  const nstpTypes: string[] = []
+  const schoolYears: string[] = []
+  const advisers = new Map<string, string>()
+
+  for (const source of sources) {
+    const nstpType = resolveClassNstpType(source)
+    if (nstpType) nstpTypes.push(nstpType)
+
+    const year = source.schoolYear?.trim()
+    if (year) schoolYears.push(year)
+
+    const adviserId = source.adviserUserId?.trim()
+    const adviserName = source.adviserName?.trim()
+    if (includeAdviser && adviserId && adviserName) {
+      advisers.set(adviserId, adviserName)
+    }
+  }
+
+  const groups: FilterGroupDef[] = [
+    {
+      label: "Class",
+      field: "nstpType",
+      singleSelect: true,
+      options: uniqueSortedOptions(nstpTypes),
+    },
+  ]
+
+  if (includeAdviser) {
+    groups.push({
+      label: "Adviser",
+      field: "adviserUserId",
+      singleSelect: true,
+      options: [...advisers.entries()]
+        .sort((a, b) => a[1].localeCompare(b[1]))
+        .map(([value, label]) => ({ value, label })),
+    })
+  }
+
+  groups.push({
+    label: "School Year",
+    field: "schoolYear",
+    singleSelect: true,
+    options: uniqueSortedOptions(schoolYears),
+  })
+
+  return groups.filter((group) => group.options.length > 0)
+}
+
+/** AND across class dimension groups; empty groups are ignored. */
+export function matchesClassDimensionFilters(
+  row: ClassFilterSource,
+  activeFilters: ActiveFilters
+): boolean {
+  const nstpSelected = activeFilters.nstpType
+  if (nstpSelected?.length) {
+    const rowType = resolveClassNstpType(row)
+    if (!rowType || !nstpSelected.includes(rowType)) return false
+  }
+
+  const adviserSelected = activeFilters.adviserUserId
+  if (adviserSelected?.length) {
+    const rowAdviser = row.adviserUserId?.trim()
+    if (!rowAdviser || !adviserSelected.includes(rowAdviser)) return false
+  }
+
+  const yearSelected = activeFilters.schoolYear
+  if (yearSelected?.length) {
+    const rowYear = row.schoolYear?.trim()
+    if (!rowYear || !yearSelected.includes(rowYear)) return false
+  }
+
   return true
 }

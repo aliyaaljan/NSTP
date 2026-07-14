@@ -17,7 +17,10 @@ import { adminClickableRowProps } from "@/components/admin/admin-list-row"
 import { deleteForm } from "@/lib/admin/form-list-actions"
 import { formRowToEditPayload } from "@/lib/admin/form-edit"
 import {
+  buildClassDimensionFilterGroups,
   matchesActiveFilters,
+  matchesClassDimensionFilters,
+  withoutClassDimensionFilters,
   type ActiveFilters,
   type FilterGroupDef,
 } from "@/lib/admin/filter-utils"
@@ -84,9 +87,6 @@ function ProfilePill({ user }: { user: AdminCurrentUser }) {
 
 function initialFiltersFromQuery(query: FormListQuery): ActiveFilters {
   const filters: ActiveFilters = {}
-  if (query.sectionId !== FORM_LIST_ALL_SECTIONS) {
-    filters.sectionId = [query.sectionId]
-  }
   if (query.scope !== "all") {
     filters.scope = [query.scope]
   }
@@ -154,16 +154,7 @@ export default function FormListClient({
   }, [searchInput])
 
   const filterGroups: FilterGroupDef[] = useMemo(
-    () => [
-      {
-        label: "Class",
-        field: "sectionId",
-        options: sections.map((s) => ({
-          value: s.sectionId,
-          label: s.label,
-        })),
-      },
-    ],
+    () => [...buildClassDimensionFilterGroups(sections)],
     [sections]
   )
 
@@ -180,14 +171,20 @@ export default function FormListClient({
 
   const visibleForms = useMemo(
     () =>
-      searchFiltered.filter((form) =>
-        matchesActiveFilters(
-          {
-            sectionId: form.sectionId,
-            scope: form.isGlobal ? "global" : "section",
-          },
-          activeFilters
-        )
+      searchFiltered.filter(
+        (form) =>
+          matchesActiveFilters(
+            { scope: form.isGlobal ? "global" : "section" },
+            withoutClassDimensionFilters(activeFilters)
+          ) &&
+          matchesClassDimensionFilters(
+            {
+              courseCode: form.courseCode,
+              adviserUserId: form.adviserUserId,
+              schoolYear: form.schoolYear,
+            },
+            activeFilters
+          )
       ),
     [searchFiltered, activeFilters]
   )
@@ -346,7 +343,7 @@ export default function FormListClient({
           }}
           onClearFilters={() => {
             setActiveFilters({})
-            pushParams({ sectionId: null, scope: null, page: "1" })
+            pushParams({ scope: null, page: "1" })
           }}
           actions={
             <AdminAddButton label="Import form" onClick={() => setImportOpen(true)} />

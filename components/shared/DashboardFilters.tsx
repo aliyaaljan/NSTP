@@ -8,6 +8,14 @@ export interface DashboardFilterSectionOption {
   sectionId: string
   /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   label: string
+  /** `section.course_code` */
+  courseCode: string
+  /** `section.adviser_user_id` */
+  adviserUserId: string | null
+  /** Adviser display name */
+  adviserName: string
+  /** `term.school_year` */
+  schoolYear: string | null
 }
 
 interface FilterProps {

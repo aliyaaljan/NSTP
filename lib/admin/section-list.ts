@@ -19,6 +19,8 @@ export interface SectionListRow {
   name: string
   /** `section.course_code` */
   courseCode: string
+  /** `term.school_year` via section.term_id */
+  schoolYear: string | null
   /** `section.adviser_user_id` */
   adviserUserId: string
   /** `app_user.full_name` via adviser join */
@@ -254,6 +256,7 @@ export function mapSectionDbRowToListRow(
       schoolYear: row.term?.school_year,
     }),
     courseCode: row.course_code,
+    schoolYear: row.term?.school_year ?? null,
     adviserUserId: row.adviser_user_id,
     adviserName: row.adviser?.full_name ?? "Unassigned",
     sectionStatusId: row.section_status_id,

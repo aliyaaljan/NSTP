@@ -36,6 +36,10 @@ export interface SiteListRow {
   sectionId: string
   /** Derived: "{courseCode} — {facilitator surname}" — sections have no name. */
   sectionName: string
+  /** `section.course_code` */
+  courseCode: string
+  /** `term.school_year` via section.term_id */
+  schoolYear: string | null
   /** `section.adviser_user_id` */
   adviserUserId: string
   /** `app_user.full_name` via section.adviser_user_id */
@@ -49,6 +53,10 @@ export interface SiteListSectionOption {
   sectionId: string
   /** Display label e.g. "CWTS — CWTS-2526A" */
   label: string
+  /** `section.course_code` */
+  courseCode: string
+  /** `term.school_year` via section.term_id */
+  schoolYear: string | null
   /** `section.adviser_user_id` */
   adviserUserId: string
   /** `app_user.full_name` via `section.adviser_user_id` */
@@ -211,6 +219,8 @@ export function mapSiteListDbRow(row: SiteListDbRow): SiteListRow | null {
     centerLongitude: Number(row.center_longitude),
     sectionId: section.section_id,
     sectionName: classLabel,
+    courseCode: section.course_code,
+    schoolYear: section.term?.school_year ?? null,
     adviserUserId: section.adviser_user_id ?? "",
     supervisorName: section.adviser?.full_name ?? "Unassigned",
     isActive: row.is_active,

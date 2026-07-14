@@ -37,7 +37,10 @@ import {
   type SectionListSummary,
 } from "@/lib/admin/section-list"
 import {
+  buildClassDimensionFilterGroups,
   matchesActiveFilters,
+  matchesClassDimensionFilters,
+  withoutClassDimensionFilters,
   type ActiveFilters,
   type FilterGroupDef,
 } from "@/lib/admin/filter-utils"
@@ -173,17 +176,14 @@ export default function SectionListClient({
       {
         label: "Status",
         field: "statusCode",
+        singleSelect: true,
         options: SECTION_STATUS_FILTER_OPTIONS.filter((o) => o.value !== SECTION_LIST_ALL_STATUSES).map(
           (o) => ({ value: o.value, label: o.label })
         ),
       },
-      {
-        label: "Adviser",
-        field: "adviserUserId",
-        options: advisers.map((a) => ({ value: a.adviserUserId, label: a.fullName })),
-      },
+      ...buildClassDimensionFilterGroups(sections),
     ],
-    [advisers]
+    [sections]
   )
 
   const searchFiltered = useMemo(
@@ -199,14 +199,20 @@ export default function SectionListClient({
 
   const visibleSections = useMemo(
     () =>
-      searchFiltered.filter((section) =>
-        matchesActiveFilters(
-          {
-            statusCode: section.statusCode,
-            adviserUserId: section.adviserUserId,
-          },
-          activeFilters
-        )
+      searchFiltered.filter(
+        (section) =>
+          matchesActiveFilters(
+            { statusCode: section.statusCode },
+            withoutClassDimensionFilters(activeFilters)
+          ) &&
+          matchesClassDimensionFilters(
+            {
+              courseCode: section.courseCode,
+              adviserUserId: section.adviserUserId,
+              schoolYear: section.schoolYear,
+            },
+            activeFilters
+          )
       ),
     [searchFiltered, activeFilters]
   )
@@ -422,7 +428,7 @@ export default function SectionListClient({
           }}
           onClearFilters={() => {
             setActiveFilters({})
-            pushParams({ status: null, adviserId: null, page: "1" })
+            pushParams({ status: null, page: "1" })
           }}
           actions={<AdminAddButton label="Add class" onClick={openCreate} />}
         />
