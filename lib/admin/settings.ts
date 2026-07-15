@@ -47,7 +47,7 @@ export interface AcademicConfig {
 export interface SchoolYearOption {
   /** `term.term_id` */
   termId: string
-  /** Display label e.g. "2025-2026 — 1st Semester" */
+  /** Display label e.g. "2025-2026" */
   label: string
   schoolYear: string
   semester: TermSemesterCode
@@ -135,11 +135,31 @@ export function formatSchoolYearOption(term: {
   const sem = isTermSemesterCode(term.semester) ? term.semester : "first"
   return {
     termId: term.term_id,
-    label: `${term.school_year} — ${SEMESTER_LABELS[sem]}`,
+    label: term.school_year,
     schoolYear: term.school_year,
     semester: sem,
     isActive: term.is_active,
   }
+}
+
+export function buildUniqueSchoolYearOptions(options: SchoolYearOption[]): SchoolYearOption[] {
+  const seen = new Set<string>()
+  return options.filter((option) => {
+    if (seen.has(option.schoolYear)) return false
+    seen.add(option.schoolYear)
+    return true
+  })
+}
+
+export function resolveTermOption(
+  options: SchoolYearOption[],
+  schoolYear: string,
+  semester: TermSemesterCode
+): SchoolYearOption | undefined {
+  return (
+    options.find((option) => option.schoolYear === schoolYear && option.semester === semester) ??
+    options.find((option) => option.schoolYear === schoolYear)
+  )
 }
 
 function isTermSemesterCode(value: string): value is TermSemesterCode {

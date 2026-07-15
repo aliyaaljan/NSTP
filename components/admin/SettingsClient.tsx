@@ -27,6 +27,8 @@ import type {
   TermCloseoutSummary,
 } from "@/lib/admin/settings"
 import {
+  buildUniqueSchoolYearOptions,
+  resolveTermOption,
   SETTINGS_LIST_PAGE_SIZE,
   paginateSettingsList,
 } from "@/lib/admin/settings"
@@ -331,13 +333,28 @@ export default function SettingsClient({
     setAcademicSuccess(false)
   }
 
-  function handleSchoolYearChange(termId: string) {
-    const option = schoolYearOptions.find((o) => o.termId === termId)
-    if (!option) return
+  const uniqueSchoolYearOptions = useMemo(
+    () => buildUniqueSchoolYearOptions(schoolYearOptions),
+    [schoolYearOptions]
+  )
+
+  function resolveTermForSelection(schoolYear: string, semester: AcademicConfigPayload["semester"]) {
+    return resolveTermOption(schoolYearOptions, schoolYear, semester)
+  }
+
+  function handleSchoolYearChange(schoolYear: string) {
+    const match = resolveTermForSelection(schoolYear, academicForm.semester)
     patchAcademic({
-      termId: option.termId,
-      schoolYear: option.schoolYear,
-      semester: option.semester,
+      schoolYear,
+      ...(match ? { termId: match.termId } : {}),
+    })
+  }
+
+  function handleSemesterChange(semester: AcademicConfigPayload["semester"]) {
+    const match = resolveTermForSelection(academicForm.schoolYear, semester)
+    patchAcademic({
+      semester,
+      ...(match ? { termId: match.termId } : {}),
     })
   }
 
@@ -500,12 +517,12 @@ export default function SettingsClient({
                 <select
                   id="academic_year"
                   name="academic_year"
-                  value={academicForm.termId}
+                  value={academicForm.schoolYear}
                   onChange={(e) => handleSchoolYearChange(e.target.value)}
                   style={{ ...fieldInputStyle, appearance: "none", paddingRight: 36 }}
                 >
-                  {schoolYearOptions.map((option) => (
-                    <option key={option.termId} value={option.termId}>
+                  {uniqueSchoolYearOptions.map((option) => (
+                    <option key={option.schoolYear} value={option.schoolYear}>
                       {option.label}
                     </option>
                   ))}
@@ -532,9 +549,7 @@ export default function SettingsClient({
                   name="current_semester"
                   value={academicForm.semester}
                   onChange={(e) =>
-                    patchAcademic({
-                      semester: e.target.value as AcademicConfigPayload["semester"],
-                    })
+                    handleSemesterChange(e.target.value as AcademicConfigPayload["semester"])
                   }
                   style={{ ...fieldInputStyle, appearance: "none", paddingRight: 36 }}
                 >
