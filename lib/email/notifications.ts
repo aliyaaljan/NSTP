@@ -108,7 +108,7 @@ export async function notifyAdviserOnAppeal(appealId: string) {
 
   const adviserEmail = await getUserEmail(adviserId)
   if (!adviserEmail) return
-  
+
   const emailEnabled = await checkNotificationPreference(adviserId, "email")
   if (!emailEnabled) return
 
@@ -141,7 +141,10 @@ export async function notifyStudentOnAppealResolved(
   const studentEmail = await getUserEmail(appeal.requester_user_id)
   if (!studentEmail) return
 
-  const emailEnabled = await checkNotificationPreference(appeal.requester_user_id, "email")
+  const emailEnabled = await checkNotificationPreference(
+    appeal.requester_user_id,
+    "email"
+  )
   if (!emailEnabled) return
 
   await sendMailSafe(
@@ -182,7 +185,7 @@ export async function notifyAdviserOnSubmission(submissionId: string) {
 
   const adviserEmail = await getUserEmail(adviserId)
   if (!adviserEmail) return
-  
+
   const emailEnabled = await checkNotificationPreference(adviserId, "email")
   if (!emailEnabled) return
 
@@ -235,4 +238,49 @@ export async function notifyStudentOnSubmissionReviewed(
       <p>Please check your student dashboard for any comments from your facilitator.</p>
     `
   )
+}
+
+export async function notifyAdviserOnAppealCanceled(appealId: string) {
+  try {
+    const service = createSupabaseServiceClient()
+
+    const { data: appeal, error } = await service
+      .from("appeal")
+      .select(
+        `
+        title,
+        enrollment!inner (
+          app_user!inner (full_name),
+          section!inner (adviser_user_id)
+        )
+        `
+      )
+      .eq("appeal_id", appealId)
+      .single()
+
+    if (error || !appeal) return
+    const studentName = (appeal.enrollment as any).app_user.full_name
+    const adviserId = (appeal.enrollment as any).section.adviser_user_id
+
+    const adviserEmail = await getUserEmail(adviserId)
+    if (!adviserEmail) return
+
+    const emailEnabled = await checkNotificationPreference(adviserId, "email")
+    if (!emailEnabled) return
+
+    await sendMailSafe(
+      adviserEmail,
+      `Withdrawn Request: ${appeal.title} (${studentName})`,
+      `
+        <h3>Attendance Request Withdrawn</h3>
+        <p>This is to inform you that <strong>${studentName}</strong> has withdrawn their submitted request titled "<strong>${appeal.title}</strong>".</p>
+        <p>The record has been updated automatically and removed from your active review queue. No action is required on your part.</p>
+      `
+    )
+  } catch (err) {
+    console.error(
+      `[Email Service] Exception triggering withdrawal notification:`,
+      err
+    )
+  }
 }

@@ -4,7 +4,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { lookupId } from "@/lib/lookups"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import type { StructuredCorrection } from "@/lib/student/time-correction"
-import { notifyAdviserOnAppeal } from "@/lib/email/notifications"
+import {
+  notifyAdviserOnAppeal,
+  notifyAdviserOnAppealCanceled,
+} from "@/lib/email/notifications"
 import { notifyAdviserOnAppealPush } from "../push/notifications"
 import { revalidatePath } from "next/cache"
 
@@ -327,6 +330,9 @@ export async function cancelStudentRequest(
     revalidatePath("/student/request")
     revalidatePath("/student/leader/request")
     revalidatePath("/facilitator/my-students")
+
+    // trigger email for withdrawn/canceled student request
+    await notifyAdviserOnAppealCanceled(appealId).catch(console.error)
 
     return { ok: true, data: null }
   } catch (err: any) {
