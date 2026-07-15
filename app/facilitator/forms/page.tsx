@@ -17,6 +17,7 @@ import {
   IconSelector,
   IconEdit,
 } from "@tabler/icons-react"
+import { FaSortAlphaDown, FaSortAlphaUp  } from "react-icons/fa";
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
@@ -341,6 +342,7 @@ export default function FormsPage() {
   const [initials, setInitials] = useState("")
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [sectionId, setSectionId] = useState<string | null>(null)
+  const [sortForms, setSortForms] = useState<"asc" | "desc">("asc")
 
   // Data States
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -525,13 +527,18 @@ export default function FormsPage() {
     else alert(`Download Error: ${res.error}`)
   }
 
-  const filteredForms = repoForms.filter(
+  const filteredForms = repoForms
+  .filter(
     (f) =>
       !search ||
       f.title.toLowerCase().includes(search.toLowerCase()) ||
       (f.template_file_name &&
         f.template_file_name.toLowerCase().includes(search.toLowerCase()))
   )
+  .sort((a, b) => {
+    const cmp = a.title.localeCompare(b.title)
+    return sortForms === "asc" ? cmp : -cmp
+  })
 
   const filteredSubmissions = realEntries.filter((f) => {
     const q = binSearch.trim().toLowerCase()
@@ -712,7 +719,23 @@ export default function FormsPage() {
                 <div className="adv-table-card">
                   <div className="adv-table-toolbar">
                     <div>
-                      <div className="adv-table-title">All Forms</div>
+                      <div className="flex flex-row gap-1">
+                        <div className="adv-table-title">All Forms</div>
+                        <button
+                          className=""
+                          title={sortForms === "asc" ? "Sorted Alphabetically from A to Z" : "Sorted Alphabetically from Z to A"}
+                          onClick={() =>
+                            setSortForms((d) => (d === "asc" ? "desc" : "asc"))
+                          }
+                        >
+                          {sortForms === "asc" ? (
+                            <FaSortAlphaDown size={16} />
+                          ) : (
+                            <FaSortAlphaUp size={16} />
+                          )}
+                        </button>
+                      </div>
+                      
                       <div className="adv-table-count">
                         {repoForms.length} NSTP Form
                         {repoForms.length !== 1 ? "s" : ""} · Click a card to

@@ -172,8 +172,28 @@ export async function resolveStudentRequest(
     const guard = await assertAdvisesAppeal(appealId)
     if (!guard.ok) throw new Error(guard.error)
 
-    const statusId = await lookupId("appeal_status", decision)
     const service = createSupabaseServiceClient()
+
+    const { data: currentAppeal } = await service
+      .from("appeal")
+      .select("appeal_status!inner(code)")
+      .eq("appeal_id", appealId)
+      .single()
+
+    const statusRaw = (currentAppeal as any)?.appeal_status
+    const statusCode = Array.isArray(statusRaw)
+      ? statusRaw[0]?.code
+      : statusRaw?.code
+
+    if (statusCode === "canceled") {
+      return {
+        ok: false,
+        error:
+          "This request has been withdrawn by the student and can no longer be evaluated.",
+      }
+    }
+
+    const statusId = await lookupId("appeal_status", decision)
 
     const { error } = await service
       .from("appeal")
@@ -215,6 +235,25 @@ export async function approveRequestWithCorrection(
 
     const supabase = await createSupabaseServerClient()
     const service = createSupabaseServiceClient()
+
+    const { data: currentAppeal } = await service
+      .from("appeal")
+      .select("appeal_status!inner(code)")
+      .eq("appeal_id", appealId)
+      .single()
+
+    const statusRaw = (currentAppeal as any)?.appeal_status
+    const statusCode = Array.isArray(statusRaw)
+      ? statusRaw[0]?.code
+      : statusRaw?.code
+
+    if (statusCode === "canceled") {
+      return {
+        ok: false,
+        error:
+          "This request has been withdrawn by the student and can no longer be evaluated.",
+      }
+    }
 
     let linkedSessionId: string | null = correction.attendanceSessionId ?? null
 
@@ -293,8 +332,12 @@ export async function approveRequestWithCorrection(
     revalidatePath("/facilitator/dashboard")
     revalidatePath("/facilitator/my-students")
 
-    await notifyStudentOnAppealResolved(appealId, "approved").catch(console.error)
-    await notifyStudentOnResolutionPush(appealId, "approved").catch(console.error)
+    await notifyStudentOnAppealResolved(appealId, "approved").catch(
+      console.error
+    )
+    await notifyStudentOnResolutionPush(appealId, "approved").catch(
+      console.error
+    )
 
     return {
       ok: true,
@@ -338,8 +381,10 @@ export async function transitionToUnderReview(
 
     revalidatePath("/facilitator/dashboard")
     revalidatePath("/facilitator/my-students")
-    await notifyStudentOnResolutionPush(appealId, "under_review").catch(console.error)
-   
+    await notifyStudentOnResolutionPush(appealId, "under_review").catch(
+      console.error
+    )
+
     return { ok: true, data: null }
   } catch (err: any) {
     console.error("[transitionToUnderReview] Framework error: ", err.message)
