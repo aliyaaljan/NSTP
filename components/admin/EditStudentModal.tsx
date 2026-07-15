@@ -5,7 +5,6 @@ import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
 import { updateStudent } from "@/lib/admin/student-list-actions"
 import {
   studentRowToEditPayload,
-  validateStudentEditPayload,
   type StudentEditPayload,
 } from "@/lib/admin/student-edit"
 import type {
@@ -16,7 +15,17 @@ import type {
 } from "@/lib/admin/student-list"
 import { clearFormSession, isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { PROGRESS_STATUS_LABELS } from "@/lib/admin/student-progress"
+import {
+  collectUserFieldErrors,
+  digitsOnly,
+  EMAIL_MAX_LENGTH,
+  FULL_NAME_MAX_LENGTH,
+  SAIS_ID_MAX_LENGTH,
+  STUDENT_NUMBER_LENGTH,
+  type UserFieldErrors,
+} from "@/lib/admin/user-field-validation"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { AdminFormField, AdminTextInput } from "@/components/admin/AdminFormControls"
 
 const COLORS = {
   textDark: "#2C2C2A",
@@ -25,73 +34,6 @@ const COLORS = {
   fieldBg: "#EBEBE8",
   error: "#7B1113",
   border: "#ECECEA",
-}
-
-function FormField({
-  label,
-  hint,
-  children,
-}: {
-  label: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <label
-        style={{
-          ...TYPE.bodyBold,
-          color: COLORS.textDark,
-          display: "block",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-      {hint && (
-        <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
-          {hint}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  disabled = false,
-}: {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  type?: "text" | "email"
-  disabled?: boolean
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      disabled={disabled}
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        ...TYPE.body,
-        fontStyle: "normal",
-        color: disabled ? COLORS.textGray : COLORS.textDark,
-        background: disabled ? "#F5F4F1" : COLORS.fieldBg,
-        border: "none",
-        borderRadius: 6,
-        padding: "12px 14px",
-        outline: "none",
-      }}
-    />
-  )
 }
 
 function LookupSelect({
@@ -161,7 +103,8 @@ export default function EditStudentModal({
 }) {
   const [form, setForm] = useState<StudentEditPayload | null>(null)
   const [initialForm, setInitialForm] = useState<StudentEditPayload | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<UserFieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const loadedSessionRef = useRef<string | null>(null)
 
@@ -169,7 +112,8 @@ export default function EditStudentModal({
     clearFormSession(loadedSessionRef)
     setForm(null)
     setInitialForm(null)
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
     onClose()
   }, [onClose])
 
@@ -195,7 +139,8 @@ export default function EditStudentModal({
     const next = snapshotForm(studentRowToEditPayload(student))
     setForm(next)
     setInitialForm(snapshotForm(next))
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
   }, [open, student])
 
   useEffect(() => {
@@ -215,22 +160,40 @@ export default function EditStudentModal({
 
   function patchForm(updates: Partial<StudentEditPayload>) {
     setForm((prev) => (prev ? { ...prev, ...updates } : prev))
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(updates) as (keyof StudentEditPayload)[]) {
+        if (key === "fullName") delete next.fullName
+        if (key === "email") delete next.email
+        if (key === "studentNumber") delete next.studentNumber
+        if (key === "saisId") delete next.saisId
+      }
+      return next
+    })
+    setFormError(null)
   }
 
   function handleSave() {
     if (!form) return
 
-    const validationError = validateStudentEditPayload(form)
-    if (validationError) {
-      setError(validationError)
-      return
+    const nextErrors = collectUserFieldErrors({
+      fullName: form.fullName,
+      email: form.email,
+      studentNumber: form.studentNumber,
+      saisId: form.saisId,
+    })
+    if (!form.sectionId.trim()) {
+      setFormError("Class is required.")
+    } else {
+      setFormError(null)
     }
+    setFieldErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0 || !form.sectionId.trim()) return
 
-    setError(null)
     startTransition(async () => {
       const result = await updateStudent(form)
       if (!result.ok) {
-        setError(result.error)
+        setFormError(result.error)
         return
       }
       close()
@@ -334,42 +297,58 @@ export default function EditStudentModal({
             </div>
           </div>
 
-          <FormField label="Full Name">
-            <TextInput
+          <AdminFormField label="Full Name" error={fieldErrors.fullName}>
+            <AdminTextInput
               value={form.fullName}
               onChange={(fullName) => patchForm({ fullName })}
               placeholder="Student full name"
+              maxLength={FULL_NAME_MAX_LENGTH}
+              invalid={Boolean(fieldErrors.fullName)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Email" hint="Must be a UP email (@up.edu.ph).">
-            <TextInput
+          <AdminFormField label="Email" error={fieldErrors.email}>
+            <AdminTextInput
               type="email"
               value={form.email}
               onChange={(email) => patchForm({ email })}
               placeholder="name@up.edu.ph"
+              maxLength={EMAIL_MAX_LENGTH}
+              invalid={Boolean(fieldErrors.email)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Student ID">
-            <TextInput
+          <AdminFormField label="Student ID" error={fieldErrors.studentNumber}>
+            <AdminTextInput
               value={form.studentNumber ?? ""}
               onChange={(value) =>
-                patchForm({ studentNumber: value.trim() || null })
+                patchForm({
+                  studentNumber: digitsOnly(value, STUDENT_NUMBER_LENGTH) || null,
+                })
               }
               placeholder="Student number"
+              maxLength={STUDENT_NUMBER_LENGTH}
+              inputMode="numeric"
+              invalid={Boolean(fieldErrors.studentNumber)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="SAIS ID">
-            <TextInput
+          <AdminFormField label="SAIS ID" error={fieldErrors.saisId}>
+            <AdminTextInput
               value={form.saisId ?? ""}
-              onChange={(value) => patchForm({ saisId: value.trim() || null })}
+              onChange={(value) =>
+                patchForm({
+                  saisId: digitsOnly(value, SAIS_ID_MAX_LENGTH) || null,
+                })
+              }
               placeholder="SAIS ID"
+              maxLength={SAIS_ID_MAX_LENGTH}
+              inputMode="numeric"
+              invalid={Boolean(fieldErrors.saisId)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Class">
+          <AdminFormField label="Class">
             <SearchableCombobox
               key={student.enrollmentId}
               value={form.sectionId}
@@ -382,34 +361,34 @@ export default function EditStudentModal({
               emptyMessage="No classes found"
               toggleAriaLabel="Toggle class list"
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Program">
+          <AdminFormField label="Program">
             <LookupSelect
               value={form.programId}
               onChange={(programId) => patchForm({ programId })}
               options={lookups.programs}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Classification">
+          <AdminFormField label="Classification">
             <LookupSelect
               value={form.studentClassificationId}
               onChange={(studentClassificationId) => patchForm({ studentClassificationId })}
               options={lookups.classifications}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Enlistment Status">
+          <AdminFormField label="Enlistment Status">
             <LookupSelect
               value={form.enlistmentStatusId}
               onChange={(enlistmentStatusId) => patchForm({ enlistmentStatusId })}
               options={lookups.enlistmentStatuses}
             />
-          </FormField>
+          </AdminFormField>
 
-          {error && (
-            <p style={{ ...TYPE.body, color: COLORS.error, margin: 0 }}>{error}</p>
+          {formError && (
+            <p style={{ ...TYPE.body, color: COLORS.error, margin: 0 }}>{formError}</p>
           )}
         </div>
 

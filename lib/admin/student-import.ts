@@ -14,7 +14,13 @@
  */
 
 import type { ErrorRow, ImportColumnSpec, RowIssue } from "@/lib/admin/import/types"
-import { normalizeStudentFullName, STUDENT_NUMBER_PATTERN } from "@/lib/admin/student-edit"
+import { normalizeStudentFullName } from "@/lib/admin/student-edit"
+import {
+  validateFullName,
+  validateSaisId,
+  validateStudentNumber,
+  validateUpEmail,
+} from "@/lib/admin/user-field-validation"
 
 export const STUDENT_IMPORT_COLUMNS: readonly ImportColumnSpec[] = [
   { key: "course_code", aliases: ["Course Code"], required: false },
@@ -165,33 +171,49 @@ export function validateStudentImportValues(
   const fullName = normalizeStudentFullName(values.full_name ?? "")
   const email = (values.email ?? "").trim().toLowerCase()
   const studentNumber = (values.student_number ?? "").trim()
+  const saisId = (values.sais_id ?? "").trim()
   const facilitator = (values.facilitator ?? "").trim()
 
-  if (!fullName) {
+  const nameError = validateFullName(fullName)
+  if (nameError) {
     issues.push({
       rowNumber,
-      message: "Student Name is required.",
+      message: nameError,
       severity: "error",
-      code: "missing_name",
+      code: fullName ? "invalid_name" : "missing_name",
       field: "full_name",
     })
   }
-  if (!email.endsWith("@up.edu.ph")) {
+  const emailError = validateUpEmail(email)
+  if (emailError) {
     issues.push({
       rowNumber,
-      message: `Email "${values.email ?? ""}" must be a UP email (@up.edu.ph).`,
+      message: emailError,
       severity: "error",
       code: "invalid_email",
       field: "email",
     })
   }
-  if (!STUDENT_NUMBER_PATTERN.test(studentNumber)) {
+  const studentNumberError =
+    validateStudentNumber(studentNumber) ??
+    (!studentNumber ? "Student ID must be exactly 9 digits." : null)
+  if (studentNumberError) {
     issues.push({
       rowNumber,
-      message: `Student Number "${values.student_number ?? ""}" must be exactly 9 digits.`,
+      message: studentNumberError,
       severity: "error",
       code: "invalid_student_number",
       field: "student_number",
+    })
+  }
+  const saisIdError = validateSaisId(saisId)
+  if (saisIdError) {
+    issues.push({
+      rowNumber,
+      message: saisIdError,
+      severity: "error",
+      code: "invalid_sais_id",
+      field: "sais_id",
     })
   }
   if (!facilitator) {
@@ -210,7 +232,7 @@ export function validateStudentImportValues(
       rowNumber,
       courseCode: (values.course_code ?? "").trim(),
       studentNumber,
-      saisId: (values.sais_id ?? "").trim(),
+      saisId,
       fullName,
       email,
       enlistmentStatus: (values.enlistment_status ?? "").trim(),

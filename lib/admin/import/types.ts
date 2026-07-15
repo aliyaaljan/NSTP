@@ -13,14 +13,16 @@ export interface RowIssue {
   /** Machine code for grouping — see ISSUE_TITLES keys. */
   code: string
   /** Import-column key the issue is about; enables inline fixing in the preview UI. */
-  field?: "email" | "student_number" | "full_name" | "facilitator"
+  field?: "email" | "student_number" | "sais_id" | "full_name" | "facilitator"
 }
 
 /** Group headers for the issues panel. Every emitted code should have an entry. */
 export const ISSUE_TITLES: Record<string, string> = {
   missing_name: "Name is missing",
+  invalid_name: "Invalid name",
   invalid_email: "Invalid email",
   invalid_student_number: "Invalid student number",
+  invalid_sais_id: "Invalid SAIS ID",
   missing_facilitator: "Facilitator is missing",
   facilitator_not_found: "Facilitator not found",
   facilitator_ambiguous: "Facilitator name is ambiguous",

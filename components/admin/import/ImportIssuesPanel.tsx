@@ -3,6 +3,13 @@
 import { TYPE } from "@/lib/admin-typography"
 import { COLORS, SEVERITY_COLORS } from "@/components/admin/import/import-ui"
 import { countBySeverity, ISSUE_TITLES, type ErrorRow, type RowIssue } from "@/lib/admin/import/types"
+import {
+  digitsOnly,
+  EMAIL_MAX_LENGTH,
+  FULL_NAME_MAX_LENGTH,
+  SAIS_ID_MAX_LENGTH,
+  STUDENT_NUMBER_LENGTH,
+} from "@/lib/admin/user-field-validation"
 
 const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 } as const
 
@@ -82,11 +89,30 @@ function FieldEditor({
       </div>
     )
   }
+  const maxLength =
+    fieldKey === "email"
+      ? EMAIL_MAX_LENGTH
+      : fieldKey === "full_name"
+        ? FULL_NAME_MAX_LENGTH
+        : fieldKey === "student_number"
+          ? STUDENT_NUMBER_LENGTH
+          : fieldKey === "sais_id"
+            ? SAIS_ID_MAX_LENGTH
+            : undefined
+  const numeric = fieldKey === "student_number" || fieldKey === "sais_id"
   return (
     <input
       type="text"
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) =>
+        onChange(
+          numeric && maxLength != null
+            ? digitsOnly(e.target.value, maxLength)
+            : e.target.value
+        )
+      }
+      maxLength={maxLength}
+      inputMode={numeric ? "numeric" : undefined}
       style={{ ...inputStyle, marginTop: 4, display: "block" }}
     />
   )

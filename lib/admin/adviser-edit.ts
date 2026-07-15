@@ -18,6 +18,10 @@
  */
 
 import type { AdviserListRow } from "@/lib/admin/adviser-list"
+import {
+  validateFullName,
+  validateUpEmail,
+} from "@/lib/admin/user-field-validation"
 
 export interface AdviserEditPayload {
   /** `app_user.app_user_id` */
@@ -88,30 +92,12 @@ export function validateAdviserEditPayload(
   if (!payload.adviserUserId.trim()) {
     return "Adviser user ID is required."
   }
-  if (!payload.fullName.trim()) {
-    return "Full name is required."
-  }
-  if (!payload.email.trim()) {
-    return "Email is required."
-  }
-  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
-    return "Email must be a UP email (@up.edu.ph)."
-  }
-  return null
+  return validateFullName(payload.fullName) ?? validateUpEmail(payload.email)
 }
 
 /** Shared client/server validation before calling `createAdviser()`. */
 export function validateAdviserCreatePayload(
   payload: AdviserCreatePayload
 ): string | null {
-  if (!payload.fullName.trim()) {
-    return "Full name is required."
-  }
-  if (!payload.email.trim()) {
-    return "Email is required."
-  }
-  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
-    return "Email must be a UP email (@up.edu.ph)."
-  }
-  return null
+  return validateFullName(payload.fullName) ?? validateUpEmail(payload.email)
 }

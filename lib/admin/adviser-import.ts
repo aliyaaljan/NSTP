@@ -8,6 +8,10 @@
  */
 
 import type { ErrorRow, ImportColumnSpec, RowIssue } from "@/lib/admin/import/types"
+import {
+  validateFullName,
+  validateUpEmail,
+} from "@/lib/admin/user-field-validation"
 
 export const ADVISER_IMPORT_COLUMNS: readonly ImportColumnSpec[] = [
   { key: "full_name", aliases: ["Facilitator's Name"], required: true },
@@ -60,19 +64,21 @@ export function validateAdviserImportValues(
   const fullName = (values.full_name ?? "").trim()
   const email = (values.email ?? "").trim().toLowerCase()
 
-  if (!fullName) {
+  const nameError = validateFullName(fullName)
+  if (nameError) {
     issues.push({
       rowNumber,
-      message: "Facilitator's Name is required.",
+      message: nameError,
       severity: "error",
-      code: "missing_name",
+      code: fullName ? "invalid_name" : "missing_name",
       field: "full_name",
     })
   }
-  if (!email.endsWith("@up.edu.ph")) {
+  const emailError = validateUpEmail(email)
+  if (emailError) {
     issues.push({
       rowNumber,
-      message: `Email "${values.email ?? ""}" must be a UP email (@up.edu.ph).`,
+      message: emailError,
       severity: "error",
       code: "invalid_email",
       field: "email",

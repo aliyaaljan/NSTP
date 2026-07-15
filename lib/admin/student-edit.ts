@@ -18,9 +18,16 @@
  */
 
 import type { StudentListRow } from "@/lib/admin/student-list"
+import {
+  STUDENT_NUMBER_LENGTH,
+  STUDENT_NUMBER_PATTERN,
+  validateFullName,
+  validateSaisId,
+  validateStudentNumber,
+  validateUpEmail,
+} from "@/lib/admin/user-field-validation"
 
-/** UP student numbers are exactly 9 digits (e.g. 201201234). */
-export const STUDENT_NUMBER_PATTERN = /^\d{9}$/
+export { STUDENT_NUMBER_PATTERN }
 
 /**
  * Normalize a roster-format student name ("SURNAME, First Middle") to the
@@ -119,19 +126,12 @@ export function validateStudentEditPayload(
   if (!payload.studentUserId.trim()) {
     return "Student user ID is required."
   }
-  if (!payload.fullName.trim()) {
-    return "Full name is required."
-  }
-  if (!payload.email.trim()) {
-    return "Email is required."
-  }
-  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
-    return "Email must be a UP email (@up.edu.ph)."
-  }
-  const studentNumber = payload.studentNumber?.trim()
-  if (studentNumber && !STUDENT_NUMBER_PATTERN.test(studentNumber)) {
-    return "Student number must be exactly 9 digits."
-  }
+  const fieldError =
+    validateFullName(payload.fullName) ??
+    validateUpEmail(payload.email) ??
+    validateStudentNumber(payload.studentNumber) ??
+    validateSaisId(payload.saisId)
+  if (fieldError) return fieldError
   if (!payload.sectionId.trim()) {
     return "Section is required."
   }
@@ -142,19 +142,15 @@ export function validateStudentEditPayload(
 export function validateStudentCreatePayload(
   payload: StudentCreatePayload
 ): string | null {
-  if (!payload.fullName.trim()) {
-    return "Full name is required."
+  if (!payload.studentNumber?.trim()) {
+    return `Please enter the ${STUDENT_NUMBER_LENGTH} digits of the Student ID.`
   }
-  if (!payload.email.trim()) {
-    return "Email is required."
-  }
-  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
-    return "Email must be a UP email (@up.edu.ph)."
-  }
-  const studentNumber = payload.studentNumber?.trim()
-  if (studentNumber && !STUDENT_NUMBER_PATTERN.test(studentNumber)) {
-    return "Student number must be exactly 9 digits."
-  }
+  const fieldError =
+    validateFullName(payload.fullName) ??
+    validateUpEmail(payload.email) ??
+    validateStudentNumber(payload.studentNumber) ??
+    validateSaisId(payload.saisId)
+  if (fieldError) return fieldError
   if (!payload.sectionId.trim()) {
     return "Section is required."
   }

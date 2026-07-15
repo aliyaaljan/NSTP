@@ -14,6 +14,12 @@
  */
 
 import type { AccessControlRow, AppRoleCode } from "@/lib/admin/access-control"
+import {
+  validateFullName,
+  validateSaisId,
+  validateStudentNumber,
+  validateUpEmail,
+} from "@/lib/admin/user-field-validation"
 
 export interface AccessUserEditPayload {
   /** `app_user.app_user_id` */
@@ -99,15 +105,12 @@ export function validateAccessUserEditPayload(
   if (!payload.appUserId.trim()) {
     return "User ID is required."
   }
-  if (!payload.fullName.trim()) {
-    return "Full name is required."
-  }
-  if (!payload.email.trim()) {
-    return "Email is required."
-  }
-  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
-    return "Email must be a valid UP address (@up.edu.ph)."
-  }
+  const fieldError =
+    validateFullName(payload.fullName) ??
+    validateUpEmail(payload.email) ??
+    validateStudentNumber(payload.studentNumber) ??
+    validateSaisId(payload.saisId)
+  if (fieldError) return fieldError
   if (!payload.roleId.trim()) {
     return "Role is required."
   }
@@ -121,15 +124,12 @@ export function validateAccessUserEditPayload(
 export function validateAccessUserCreatePayload(
   payload: AccessUserCreatePayload
 ): string | null {
-  if (!payload.fullName.trim()) {
-    return "Full name is required."
-  }
-  if (!payload.email.trim()) {
-    return "Email is required."
-  }
-  if (!payload.email.trim().toLowerCase().endsWith("@up.edu.ph")) {
-    return "Email must be a valid UP address (@up.edu.ph)."
-  }
+  const fieldError =
+    validateFullName(payload.fullName) ??
+    validateUpEmail(payload.email) ??
+    validateStudentNumber(payload.studentNumber) ??
+    validateSaisId(payload.saisId)
+  if (fieldError) return fieldError
   if (!payload.roleId.trim()) {
     return "Role is required."
   }

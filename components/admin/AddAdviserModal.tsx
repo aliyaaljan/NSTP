@@ -5,11 +5,17 @@ import { createAdviser } from "@/lib/admin/adviser-list-actions"
 import { isFormDirty } from "@/lib/admin/form-dirty"
 import {
   emptyAdviserCreatePayload,
-  validateAdviserCreatePayload,
   type AdviserCreatePayload,
 } from "@/lib/admin/adviser-edit"
 import type { AdviserLookupOption, AdviserProfileLookups } from "@/lib/admin/adviser-list"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import {
+  collectUserFieldErrors,
+  EMAIL_MAX_LENGTH,
+  FULL_NAME_MAX_LENGTH,
+  type UserFieldErrors,
+} from "@/lib/admin/user-field-validation"
+import { AdminFormField, AdminTextInput } from "@/components/admin/AdminFormControls"
 
 const COLORS = {
   textDark: "#2C2C2A",
@@ -17,70 +23,6 @@ const COLORS = {
   headerGreen: "#14492E",
   fieldBg: "#EBEBE8",
   error: "#7B1113",
-}
-
-function FormField({
-  label,
-  hint,
-  children,
-}: {
-  label: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <label
-        style={{
-          ...TYPE.bodyBold,
-          color: COLORS.textDark,
-          display: "block",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-      {hint && (
-        <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
-          {hint}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-}: {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  type?: "text" | "email"
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        ...TYPE.body,
-        fontStyle: "normal",
-        color: COLORS.textDark,
-        background: COLORS.fieldBg,
-        border: "none",
-        borderRadius: 6,
-        padding: "12px 14px",
-        outline: "none",
-      }}
-    />
-  )
 }
 
 function LookupSelect({
@@ -145,12 +87,14 @@ export default function AddAdviserModal({
   onClose: () => void
 }) {
   const [form, setForm] = useState<AdviserCreatePayload>(emptyAdviserCreatePayload())
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<UserFieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const reset = useCallback(() => {
     setForm(emptyAdviserCreatePayload())
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
   }, [])
 
   const close = useCallback(() => {
@@ -168,7 +112,8 @@ export default function AddAdviserModal({
   useEffect(() => {
     if (open) {
       setForm(emptyAdviserCreatePayload())
-      setError(null)
+      setFieldErrors({})
+      setFormError(null)
     }
   }, [open])
 
@@ -189,20 +134,30 @@ export default function AddAdviserModal({
 
   function patchForm(updates: Partial<AdviserCreatePayload>) {
     setForm((prev) => ({ ...prev, ...updates }))
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(updates) as (keyof AdviserCreatePayload)[]) {
+        if (key === "fullName") delete next.fullName
+        if (key === "email") delete next.email
+      }
+      return next
+    })
+    setFormError(null)
   }
 
   function handleAdd() {
-    const validationError = validateAdviserCreatePayload(form)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
+    const nextErrors = collectUserFieldErrors({
+      fullName: form.fullName,
+      email: form.email,
+    })
+    setFieldErrors(nextErrors)
+    setFormError(null)
+    if (Object.keys(nextErrors).length > 0) return
 
-    setError(null)
     startTransition(async () => {
       const result = await createAdviser(form)
       if (!result.ok) {
-        setError(result.error)
+        setFormError(result.error)
         return
       }
       close()
@@ -284,32 +239,36 @@ export default function AddAdviserModal({
             overflowY: "auto",
           }}
         >
-          <FormField label="Full Name">
-            <TextInput
+          <AdminFormField label="Full Name" error={fieldErrors.fullName}>
+            <AdminTextInput
               value={form.fullName}
               onChange={(fullName) => patchForm({ fullName })}
               placeholder="Facilitator full name"
+              maxLength={FULL_NAME_MAX_LENGTH}
+              invalid={Boolean(fieldErrors.fullName)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Email" hint="Must be a UP email (@up.edu.ph).">
-            <TextInput
+          <AdminFormField label="Email" error={fieldErrors.email}>
+            <AdminTextInput
               type="email"
               value={form.email}
               onChange={(email) => patchForm({ email })}
               placeholder="name@up.edu.ph"
+              maxLength={EMAIL_MAX_LENGTH}
+              invalid={Boolean(fieldErrors.email)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="College">
+          <AdminFormField label="College">
             <LookupSelect
               value={form.collegeId}
               onChange={(collegeId) => patchForm({ collegeId })}
               options={lookups.colleges}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField
+          <AdminFormField
             label="NSTP Component"
             hint="Determines the facilitator's auto-created class (e.g. NSTP 2 LTS)."
           >
@@ -318,17 +277,17 @@ export default function AddAdviserModal({
               onChange={(nstpComponentId) => patchForm({ nstpComponentId })}
               options={lookups.components}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Partnership Type">
-            <TextInput
+          <AdminFormField label="Partnership Type">
+            <AdminTextInput
               value={form.partnershipType ?? ""}
               onChange={(partnershipType) =>
                 patchForm({ partnershipType: partnershipType || null })
               }
               placeholder="e.g. LGU, NGO, School"
             />
-          </FormField>
+          </AdminFormField>
 
           <label
             style={{
@@ -355,8 +314,8 @@ export default function AddAdviserModal({
             Active account
           </label>
 
-          {error && (
-            <p style={{ ...TYPE.body, color: COLORS.error, margin: 0 }}>{error}</p>
+          {formError && (
+            <p style={{ ...TYPE.body, color: COLORS.error, margin: 0 }}>{formError}</p>
           )}
         </div>
 
