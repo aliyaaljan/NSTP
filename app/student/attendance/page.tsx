@@ -535,31 +535,57 @@ export default function QRGenerationPage() {
             radial-gradient(circle at top left, rgba(127,165,143,.18), transparent 45%),
             radial-gradient(circle at bottom right, rgba(123,17,19,.08), transparent 40%),
             linear-gradient(180deg, #FBFCFB 0%, #F4F7F5 100%);
-          border:2px solid #D9DDD8;
-          border-radius:28px;
-          min-height:650px;
-          padding:40px;
-          display:flex;
-          justify-content:center;
-          align-items:center;
+          border: 2px solid #D9DDD8;
+          border-radius: 28px;
+          min-height: 650px;
+          padding: 40px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
           width: 100%;
         }
 
+        .qr-card {
+          width: 420px;
+          max-width: 100%;
+          min-height: 560px;
+          background: #FFFFFF;
+          border-radius: 28px;
+          box-shadow: 0 8px 25px rgba(0,0,0,.08);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          padding: 40px;
+          border: 1px solid #E7E7E7;
+          position: relative;
+        }
 
-      .qr-card {
-        width:420px;
-        max-width: 100%;
-        min-height:560px;
-        background:#FFFFFF;
-        border-radius:28px;
-        box-shadow:0 8px 25px rgba(0,0,0,.08);
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        align-items:center;
-        padding:40px;
-        border:1px solid #E7E7E7;
-      }
+        /* Close button */
+        .qr-close-btn {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #8A8A8A;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 6px;
+          border-radius: 8px;
+          transition: background 0.12s;
+          font-size: 22px;
+          font-weight: 300;
+          z-index: 10;
+          width: 36px;
+          height: 36px;
+        }
+
+        .qr-close-btn:hover {
+          background: #F0F0F0;
+        }
 
         .qr-code {
           width: 300px;
@@ -579,166 +605,179 @@ export default function QRGenerationPage() {
           animation: qr-spin 0.9s linear infinite;
         }
 
-        .info-box{
-          background:#F7F8F6;
-          padding:12px;
-          border-radius:14px;
-          font-size:12px;
-          font-weight:600;
-          color:#555;
+        .info-box {
+          background: #F7F8F6;
+          padding: 12px;
+          border-radius: 14px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #555;
         }
 
         .qr-heading {
-          text-align:center;
-          margin-bottom:24px;
+          text-align: center;
+          margin-bottom: 24px;
         }
 
         .qr-heading h2 {
-          font-size:22px;
-          font-weight:800;
-          color:#7B1113;
-          margin:0;
+          font-size: 22px;
+          font-weight: 800;
+          color: #7B1113;
+          margin: 0;
         }
 
         .qr-heading p {
-          font-size:13px;
-          color:#7A7A7A;
-          margin-top:8px;
+          font-size: 13px;
+          color: #7A7A7A;
+          margin-top: 8px;
         }
 
-
         .qr-loading {
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          gap:18px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 18px;
         }
 
         .qr-loading p {
-          font-size:14px;
-          font-weight:600;
-          color:#7B1113;
-          text-align:center;
+          font-size: 14px;
+          font-weight: 600;
+          color: #7B1113;
+          text-align: center;
         }
-
 
         .qr-message {
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          gap:12px;
-          text-align:center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          text-align: center;
         }
-
 
         .qr-error {
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          gap:18px;
-          text-align:center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 18px;
+          text-align: center;
         }
-
 
         .qr-error p {
-          font-size:14px;
-          font-weight:600;
-          color:#7B1113;
-          max-width:300px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #7B1113;
+          max-width: 300px;
         }
-
 
         .qr-button {
-          background:#7FA58F;
-          border:none;
-          border-radius:40px;
-          padding:14px 28px;
-          font-size:16px;
-          font-weight:800;
-          cursor:pointer;
-          transition:.2s;
+          background: #7FA58F;
+          border: none;
+          border-radius: 40px;
+          padding: 14px 28px;
+          font-size: 16px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: .2s;
         }
-
 
         .qr-button:hover {
-          transform:translateY(-2px);
+          transform: translateY(-2px);
         }
-
 
         .qr-generate-button {
-          padding:18px 38px;
-          font-size:22px;
+          padding: 18px 38px;
+          font-size: 22px;
         }
-
 
         .qr-disabled {
-          background:#ccc;
-          cursor:not-allowed;
-          opacity:.6;
+          background: #ccc;
+          cursor: not-allowed;
+          opacity: .6;
         }
-
 
         .qr-active {
-          background:#E4F0E7;
-          color:#7FA58F;
-          padding:6px 16px;
-          border-radius:999px;
-          font-size:12px;
-          font-weight:700;
+          background: #E4F0E7;
+          color: #7FA58F;
+          padding: 6px 16px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
         }
 
-
         .qr-display {
-          display:flex;
-          flex-direction:column;
-          align-items:center;
-          gap:16px;
-          text-align:center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          text-align: center;
           width: 100%;
         }
 
-
         .qr-progress-container {
-          width:220px;
-          max-width:100%;
+          width: 220px;
+          max-width: 100%;
         }
-
 
         .qr-progress {
-          height:6px;
-          border-radius:999px;
-          background:#E3E8E4;
-          overflow:hidden;
+          height: 6px;
+          border-radius: 999px;
+          background: #E3E8E4;
+          overflow: hidden;
         }
-
 
         .qr-progress-bar {
-          height:100%;
-          background:#7FA58F;
-          transition:width 1s linear;
+          height: 100%;
+          background: #7FA58F;
+          transition: width 1s linear;
         }
-
 
         .qr-countdown {
-          font-size:12px;
-          font-weight:600;
-          margin-top:6px;
-          text-align:center;
+          font-size: 12px;
+          font-weight: 600;
+          margin-top: 6px;
+          text-align: center;
         }
-
 
         .qr-info {
-          background:#F7F8F6;
-          padding:12px;
-          border-radius:14px;
-          font-size:12px;
-          font-weight:600;
-          color:#555;
+          background: #F7F8F6;
+          padding: 12px;
+          border-radius: 14px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #555;
         }
 
-
         .qr-regenerate {
-          box-shadow:0 8px 20px rgba(1,68,33,.25);
+          box-shadow: 0 8px 20px rgba(1,68,33,.25);
+        }
+
+        .qr-info-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          width: 100%;
+          max-width: 280px;
+          background: #F7F8F6;
+          padding: 12px 16px;
+          border-radius: 12px;
+        }
+
+        .qr-info-item {
+          display: flex;
+          justify-content: space-between;
+          font-size: 12px;
+          font-weight: 500;
+        }
+
+        .qr-info-label {
+          color: #888;
+        }
+
+        .qr-info-value {
+          color: #333;
+          text-align: right;
+          max-width: 60%;
+          word-break: break-all;
         }
 
         @keyframes qr-spin {
@@ -842,6 +881,15 @@ export default function QRGenerationPage() {
             font-size: 10px;
             padding: 8px;
           }
+
+          .qr-info-grid {
+            max-width: 240px;
+            padding: 10px 14px;
+          }
+
+          .qr-info-item {
+            font-size: 11px;
+          }
           
           .profile-pill-wrapper { display: none; }
 
@@ -921,6 +969,15 @@ export default function QRGenerationPage() {
           .qr-info {
             font-size: 10px;
             padding: 8px;
+          }
+
+          .qr-info-grid {
+            max-width: 200px;
+            padding: 8px 12px;
+          }
+
+          .qr-info-item {
+            font-size: 10px;
           }
 
           .attendance-stat-card .db-kpi-card {
@@ -1150,32 +1207,7 @@ export default function QRGenerationPage() {
                       setDisplay(null);
                       setError(null);
                     }}
-                    style={{
-                      position: "absolute",
-                      top: "20px",
-                      right: "20px",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "#8A8A8A",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "6px",
-                      borderRadius: "8px",
-                      transition: "background 0.12s",
-                      fontSize: "22px",
-                      fontWeight: 300,
-                      zIndex: 10,
-                      width: "36px",
-                      height: "36px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "#F0F0F0";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "none";
-                    }}
+                    className="qr-close-btn"
                     aria-label="Close QR"
                   >
                     ✕
@@ -1389,60 +1421,53 @@ export default function QRGenerationPage() {
                       </div>
                     )}
 
-                    <div>
-                      <p
-                        style={{
-                          fontSize: isSmallMobile ? 11 : isMobile ? 12 : 14,
-                          fontWeight: 600,
-                          marginBottom: "5px",
-                        }}
-                      >
-                        Location of Generation:
-                        <br />
-                        {locationLabel || "—"}
-                      </p>
-
-                      <p style={{ 
-                        fontSize: isSmallMobile ? 11 : isMobile ? 12 : 14, 
-                        fontWeight: 600 
-                      }}>
-                        Time of Generation:
-                        <br />
-                        {timeLabel || "—"}
-                      </p>
+                    <div className="qr-info-grid">
+                      <div className="qr-info-item">
+                        <span className="qr-info-label">Student:</span>
+                        <span className="qr-info-value">{profile.fullName || "—"}</span>
+                      </div>
+                      <div className="qr-info-item">
+                        <span className="qr-info-label">Location:</span>
+                        <span className="qr-info-value">{locationLabel || "—"}</span>
+                      </div>
+                      <div className="qr-info-item">
+                        <span className="qr-info-label">Generated:</span>
+                        <span className="qr-info-value">{timeLabel || "—"}</span>
+                      </div>
                     </div>
 
                     <button
                       onClick={() => runGenerate()}
+                      className="generator-regenerate-btn"
                       style={{
-                        padding: isSmallMobile ? "12px 24px" : isMobile ? "14px 32px" : "16px 40px",
-                        fontSize: isSmallMobile ? 14 : isMobile ? 15 : 16,
+                        padding: isSmallMobile ? "10px 24px" : isMobile ? "12px 28px" : "14px 36px",
+                        fontSize: isSmallMobile ? 13 : isMobile ? 14 : 15,
                         border: "none",
-                        background: "#14492E",
+                        background: "#7FA58F",
                         color: "#fff",
                         fontWeight: 700,
                         borderRadius: "999px",
                         cursor: "pointer",
                         transition: "all 0.2s ease",
                         fontFamily: "'Montserrat', sans-serif",
-                        boxShadow: "0 4px 12px rgba(20, 73, 46, 0.3)",
+                        boxShadow: "0 4px 12px rgba(127, 165, 143, 0.3)",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = "scale(1.03)";
-                        e.currentTarget.style.boxShadow = "0 6px 20px rgba(20, 73, 46, 0.4)";
+                        e.currentTarget.style.transform = "translateY(-2px)";
+                        e.currentTarget.style.boxShadow = "0 6px 20px rgba(127, 165, 143, 0.4)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = "scale(1)";
-                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(20, 73, 46, 0.3)";
+                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(127, 165, 143, 0.3)";
                       }}
                       onMouseDown={(e) => {
                         e.currentTarget.style.transform = "scale(0.97)";
                       }}
                       onMouseUp={(e) => {
-                        e.currentTarget.style.transform = "scale(1.03)";
+                        e.currentTarget.style.transform = "translateY(-2px)";
                       }}
                     >
-                      REGENERATE QR
+                      Regenerate QR
                     </button>
                   </div>
                 )}
