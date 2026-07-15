@@ -6,6 +6,8 @@ import { FONT_BODY, TYPE } from "@/lib/admin-typography"
 const BTN_SIZE = 28
 const MAX_VISIBLE_PAGES = 5
 
+export const LIST_PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+
 export function getVisiblePageNumbers(
   page: number,
   totalPages: number,
@@ -59,6 +61,8 @@ export default function ListPagination({
   totalCount,
   pageSize,
   onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = LIST_PAGE_SIZE_OPTIONS,
   borderTop = true,
   containerStyle,
 }: {
@@ -67,10 +71,16 @@ export default function ListPagination({
   totalCount: number
   pageSize: number
   onPageChange: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
+  pageSizeOptions?: readonly number[]
   borderTop?: boolean
   containerStyle?: React.CSSProperties
 }) {
   if (totalCount === 0) return null
+
+  const resolvedPageSizeOptions = pageSizeOptions.includes(pageSize)
+    ? pageSizeOptions
+    : [...pageSizeOptions, pageSize].sort((a, b) => a - b)
 
   return (
     <div
@@ -79,6 +89,8 @@ export default function ListPagination({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: 12,
         paddingTop: 16,
         paddingBottom: 16,
         marginTop: borderTop ? 16 : 0,
@@ -133,6 +145,33 @@ export default function ListPagination({
           &#8250;
         </button>
       </div>
+
+      {onPageSizeChange ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+          <span style={{ ...TYPE.caption, color: COLORS.textGray }}>Rows per page:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            style={{
+              ...TYPE.body,
+              border: `1.5px solid ${COLORS.border}`,
+              borderRadius: 10,
+              padding: "5px 10px",
+              color: COLORS.textDark,
+              background: "#fff",
+              cursor: "pointer",
+              outline: "none",
+            }}
+            aria-label="Rows per page"
+          >
+            {resolvedPageSizeOptions.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
     </div>
   )
 }

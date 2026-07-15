@@ -71,8 +71,8 @@ export interface AdviserListSectionOption {
 
 export const ADVISER_LIST_ALL_SECTIONS = "all"
 
-/** Cards per page — 4 columns × 2 rows. */
-export const ADVISER_LIST_PAGE_SIZE = 8
+/** Cards per page — 4 columns × 1 row. */
+export const ADVISER_LIST_PAGE_SIZE = 4
 
 export type AdviserListStatusFilter = "all" | "active" | "inactive" | "pending"
 

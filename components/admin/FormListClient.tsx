@@ -124,6 +124,7 @@ export default function FormListClient({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
+  const [pageSize, setPageSize] = useState(FORM_LIST_PAGE_SIZE)
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -194,16 +195,21 @@ export default function FormListClient({
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateFormListRows(visibleForms, query.page),
-    [visibleForms, query.page]
+    () => paginateFormListRows(visibleForms, query.page, pageSize),
+    [visibleForms, query.page, pageSize]
   )
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sort, query.dir, activeFilters])
+  }, [query.page, query.search, query.sort, query.dir, activeFilters, pageSize])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
+  }
+
+  function handlePageSizeChange(nextSize: number) {
+    setPageSize(nextSize)
+    pushParams({ page: "1" })
   }
 
   function setScopeFilter(scope: string | null) {
@@ -484,8 +490,9 @@ export default function FormListClient({
           page={query.page}
           totalPages={totalPages}
           totalCount={filteredCount}
-          pageSize={FORM_LIST_PAGE_SIZE}
+          pageSize={pageSize}
           onPageChange={goToPage}
+          onPageSizeChange={handlePageSizeChange}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />
       </div>
