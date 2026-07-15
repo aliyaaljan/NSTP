@@ -101,7 +101,7 @@ export default function Map({ student_name, session }: MapProps) {
                 <Popup>
                      <div className="flex flex-col p-1" style={{ minWidth: 160 }}>
                         <strong style={{margin: "0 0 4px 0", display: "block", overflowWrap: "break-word"}}>{loc.recordedBy ?? "Unknown"}</strong>
-                        <span style={{fontSize: "12px", color: "#555"}}>Attendance Scanner</span>
+                        <span style={{fontSize: "12px", color: "#555"}}>{loc.eventSource === "self_leader" ? "Leader Attendance Log" : "Attendance Scanner"}</span>
                         <span style={{fontSize: "12px", color: "#555"}}>Recorded at: {loc.recordedAt}</span>
                     </div>
                 </Popup>
