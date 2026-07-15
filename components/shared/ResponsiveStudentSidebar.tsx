@@ -97,6 +97,28 @@ export default function StudentSidebar({
   const { isLeader: contextIsLeader, isLoading, studentData } = useStudent()
   const isLeader = propIsLeader !== undefined ? propIsLeader : contextIsLeader
 
+  // Determine navigation items based on role
+  const getNavItems = () => {
+    if (navGroups) {
+      return navGroups.flatMap((group) => group.items)
+    }
+    if (isLeader) {
+      return [
+        { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
+        { icon: "ti-presentation", label: "Class", href: "/student/classlist" },
+        { icon: "ti-scan", label: "Scanner", href: "/student/scanner" },
+        { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
+        { icon: "ti-clipboard-check", label: "Forms", href: "/student/forms" },
+        { icon: "ti-pencil", label: "Request", href: "/student/request" },
+      ]
+    }
+    return NAV_ITEMS
+  }
+
+  // Wait for loading to complete before rendering navigation
+  const navItems = isLoading ? [] : getNavItems()
+  const isAdminMode = Boolean(navGroups?.length)
+
   useEffect(() => {
     const calculateSizes = () => {
       const width = window.innerWidth
@@ -114,8 +136,8 @@ export default function StudentSidebar({
         const baseHeight = height
         
         // Scale factors based on device size
-        const widthScale = Math.min(1, Math.max(0.45, baseWidth / 430))
-        const heightScale = Math.min(1, Math.max(0.35, baseHeight / 932))
+        const widthScale = Math.min(1, Math.max(0.55, baseWidth / 430))
+        const heightScale = Math.min(1, Math.max(0.45, baseHeight / 932))
         const scale = Math.min(widthScale, heightScale)
         
         // Dynamic sizing
@@ -125,82 +147,82 @@ export default function StudentSidebar({
         
         // Very small devices (<= 375px width or <= 667px height)
         if (baseWidth <= 375 || baseHeight <= 667) {
-          iconSize = Math.max(10, 14 * scale)
-          labelSize = Math.max(4, 5.5 * scale)
-          logoSize = Math.max(16, 22 * scale)
-          itemSize = Math.max(22, 28 * scale)
-          mobileHeight = Math.max(34, 42 * scale)
-          mobilePadding = Math.max(2, 4 * scale)
+          iconSize = Math.max(14, 17 * scale)
+          labelSize = Math.max(6, 7 * scale)
+          logoSize = Math.max(20, 24 * scale)
+          itemSize = Math.max(28, 32 * scale)
+          mobileHeight = Math.max(42, 48 * scale)
+          mobilePadding = Math.max(2, 3 * scale)
           mobileGap = Math.max(0, 0.5 * scale)
-          mobileLabelSize = Math.max(3.5, 4.5 * scale)
-          mobileIconSize = Math.max(8, 12 * scale)
-          mobileLogoSize = Math.max(14, 20 * scale)
-          mobileTopHeight = Math.max(30, 36 * scale)
-          mobileTopLogoSize = Math.max(14, 20 * scale)
-          mobileTopFontSize = Math.max(10, 12 * scale)
-          mobileTopSubFontSize = Math.max(3.5, 4.5 * scale)
-          mobileAvatarSize = Math.max(10, 14 * scale)
+          mobileLabelSize = Math.max(5, 6 * scale)
+          mobileIconSize = Math.max(12, 15 * scale)
+          mobileLogoSize = Math.max(18, 22 * scale)
+          mobileTopHeight = Math.max(42, 46 * scale)
+          mobileTopLogoSize = Math.max(18, 22 * scale)
+          mobileTopFontSize = Math.max(14, 16 * scale)
+          mobileTopSubFontSize = Math.max(8, 9.5 * scale)
+          mobileAvatarSize = Math.max(14, 17 * scale)
         }
         // Medium devices (376px - 414px width or 668px - 844px height)
         else if (baseWidth <= 414 || baseHeight <= 844) {
-          iconSize = Math.max(12, 16 * scale)
-          labelSize = Math.max(5, 7 * scale)
-          logoSize = Math.max(20, 26 * scale)
-          itemSize = Math.max(26, 32 * scale)
-          mobileHeight = Math.max(38, 48 * scale)
-          mobilePadding = Math.max(3, 5 * scale)
+          iconSize = Math.max(16, 19 * scale)
+          labelSize = Math.max(7, 8 * scale)
+          logoSize = Math.max(24, 28 * scale)
+          itemSize = Math.max(32, 36 * scale)
+          mobileHeight = Math.max(46, 52 * scale)
+          mobilePadding = Math.max(2, 4 * scale)
           mobileGap = Math.max(0, 1 * scale)
-          mobileLabelSize = Math.max(4.5, 5.5 * scale)
-          mobileIconSize = Math.max(10, 14 * scale)
-          mobileLogoSize = Math.max(18, 26 * scale)
-          mobileTopHeight = Math.max(36, 44 * scale)
-          mobileTopLogoSize = Math.max(18, 26 * scale)
-          mobileTopFontSize = Math.max(12, 15 * scale)
-          mobileTopSubFontSize = Math.max(4.5, 5.5 * scale)
-          mobileAvatarSize = Math.max(12, 16 * scale)
+          mobileLabelSize = Math.max(6, 7 * scale)
+          mobileIconSize = Math.max(14, 17 * scale)
+          mobileLogoSize = Math.max(22, 28 * scale)
+          mobileTopHeight = Math.max(46, 50 * scale)
+          mobileTopLogoSize = Math.max(22, 28 * scale)
+          mobileTopFontSize = Math.max(16, 18 * scale)
+          mobileTopSubFontSize = Math.max(9, 10.5 * scale)
+          mobileAvatarSize = Math.max(16, 19 * scale)
         }
         // Large devices (415px - 480px width or 845px - 932px height)
         else {
-          iconSize = Math.max(14, 18 * scale)
-          labelSize = Math.max(6, 8 * scale)
-          logoSize = Math.max(24, 30 * scale)
-          itemSize = Math.max(30, 36 * scale)
-          mobileHeight = Math.max(42, 52 * scale)
-          mobilePadding = Math.max(4, 6 * scale)
-          mobileGap = Math.max(0, 2 * scale)
-          mobileLabelSize = Math.max(5.5, 6.5 * scale)
-          mobileIconSize = Math.max(12, 16 * scale)
-          mobileLogoSize = Math.max(22, 30 * scale)
-          mobileTopHeight = Math.max(42, 50 * scale)
-          mobileTopLogoSize = Math.max(22, 30 * scale)
-          mobileTopFontSize = Math.max(14, 17 * scale)
-          mobileTopSubFontSize = Math.max(5.5, 6.5 * scale)
-          mobileAvatarSize = Math.max(14, 18 * scale)
+          iconSize = Math.max(18, 21 * scale)
+          labelSize = Math.max(8, 9 * scale)
+          logoSize = Math.max(28, 32 * scale)
+          itemSize = Math.max(36, 40 * scale)
+          mobileHeight = Math.max(50, 56 * scale)
+          mobilePadding = Math.max(3, 5 * scale)
+          mobileGap = Math.max(0, 1.5 * scale)
+          mobileLabelSize = Math.max(7, 8 * scale)
+          mobileIconSize = Math.max(16, 19 * scale)
+          mobileLogoSize = Math.max(26, 32 * scale)
+          mobileTopHeight = Math.max(50, 54 * scale)
+          mobileTopLogoSize = Math.max(26, 32 * scale)
+          mobileTopFontSize = Math.max(18, 20 * scale)
+          mobileTopSubFontSize = Math.max(10, 11.5 * scale)
+          mobileAvatarSize = Math.max(18, 21 * scale)
         }
         
         // Extreme small height adjustment
         if (baseHeight < 700) {
-          const heightRatio = Math.max(0.35, baseHeight / 700)
-          mobileHeight = Math.max(28, mobileHeight * heightRatio)
-          itemSize = Math.max(18, itemSize * heightRatio)
-          iconSize = Math.max(8, iconSize * heightRatio)
-          mobileIconSize = Math.max(8, mobileIconSize * heightRatio)
-          mobileLabelSize = Math.max(3, mobileLabelSize * heightRatio)
-          mobileTopHeight = Math.max(26, mobileTopHeight * heightRatio)
-          mobileTopLogoSize = Math.max(12, mobileTopLogoSize * heightRatio)
-          mobileTopFontSize = Math.max(9, mobileTopFontSize * heightRatio)
-          mobileTopSubFontSize = Math.max(3, mobileTopSubFontSize * heightRatio)
-          logoSize = Math.max(14, logoSize * heightRatio)
-          mobileLogoSize = Math.max(14, mobileLogoSize * heightRatio)
-          mobileAvatarSize = Math.max(8, mobileAvatarSize * heightRatio)
+          const heightRatio = Math.max(0.45, baseHeight / 700)
+          mobileHeight = Math.max(36, mobileHeight * heightRatio)
+          itemSize = Math.max(24, itemSize * heightRatio)
+          iconSize = Math.max(12, iconSize * heightRatio)
+          mobileIconSize = Math.max(12, mobileIconSize * heightRatio)
+          mobileLabelSize = Math.max(5, mobileLabelSize * heightRatio)
+          mobileTopHeight = Math.max(34, mobileTopHeight * heightRatio)
+          mobileTopLogoSize = Math.max(16, mobileTopLogoSize * heightRatio)
+          mobileTopFontSize = Math.max(12, mobileTopFontSize * heightRatio)
+          mobileTopSubFontSize = Math.max(7, mobileTopSubFontSize * heightRatio)
+          logoSize = Math.max(18, logoSize * heightRatio)
+          mobileLogoSize = Math.max(18, mobileLogoSize * heightRatio)
+          mobileAvatarSize = Math.max(12, mobileAvatarSize * heightRatio)
         }
         
         // Extreme small width adjustment
         if (baseWidth < 360) {
-          const widthRatio = Math.max(0.4, baseWidth / 360)
-          itemSize = Math.max(16, itemSize * widthRatio)
-          mobileIconSize = Math.max(7, mobileIconSize * widthRatio)
-          mobileLabelSize = Math.max(3, mobileLabelSize * widthRatio)
+          const widthRatio = Math.max(0.5, baseWidth / 360)
+          itemSize = Math.max(22, itemSize * widthRatio)
+          mobileIconSize = Math.max(11, mobileIconSize * widthRatio)
+          mobileLabelSize = Math.max(4.5, mobileLabelSize * widthRatio)
           mobileGap = Math.max(0, mobileGap * widthRatio)
           mobilePadding = Math.max(2, mobilePadding * widthRatio)
         }
@@ -230,10 +252,10 @@ export default function StudentSidebar({
       if (width > 480 && width <= 768) {
         const scale = width / 768
         setSizes({
-          icon: Math.max(16, 21 * scale),
-          label: Math.max(11, 13 * scale),
-          logo: Math.max(30, 44 * scale),
-          item: Math.max(36, 46 * scale),
+          icon: Math.max(18, 21 * scale),
+          label: Math.max(12, 13 * scale),
+          logo: Math.max(34, 44 * scale),
+          item: Math.max(40, 46 * scale),
           railPadding: Math.max(18, 22 * scale),
           mobileHeight: 74,
           mobilePadding: 12,
@@ -275,22 +297,6 @@ export default function StudentSidebar({
     window.addEventListener("resize", calculateSizes)
     return () => window.removeEventListener("resize", calculateSizes)
   }, [])
-
-  const isAdminMode = Boolean(navGroups?.length)
-
-  // Navigation items based on role or admin nav groups
-  const navItems = navGroups
-    ? navGroups.flatMap((group) => group.items)
-    : isLeader
-      ? [
-          { icon: "ti-layout-dashboard", label: "Dashboard", href: "/student/dashboard" },
-          { icon: "ti-presentation", label: "Class", href: "/student/classlist" },
-          { icon: "ti-scan", label: "Scanner", href: "/student/scanner" },
-          { icon: "ti-users", label: "Attendance", href: "/student/attendance" },
-          { icon: "ti-clipboard-check", label: "Forms", href: "/student/forms" },
-          { icon: "ti-pencil", label: "Request", href: "/student/request" },
-        ]
-      : NAV_ITEMS
 
   function isItemActive(item: NavItem) {
     return (
@@ -337,7 +343,7 @@ export default function StudentSidebar({
   // Dynamic styles for mobile
   const mobileStyles = isMobile ? {
     height: `${sizes.mobileHeight}px`,
-    padding: `0 ${sizes.mobilePadding}px`,
+    padding: `0 ${Math.max(2, sizes.mobilePadding)}px`,
   } : {}
 
   const mobileItemStyles = isMobile ? {
@@ -371,14 +377,14 @@ export default function StudentSidebar({
           borderRadius: 10,
           textDecoration: "none",
           flexShrink: 0,
-          padding: "1px 2px",
+          padding: "1px 1px",
           background: "transparent !important",
         }}
       >
         <span
           style={{
-            width: `${sizes.mobileIconSize + 10}px`,
-            height: `${sizes.mobileIconSize + 10}px`,
+            width: `${sizes.mobileIconSize + 8}px`,
+            height: `${sizes.mobileIconSize + 8}px`,
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -410,7 +416,7 @@ export default function StudentSidebar({
             marginTop: "1px",
             whiteSpace: "nowrap",
             width: "auto",
-            maxWidth: `${sizes.item + 4}px`,
+            maxWidth: `${sizes.item + 2}px`,
           }}
         >
           {item.label}
@@ -601,7 +607,7 @@ export default function StudentSidebar({
             width: auto !important;
             height: ${sizes.mobileHeight}px !important;
             border-radius: 999px;
-            padding: 0 ${sizes.mobilePadding}px !important;
+            padding: 0 ${Math.max(2, sizes.mobilePadding)}px !important;
             flex-direction: row;
             align-items: center;
             justify-content: space-between;
@@ -646,7 +652,7 @@ export default function StudentSidebar({
             height: 100%;
             align-items: center;
             gap: ${Math.max(0, sizes.mobileGap)}px;
-            padding: 0 2px;
+            padding: 0 1px;
             width: 100%;
             min-width: min-content;
             justify-content: space-around;
@@ -661,22 +667,23 @@ export default function StudentSidebar({
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 1px 2px !important;
+            padding: 1px 1px !important;
             border-radius: 10px !important;
             background: transparent !important;
-            min-width: ${Math.max(24, sizes.item)}px !important;
+            min-width: ${Math.max(28, sizes.item)}px !important;
             width: auto !important;
             height: ${sizes.item}px !important;
           }
 
           .nstp-link span:first-child {
-            width: ${Math.max(18, sizes.mobileIconSize + 10)}px !important;
-            height: ${Math.max(18, sizes.mobileIconSize + 10)}px !important;
-            margin: 0 !important;
+            width: ${Math.max(20, sizes.mobileIconSize + 8)}px !important;
+            height: ${Math.max(20, sizes.mobileIconSize + 8)}px !important;
+            margin: 0 auto !important;
             justify-content: center;
             align-items: center;
             border-radius: 50%;
             transition: background 0.15s ease;
+            display: flex !important;
           }
 
           .nstp-link.active span:first-child {
@@ -687,6 +694,9 @@ export default function StudentSidebar({
             margin: 0 !important;
             font-size: ${sizes.mobileIconSize}px !important;
             transition: transform .2s ease;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
           }
 
           .nstp-link .nstp-label {
@@ -700,7 +710,7 @@ export default function StudentSidebar({
             margin-top: 1px;
             white-space: nowrap;
             width: auto;
-            max-width: ${Math.max(24, sizes.item + 4)}px;
+            max-width: ${Math.max(28, sizes.item + 2)}px;
             overflow: visible;
             text-overflow: clip;
           }
@@ -712,15 +722,16 @@ export default function StudentSidebar({
 
           /* Profile avatar styles */
           .nstp-link.profile-link span:first-child {
-            width: ${Math.max(18, sizes.mobileIconSize + 10)}px !important;
-            height: ${Math.max(18, sizes.mobileIconSize + 10)}px !important;
-            margin: 0 !important;
+            width: ${Math.max(20, sizes.mobileIconSize + 8)}px !important;
+            height: ${Math.max(20, sizes.mobileIconSize + 8)}px !important;
+            margin: 0 auto !important;
             justify-content: center;
             align-items: center;
             border-radius: 50%;
             transition: background 0.15s ease;
             background: transparent !important;
             padding: 0 !important;
+            display: flex !important;
           }
 
           .nstp-link.profile-link.active span:first-child {
@@ -747,8 +758,11 @@ export default function StudentSidebar({
           }
 
           .nstp-link.profile-link .nstp-avatar-fallback i {
-            font-size: ${Math.max(8, sizes.mobileIconSize * 0.6)}px !important;
+            font-size: ${Math.max(11, sizes.mobileIconSize * 0.6)}px !important;
             color: ${C.idleText};
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
           }
 
           .nstp-link.profile-link.active .nstp-avatar-fallback i {
@@ -766,7 +780,7 @@ export default function StudentSidebar({
             margin-top: 1px;
             white-space: nowrap;
             width: auto;
-            max-width: ${Math.max(24, sizes.item + 4)}px;
+            max-width: ${Math.max(28, sizes.item + 2)}px;
             overflow: visible;
             text-overflow: clip;
           }
@@ -816,8 +830,8 @@ export default function StudentSidebar({
 
         @media (max-width: 480px) {
           .nstp-layout-main.with-responsive-sidebar {
-            padding-top: ${sizes.mobileTopHeight + 10}px !important;
-            padding-bottom: ${sizes.mobileHeight + 20}px !important;
+            padding-top: ${sizes.mobileTopHeight + 12}px !important;
+            padding-bottom: ${sizes.mobileHeight + 22}px !important;
           }
         }
       `}</style>
@@ -835,7 +849,7 @@ export default function StudentSidebar({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "0 10px",
+            padding: "0 14px",
             zIndex: 50,
             backdropFilter: "blur(18px)",
             WebkitBackdropFilter: "blur(18px)",
@@ -849,7 +863,7 @@ export default function StudentSidebar({
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "4px",
+              gap: "8px",
               textDecoration: "none",
             }}
           >
@@ -880,9 +894,10 @@ export default function StudentSidebar({
               <div className={cormorant.className}
                 style={{
                   fontSize: `${sizes.mobileTopSubFontSize}px`,
-                  fontWeight: 15,
-                  color: "rgba(255,255,255,0.65)",
-                  lineHeight: 1,
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.7)",
+                  lineHeight: 1.1,
+                  letterSpacing: 0.2,
                 }}
               >
                 University of the Philippines Baguio
@@ -898,7 +913,7 @@ export default function StudentSidebar({
               border: "none",
               color: "#fff",
               cursor: "pointer",
-              padding: "3px",
+              padding: "6px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -915,7 +930,7 @@ export default function StudentSidebar({
             <i
               className="ti ti-logout"
               style={{
-                fontSize: `${Math.min(18, sizes.mobileTopFontSize * 1.1)}px`,
+                fontSize: `${Math.min(24, sizes.mobileTopFontSize * 1.2)}px`,
                 color: C.logout,
               }}
             />
@@ -1065,7 +1080,7 @@ export default function StudentSidebar({
               </div>
             )}
 
-            {isMobile ? (
+            {isLoading ? null : isMobile ? (
               <>
                 {navItems.map(renderMobileNavLink)}
 
@@ -1083,13 +1098,13 @@ export default function StudentSidebar({
                       borderRadius: 10,
                       textDecoration: "none",
                       flexShrink: 0,
-                      padding: "1px 2px",
+                      padding: "1px 1px",
                     }}
                   >
                     <span
                       style={{
-                        width: `${sizes.mobileIconSize + 10}px`,
-                        height: `${sizes.mobileIconSize + 10}px`,
+                        width: `${sizes.mobileIconSize + 8}px`,
+                        height: `${sizes.mobileIconSize + 8}px`,
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
@@ -1127,7 +1142,7 @@ export default function StudentSidebar({
                           <i
                             className="ti ti-user"
                             style={{
-                              fontSize: `${Math.max(8, sizes.mobileIconSize * 0.6)}px`,
+                              fontSize: `${Math.max(11, sizes.mobileIconSize * 0.6)}px`,
                               color: pathname === "/student/profile" ? C.activeText : C.idleText,
                             }}
                           />
@@ -1147,7 +1162,7 @@ export default function StudentSidebar({
                         marginTop: "1px",
                         whiteSpace: "nowrap",
                         width: "auto",
-                        maxWidth: `${sizes.item + 4}px`,
+                        maxWidth: `${sizes.item + 2}px`,
                         overflow: "visible",
                         textOverflow: "clip",
                       }}
