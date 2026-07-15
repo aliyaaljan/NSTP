@@ -633,7 +633,7 @@ export const dashboardStyles = `
     pointer-events: none;
   }
   .cal-cell.cal-sem-end {
-    outline: 3px dashed var(--amber);
+    outline: 3px dashed var(--maroon);
     border-radius: 50%;
   }
   
