@@ -566,6 +566,8 @@ export default function StudentDashboardPage() {
               <div className="db-col-docs" style={{ 
                 minHeight: isMobile ? "400px" : "500px",
                 maxHeight: isMobile ? "500px" : "550px",
+                scrollbarWidth: "thin",
+                scrollbarColor: "#C8C8C4 transparent",
               }}>
                 <Documents Forms={formsToDocuments(formViews)} />
               </div>
