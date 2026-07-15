@@ -6,6 +6,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import type { StructuredCorrection } from "@/lib/student/time-correction"
 import { notifyAdviserOnAppeal } from "@/lib/email/notifications"
 import { notifyAdviserOnAppealPush } from "../push/notifications"
+import { revalidatePath } from "next/cache"
 
 const MAX_NUM_ATTACHMENT = 1
 
@@ -271,6 +272,64 @@ export async function updateStudentRequest(
     return { ok: true, data: null }
   } catch (err: any) {
     console.error("[updateStudentRequest] Error: ", err)
+    return { ok: false, error: err.message }
+  }
+}
+
+export async function cancelStudentRequest(
+  appealId: string
+): Promise<ActionResult<any>> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return { ok: false, error: "Not authenticated" }
+
+    const service = createSupabaseServiceClient()
+
+    // Get exact status IDs
+    const pendingStatusId = await lookupId("appeal_status", "pending")
+    const canceledStatusId = await lookupId("appeal_status", "canceled")
+
+    //Fetch request to verify ownership and state
+    const { data: existingAppeal, error: fetchError } = await service
+      .from("appeal")
+      .select("requester_user_id, appeal_status_id")
+      .eq("appeal_id", appealId)
+      .single()
+
+    if (fetchError || !existingAppeal)
+      return { ok: false, error: "Request not found" }
+    if (existingAppeal.requester_user_id !== user.id)
+      return { ok: false, error: "Unauthorized access" }
+
+    // Prevent canceling if adviser has already opened it
+    if (existingAppeal.appeal_status_id !== pendingStatusId) {
+      return {
+        ok: false,
+        error:
+          "You cannot cancel a request that is already under review or resolved.",
+      }
+    }
+
+    // Soft Cancel (Status Transition)
+    const { error: updateError } = await service
+      .from("appeal")
+      .update({
+        appeal_status_id: canceledStatusId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("appeal_id", appealId)
+
+    if (updateError) throw updateError
+
+    revalidatePath("/student/request")
+    revalidatePath("/student/leader/request")
+    revalidatePath("/facilitator/my-students")
+
+    return { ok: true, data: null }
+  } catch (err: any) {
     return { ok: false, error: err.message }
   }
 }
