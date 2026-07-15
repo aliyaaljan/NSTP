@@ -244,8 +244,10 @@ export function filterAuditLogRows(
   rows: AuditLogRow[],
   query: AuditLogQuery
 ): AuditLogRow[] {
-  const q = query.search.trim().toLowerCase()
-  const rangeStart = auditLogRangeStart(query.dateRange)
+  const q = (query?.search || "").trim().toLowerCase()
+  const rangeStart = query?.dateRange
+    ? auditLogRangeStart(query.dateRange)
+    : null
 
   return rows.filter((entry) => {
     if (query.action !== AUDIT_LOG_ALL_ACTIONS && entry.action !== query.action)
@@ -253,13 +255,14 @@ export function filterAuditLogRows(
     if (rangeStart && new Date(entry.createdAt) < new Date(rangeStart))
       return false
     if (!q) return true
+
     return (
-      entry.title.toLowerCase().includes(q) ||
-      entry.summary.toLowerCase().includes(q) ||
-      entry.actorName.toLowerCase().includes(q) ||
-      entry.tableLabel.toLowerCase().includes(q) ||
-      entry.tableName.toLowerCase().includes(q) ||
-      entry.subtitle.toLowerCase().includes(q)
+      (entry.title || "").toLowerCase().includes(q) ||
+      (entry.summary || "").toLowerCase().includes(q) ||
+      (entry.actorName || "").toLowerCase().includes(q) ||
+      (entry.tableLabel || "").toLowerCase().includes(q) ||
+      (entry.tableName || "").toLowerCase().includes(q) ||
+      (entry.subtitle || "").toLowerCase().includes(q)
     )
   })
 }
