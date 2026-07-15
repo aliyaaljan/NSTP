@@ -79,6 +79,30 @@ const studentFilesStyles = `
   .sf-status-cell { text-align: center; }
   .sf-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; background: #E8EDE5; color: #1A3C2D; min-width: 100px; justify-content: center; cursor: pointer; }
   .sf-status-badge-submitted { background: #D1FAE5; color: #065F46; }
+  .sf-status-badge-approved { background: #D1FAE5; color: #065F46; }
+  .sf-status-badge-rejected { background: #FEE2E2; color: #991B1B; }
+  .sf-status-badge-pending  { background: #FEF3C7; color: #92400E; }
+  .sf-status-badge-missing  { background: #F3F4F6; color: #6B7280; }
+  .sf-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-montserrat, 'Montserrat', sans-serif);
+    min-width: 90px;
+    justify-content: center;
+    transition: transform .2s ease;
+  }
+  .sf-action-btn:hover { transform: scale(1.05); }
+  .sf-action-btn-upload   { background: #1A3C2D; color: #fff; }
+  .sf-action-btn-view     { background: #F3F4F6; color: #1A3C2D; border: 1px solid #E5E7EB; }
+  .sf-action-btn-reupload { background: #6B1A1A; color: #fff; }
+  .sf-reupload-btn:hover { opacity: .85; }
   .sf-upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #1A3C2D; color: #FFFFFF; border: none; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); min-width: 100px; justify-content: center; transition: transform .25s ease, box-shadow .25s ease; }
   .sf-upload-btn:hover { transform: scale(1.05); }
   .sf-download-template-btn { display: inline-flex; align-items: center; justify-content: center; background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 6px; padding: 4px; cursor: pointer; transition: all 0.2s; color: #6B7280; flex-shrink: 0; margin-left: 6px; }
@@ -1020,6 +1044,71 @@ export default function StudentFilesPage() {
     )
   }
 
+  const statusLabelMap: Record<
+    Form["realStatus"],
+    { label: string; className: string }
+  > = {
+    missing: { label: "Not Yet Submitted", className: "sf-status-badge-missing" },
+    submitted: { label: "Submitted", className: "sf-status-badge-pending" },
+    approved: { label: "Approved", className: "sf-status-badge-approved" },
+    rejected: { label: "Rejected", className: "sf-status-badge-rejected" },
+  }
+
+  const renderStatusBadge = (form: Form, mobile: boolean) => {
+    const cfg = statusLabelMap[form.realStatus]
+    return (
+      <span
+        className={`sf-status-badge ${cfg.className}`}
+        style={{ fontSize: mobile ? 8 : 12, cursor: "default" }}
+      >
+        {cfg.label}
+      </span>
+    )
+  }
+
+  const renderActionButton = (form: Form, mobile: boolean) => {
+    const iconSize = mobile ? 12 : 14
+
+    if (form.realStatus === "missing") {
+      return (
+        <button
+          className="sf-action-btn sf-action-btn-upload"
+          onClick={() => handleUploadClick(form)}
+        >
+          <IconUpload size={iconSize} stroke={2.5} /> Upload
+        </button>
+      )
+    }
+
+    if (form.realStatus === "rejected") {
+      return (
+        <div style={{ display: "flex", gap: 6, justifyContent: mobile ? "flex-end" : "center" }}>
+          <button
+            className="sf-action-btn sf-action-btn-view"
+            onClick={() => handleViewClick(form)}
+          >
+            <IconEye size={iconSize} stroke={2} /> View
+          </button>
+          <button
+            className="sf-action-btn sf-action-btn-reupload"
+            onClick={() => handleUploadClick(form)}
+          >
+            <IconUpload size={iconSize} stroke={2.5} /> Reupload
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <button
+        className="sf-action-btn sf-action-btn-view"
+        onClick={() => handleViewClick(form)}
+      >
+        <IconEye size={iconSize} stroke={2} /> View
+      </button>
+    )
+  }
+
   const getFileIcon = (file: File) => {
     const name = file.name.toLowerCase()
     if (name.endsWith(".pdf"))
@@ -1209,35 +1298,18 @@ export default function StudentFilesPage() {
                               <button
                                 title="Download Template"
                                 className="sf-download-template-btn"
-                                onClick={(e) =>
-                                  handleTemplateDownload(form.id, e)
-                                }
+                                onClick={(e) => handleTemplateDownload(form.id, e)}
                                 style={{ marginLeft: 6 }}
                               >
                                 <IconDownload size={12} stroke={1.75} />
                               </button>
                             )}
                           </div>
-                          <div className="sf-mobile-card-deadline">
-                            Due Date: {form.deadline}
-                          </div>
+                          <div className="sf-mobile-card-deadline">Due Date: {form.deadline}</div>
                         </div>
-                        <div className="sf-mobile-card-status">
-                          {form.status === "uploaded" ? (
-                            <span
-                              className="sf-status-badge sf-status-badge-submitted"
-                              onClick={() => handleViewClick(form)}
-                            >
-                              <IconEye size={12} stroke={2} /> Submitted
-                            </span>
-                          ) : (
-                            <button
-                              className="sf-upload-btn"
-                              onClick={() => handleUploadClick(form)}
-                            >
-                              <IconUpload size={12} stroke={2.5} /> Upload
-                            </button>
-                          )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                          {renderStatusBadge(form, true)}
+                          {renderActionButton(form, true)}
                         </div>
                       </div>
                     </div>
@@ -1249,20 +1321,22 @@ export default function StudentFilesPage() {
                   <thead>
                     <tr>
                       <th
-                        style={{ width: "50%" }}
+                        style={{ width: "40%" }}
                         onClick={() => handleSort("name")}
                       >
                         File {getSortIcons("name")}
                       </th>
                       <th
-                        style={{ width: "25%", textAlign: "left" }}
+                        style={{ width: "20%", textAlign: "left" }}
                         onClick={() => handleSort("deadline")}
                       >
                         Deadline {getSortIcons("deadline")}
                       </th>
-                      <th style={{ width: "25%", textAlign: "center" }}>
+                      <th style={{ width: "20%", textAlign: "center" }}>
                         Status
                       </th>
+                      <th style={{ width: "20%", textAlign: "center" }}>
+                        Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1275,9 +1349,7 @@ export default function StudentFilesPage() {
                               <button
                                 title="Download Template"
                                 className="sf-download-template-btn"
-                                onClick={(e) =>
-                                  handleTemplateDownload(form.id, e)
-                                }
+                                onClick={(e) => handleTemplateDownload(form.id, e)}
                               >
                                 <IconDownload size={14} stroke={1.75} />
                               </button>
@@ -1285,23 +1357,8 @@ export default function StudentFilesPage() {
                           </div>
                         </td>
                         <td className="sf-form-deadline">{form.deadline}</td>
-                        <td className="sf-status-cell">
-                          {form.status === "uploaded" ? (
-                            <span
-                              className="sf-status-badge sf-status-badge-submitted"
-                              onClick={() => handleViewClick(form)}
-                            >
-                              <IconEye size={14} stroke={2} /> Submitted
-                            </span>
-                          ) : (
-                            <button
-                              className="sf-upload-btn"
-                              onClick={() => handleUploadClick(form)}
-                            >
-                              <IconUpload size={14} stroke={2.5} /> Upload
-                            </button>
-                          )}
-                        </td>
+                        <td className="sf-status-cell">{renderStatusBadge(form, false)}</td>
+                        <td className="sf-status-cell">{renderActionButton(form, false)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1895,6 +1952,7 @@ export default function StudentFilesPage() {
 
                       {viewingForm.reviewerComment && (
                         <div
+                          className="flex flex-row"
                           style={{
                             marginTop: 12,
                             paddingTop: 12,
@@ -1905,12 +1963,15 @@ export default function StudentFilesPage() {
                             style={{
                               fontSize: 12,
                               fontWeight: 700,
-                              color: "#6B1A1A",
+                              color: viewingForm.realStatus === "rejected" ? "#991B1B" : "#6B1A1A",
                               display: "block",
                               marginBottom: 6,
                             }}
+                            className="mr-auto"
                           >
-                            ADVISER'S NOTE:
+                            {viewingForm.realStatus === "rejected"
+                              ? "Reason for Rejection:"
+                              : "Facilitator's Note:"}
                           </span>
                           <p
                             style={{
