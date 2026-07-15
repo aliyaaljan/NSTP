@@ -135,6 +135,7 @@ export default function SectionListClient({
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
+  const [pageSize, setPageSize] = useState(SECTION_LIST_PAGE_SIZE)
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -222,16 +223,21 @@ export default function SectionListClient({
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateSectionListRows(visibleSections, query.page),
-    [visibleSections, query.page]
+    () => paginateSectionListRows(visibleSections, query.page, pageSize),
+    [visibleSections, query.page, pageSize]
   )
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sort, query.dir, activeFilters])
+  }, [query.page, query.search, query.sort, query.dir, activeFilters, pageSize])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
+  }
+
+  function handlePageSizeChange(nextSize: number) {
+    setPageSize(nextSize)
+    pushParams({ page: "1" })
   }
 
   function setStatusFilter(status: string | null) {
@@ -546,9 +552,10 @@ export default function SectionListClient({
         <ListPagination
           page={query.page}
           totalPages={totalPages}
-          pageSize={SECTION_LIST_PAGE_SIZE}
+          pageSize={pageSize}
           totalCount={filteredCount}
           onPageChange={goToPage}
+          onPageSizeChange={handlePageSizeChange}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />
       </div>

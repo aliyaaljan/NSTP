@@ -435,6 +435,7 @@ export default function AuditLogClient({
   )
   const [detailEntry, setDetailEntry] = useState<AuditLogRow | null>(null)
   const [animKey, setAnimKey] = useState(0)
+  const [pageSize, setPageSize] = useState(AUDIT_LOG_PAGE_SIZE)
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -471,7 +472,7 @@ export default function AuditLogClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.action, query.dateRange, activeFilters])
+  }, [query.page, query.search, query.action, query.dateRange, activeFilters, pageSize])
 
   const filterGroups: FilterGroupDef[] = useMemo(
     () => [
@@ -524,8 +525,8 @@ export default function AuditLogClient({
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateAuditLogRows(visibleEntries, query.page),
-    [visibleEntries, query.page]
+    () => paginateAuditLogRows(visibleEntries, query.page, pageSize),
+    [visibleEntries, query.page, pageSize]
   )
 
   const exportAction =
@@ -538,6 +539,11 @@ export default function AuditLogClient({
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
+  }
+
+  function handlePageSizeChange(nextSize: number) {
+    setPageSize(nextSize)
+    pushParams({ page: "1" })
   }
 
   return (
@@ -629,8 +635,9 @@ export default function AuditLogClient({
           page={query.page}
           totalPages={totalPages}
           totalCount={filteredCount}
-          pageSize={AUDIT_LOG_PAGE_SIZE}
+          pageSize={pageSize}
           onPageChange={goToPage}
+          onPageSizeChange={handlePageSizeChange}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />
       </div>

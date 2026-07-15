@@ -217,6 +217,7 @@ export default function StudentListClient({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
+  const [pageSize, setPageSize] = useState(STUDENT_LIST_PAGE_SIZE)
 
   // Dropped-view hard delete (two-step lifecycle: drop, then delete).
   const [hardDeleteTarget, setHardDeleteTarget] = useState<StudentListRow | null>(null)
@@ -305,16 +306,21 @@ export default function StudentListClient({
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateStudentListRows(visibleStudents, query.page),
-    [visibleStudents, query.page]
+    () => paginateStudentListRows(visibleStudents, query.page, pageSize),
+    [visibleStudents, query.page, pageSize]
   )
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sort, query.dir, activeFilters])
+  }, [query.page, query.search, query.sort, query.dir, activeFilters, pageSize])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
+  }
+
+  function handlePageSizeChange(nextSize: number) {
+    setPageSize(nextSize)
+    pushParams({ page: "1" })
   }
 
   function setStatusFilter(status: StudentProgressStatus | null) {
@@ -643,8 +649,9 @@ export default function StudentListClient({
           page={query.page}
           totalPages={totalPages}
           totalCount={filteredCount}
-          pageSize={STUDENT_LIST_PAGE_SIZE}
+          pageSize={pageSize}
           onPageChange={goToPage}
+          onPageSizeChange={handlePageSizeChange}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />
       </div>

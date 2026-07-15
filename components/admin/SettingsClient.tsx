@@ -35,8 +35,6 @@ import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 const FIELD_BG = "#F3F4F6"
 const SETTINGS_LIST_ROW_HEIGHT = 56
-const SETTINGS_LIST_BODY_HEIGHT = SETTINGS_LIST_PAGE_SIZE * SETTINGS_LIST_ROW_HEIGHT
-const SETTINGS_CARD_MIN_HEIGHT = SETTINGS_LIST_BODY_HEIGHT + 160
 
 function padToPageSize<T>(items: T[], pageSize: number): Array<T | null> {
   const padded: Array<T | null> = items.slice(0, pageSize)
@@ -69,17 +67,19 @@ function FixedListBody({
   emptyMessage,
   children,
   scrollable = true,
+  bodyHeight,
 }: {
   empty: boolean
   emptyMessage: string
   children: React.ReactNode
   scrollable?: boolean
+  bodyHeight: number
 }) {
   return (
     <div
       style={{
-        height: SETTINGS_LIST_BODY_HEIGHT,
-        minHeight: SETTINGS_LIST_BODY_HEIGHT,
+        height: bodyHeight,
+        minHeight: bodyHeight,
         overflowY: scrollable ? "auto" : "hidden",
         flexShrink: 0,
       }}
@@ -169,11 +169,13 @@ function SettingsCard({
   icon,
   action,
   children,
+  minHeight,
 }: {
   title: string
   icon?: string
   action?: React.ReactNode
   children: React.ReactNode
+  minHeight?: number
 }) {
   return (
     <div
@@ -186,7 +188,7 @@ function SettingsCard({
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        minHeight: SETTINGS_CARD_MIN_HEIGHT,
+        minHeight,
       }}
     >
       <div
@@ -314,6 +316,7 @@ export default function SettingsClient({
   const [closeoutPending, setCloseoutPending] = useState(false)
 
   const [holidayPage, setHolidayPage] = useState(1)
+  const [holidayPageSize, setHolidayPageSize] = useState(SETTINGS_LIST_PAGE_SIZE)
   const [addHolidayOpen, setAddHolidayOpen] = useState(false)
   const [deleteHolidayTarget, setDeleteHolidayTarget] = useState<HolidayRow | null>(null)
   const [holidayDeleteError, setHolidayDeleteError] = useState<string | null>(null)
@@ -324,10 +327,18 @@ export default function SettingsClient({
     [holidays]
   )
 
+  const holidayListBodyHeight = holidayPageSize * SETTINGS_LIST_ROW_HEIGHT
+  const holidayCardMinHeight = holidayListBodyHeight + 160
+
   const holidayPagination = useMemo(
-    () => paginateSettingsList(sortedHolidays, holidayPage, SETTINGS_LIST_PAGE_SIZE),
-    [sortedHolidays, holidayPage]
+    () => paginateSettingsList(sortedHolidays, holidayPage, holidayPageSize),
+    [sortedHolidays, holidayPage, holidayPageSize]
   )
+
+  function handleHolidayPageSizeChange(nextSize: number) {
+    setHolidayPageSize(nextSize)
+    setHolidayPage(1)
+  }
 
   useEffect(() => {
     setAcademicForm(academicConfigToPayload(academic))
@@ -628,6 +639,7 @@ export default function SettingsClient({
         <SettingsCard
           title="Holidays"
           icon="ti-calendar-event"
+          minHeight={holidayCardMinHeight}
           action={
             <GreenButton onClick={() => setAddHolidayOpen(true)}>
               <i className="ti ti-plus" style={{ fontSize: 14 }} />
@@ -639,9 +651,10 @@ export default function SettingsClient({
             <FixedListBody
               empty={holidayPagination.totalCount === 0}
               emptyMessage="No holidays configured for this term."
+              bodyHeight={holidayListBodyHeight}
             >
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {padToPageSize(holidayPagination.rows, SETTINGS_LIST_PAGE_SIZE).map(
+                {padToPageSize(holidayPagination.rows, holidayPageSize).map(
                   (holiday, index) =>
                     holiday ? (
                       <li
@@ -703,8 +716,9 @@ export default function SettingsClient({
               page={holidayPage}
               totalPages={holidayPagination.totalPages}
               totalCount={holidayPagination.totalCount}
-              pageSize={SETTINGS_LIST_PAGE_SIZE}
+              pageSize={holidayPageSize}
               onPageChange={setHolidayPage}
+              onPageSizeChange={handleHolidayPageSizeChange}
               containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
             />
           </SettingsListPanel>

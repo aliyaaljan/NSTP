@@ -332,6 +332,7 @@ export default function AdviserListClient({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
+  const pageSize = ADVISER_LIST_PAGE_SIZE
 
   // Class reassignment (offered after deactivation, or from the hard-delete
   // blocker list). `reassignSource` decides what "Skip"/success should do.
@@ -402,13 +403,13 @@ export default function AdviserListClient({
   )
 
   const { rows: pageAdvisers, totalPages, totalCount } = useMemo(
-    () => paginateAdviserListRows(filteredAdvisers, query.page, ADVISER_LIST_PAGE_SIZE),
-    [filteredAdvisers, query.page]
+    () => paginateAdviserListRows(filteredAdvisers, query.page, pageSize),
+    [filteredAdvisers, query.page, pageSize]
   )
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, activeFilters])
+  }, [query.page, query.search, activeFilters, pageSize])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
@@ -669,8 +670,8 @@ export default function AdviserListClient({
         />
 
         <div
-          className="admin-list-table-scroll admin-list-card-scroll"
-          style={{ padding: "16px 20px" }}
+          className="admin-list-card-scroll"
+          style={{ padding: "16px 20px", overflowY: "visible", maxHeight: "none" }}
         >
           {pageAdvisers.length === 0 ? (
             <div className="admin-table-empty">No facilitators match your filters.</div>
@@ -699,7 +700,7 @@ export default function AdviserListClient({
           page={query.page}
           totalPages={totalPages}
           totalCount={totalCount}
-          pageSize={ADVISER_LIST_PAGE_SIZE}
+          pageSize={pageSize}
           onPageChange={goToPage}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />

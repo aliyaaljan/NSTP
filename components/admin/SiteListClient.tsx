@@ -148,6 +148,7 @@ export default function SiteListClient({
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
+  const [pageSize, setPageSize] = useState(SITE_LIST_PAGE_SIZE)
 
   const sectionLabelById = useMemo(() => {
     const map = new Map<string, string>()
@@ -252,16 +253,21 @@ export default function SiteListClient({
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateSiteListRows(visibleSites, query.page),
-    [visibleSites, query.page]
+    () => paginateSiteListRows(visibleSites, query.page, pageSize),
+    [visibleSites, query.page, pageSize]
   )
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sort, query.dir, activeFilters])
+  }, [query.page, query.search, query.sort, query.dir, activeFilters, pageSize])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
+  }
+
+  function handlePageSizeChange(nextSize: number) {
+    setPageSize(nextSize)
+    pushParams({ page: "1" })
   }
 
   function setStatusFilter(status: string | null) {
@@ -523,9 +529,10 @@ export default function SiteListClient({
         <ListPagination
           page={query.page}
           totalPages={totalPages}
-          pageSize={SITE_LIST_PAGE_SIZE}
+          pageSize={pageSize}
           totalCount={filteredCount}
           onPageChange={goToPage}
+          onPageSizeChange={handlePageSizeChange}
           containerStyle={{ paddingLeft: 20, paddingRight: 20 }}
         />
       </div>

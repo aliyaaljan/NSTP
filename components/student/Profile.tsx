@@ -26,7 +26,7 @@ const montserrat = Montserrat({
 
 const C = {
   green: '#14492E',
-  maroon: "#7B1113",
+  maroon: "#6B1A1A",
   maroonDark: "#6B0D10",
   gold: "#C8A84B",
   goldBg: "#FFF3CD",
@@ -251,7 +251,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
     const handleResize = () => {
       const width = window.innerWidth
       setIsMobile(width < 768)
-      setIsTablet(width >= 768 && width < 1024)
+      setIsTablet(width >= 768 && width < 1200)
       setIsSmallMobile(width < 480)
     }
     
@@ -336,31 +336,38 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
     adviser: adviser,
   }
 
+  // Responsive padding
   const getResponsivePadding = () => {
-    if (isMobile) {
-      const bottomPadding = isSmallMobile ? 100 : 110 
+    if (isSmallMobile) {
       return {
-        paddingLeft: '12px',
-        paddingRight: '12px',
-        paddingTop: isSmallMobile ? '12px' : '14px',
-        paddingBottom: `${bottomPadding}px`,
-        gap: isSmallMobile ? '12px' : '14px',
+        paddingLeft: '16px',
+        paddingRight: '16px',
+        paddingTop: '20px',
+        paddingBottom: '110px',
+        gap: '12px',
       }
     }
-    
+    if (isMobile) {
+      return {
+        paddingLeft: '16px',
+        paddingRight: '16px',
+        paddingTop: '20px',
+        paddingBottom: '110px',
+        gap: '14px',
+      }
+    }
     if (isTablet) {
       const tabletRailWidth = Math.max(70, COLLAPSED_W * (window.innerWidth / 768))
       return {
-        paddingLeft: `${tabletRailWidth + RAIL_MARGIN * 2 + 12}px`,
-        paddingRight: '24px',
-        paddingTop: '24px',
-        paddingBottom: '24px',
-        gap: '20px',
+        paddingLeft: `120px`,
+        paddingRight: '20px',
+        paddingTop: '28px',
+        paddingBottom: '28px',
+        gap: '16px',
       }
     }
-    
     return {
-      paddingLeft: `${COLLAPSED_W + RAIL_MARGIN * 2 + 16}px`,
+      paddingLeft: `${COLLAPSED_W + RAIL_MARGIN * 2}px`,
       paddingRight: '32px',
       paddingTop: '28px',
       paddingBottom: '28px',
@@ -472,10 +479,6 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
       <main
         style={{
           flex: 1,
-          paddingLeft: responsivePadding.paddingLeft,
-          paddingRight: responsivePadding.paddingRight,
-          paddingTop: responsivePadding.paddingTop,
-          paddingBottom: responsivePadding.paddingBottom,
           display: "flex",
           flexDirection: "column",
           gap: responsivePadding.gap,
@@ -483,19 +486,23 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
           width: "100%",
           maxWidth: "100%",
           transition: "padding 0.3s ease",
-          marginTop: isMobile ? '60px' : 0,
+          paddingLeft: responsivePadding.paddingLeft,
+          paddingRight: responsivePadding.paddingRight,
+          paddingTop: responsivePadding.paddingTop,
+          paddingBottom: responsivePadding.paddingBottom,
+          marginTop: isMobile ? 0 : 0,
         }}
       >
         {/* Header */}
-        <div style={{
+        <div className="profile-header" style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap",
           gap: "12px",
-          marginBottom: isMobile ? "16px" : "32px",
+          marginBottom: isMobile ? "16px" : "24px",
         }}>
-          <div>
+          <div className="profile-header-left" style={{ flex: 1, minWidth: "200px" }}>
             <h1 style={{
               fontSize: isSmallMobile ? "24px" : isMobile ? "28px" : "34px",
               fontWeight: 800,
@@ -503,6 +510,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
               margin: 0,
               letterSpacing: "-0.01em",
               fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              paddingTop: isMobile ? "clamp(43px, 0.5vw, 20px)" : 0,
             }}>
               Profile & Settings
             </h1>
@@ -512,8 +520,8 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
         {/* Two rectangles */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 2fr" : "1fr 3fr",
-          gap: isMobile ? "16px" : isTablet ? "20px" : "24px",
+          gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "1fr 3fr",
+          gap: isMobile ? "16px" : isTablet ? "16px" : "24px",
           flex: 1,
           alignItems: "stretch", 
           fontFamily: "'Montserrat', 'Fallback Montserrat'",
@@ -534,7 +542,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             paddingBottom: isSmallMobile ? 16 : isMobile ? 18 : 28,
             position: "relative",
             transition: "all 0.2s ease",
-            height: "auto", // Dynamic height
+            height: "auto",
             flexShrink: 0,
             fontFamily: "'Montserrat', 'Fallback Montserrat'",
             width: "100%",
@@ -815,7 +823,7 @@ export default function Profile({ Sidebar, classTypeBadge = false }: ProfileProp
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            height: "auto", // Dynamic height
+            height: "auto",
             fontFamily: "'Montserrat', 'Fallback Montserrat'",
             width: "100%", 
             alignSelf: "start",
