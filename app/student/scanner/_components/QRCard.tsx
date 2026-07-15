@@ -14,8 +14,8 @@ export function QRCard({
     <div
       style={{
         background: `linear-gradient(135deg, ${C.green} 0%, ${C.greenLight} 100%)`,
-        borderRadius: "10px",
-        padding: isMobile ? "10px 14px" : "20px 28px",
+        borderRadius: "14px",
+        padding: isMobile ? "12px 16px" : "20px 28px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -65,17 +65,17 @@ export function QRCard({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: isMobile ? "8px" : "16px",
+          gap: isMobile ? "10px" : "16px",
           position: "relative",
           zIndex: 1,
         }}
       >
         <div
           style={{
-            width: isMobile ? "36px" : "52px",
-            height: isMobile ? "36px" : "52px",
+            width: isMobile ? "40px" : "52px",
+            height: isMobile ? "40px" : "52px",
             background: "rgba(255,255,255,0.2)",
-            borderRadius: "8px",
+            borderRadius: "10px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -84,13 +84,13 @@ export function QRCard({
             backdropFilter: "blur(4px)",
           }}
         >
-          <IconQrcode size={isMobile ? 18 : 28} stroke={1.5} />
+          <IconQrcode size={isMobile ? 20 : 28} stroke={1.5} />
         </div>
         <div>
           <div
             style={{
               fontWeight: 700,
-              fontSize: isMobile ? "13px" : "18px",
+              fontSize: isMobile ? "14px" : "18px",
               color: "#fff",
             }}
           >
@@ -98,9 +98,9 @@ export function QRCard({
           </div>
           <div
             style={{
-              fontSize: isMobile ? "9px" : "13px",
+              fontSize: isMobile ? "10px" : "13px",
               color: "rgba(255,255,255,0.8)",
-              marginTop: "1px",
+              marginTop: "2px",
             }}
           >
             Tap to open scanner
@@ -116,7 +116,7 @@ export function QRCard({
           fontWeight: 600,
           fontSize: isMobile ? "10px" : "14px",
           background: "rgba(255,255,255,0.15)",
-          padding: isMobile ? "4px 10px" : "8px 20px",
+          padding: isMobile ? "4px 12px" : "8px 20px",
           borderRadius: "20px",
           backdropFilter: "blur(4px)",
           position: "relative",
@@ -124,7 +124,7 @@ export function QRCard({
         }}
       >
         <span>Open</span>
-        <IconChevronRight size={isMobile ? 12 : 20} stroke={2} />
+        <IconChevronRight size={isMobile ? 14 : 20} stroke={2} />
       </div>
     </div>
   )

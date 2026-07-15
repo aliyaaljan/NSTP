@@ -137,7 +137,7 @@ export function WeekFilter({
     }
   }, [isDropdownOpen])
 
-  const dropdownWidth = isMobile ? "180px" : "200px"
+  const dropdownWidth = isMobile ? "200px" : "220px"
 
   // Pill style constants
   const pillActiveColor = '#2D6A4F'
@@ -146,9 +146,9 @@ export function WeekFilter({
   const pillTextColor = '#6B7280'
   const pillHoverBg = '#F5F5F5'
   const pillHoverBorder = '#6B7280'
-  const pillHeight = isMobile ? '32px' : '38px'
+  const pillHeight = isMobile ? '34px' : '38px'
   const pillRadius = '999px'
-  const pillPaddingX = isMobile ? "10px" : "20px"
+  const pillPaddingX = isMobile ? "12px" : "20px"
 
   return (
     <div
@@ -163,7 +163,7 @@ export function WeekFilter({
       <div
         style={{
           display: "flex",
-          gap: "4px",
+          gap: "6px",
           alignItems: "center",
           flexWrap: "wrap",
         }}
@@ -173,7 +173,7 @@ export function WeekFilter({
           onClick={onGeneralAllClick}
           style={{
             height: pillHeight,
-            fontSize: isMobile ? "9px" : "12px",
+            fontSize: isMobile ? "10px" : "12px",
             fontWeight: 600,
             padding: `0 ${pillPaddingX}`,
             borderRadius: pillRadius,
@@ -212,7 +212,7 @@ export function WeekFilter({
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             style={{
               height: pillHeight,
-              fontSize: isMobile ? "9px" : "12px",
+              fontSize: isMobile ? "10px" : "12px",
               fontWeight: 600,
               padding: `0 ${pillPaddingX}`,
               borderRadius: pillRadius,
@@ -239,13 +239,13 @@ export function WeekFilter({
           >
             <span
               style={{
-                fontSize: isMobile ? "9px" : "12px",
+                fontSize: isMobile ? "10px" : "12px",
               }}
             >
               {selectedMonth || "Select Month"}
             </span>
             <IconChevronDown
-              size={isMobile ? 12 : 14}
+              size={isMobile ? 14 : 16}
               stroke={2}
               style={{
                 color: pillTextColor,
@@ -266,9 +266,9 @@ export function WeekFilter({
                 width: dropdownWidth,
                 background: '#FFFFFF',
                 border: `1px solid ${pillBorderColor}`,
-                borderRadius: "12px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.10)",
-                padding: isMobile ? "8px" : "12px",
+                borderRadius: "14px",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                padding: isMobile ? "10px" : "14px",
                 zIndex: 1000,
                 maxHeight: "80vh",
                 overflowY: "auto",
@@ -280,7 +280,7 @@ export function WeekFilter({
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: isMobile ? "6px" : "10px",
+                  marginBottom: isMobile ? "8px" : "12px",
                   padding: "0 2px",
                 }}
               >
@@ -293,8 +293,8 @@ export function WeekFilter({
                     color: '#9CA3AF',
                     display: "flex",
                     alignItems: "center",
-                    padding: "2px",
-                    borderRadius: "4px",
+                    padding: "4px",
+                    borderRadius: "6px",
                     transition: "background 0.12s",
                     fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
                   }}
@@ -306,7 +306,7 @@ export function WeekFilter({
                   }}
                 >
                   <IconChevronDown 
-                    size={14} 
+                    size={16} 
                     stroke={2} 
                     style={{ transform: 'rotate(90deg)' }}
                   />
@@ -314,7 +314,7 @@ export function WeekFilter({
                 <span
                   style={{
                     fontWeight: 700,
-                    fontSize: isMobile ? "11px" : "13px",
+                    fontSize: isMobile ? "12px" : "14px",
                     color: '#111827',
                     fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
                   }}
@@ -330,8 +330,8 @@ export function WeekFilter({
                     color: '#9CA3AF',
                     display: "flex",
                     alignItems: "center",
-                    padding: "2px",
-                    borderRadius: "4px",
+                    padding: "4px",
+                    borderRadius: "6px",
                     transition: "background 0.12s",
                     fontFamily: "'Montserrat', Fallback Montserrat, sans-serif",
                   }}
@@ -343,7 +343,7 @@ export function WeekFilter({
                   }}
                 >
                   <IconChevronDown 
-                    size={14} 
+                    size={16} 
                     stroke={2} 
                     style={{ transform: 'rotate(-90deg)' }}
                   />
@@ -355,7 +355,7 @@ export function WeekFilter({
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: isMobile ? "3px" : "6px",
+                  gap: isMobile ? "4px" : "6px",
                 }}
               >
                 {MONTHS_SHORT.map((monthName, idx) => {
@@ -367,8 +367,8 @@ export function WeekFilter({
                       key={idx}
                       onClick={() => handleMonthSelect(idx)}
                       style={{
-                        padding: isMobile ? "3px 2px" : "6px 2px",
-                        fontSize: isMobile ? "9px" : "11px",
+                        padding: isMobile ? "4px 2px" : "6px 4px",
+                        fontSize: isMobile ? "10px" : "12px",
                         fontWeight: isSelected ? 700 : isCurrent ? 700 : 500,
                         border: `2px solid ${
                           isSelected ? pillActiveColor : 'transparent'
@@ -390,7 +390,7 @@ export function WeekFilter({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        borderRadius: isCurrent ? '50%' : '4px',
+                        borderRadius: isCurrent ? '50%' : '6px',
                       }}
                       onMouseEnter={(e) => {
                         if (!isSelected && !isCurrent) {
@@ -420,7 +420,7 @@ export function WeekFilter({
         <div
           style={{
             display: "flex",
-            gap: isMobile ? "4px" : "8px",
+            gap: isMobile ? "5px" : "8px",
             flexWrap: "wrap",
             width: "100%",
           }}
@@ -430,7 +430,7 @@ export function WeekFilter({
             onClick={handleWeekAllClick}
             style={{
               height: pillHeight,
-              fontSize: isMobile ? "9px" : "12px",
+              fontSize: isMobile ? "10px" : "12px",
               fontWeight: 600,
               padding: `0 ${pillPaddingX}`,
               borderRadius: pillRadius,
@@ -473,7 +473,7 @@ export function WeekFilter({
                 onClick={() => handleWeekSelect(weekNum)}
                 style={{
                   height: pillHeight,
-                  fontSize: isMobile ? "9px" : "12px",
+                  fontSize: isMobile ? "10px" : "12px",
                   fontWeight: 600,
                   padding: `0 ${pillPaddingX}`,
                   borderRadius: pillRadius,

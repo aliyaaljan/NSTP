@@ -24,7 +24,7 @@ export function PageHeader({
       <div>
         <h1
           style={{
-            fontSize: isMobile ? "20px" : "32px",
+            fontSize: isMobile ? "24px" : "32px",
             fontWeight: 800,
             color: C.maroon,
             margin: 0,
