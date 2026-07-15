@@ -97,7 +97,7 @@ const studentFilesStyles = `
   /* Mobile card view */
   .sf-mobile-card { background: #FAFAFA; border-radius: 8px; padding: 12px; margin-bottom: 6px; border: 1px solid #E5E7EB; }
   .sf-mobile-card-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .sf-mobile-card-name { font-weight: 600; color: #2C2C2A; font-size: 13px; word-break: break-word; flex: 1; }
+  .sf-mobile-card-name { font-weight: 600; color: #2C2C2A; font-size: 11px; word-break: break-word; flex: 1; }
   .sf-mobile-card-deadline { font-size: 11px; color: #7A7A7A; flex-shrink: 0; margin-top: 2px; }
   .sf-mobile-card-status { flex-shrink: 0; }
   
@@ -343,8 +343,6 @@ const studentFilesStyles = `
     font-family: inherit;
     padding: 0;
   }
-
-  .sf-divider { background: #D9DDD8; margin-top: 10px; margin-bottom: 24px; height: 1px; border: none; }
   
   /* Desktop: 1024px and above */
   @media (min-width: 1024px) {
@@ -371,7 +369,6 @@ const studentFilesStyles = `
     .sf-main { margin-left: 0 !important; padding: 20px 16px 110px 16px !important; }
     .sf-header { gap: 12px; align-items: center; margin-bottom: 16px; }
     .sf-header-title { font-size: 28px; padding-top: clamp(43px, 0.5vw, 20px); }
-    .sf-divider { margin-top: 1px; margin-bottom: 13px; }
     
     .sf-adv-table-toolbar { padding: 12px 14px; flex-direction: column; align-items: stretch; }
     .sf-adv-search-bar { min-width: unset; max-width: unset; flex: 1; height: 30px; }
@@ -1117,8 +1114,6 @@ export default function StudentFilesPage() {
             )}
           </div>
 
-          <hr className="sf-divider" />
-
           <ChartStyles />
 
           {/* Stat Cards */}
@@ -1225,7 +1220,7 @@ export default function StudentFilesPage() {
                             )}
                           </div>
                           <div className="sf-mobile-card-deadline">
-                            Deadline: {form.deadline}
+                            Due Date: {form.deadline}
                           </div>
                         </div>
                         <div className="sf-mobile-card-status">
