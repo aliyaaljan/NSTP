@@ -731,7 +731,7 @@ export const dashboardStyles = `
   .adv-page-btn.adv-page-btn-active { background: var(--maroon); color: #fff; border-color: var(--maroon); font-weight: 700; }
   .adv-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-  .pc-page { display: flex; flex-direction: column; gap: 24px; padding: 56px 32px 28px; flex: 1; background: var(--bg); font-family: var(--font); }  
+  .pc-page { display: flex; flex-direction: column; gap: 24px; padding: 56px 32px 0px; background: var(--bg); font-family: var(--font); }  
   .pc-title { font-size: 34px; font-weight: 800; color: var(--maroon); margin: 0; letter-spacing: -0.01em; }
   .pc-card { position: relative; width: 100%; max-width: 480px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; padding: 50px 24px 28px; }
   .pc-avatar { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--gold, #C8A84B), #D4B05C); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(123, 17, 19, 0.2); border: 3px solid var(--white); }

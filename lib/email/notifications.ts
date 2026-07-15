@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import { checkNotificationPreference } from "../settings/NotificationPreferences"
 
 // SMTP congiguration
 const transporter = nodemailer.createTransport({
@@ -107,6 +108,9 @@ export async function notifyAdviserOnAppeal(appealId: string) {
 
   const adviserEmail = await getUserEmail(adviserId)
   if (!adviserEmail) return
+  
+  const emailEnabled = await checkNotificationPreference(adviserId, "email")
+  if (!emailEnabled) return
 
   await sendMailSafe(
     adviserEmail,
@@ -136,6 +140,9 @@ export async function notifyStudentOnAppealResolved(
 
   const studentEmail = await getUserEmail(appeal.requester_user_id)
   if (!studentEmail) return
+
+  const emailEnabled = await checkNotificationPreference(appeal.requester_user_id, "email")
+  if (!emailEnabled) return
 
   await sendMailSafe(
     studentEmail,
@@ -175,6 +182,9 @@ export async function notifyAdviserOnSubmission(submissionId: string) {
 
   const adviserEmail = await getUserEmail(adviserId)
   if (!adviserEmail) return
+  
+  const emailEnabled = await checkNotificationPreference(adviserId, "email")
+  if (!emailEnabled) return
 
   await sendMailSafe(
     adviserEmail,
@@ -212,6 +222,9 @@ export async function notifyStudentOnSubmissionReviewed(
 
   const studentEmail = await getUserEmail(studentId)
   if (!studentEmail) return
+
+  const emailEnabled = await checkNotificationPreference(studentId, "email")
+  if (!emailEnabled) return
 
   await sendMailSafe(
     studentEmail,

@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache"
 import { formatClassLabel } from "@/lib/shared/class-label"
 import type { FlagReason } from "@/lib/attendance/flag-reasons"
 import { notifyStudentOnAppealResolved } from "@/lib/email/notifications"
+import { notifyStudentOnResolutionPush } from "../push/notifications"
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -189,6 +190,7 @@ export async function resolveStudentRequest(
     revalidatePath("/facilitator/my-students")
 
     await notifyStudentOnAppealResolved(appealId, decision).catch(console.error)
+    await notifyStudentOnResolutionPush(appealId, decision).catch(console.error)
 
     return {
       ok: true,
@@ -291,9 +293,8 @@ export async function approveRequestWithCorrection(
     revalidatePath("/facilitator/dashboard")
     revalidatePath("/facilitator/my-students")
 
-    await notifyStudentOnAppealResolved(appealId, "approved").catch(
-      console.error
-    )
+    await notifyStudentOnAppealResolved(appealId, "approved").catch(console.error)
+    await notifyStudentOnResolutionPush(appealId, "approved").catch(console.error)
 
     return {
       ok: true,
@@ -337,7 +338,8 @@ export async function transitionToUnderReview(
 
     revalidatePath("/facilitator/dashboard")
     revalidatePath("/facilitator/my-students")
-
+    await notifyStudentOnResolutionPush(appealId, "under_review").catch(console.error)
+   
     return { ok: true, data: null }
   } catch (err: any) {
     console.error("[transitionToUnderReview] Framework error: ", err.message)

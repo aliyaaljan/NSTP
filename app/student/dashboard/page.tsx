@@ -66,14 +66,14 @@ function HoursCard({
 }) {
   const percent = Math.min(100, Math.round((rendered / target) * 100))
   const daysRemaining = deadline
-    ? Math.max(
-        0,
-        Math.ceil(
-          (new Date(deadline).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
-        )
-      )
-    : null
+  ? (() => {
+      const diff =
+        (new Date(deadline).getTime() - Date.now()) /
+        (1000 * 60 * 60 * 24)
+
+      return diff >= 0 ? Math.ceil(diff) : Math.floor(diff)
+    })()
+  : null
 
   return (
     <div style={{ 
@@ -133,7 +133,11 @@ function HoursCard({
             alignSelf: isMobile ? "flex-start" : "auto",
           }}
         >
-          {daysRemaining} days remaining
+         {daysRemaining > 0
+      ? `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining`
+      : daysRemaining === 0
+      ? "Last day"
+      : `${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? "" : "s"} past deadline`}
         </span>
       )}
     </div>
