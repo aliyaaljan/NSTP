@@ -357,10 +357,10 @@ export default function FormListClient({
         />
 
         <div className="admin-table-wrapper">
-          <table className="admin-table" style={{ minWidth: 880 }}>
+          <table className="admin-table" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
-                <th style={{ width: "28%" }}>
+                <th style={{ width: "24%" }}>
                   <AdminSortHeader
                     label="Form Name"
                     sortable
@@ -369,7 +369,7 @@ export default function FormListClient({
                     onSort={() => toggleSort("name")}
                   />
                 </th>
-                <th style={{ width: "22%" }}>
+                <th style={{ width: "16%" }}>
                   <AdminSortHeader
                     label="Class"
                     sortable
@@ -380,14 +380,24 @@ export default function FormListClient({
                 </th>
                 <th style={{ width: "18%" }}>
                   <AdminSortHeader
+                    label="Adviser"
+                    sortable
+                    sortActive={query.sort === "adviser"}
+                    sortDirection={query.dir}
+                    onSort={() => toggleSort("adviser")}
+                  />
+                </th>
+                <th style={{ width: "16%" }}>
+                  <AdminSortHeader
                     label="Total Submissions"
+                    align="center"
                     sortable
                     sortActive={query.sort === "analytics"}
                     sortDirection={query.dir}
                     onSort={() => toggleSort("analytics")}
                   />
                 </th>
-                <th style={{ width: "22%" }}>
+                <th style={{ width: "16%" }}>
                   <AdminSortHeader
                     label="Deadline"
                     sortable
@@ -401,7 +411,7 @@ export default function FormListClient({
             <tbody key={animKey}>
               {pageForms.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="admin-table-empty">
+                  <td colSpan={5} className="admin-table-empty">
                     No forms match your filters.
                   </td>
                 </tr>
@@ -433,16 +443,19 @@ export default function FormListClient({
                         <div style={{ color: COLORS.textDark }}>
                           {form.sectionName}
                         </div>
-                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
+                      </td>
+                      <td>
+                        <div style={{ color: COLORS.textDark }}>
                           {form.adviserName}
                         </div>
                       </td>
-                      <td>
+                      <td style={{ textAlign: "center" }}>
                         <div
                           style={{
                             fontFamily: FONT_BODY,
-                            display: "flex",
+                            display: "inline-flex",
                             alignItems: "baseline",
+                            justifyContent: "center",
                             gap: 2,
                             lineHeight: 1,
                           }}
@@ -463,9 +476,6 @@ export default function FormListClient({
                           >
                             /{form.totalStudents}
                           </span>
-                        </div>
-                        <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
-                          students submitted
                         </div>
                       </td>
                       <td>

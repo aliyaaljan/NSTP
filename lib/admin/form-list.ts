@@ -69,7 +69,7 @@ export interface FormListSectionOption {
   schoolYear: string | null
 }
 
-export type FormListSortKey = "name" | "section" | "deadline" | "analytics"
+export type FormListSortKey = "name" | "section" | "adviser" | "deadline" | "analytics"
 
 export const FORM_LIST_ALL_SECTIONS = "all"
 
@@ -179,7 +179,7 @@ export interface FormSubmissionCountDbRow {
   enrollment: { section_id: string } | null
 }
 
-const VALID_SORT: FormListSortKey[] = ["name", "section", "deadline", "analytics"]
+const VALID_SORT: FormListSortKey[] = ["name", "section", "adviser", "deadline", "analytics"]
 
 export function parseFormListQuery(params: {
   sectionId?: string
@@ -344,11 +344,10 @@ export function filterFormListRows(
   const factor = query.dir === "asc" ? 1 : -1
   filtered = [...filtered].sort((a, b) => {
     switch (query.sort) {
-      case "section": {
-        const aKey = `${a.sectionName}-${a.adviserName}`
-        const bKey = `${b.sectionName}-${b.adviserName}`
-        return aKey.localeCompare(bKey) * factor
-      }
+      case "section":
+        return a.sectionName.localeCompare(b.sectionName) * factor
+      case "adviser":
+        return a.adviserName.localeCompare(b.adviserName) * factor
       case "deadline": {
         const aTime = a.dueDate ? new Date(`${a.dueDate}T00:00:00`).getTime() : Infinity
         const bTime = b.dueDate ? new Date(`${b.dueDate}T00:00:00`).getTime() : Infinity
