@@ -296,6 +296,7 @@ export default function QRGenerationPage() {
     }
   }, [])
 
+  // Auto-refresh
   useEffect(() => {
     if (!generated) return
     const PREFETCH_MS = 5000
@@ -404,10 +405,9 @@ export default function QRGenerationPage() {
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
     })
   }
 
@@ -450,18 +450,18 @@ export default function QRGenerationPage() {
   const getResponsivePadding = () => {
     if (isSmallMobile) {
       return {
-        paddingLeft: '12px',
-        paddingRight: '12px',
-        paddingTop: '12px',
-        paddingBottom: '70px',
+        paddingLeft: '16px',
+        paddingRight: '16px',
+        paddingTop: '20px',
+        paddingBottom: '110px',
       }
     }
     if (isMobile) {
       return {
         paddingLeft: '16px',
         paddingRight: '16px',
-        paddingTop: '16px',
-        paddingBottom: '75px',
+        paddingTop: '20px',
+        paddingBottom: '110px',
       }
     }
     if (isTablet) {
@@ -518,7 +518,7 @@ export default function QRGenerationPage() {
         .qr-title {
           font-size: 34px;
           font-weight: 800;
-          color: ${C.maroon};
+          color: #6B1A1A;
           margin: 0;
           letter-spacing: -1px;
         }
@@ -766,24 +766,27 @@ export default function QRGenerationPage() {
         }
 
 
-        @media(max-width: 600px){
+        @media(max-width: 767px){
 
           .qr-main {
-            padding: 16px 12px;
-            padding-bottom: 75px;
+            margin-left: 0;
+            padding: 20px 16px;
+            padding-bottom: 110px;
           }
-
 
           .qr-header {
-            gap: 10px;
+            gap: 12px;
+            align-items: center;
           }
-
 
           .qr-title {
-            font-size: 24px;
-            letter-spacing: -0.5px;
+            font-size: 28px;
+            padding-top: clamp(43px, 0.5vw, 20px);
           }
 
+          .profile-pill-wrapper {
+            display: none;
+          }
 
           .qr-box{
             position: relative;
@@ -796,6 +799,7 @@ export default function QRGenerationPage() {
             display: flex;
             justify-content: center;
             align-items: center;
+            margin-top: 30px;
           }
 
           .qr-box::before{
@@ -824,7 +828,6 @@ export default function QRGenerationPage() {
             z-index: 0;
           }
 
-
           .qr-card {
             width: 100%;
             min-height: 400px;
@@ -833,7 +836,6 @@ export default function QRGenerationPage() {
             position: relative;
             z-index: 1;
           }
-
 
           .qr-code {
             width: 280px;
@@ -858,19 +860,47 @@ export default function QRGenerationPage() {
             font-size: 12px;
           }
 
+          .divider {
+            margin-top: 1px;
+            margin-bottom: 13px;
+          }
+
+          .db-kpi-grid {
+            gap: 10px !important;
+          }
+
+          .db-kpi-value {
+            font-size: 15px !important;
+            line-height: 1.2 !important;
+          }
+
+          .db-kpi-label {
+            font-size: 11.5px !important;
+            line-height: 1.2 !important;
+          }
+
+          .db-kpi-icon {
+            font-size: 16px !important;
+          }
+
+          .attendance-stat-card .db-kpi-card {
+            padding: 18px !important;
+            height: auto !important;
+            min-height: unset !important;
+          }
+
         }
 
 
-        @media(max-width: 420px){
+        @media(max-width: 480px){
 
           .qr-main {
-            padding: 12px 10px;
-            padding-bottom: 70px;
+            padding: 20px 16px;
+            padding-bottom: 110px;
           }
 
-
           .qr-title {
-            font-size: 20px;
+            font-size: 24px;
           }
 
           .qr-card {
@@ -894,6 +924,76 @@ export default function QRGenerationPage() {
             font-size: 16px;
           }
 
+          .qr-heading h2 {
+            font-size: 16px;
+          }
+
+          .qr-heading p {
+            font-size: 11px;
+          }
+
+          .qr-button {
+            padding: 10px 18px;
+            font-size: 12px;
+          }
+
+          .qr-active {
+            font-size: 10px;
+            padding: 4px 12px;
+          }
+
+          .qr-progress-container {
+            width: 180px;
+          }
+
+          .qr-countdown {
+            font-size: 10px;
+          }
+
+          .qr-info {
+            font-size: 10px;
+            padding: 8px;
+          }
+
+        }
+
+        /* Tablet view */
+        @media (max-width: 820px) and (min-width: 768px) {
+          .qr-main {
+            padding: 28px 20px;
+          }
+
+          .qr-title {
+            font-size: 28px;
+          }
+
+          .qr-box {
+            margin-top: 30px;
+          }
+
+          .db-kpi-grid {
+            gap: 12px !important;
+          }
+
+          .attendance-stat-card .db-kpi-card {
+            padding: 18px !important;
+            height: auto !important;
+            min-height: unset !important;
+          }
+
+          .db-kpi-value {
+            font-size: inherit !important;
+          }
+
+          .db-kpi-label {
+            font-size: inherit !important;
+          }
+        }
+
+        @media (min-width: 768px) {
+          .profile-pill-wrapper {
+            display: block;
+          }
         }
 
         .attendance-stat-card {
@@ -909,17 +1009,6 @@ export default function QRGenerationPage() {
         .attendance-stat-card:hover .db-kpi-card {
           transform: none !important;
         }
-        .db-kpi-value {
-          font-size: ${isMobile ? '11px' : '20px'} !important;
-          line-height: 1.2 !important;
-        }
-        .db-kpi-label {
-          font-size: ${isMobile ? '9px' : '15px'} !important;
-          line-height: 1.2 !important;
-        }
-        .db-kpi-icon {
-          font-size: ${isMobile ? '16px' : '20px'} !important;
-        }
 
       `}</style>
 
@@ -933,33 +1022,25 @@ export default function QRGenerationPage() {
             paddingRight: responsivePadding.paddingRight,
             paddingTop: responsivePadding.paddingTop,
             paddingBottom: responsivePadding.paddingBottom,
-            marginTop: isMobile ? '60px' : 0,
+            marginTop: isMobile ? '0px' : 0,
           }}
         >
           <div className="qr-header">
-            <h1 className="qr-title" style={{
-              fontSize: isSmallMobile ? "20px" : isMobile ? "24px" : isTablet ? "28px" : "34px",
-            }}>
+            <h1 className="qr-title">
               Attendance
             </h1>
 
-            {!isMobile && (
+            <div className="profile-pill-wrapper">
               <ProfilePill
                 name={profile.fullName}
                 initials={getInitials(profile.fullName)}
                 section={profile.sectionName}
                 avatarUrl={profile.avatarUrl}
               />
-            )}
+            </div>
           </div>
 
-          <div
-            style={{
-              background: "#D9DDD8",
-              marginTop: 10,
-              marginBottom: 24,
-            }}
-          />
+          <div className="divider" />
 
           {isStudentLeader && (
             <>
@@ -1038,7 +1119,48 @@ export default function QRGenerationPage() {
             />
           ) : (
             <div className="qr-box">
-              <div className="qr-card">
+              <div className="qr-card" style={{ position: "relative" }}>
+                {/* X Button */}
+                {generated && !error && token && (
+                  <button
+                    onClick={() => {
+                      setGenerated(false);
+                      setToken(null);
+                      setDisplay(null);
+                      setError(null);
+                    }}
+                    style={{
+                      position: "absolute",
+                      top: "20px",
+                      right: "20px",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#8A8A8A",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "6px",
+                      borderRadius: "8px",
+                      transition: "background 0.12s",
+                      fontSize: "22px",
+                      fontWeight: 300,
+                      zIndex: 10,
+                      width: "36px",
+                      height: "36px",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#F0F0F0";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "none";
+                    }}
+                    aria-label="Close QR"
+                  >
+                    ✕
+                  </button>
+                )}
+
                 <div
                   className="qr-heading"
                   style={{
@@ -1103,11 +1225,42 @@ export default function QRGenerationPage() {
                     <button
                       onClick={() => runGenerate()}
                       disabled={locationDenied}
-                      className={`qr-button qr-generate-button ${locationDenied ? "qr-disabled" : ""
-                        }`}
+                      className={`${locationDenied ? "qr-disabled" : ""}`}
                       style={{
-                        padding: isSmallMobile ? "12px 20px" : isMobile ? "14px 28px" : "18px 38px",
-                        fontSize: isSmallMobile ? 16 : isMobile ? 18 : 22,
+                        padding: isSmallMobile ? "12px 24px" : isMobile ? "14px 32px" : "16px 40px",
+                        fontSize: isSmallMobile ? 14 : isMobile ? 15 : 16,
+                        border: "none",
+                        background: locationDenied ? "#ccc" : "#14492E",
+                        color: "#fff",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        cursor: locationDenied ? "not-allowed" : "pointer",
+                        transition: "all 0.2s ease",
+                        fontFamily: "'Montserrat', sans-serif",
+                        boxShadow: locationDenied ? "none" : "0 4px 12px rgba(20, 73, 46, 0.3)",
+                        opacity: locationDenied ? 0.6 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!locationDenied) {
+                          e.currentTarget.style.transform = "scale(1.03)";
+                          e.currentTarget.style.boxShadow = "0 6px 20px rgba(20, 73, 46, 0.4)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!locationDenied) {
+                          e.currentTarget.style.transform = "scale(1)";
+                          e.currentTarget.style.boxShadow = "0 4px 12px rgba(20, 73, 46, 0.3)";
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        if (!locationDenied) {
+                          e.currentTarget.style.transform = "scale(0.97)";
+                        }
+                      }}
+                      onMouseUp={(e) => {
+                        if (!locationDenied) {
+                          e.currentTarget.style.transform = "scale(1.03)";
+                        }
                       }}
                     >
                       Generate QR
@@ -1126,15 +1279,37 @@ export default function QRGenerationPage() {
                     >
                       {error}
                     </p>
-                    <button 
-                      onClick={() => runGenerate()} 
-                      className="qr-button"
+                    <button
+                      onClick={() => runGenerate()}
                       style={{
-                        padding: isSmallMobile ? "10px 18px" : isMobile ? "12px 22px" : "14px 28px",
-                        fontSize: isSmallMobile ? 12 : isMobile ? 14 : 16,
+                        padding: isSmallMobile ? "12px 24px" : isMobile ? "14px 32px" : "16px 40px",
+                        fontSize: isSmallMobile ? 14 : isMobile ? 15 : 16,
+                        border: "none",
+                        background: "#14492E",
+                        color: "#fff",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        fontFamily: "'Montserrat', sans-serif",
+                        boxShadow: "0 4px 12px rgba(20, 73, 46, 0.3)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "scale(1.03)";
+                        e.currentTarget.style.boxShadow = "0 6px 20px rgba(20, 73, 46, 0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "scale(1)";
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(20, 73, 46, 0.3)";
+                      }}
+                      onMouseDown={(e) => {
+                        e.currentTarget.style.transform = "scale(0.97)";
+                      }}
+                      onMouseUp={(e) => {
+                        e.currentTarget.style.transform = "scale(1.03)";
                       }}
                     >
-                      REGENERATE QR
+                      Try Again
                     </button>
                   </div>
                 ) : (
@@ -1218,10 +1393,32 @@ export default function QRGenerationPage() {
 
                     <button
                       onClick={() => runGenerate()}
-                      className="qr-button qr-regenerate"
                       style={{
-                        padding: isSmallMobile ? "10px 18px" : isMobile ? "12px 22px" : "14px 28px",
-                        fontSize: isSmallMobile ? 12 : isMobile ? 14 : 16,
+                        padding: isSmallMobile ? "12px 24px" : isMobile ? "14px 32px" : "16px 40px",
+                        fontSize: isSmallMobile ? 14 : isMobile ? 15 : 16,
+                        border: "none",
+                        background: "#14492E",
+                        color: "#fff",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        fontFamily: "'Montserrat', sans-serif",
+                        boxShadow: "0 4px 12px rgba(20, 73, 46, 0.3)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "scale(1.03)";
+                        e.currentTarget.style.boxShadow = "0 6px 20px rgba(20, 73, 46, 0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "scale(1)";
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(20, 73, 46, 0.3)";
+                      }}
+                      onMouseDown={(e) => {
+                        e.currentTarget.style.transform = "scale(0.97)";
+                      }}
+                      onMouseUp={(e) => {
+                        e.currentTarget.style.transform = "scale(1.03)";
                       }}
                     >
                       REGENERATE QR
