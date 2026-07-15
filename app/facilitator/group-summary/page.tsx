@@ -492,7 +492,7 @@ export default function GroupSummaryPage() {
                     { label: "Files Submitted",      value: section.filesSubmitted,                      sub: "total uploads",   Icon: IconFiles,         bg: "#F3E8FF", color: "#6B21A8" },
                     { label: "Forms Completion",     value: `${section.formsCompletionRate}%`,           sub: "completed",       Icon: IconClipboardCheck,bg: "#D1FAE5", color: "#065F46" },
                     { label: "Edit Requests",        value: section.editRequests,                        sub: "pending review",  Icon: IconEdit,          bg: "#FEE2E2", color: "#991B1B" },
-                    { label: "GPS Compliance",       value: `${section.gpsCompliance}%`,                sub: "logged in radius", Icon: IconMapPin,       bg: "#D1FAE5", color: "#065F46" },
+                    { label: "GPS & Network Compliance",       value: `${section.gpsCompliance}%`,                sub: "Clear of location or network anomalies", Icon: IconMapPin,       bg: "#D1FAE5", color: "#065F46" },
                   ];
 
                   return (

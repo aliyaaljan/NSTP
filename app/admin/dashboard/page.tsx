@@ -994,7 +994,7 @@ export default async function AdminDashboardPage({
     },
     {
       icon: "ti-map-pin",
-      label: "GPS & Network Compliance Rate",
+      label: "GPS & Network Compliance",
       value: `${computedGpsCompliance}%`,
       note: "Clear of location or network anomalies this week",
       href: "/admin/sites?status=active",
