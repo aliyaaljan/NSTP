@@ -202,6 +202,8 @@ export default function RequestsView() {
     useStudent()
 
   const [showModal, setShowModal] = useState(false)
+  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false)
+    
   const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(
     null
   )
@@ -893,6 +895,23 @@ export default function RequestsView() {
       />
     )
   }
+
+  function confirmWithdraw() {
+    if (!selectedRequest) return
+    startTransition(async () => {
+      const res = await cancelStudentRequest(selectedRequest.id)
+      if (res.ok) {
+        await loadRequests(profile.enrollmentId)
+        setShowWithdrawConfirm(false)
+        setSelectedRequest(null)
+        addToast("Request successfully withdrawn.", "success")
+      } else {
+        setShowWithdrawConfirm(false)
+        showError(res.error)
+      }
+    })
+  }
+
 
   return (
     <>
@@ -2476,8 +2495,12 @@ export default function RequestsView() {
             fontFamily: "var(--font-montserrat), sans-serif",
           }}
           onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedRequest(null)
+            if (e.target === e.currentTarget) {
+              setSelectedRequest(null)
+              setShowWithdrawConfirm(false)
+            }
           }}
+
         >
           <div
             style={{
@@ -2519,8 +2542,12 @@ export default function RequestsView() {
               </h2>
 
               <button
-                onClick={() => setSelectedRequest(null)}
+                onClick={() => {
+                  setSelectedRequest(null)
+                  setShowWithdrawConfirm(false)
+                }}
                 onMouseEnter={(e) =>
+
                   (e.currentTarget.style.background =
                     "rgba(255, 255, 255, 0.18)")
                 }
@@ -3012,95 +3039,123 @@ export default function RequestsView() {
                   : "Not edited yet"}
               </div>
             </div>
-            <div
+                        <div
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
+                alignItems: "center",
                 gap: 10,
                 padding: "16px 24px 24px",
                 borderTop: "1px solid #EEEEEE",
                 flexShrink: 0,
               }}
             >
-              {/* "Close" button is always visible so user can exit */}
-              <button
-                onClick={() => setSelectedRequest(null)}
-                style={{
-                  padding: "10px 24px",
-                  borderRadius: 12,
-                  border: "1px solid #E5E7EB",
-                  background: "#FFFFFF",
-                  fontFamily: "inherit",
-                  fontSize: 13.5,
-                  cursor: "pointer",
-                  fontWeight: 700,
-                  color: "#111827",
-                  flex: 1,
-                }}
-              >
-                Close
-              </button>
+              {showWithdrawConfirm ? (
+                <>
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: "#991B1B",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    Withdraw this request? This can't be undone.
+                  </span>
 
-              {/* Withdraw Request - Only visible if 'Pending Review' */}
-              {isEditable && (
-                <button
-                  disabled={isPending}
-                  onClick={() => {
-                    if (
-                      !confirm(
-                        "Are you sure you want to withdraw this request?"
-                      )
-                    )
-                      return
-                    startTransition(async () => {
-                      const res = await cancelStudentRequest(selectedRequest.id)
-                      if (res.ok) {
-                        await loadRequests(profile.enrollmentId)
+                  <button
+                    onClick={() => setShowWithdrawConfirm(false)}
+                    disabled={isPending}
+                    style={{
+                      padding: "10px 20px",
+                      borderRadius: 12,
+                      border: "1px solid #E5E7EB",
+                      background: "#FFFFFF",
+                      color: "#111827",
+                      fontFamily: "inherit",
+                      fontSize: 13.5,
+                      fontWeight: 700,
+                      cursor: isPending ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    No
+                  </button>
+
+                  <button
+                    onClick={confirmWithdraw}
+                    disabled={isPending}
+                    style={{
+                      padding: "10px 20px",
+                      borderRadius: 12,
+                      border: "none",
+                      background: "#991B1B",
+                      color: "#fff",
+                      fontFamily: "inherit",
+                      fontSize: 13.5,
+                      fontWeight: 700,
+                      cursor: isPending ? "not-allowed" : "pointer",
+                      opacity: isPending ? 0.6 : 1,
+                    }}
+                  >
+                    {isPending ? "Processing..." : "Yes, Withdraw"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    disabled={isEditable && isPending}
+                    onClick={() => {
+                      if (!isEditable) {
                         setSelectedRequest(null)
-                        addToast("Request successfully withdrawn.", "success")
-                      } else {
-                        showError(res.error)
+                        return
                       }
-                    })
-                  }}
-                  style={{
-                    background: "#FEE2E2",
-                    color: "#991B1B",
-                    border: "none",
-                    padding: "10px 24px",
-                    borderRadius: 12,
-                    fontFamily: "inherit",
-                    fontSize: 13.5,
-                    fontWeight: 600,
-                    cursor: isPending ? "not-allowed" : "pointer",
-                    opacity: isPending ? 0.6 : 1,
-                    flex: 1,
-                  }}
-                >
-                  {isPending ? "Processing..." : "Withdraw Request"}
-                </button>
-              )}
+                      setShowWithdrawConfirm(true)
+                    }}
+                    style={{
+                      padding: "10px 24px",
+                      borderRadius: 12,
+                      border: isEditable ? "none" : "1px solid #E5E7EB",
+                      background: isEditable ? "#FEE2E2" : "#FFFFFF",
+                      color: isEditable ? "#991B1B" : "#111827",
+                      fontFamily: "inherit",
+                      fontSize: 13.5,
+                      fontWeight: isEditable ? 600 : 700,
+                      cursor:
+                        isEditable && isPending ? "not-allowed" : "pointer",
+                      opacity: isEditable && isPending ? 0.6 : 1,
+                      flex: 1,
+                    }}
+                  >
+                    {isEditable
+                      ? isPending
+                        ? "Processing..."
+                        : "Withdraw Request"
+                      : "Close"}
+                  </button>
 
-              {isEditable && (
-                <button
-                  onClick={handleEditSave}
-                  disabled={isPending || !hasChanges()}
-                  style={{
-                    background: C.green,
-                    color: "white",
-                    border: "none",
-                    padding: "10px 24px",
-                    borderRadius: 12,
-                    fontFamily: "inherit",
-                    fontSize: 13.5,
-                    fontWeight: 600,
-                    cursor: hasChanges() ? "pointer" : "not-allowed",
-                    opacity: hasChanges() ? 1 : 0.45,
-                    flex: 1,
-                  }}
-                >
-                  {isPending ? "Saving..." : "Save Changes"}
-                </button>
+                  {isEditable && (
+                    <button
+                      onClick={handleEditSave}
+                      disabled={isPending || !hasChanges()}
+                      style={{
+                        background: C.green,
+                        color: "white",
+                        border: "none",
+                        padding: "10px 24px",
+                        borderRadius: 12,
+                        fontFamily: "inherit",
+                        fontSize: 13.5,
+                        fontWeight: 600,
+                        cursor: hasChanges() ? "pointer" : "not-allowed",
+                        opacity: hasChanges() ? 1 : 0.45,
+                        flex: 1,
+                      }}
+                    >
+                      {isPending ? "Saving..." : "Save Changes"}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
