@@ -43,8 +43,6 @@ import { FONT_BODY, PAGE_TITLE, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 function RoleBadge({ roleCode }: { roleCode: AccessControlRow["roleCode"] }) {
-  const roleStyle = ROLE_COLOR_STYLES[roleCode]
-
   return (
     <span
       style={{
@@ -53,8 +51,8 @@ function RoleBadge({ roleCode }: { roleCode: AccessControlRow["roleCode"] }) {
         borderRadius: 999,
         fontSize: 12,
         fontWeight: 600,
-        background: roleStyle.bg,
-        color: roleStyle.color,
+        background: "transparent",
+        color: "#000000",
         whiteSpace: "nowrap",
       }}
     >

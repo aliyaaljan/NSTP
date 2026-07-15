@@ -62,7 +62,7 @@ export function AdminTableToolbar({
             style={{ fontSize: 16, color: "var(--muted)", flexShrink: 0 }}
           />
           <input
-            type="search"
+            type="text"
             className="admin-search-input"
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}

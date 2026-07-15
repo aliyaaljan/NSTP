@@ -1,6 +1,10 @@
 /**
  * Site List — shared contract for the admin GPS site list page.
  *
+ * Two views (like Student List Active/Dropped):
+ *   - Sites: one row per geofence (`SiteListRow`)
+ *   - Sections: one row per class with nested sites (`SectionSiteGroup`)
+ *
  * Backend devs: implement data fetching in `getSiteListData()` inside
  * `lib/admin/site-list-actions.ts`. The UI reads `SiteListPageData` only.
  * Replace `filterSiteListRows()` with SQL filters when the list grows large.
@@ -71,7 +75,16 @@ export interface SiteListAdviserOption {
 
 export type SiteListStatusFilter = "all" | "active" | "inactive"
 
-export type SiteListSortKey = "name" | "section" | "adviser" | "radius" | "status"
+/** Sites = one row per geofence; Sections = one row per class with its sites. */
+export type SiteListView = "sites" | "sections"
+
+export type SiteListSortKey =
+  | "name"
+  | "section"
+  | "adviser"
+  | "radius"
+  | "status"
+  | "siteCount"
 
 /** Sentinel for "all sections" in filters / query strings. */
 export const SITE_LIST_ALL_SECTIONS = "all"
@@ -96,6 +109,21 @@ export interface SiteListQuery {
   dir: "asc" | "desc"
   /** 1-based page index. */
   page: number
+  view: SiteListView
+}
+
+/** One class with all of its GPS sites — used by the Sections view. */
+export interface SectionSiteGroup {
+  sectionId: string
+  sectionName: string
+  courseCode: string
+  schoolYear: string | null
+  adviserUserId: string
+  supervisorName: string
+  /** True when at least one site under this class is active. */
+  isActive: boolean
+  siteCount: number
+  sites: SiteListRow[]
 }
 
 export interface SiteListMeta {
@@ -170,7 +198,14 @@ export const SITE_STATUS_FILTER_OPTIONS: ReadonlyArray<{
   { value: "inactive", label: "Inactive" },
 ]
 
-const VALID_SORT: SiteListSortKey[] = ["name", "section", "adviser", "radius", "status"]
+const VALID_SORT: SiteListSortKey[] = [
+  "name",
+  "section",
+  "adviser",
+  "radius",
+  "status",
+  "siteCount",
+]
 
 export function parseSiteListQuery(params: {
   status?: string
@@ -180,11 +215,14 @@ export function parseSiteListQuery(params: {
   sort?: string
   dir?: string
   page?: string
+  view?: string
 }): SiteListQuery {
   const pageNum = Math.max(1, parseInt(params.page ?? "1", 10) || 1)
+  const view: SiteListView = params.view === "sections" ? "sections" : "sites"
+  const defaultSort: SiteListSortKey = view === "sections" ? "section" : "name"
   const sort = VALID_SORT.includes(params.sort as SiteListSortKey)
     ? (params.sort as SiteListSortKey)
-    : "name"
+    : defaultSort
   const status: SiteListStatusFilter =
     params.status === "active" || params.status === "inactive" ? params.status : "all"
   const sectionId = params.sectionId?.trim() || SITE_LIST_ALL_SECTIONS
@@ -198,6 +236,7 @@ export function parseSiteListQuery(params: {
     sort,
     dir: params.dir === "desc" ? "desc" : "asc",
     page: pageNum,
+    view,
   }
 }
 
@@ -319,4 +358,73 @@ export function paginateSiteListRows<T>(
     totalPages,
     totalCount,
   }
+}
+
+/**
+ * Groups geofence rows by class for the Sections view.
+ * Call after `filterSiteListRows` so search/status filters still apply.
+ */
+export function buildSectionSiteGroups(
+  rows: SiteListRow[],
+  sort: SiteListSortKey = "section",
+  dir: "asc" | "desc" = "asc"
+): SectionSiteGroup[] {
+  const bySection = new Map<string, SectionSiteGroup>()
+
+  for (const site of rows) {
+    const existing = bySection.get(site.sectionId)
+    if (existing) {
+      existing.sites.push(site)
+      existing.siteCount += 1
+      if (site.isActive) existing.isActive = true
+      continue
+    }
+    bySection.set(site.sectionId, {
+      sectionId: site.sectionId,
+      sectionName: site.sectionName,
+      courseCode: site.courseCode,
+      schoolYear: site.schoolYear,
+      adviserUserId: site.adviserUserId,
+      supervisorName: site.supervisorName,
+      isActive: site.isActive,
+      siteCount: 1,
+      sites: [site],
+    })
+  }
+
+  const groups = [...bySection.values()].map((group) => ({
+    ...group,
+    sites: [...group.sites].sort((a, b) => a.siteName.localeCompare(b.siteName)),
+  }))
+
+  const factor = dir === "asc" ? 1 : -1
+  groups.sort((a, b) => {
+    switch (sort) {
+      case "adviser":
+        return a.supervisorName.localeCompare(b.supervisorName) * factor
+      case "siteCount":
+        return (a.siteCount - b.siteCount) * factor
+      case "status":
+        return (Number(a.isActive) - Number(b.isActive)) * factor
+      case "name":
+      case "section":
+      case "radius":
+      default:
+        return a.sectionName.localeCompare(b.sectionName) * factor
+    }
+  })
+
+  return groups
+}
+
+/** Short preview of site names for a section row (e.g. "A, B +1 more"). */
+export function formatSectionSitePreview(
+  sites: SiteListRow[],
+  maxNames: number = 2
+): string {
+  if (sites.length === 0) return "—"
+  const names = sites.map((s) => s.siteName)
+  if (names.length <= maxNames) return names.join(", ")
+  const shown = names.slice(0, maxNames).join(", ")
+  return `${shown} +${names.length - maxNames} more`
 }

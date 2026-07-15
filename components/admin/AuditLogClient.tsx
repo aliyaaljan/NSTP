@@ -405,6 +405,13 @@ export default function AuditLogClient({
       else if (key === "range" && value === "7d") params.delete(key)
       else params.set(key, value)
     })
+    // Keep the search box value in the URL when filters/page change so a
+    // remount can restore it — but never navigate on each keystroke.
+    if (!("q" in updates)) {
+      const q = searchInput.trim()
+      if (q) params.set("q", q)
+      else params.delete("q")
+    }
     router.push(`/admin/audit-log?${params.toString()}`)
   }
 
@@ -417,15 +424,6 @@ export default function AuditLogClient({
       page: "1",
     })
   }
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (searchInput === query.search) return
-      pushParams({ q: searchInput.trim() || null, page: "1" })
-    }, 300)
-    return () => window.clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput])
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
@@ -477,13 +475,17 @@ export default function AuditLogClient({
     [searchFiltered, activeFilters, effectiveDateRanges]
   )
 
+  // While typing, stay on page 1 without touching the URL (avoids remount).
+  const listPage =
+    searchInput.trim() === (query.search || "").trim() ? query.page : 1
+
   const {
     rows: pageEntries,
     totalPages,
     totalCount: filteredCount,
   } = useMemo(
-    () => paginateAuditLogRows(visibleEntries, query.page, pageSize),
-    [visibleEntries, query.page, pageSize]
+    () => paginateAuditLogRows(visibleEntries, listPage, pageSize),
+    [visibleEntries, listPage, pageSize]
   )
 
   const exportAction =
@@ -588,7 +590,7 @@ export default function AuditLogClient({
         </div>
 
         <ListPagination
-          page={query.page}
+          page={listPage}
           totalPages={totalPages}
           totalCount={filteredCount}
           pageSize={pageSize}

@@ -5,7 +5,6 @@ import {
   AUDIT_LOG_SELECT,
   auditLogRangeStart,
   mapAuditLogDbRow,
-  filterAuditLogRows,
   type AdminCurrentUser,
   type AuditLogDbRow,
   type AuditLogDateRange,
@@ -140,9 +139,10 @@ export async function getAuditLogData(
       ?.map((row) => mapAuditLogDbRow(row, dynamicUuidMap))
       .filter((row): row is NonNullable<typeof row> => row !== null) ?? []
 
-  // Search (and any remaining filters) applied in memory; do not slice by
-  // page here — AuditLogClient paginates the full filtered set.
-  const entries = filterAuditLogRows(dbEntries, query)
+  // Action/date are applied in SQL above. Search stays client-side so the
+  // search box can filter without a server round-trip on each keystroke.
+  // Do not slice by page here — AuditLogClient paginates the filtered set.
+  const entries = dbEntries
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 

@@ -29,10 +29,13 @@ import {
   SITE_LIST_ALL_STATUSES,
   SITE_LIST_PAGE_SIZE,
   SITE_STATUS_FILTER_OPTIONS,
+  buildSectionSiteGroups,
   filterSiteListRows,
+  formatSectionSitePreview,
   formatSiteCoordinates,
   paginateSiteListRows,
   type AdminCurrentUser,
+  type SectionSiteGroup,
   type SiteListAdviserOption,
   type SiteListMeta,
   type SiteListQuery,
@@ -40,6 +43,7 @@ import {
   type SiteListSectionOption,
   type SiteListSortKey,
   type SiteListSummary,
+  type SiteListView,
 } from "@/lib/admin/site-list"
 import { FONT_BODY, PAGE_TITLE, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
@@ -96,6 +100,7 @@ export default function SiteListClient({
   const [addOpen, setAddOpen] = useState(false)
   const [editSite, setEditSite] = useState<SiteListRow | null>(null)
   const [detailSite, setDetailSite] = useState<SiteListRow | null>(null)
+  const [detailSection, setDetailSection] = useState<SectionSiteGroup | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SiteListRow | null>(null)
   const [deleteImpact, setDeleteImpact] = useState<DeleteImpact | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
@@ -106,6 +111,8 @@ export default function SiteListClient({
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
   const [pageSize, setPageSize] = useState(SITE_LIST_PAGE_SIZE)
+
+  const isSectionsView = query.view === "sections"
 
   const sectionLabelById = useMemo(() => {
     const map = new Map<string, string>()
@@ -126,7 +133,8 @@ export default function SiteListClient({
         !value ||
         value === SITE_LIST_ALL_STATUSES ||
         value === SITE_LIST_ALL_SECTIONS ||
-        value === SITE_LIST_ALL_ADVISERS
+        value === SITE_LIST_ALL_ADVISERS ||
+        (key === "view" && value === "sites")
       ) {
         params.delete(key)
       } else {
@@ -134,6 +142,15 @@ export default function SiteListClient({
       }
     })
     router.push(`/admin/sites?${params.toString()}`)
+  }
+
+  function setView(view: SiteListView) {
+    pushParams({
+      view: view === "sites" ? null : view,
+      sort: null,
+      dir: null,
+      page: "1",
+    })
   }
 
   function toggleSort(key: SiteListSortKey) {
@@ -205,18 +222,38 @@ export default function SiteListClient({
     [searchFiltered, activeFilters]
   )
 
+  const sectionGroups = useMemo(
+    () =>
+      isSectionsView
+        ? buildSectionSiteGroups(visibleSites, query.sort, query.dir)
+        : [],
+    [isSectionsView, visibleSites, query.sort, query.dir]
+  )
+
   const {
     rows: pageSites,
-    totalPages,
-    totalCount: filteredCount,
+    totalPages: siteTotalPages,
+    totalCount: siteFilteredCount,
   } = useMemo(
     () => paginateSiteListRows(visibleSites, query.page, pageSize),
     [visibleSites, query.page, pageSize]
   )
 
+  const {
+    rows: pageSections,
+    totalPages: sectionTotalPages,
+    totalCount: sectionFilteredCount,
+  } = useMemo(
+    () => paginateSiteListRows(sectionGroups, query.page, pageSize),
+    [sectionGroups, query.page, pageSize]
+  )
+
+  const totalPages = isSectionsView ? sectionTotalPages : siteTotalPages
+  const filteredCount = isSectionsView ? sectionFilteredCount : siteFilteredCount
+
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.sort, query.dir, activeFilters, pageSize])
+  }, [query.page, query.search, query.sort, query.dir, query.view, activeFilters, pageSize])
 
   function goToPage(nextPage: number) {
     pushParams({ page: String(nextPage) })
@@ -341,12 +378,38 @@ export default function SiteListClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Site List</h1>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>
+            {isSectionsView ? "Sites by Class" : "Site List"}
+          </h1>
           <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
         </div>
         <AdminProfilePill user={currentUser} />
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {(["sites", "sections"] as const).map((v) => {
+          const active = query.view === v
+          return (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              style={{
+                ...TYPE.bodyBold,
+                padding: "8px 18px",
+                borderRadius: 999,
+                border: "none",
+                cursor: "pointer",
+                background: active ? COLORS.maroon : COLORS.iconBg,
+                color: active ? "#fff" : COLORS.textGray,
+              }}
+            >
+              {v === "sites" ? "Sites" : "Sections"}
+            </button>
+          )
+        })}
       </div>
 
       <div className="admin-list-kpi-sticky" style={{ marginBottom: 16 }}>
@@ -359,11 +422,19 @@ export default function SiteListClient({
 
       <div className="admin-table-card">
         <AdminTableToolbar
-          title="All Sites"
-          count={`${filteredCount} site${filteredCount !== 1 ? "s" : ""} found`}
+          title={isSectionsView ? "Classes with Sites" : "All Sites"}
+          count={
+            isSectionsView
+              ? `${filteredCount} class${filteredCount !== 1 ? "es" : ""} found`
+              : `${filteredCount} site${filteredCount !== 1 ? "s" : ""} found`
+          }
           searchValue={searchInput}
           onSearchChange={setSearchInput}
-          searchPlaceholder="Search sites, classes, or advisers"
+          searchPlaceholder={
+            isSectionsView
+              ? "Search classes, sites, or advisers"
+              : "Search sites, classes, or advisers"
+          }
           filterGroups={filterGroups}
           activeFilters={activeFilters}
           onFiltersChange={(next) => {
@@ -378,109 +449,203 @@ export default function SiteListClient({
         />
 
         <div className="admin-table-wrapper">
-          <table className="admin-table" style={{ minWidth: 960 }}>
-            <thead>
-              <tr>
-                <th style={{ width: "20%" }}>
-                  <AdminSortHeader
-                    label="NSTP Site"
-                    sortable
-                    sortActive={query.sort === "name"}
-                    sortDirection={query.dir}
-                    onSort={() => toggleSort("name")}
-                  />
-                </th>
-                <th style={{ width: "16%" }}>
-                  <AdminSortHeader
-                    label="Class"
-                    sortable
-                    sortActive={query.sort === "section"}
-                    sortDirection={query.dir}
-                    onSort={() => toggleSort("section")}
-                  />
-                </th>
-                <th style={{ width: "18%" }}>
-                  <AdminSortHeader
-                    label="Adviser"
-                    sortable
-                    sortActive={query.sort === "adviser"}
-                    sortDirection={query.dir}
-                    onSort={() => toggleSort("adviser")}
-                  />
-                </th>
-                <th style={{ width: "10%" }}>
-                  <AdminSortHeader
-                    label="Radius"
-                    sortable
-                    sortActive={query.sort === "radius"}
-                    sortDirection={query.dir}
-                    onSort={() => toggleSort("radius")}
-                  />
-                </th>
-                <th style={{ width: "18%" }}>Coordinates</th>
-                <th style={{ width: "10%", textAlign: "center" }}>
-                  <AdminSortHeader
-                    label="Status"
-                    align="center"
-                    sortable
-                    sortActive={query.sort === "status"}
-                    sortDirection={query.dir}
-                    onSort={() => toggleSort("status")}
-                  />
-                </th>
-              </tr>
-            </thead>
-            <tbody key={animKey}>
-              {pageSites.length === 0 ? (
+          {isSectionsView ? (
+            <table className="admin-table" style={{ minWidth: 860 }}>
+              <thead>
                 <tr>
-                  <td colSpan={6} className="admin-table-empty">
-                    No GPS sites match your filters.
-                  </td>
+                  <th style={{ width: "28%" }}>
+                    <AdminSortHeader
+                      label="Class"
+                      sortable
+                      sortActive={query.sort === "section"}
+                      sortDirection={query.dir}
+                      onSort={() => toggleSort("section")}
+                    />
+                  </th>
+                  <th style={{ width: "22%" }}>
+                    <AdminSortHeader
+                      label="Adviser"
+                      sortable
+                      sortActive={query.sort === "adviser"}
+                      sortDirection={query.dir}
+                      onSort={() => toggleSort("adviser")}
+                    />
+                  </th>
+                  <th style={{ width: "12%", textAlign: "center" }}>
+                    <AdminSortHeader
+                      label="Sites"
+                      align="center"
+                      sortable
+                      sortActive={query.sort === "siteCount"}
+                      sortDirection={query.dir}
+                      onSort={() => toggleSort("siteCount")}
+                    />
+                  </th>
+                  <th style={{ width: "26%" }}>Site names</th>
+                  <th style={{ width: "12%", textAlign: "center" }}>
+                    <AdminSortHeader
+                      label="Status"
+                      align="center"
+                      sortable
+                      sortActive={query.sort === "status"}
+                      sortDirection={query.dir}
+                      onSort={() => toggleSort("status")}
+                    />
+                  </th>
                 </tr>
-              ) : (
-                pageSites.map((site) => (
-                  <tr
-                    key={site.geofenceId}
-                    {...adminClickableRowProps(() => setDetailSite(site))}
-                  >
-                    <td>
-                      <div style={{ fontWeight: 700, color: COLORS.textDark }}>
-                        {site.siteName}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ color: COLORS.textDark }}>
-                        {sectionLabelById.get(site.sectionId) ?? site.sectionName}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ color: COLORS.textDark }}>
-                        {site.supervisorName}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ color: COLORS.textDark }}>
-                        {site.radiusMeters} m
-                      </div>
-                    </td>
-                    <td>
-                      <div
-                        style={{
-                          color: COLORS.textDark,
-                          fontVariantNumeric: "tabular-nums",
-                        }}
-                      >
-                        {formatSiteCoordinates(site)}
-                      </div>
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <SiteStatusBadge isActive={site.isActive} />
+              </thead>
+              <tbody key={animKey}>
+                {pageSections.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="admin-table-empty">
+                      No classes with GPS sites match your filters.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  pageSections.map((group) => (
+                    <tr
+                      key={group.sectionId}
+                      {...adminClickableRowProps(() => setDetailSection(group))}
+                    >
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                          {sectionLabelById.get(group.sectionId) ?? group.sectionName}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ color: COLORS.textDark }}>
+                          {group.supervisorName}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <div
+                          style={{
+                            color: COLORS.textDark,
+                            fontWeight: 700,
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {group.siteCount}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ color: COLORS.textDark }}>
+                          {formatSectionSitePreview(group.sites)}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <SiteStatusBadge isActive={group.isActive} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <table className="admin-table" style={{ minWidth: 960 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: "20%" }}>
+                    <AdminSortHeader
+                      label="NSTP Site"
+                      sortable
+                      sortActive={query.sort === "name"}
+                      sortDirection={query.dir}
+                      onSort={() => toggleSort("name")}
+                    />
+                  </th>
+                  <th style={{ width: "16%" }}>
+                    <AdminSortHeader
+                      label="Class"
+                      sortable
+                      sortActive={query.sort === "section"}
+                      sortDirection={query.dir}
+                      onSort={() => toggleSort("section")}
+                    />
+                  </th>
+                  <th style={{ width: "18%" }}>
+                    <AdminSortHeader
+                      label="Adviser"
+                      sortable
+                      sortActive={query.sort === "adviser"}
+                      sortDirection={query.dir}
+                      onSort={() => toggleSort("adviser")}
+                    />
+                  </th>
+                  <th style={{ width: "10%" }}>
+                    <AdminSortHeader
+                      label="Radius"
+                      sortable
+                      sortActive={query.sort === "radius"}
+                      sortDirection={query.dir}
+                      onSort={() => toggleSort("radius")}
+                    />
+                  </th>
+                  <th style={{ width: "18%" }}>Coordinates</th>
+                  <th style={{ width: "10%", textAlign: "center" }}>
+                    <AdminSortHeader
+                      label="Status"
+                      align="center"
+                      sortable
+                      sortActive={query.sort === "status"}
+                      sortDirection={query.dir}
+                      onSort={() => toggleSort("status")}
+                    />
+                  </th>
+                </tr>
+              </thead>
+              <tbody key={animKey}>
+                {pageSites.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="admin-table-empty">
+                      No GPS sites match your filters.
+                    </td>
+                  </tr>
+                ) : (
+                  pageSites.map((site) => (
+                    <tr
+                      key={site.geofenceId}
+                      {...adminClickableRowProps(() => setDetailSite(site))}
+                    >
+                      <td>
+                        <div style={{ fontWeight: 700, color: COLORS.textDark }}>
+                          {site.siteName}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ color: COLORS.textDark }}>
+                          {sectionLabelById.get(site.sectionId) ?? site.sectionName}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ color: COLORS.textDark }}>
+                          {site.supervisorName}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ color: COLORS.textDark }}>
+                          {site.radiusMeters} m
+                        </div>
+                      </td>
+                      <td>
+                        <div
+                          style={{
+                            color: COLORS.textDark,
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {formatSiteCoordinates(site)}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <SiteStatusBadge isActive={site.isActive} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <ListPagination
@@ -549,6 +714,114 @@ export default function SiteListClient({
               <SiteStatusBadge isActive={detailSite.isActive} />
             </ModalField>
           </ModalRow>
+        </NstpModal>
+      )}
+
+      {detailSection && (
+        <NstpModal
+          open
+          onClose={() => setDetailSection(null)}
+          title={sectionLabelById.get(detailSection.sectionId) ?? detailSection.sectionName}
+          size="md"
+          actions={[
+            {
+              label: "Close",
+              variant: "secondary",
+              onClick: () => setDetailSection(null),
+            },
+          ]}
+        >
+          <ModalRow>
+            <ModalField label="Adviser" value={detailSection.supervisorName} />
+            <ModalField
+              label="Sites"
+              value={`${detailSection.siteCount} site${detailSection.siteCount !== 1 ? "s" : ""}`}
+            />
+          </ModalRow>
+          <div style={{ marginTop: 8 }}>
+            <div
+              style={{
+                ...TYPE.caption,
+                color: COLORS.textGray,
+                marginBottom: 8,
+                fontWeight: 600,
+              }}
+            >
+              Sites in this class
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {detailSection.sites.map((site) => (
+                <div
+                  key={site.geofenceId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "10px 12px",
+                    background: COLORS.iconBg,
+                    borderRadius: 8,
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        color: COLORS.textDark,
+                        fontFamily: FONT_BODY,
+                      }}
+                    >
+                      {site.siteName}
+                    </div>
+                    <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 2 }}>
+                      {site.radiusMeters} m · {formatSiteCoordinates(site)}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <SiteStatusBadge isActive={site.isActive} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditSite(site)
+                        setDetailSection(null)
+                      }}
+                      style={{
+                        ...TYPE.caption,
+                        fontWeight: 600,
+                        border: "none",
+                        background: "transparent",
+                        color: COLORS.maroon,
+                        cursor: "pointer",
+                        padding: "4px 6px",
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeleting}
+                      onClick={() => {
+                        openDeleteConfirm(site)
+                        setDetailSection(null)
+                      }}
+                      style={{
+                        ...TYPE.caption,
+                        fontWeight: 600,
+                        border: "none",
+                        background: "transparent",
+                        color: COLORS.maroon,
+                        cursor: isDeleting ? "not-allowed" : "pointer",
+                        padding: "4px 6px",
+                        opacity: isDeleting ? 0.5 : 1,
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </NstpModal>
       )}
 

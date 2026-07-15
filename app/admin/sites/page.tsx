@@ -17,6 +17,7 @@ async function SiteListContent({
     sort?: string
     dir?: string
     page?: string
+    view?: string
   }>
 }) {
   const params = await searchParams
@@ -47,6 +48,7 @@ export default function AdminSitesPage({
     sort?: string
     dir?: string
     page?: string
+    view?: string
   }>
 }) {
   return (
