@@ -1,13 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   AUDIT_ACTION_FILTER_OPTIONS,
   AUDIT_DATE_RANGE_OPTIONS,
-  filterAuditLogRows,
   type AuditLogDateRange,
   type AuditLogQuery,
-  type AuditLogRow,
 } from "@/lib/admin/audit-log"
 import {
   buildAuditLogExportRequest,
@@ -92,13 +90,10 @@ function ExportSelect({
 }
 
 export default function AuditLogExportButton({
-  entries,
   search,
   defaultAction,
   defaultDateRange,
 }: {
-  /** All audit rows available on the page (before client pagination). */
-  entries: AuditLogRow[]
   search: string
   defaultAction: AuditLogQuery["action"]
   defaultDateRange: AuditLogDateRange
@@ -147,17 +142,6 @@ export default function AuditLogExportButton({
     }
   }, [open, close])
 
-  const exportRows = useMemo(
-    () =>
-      filterAuditLogRows(entries, {
-        search,
-        action,
-        dateRange,
-        page: 1,
-      }),
-    [entries, search, action, dateRange]
-  )
-
   function resetAndOpen() {
     setFileType("")
     setAction(defaultAction)
@@ -174,7 +158,7 @@ export default function AuditLogExportButton({
       return
     }
 
-    if (exportRows.length === 0) {
+    if (dbCount === null || dbCount === 0) {
       setError("No audit events match the selected filters.")
       return
     }
@@ -342,8 +326,14 @@ export default function AuditLogExportButton({
                   </span>
                 ) : (
                   <span>
-                    Exactly <strong>{dbCount}</strong> event
-                    {dbCount === 1 ? "" : "s"} will be included in this export.
+                    Exactly{" "}
+                    <strong>{Math.min(dbCount ?? 0, 1000)}</strong> event
+                    {(dbCount ?? 0) === 1 ? "" : "s"} will be included in this
+                    export
+                    {(dbCount ?? 0) > 1000
+                      ? " (capped at 1,000 most recent)"
+                      : ""}
+                    .
                   </span>
                 )}
                 {search.trim()

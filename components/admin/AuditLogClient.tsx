@@ -594,7 +594,6 @@ export default function AuditLogClient({
           }}
           actions={
             <AuditLogExportButton
-              entries={entries}
               search={searchInput}
               defaultAction={exportAction}
               defaultDateRange={exportDateRange}

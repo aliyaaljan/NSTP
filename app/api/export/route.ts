@@ -8,10 +8,29 @@ import autoTable from "jspdf-autotable"
 import { ExportContentType } from "@/lib/admin/export-analytics"
 import {
   AUDIT_LOG_SELECT,
+  auditLogRangeStart,
   formatAuditLogTimestamp,
   mapAuditLogDbRow,
+  type AuditLogDateRange,
 } from "@/lib/admin/audit-log"
 import { formatClassLabel } from "@/lib/shared/class-label"
+
+/**
+ * jsPDF's built-in Helvetica only covers WinAnsi. Characters like `→` force a
+ * UTF-16 text stream, which Edge renders as "&" between every letter and makes
+ * each audit row wrap into many lines (huge page counts for the same events).
+ */
+function toPdfSafeText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/\u2192/g, "->")
+    .replace(/\u2190/g, "<-")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2026/g, "...")
+    .normalize("NFKD")
+    .replace(/[^\u0009\u000A\u000D\u0020-\u007E\u00A0-\u00FF]/g, "")
+}
 
 export async function GET(request: Request) {
   try {
@@ -55,11 +74,11 @@ export async function GET(request: Request) {
         }
 
         if (filterDateRange && filterDateRange !== "all") {
-          const days = parseInt(filterDateRange.replace("d", ""), 10)
-          if (!isNaN(days)) {
-            const startDate = new Date()
-            startDate.setDate(startDate.getDate() - days)
-            auditQuery = auditQuery.gte("created_at", startDate.toISOString())
+          const rangeStart = auditLogRangeStart(
+            filterDateRange as AuditLogDateRange
+          )
+          if (rangeStart) {
+            auditQuery = auditQuery.gte("created_at", rangeStart)
           }
         }
 
@@ -297,6 +316,9 @@ export async function GET(request: Request) {
         unit: "mm",
         format: "a4",
       })
+      const pdfRows = rows.map((row) =>
+        row.map((cell: unknown) => toPdfSafeText(cell))
+      )
 
       doc.setFont("helvetica", "bold")
       doc.setFontSize(14)
@@ -312,7 +334,7 @@ export async function GET(request: Request) {
       autoTable(doc, {
         startY: 26,
         head: [headers],
-        body: rows,
+        body: pdfRows,
         headStyles: { fillColor: [123, 17, 19], fontStyle: "bold" },
         theme: "striped",
         styles: {

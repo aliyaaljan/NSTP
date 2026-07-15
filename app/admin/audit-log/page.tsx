@@ -47,10 +47,10 @@ export default async function AdminAuditLogPage({
 
   const params = await searchParams
   const query = parseAuditLogQuery(params)
-  // suspense on search
+  // Refetch on search/filter changes only — page/size are client-side.
   const suspenseKey = `${params.q || ""}-${params.action || ""}-${
     params.range || ""
-  }-${params.page || "1"}`
+  }`
 
   return (
     <Suspense

@@ -1,19 +1,19 @@
 "use server"
 
 import {
+  AUDIT_LOG_ALL_ACTIONS,
   AUDIT_LOG_SELECT,
   auditLogRangeStart,
   mapAuditLogDbRow,
   filterAuditLogRows,
-  paginateAuditLogRows,
   type AdminCurrentUser,
   type AuditLogDbRow,
+  type AuditLogDateRange,
   type AuditLogMeta,
   type AuditLogPageData,
   type AuditLogQuery,
 } from "@/lib/admin/audit-log"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
-import { lookupId } from "@/lib//lookups"
 
 /**
  * Fetches everything the admin audit log page needs.
@@ -46,11 +46,9 @@ export async function getExportEventCount(
   }
 
   if (params.dateRange && params.dateRange !== "all") {
-    const days = parseInt(params.dateRange.replace("d", ""), 10)
-    if (!isNaN(days)) {
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - days)
-      query = query.gte("created_at", startDate.toISOString())
+    const rangeStart = auditLogRangeStart(params.dateRange as AuditLogDateRange)
+    if (rangeStart) {
+      query = query.gte("created_at", rangeStart)
     }
   }
 
@@ -112,15 +110,19 @@ export async function getAuditLogData(
       ))
   )
 
-  // query raw audit logs
+  // Fetch the filtered window; pagination is owned by the client so the
+  // list count matches what export can include for the same filters.
   let auditQuery = supabase
     .from("audit_log_readable")
     .select(AUDIT_LOG_SELECT)
     .order("created_at", { ascending: false })
-    .limit(800)
+    .limit(1000)
 
   if (rangeStart) {
     auditQuery = auditQuery.gte("created_at", rangeStart)
+  }
+  if (query.action !== AUDIT_LOG_ALL_ACTIONS) {
+    auditQuery = auditQuery.eq("action", query.action)
   }
 
   const [{ data, error }, { data: authData }] = await Promise.all([
@@ -138,11 +140,9 @@ export async function getAuditLogData(
       ?.map((row) => mapAuditLogDbRow(row, dynamicUuidMap))
       .filter((row): row is NonNullable<typeof row> => row !== null) ?? []
 
-  // memory filtering and pagination
-  const filteredEntries = filterAuditLogRows(dbEntries, query)
-  const paginatedResult = paginateAuditLogRows(filteredEntries, query.page)
-
-  const entries = paginatedResult.rows
+  // Search (and any remaining filters) applied in memory; do not slice by
+  // page here — AuditLogClient paginates the full filtered set.
+  const entries = filterAuditLogRows(dbEntries, query)
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
@@ -153,7 +153,7 @@ export async function getAuditLogData(
 
   return {
     entries,
-    totalCount: paginatedResult.totalCount,
+    totalCount: entries.length,
     meta,
     currentUser,
     query,
