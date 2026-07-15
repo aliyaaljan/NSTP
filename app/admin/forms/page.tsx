@@ -12,10 +12,12 @@ async function FormListContent({
   searchParams: Promise<{
     sectionId?: string
     scope?: string
+    completion?: string
     q?: string
     sort?: string
     dir?: string
     page?: string
+    view?: string
   }>
 }) {
   const params = await searchParams
@@ -40,10 +42,12 @@ export default function AdminFormsPage({
   searchParams: Promise<{
     sectionId?: string
     scope?: string
+    completion?: string
     q?: string
     sort?: string
     dir?: string
     page?: string
+    view?: string
   }>
 }) {
   return (

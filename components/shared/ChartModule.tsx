@@ -75,6 +75,7 @@ export function KpiStatCard({
     "db-kpi-card",
     isStatic && "db-kpi-card--static",
     !isStatic && (href || scrollTarget || onClick) && "db-kpi-card--interactive",
+    isActive && "db-kpi-card--active",
   ]
     .filter(Boolean)
     .join(" ")
@@ -188,6 +189,11 @@ export function ChartStyles() {
         border-color: var(--maroon);
         transform: translateY(-2px);
         box-shadow: 0 10px 25px -5px rgba(123, 29, 29, 0.15), 0 8px 10px -6px rgba(123, 29, 29, 0.1);
+      }
+      .db-kpi-card--active {
+        border-color: var(--maroon);
+        background-image: linear-gradient(to bottom right, rgba(123, 29, 29, 0.04), rgba(255, 255, 255, 0));
+        box-shadow: 0 4px 6px -1px rgba(123, 29, 29, 0.12), 0 2px 4px -1px rgba(123, 29, 29, 0.08);
       }
       .db-kpi-header {
         display: flex;

@@ -75,7 +75,11 @@ export interface SiteListAdviserOption {
 
 export type SiteListStatusFilter = "all" | "active" | "inactive"
 
-/** Sites = one row per geofence; Sections = one row per class with its sites. */
+export type SiteListRadiusFilter = "all" | "small"
+
+/** Sites below this radius (meters) count as small — default create radius is 200m. */
+export const SITE_LIST_SMALL_RADIUS_THRESHOLD = 200
+
 export type SiteListView = "sites" | "sections"
 
 export type SiteListSortKey =
@@ -100,6 +104,7 @@ export const SITE_LIST_PAGE_SIZE = 10
 
 export interface SiteListQuery {
   status: SiteListStatusFilter
+  radius: SiteListRadiusFilter
   /** `section.section_id`, or SITE_LIST_ALL_SECTIONS for all. */
   sectionId: string
   /** `section.adviser_user_id`, or SITE_LIST_ALL_ADVISERS for all. */
@@ -135,8 +140,8 @@ export interface SiteListSummary {
   total: number
   active: number
   inactive: number
-  /** Average geofence radius in meters (rounded). */
-  avgRadiusMeters: number
+  /** Sites with geofence radius below the default 200m threshold. */
+  smallRadius: number
 }
 
 export interface AdminCurrentUser {
@@ -207,8 +212,13 @@ const VALID_SORT: SiteListSortKey[] = [
   "siteCount",
 ]
 
+export function isSmallRadiusSite(site: SiteListRow): boolean {
+  return site.radiusMeters < SITE_LIST_SMALL_RADIUS_THRESHOLD
+}
+
 export function parseSiteListQuery(params: {
   status?: string
+  radius?: string
   sectionId?: string
   adviserId?: string
   q?: string
@@ -225,11 +235,14 @@ export function parseSiteListQuery(params: {
     : defaultSort
   const status: SiteListStatusFilter =
     params.status === "active" || params.status === "inactive" ? params.status : "all"
+  const radius: SiteListRadiusFilter =
+    params.radius === "small" ? "small" : "all"
   const sectionId = params.sectionId?.trim() || SITE_LIST_ALL_SECTIONS
   const adviserId = params.adviserId?.trim() || SITE_LIST_ALL_ADVISERS
 
   return {
     status,
+    radius,
     sectionId,
     adviserId,
     search: params.q ?? "",
@@ -269,20 +282,19 @@ export function mapSiteListDbRow(row: SiteListDbRow): SiteListRow | null {
 export function buildSiteListSummary(rows: SiteListRow[]): SiteListSummary {
   let active = 0
   let inactive = 0
-  let radiusSum = 0
+  let smallRadius = 0
 
   for (const row of rows) {
     if (row.isActive) active += 1
     else inactive += 1
-    radiusSum += row.radiusMeters
+    if (isSmallRadiusSite(row)) smallRadius += 1
   }
 
   return {
     total: rows.length,
     active,
     inactive,
-    avgRadiusMeters:
-      rows.length > 0 ? Math.round(radiusSum / rows.length) : 0,
+    smallRadius,
   }
 }
 

@@ -33,6 +33,7 @@ import {
   filterSiteListRows,
   formatSectionSitePreview,
   formatSiteCoordinates,
+  isSmallRadiusSite,
   paginateSiteListRows,
   type AdminCurrentUser,
   type SectionSiteGroup,
@@ -71,6 +72,9 @@ function initialFiltersFromQuery(query: SiteListQuery): ActiveFilters {
   const filters: ActiveFilters = {}
   if (query.status !== SITE_LIST_ALL_STATUSES) {
     filters.statusCode = [query.status]
+  }
+  if (query.radius === "small") {
+    filters.radiusSize = ["small"]
   }
   if (query.adviserId !== SITE_LIST_ALL_ADVISERS) {
     filters.adviserUserId = [query.adviserId]
@@ -202,13 +206,20 @@ export default function SiteListClient({
     [sites, query, searchInput]
   )
 
+  const statusFilters = useMemo(() => {
+    const { radiusSize: _, ...rest } = withoutClassDimensionFilters(activeFilters)
+    return rest
+  }, [activeFilters])
+
   const visibleSites = useMemo(
     () =>
       searchFiltered.filter(
         (site) =>
+          (!(activeFilters.radiusSize?.includes("small") ?? false) ||
+            isSmallRadiusSite(site)) &&
           matchesActiveFilters(
             { statusCode: site.isActive ? "active" : "inactive" },
-            withoutClassDimensionFilters(activeFilters)
+            statusFilters
           ) &&
           matchesClassDimensionFilters(
             {
@@ -219,7 +230,7 @@ export default function SiteListClient({
             activeFilters
           )
       ),
-    [searchFiltered, activeFilters]
+    [searchFiltered, activeFilters, statusFilters]
   )
 
   const sectionGroups = useMemo(
@@ -264,6 +275,14 @@ export default function SiteListClient({
     pushParams({ page: "1" })
   }
 
+  function clearKpiFilters() {
+    setActiveFilters((prev) => {
+      const { statusCode: _, radiusSize: __, ...rest } = prev
+      return rest
+    })
+    pushParams({ status: null, radius: null, page: "1" })
+  }
+
   function setStatusFilter(status: string | null) {
     setActiveFilters((prev) => {
       if (!status) {
@@ -273,6 +292,17 @@ export default function SiteListClient({
       return { ...prev, statusCode: [status] }
     })
     pushParams({ status, page: "1" })
+  }
+
+  function setSmallRadiusFilter(active: boolean) {
+    setActiveFilters((prev) => {
+      if (!active) {
+        const { radiusSize: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, radiusSize: ["small"] }
+    })
+    pushParams({ radius: active ? "small" : null, page: "1" })
   }
 
   function openDeleteConfirm(site: SiteListRow) {
@@ -325,8 +355,9 @@ export default function SiteListClient({
       label: "Total Sites",
       value: summary.total,
       note: "geofence locations",
-      onClick: () => setStatusFilter(null),
-      isActive: !activeFilters.statusCode?.length,
+      onClick: clearKpiFilters,
+      isActive:
+        !activeFilters.statusCode?.length && !activeFilters.radiusSize?.length,
     },
     {
       icon: "ti-circle-check",
@@ -356,11 +387,19 @@ export default function SiteListClient({
     },
     {
       icon: "ti-radar",
-      label: "Avg. Radius",
-      value: summary.avgRadiusMeters,
-      valueSuffix: "m",
-      note: "across all sites",
-      static: true,
+      label: "Small Radius",
+      value: summary.smallRadius,
+      badge: {
+        text: pctOfTotal(summary.smallRadius),
+        bg: COLORS.amberBgLight,
+        color: COLORS.amber,
+      },
+      note: "below 200m",
+      onClick: () => {
+        const isOn = activeFilters.radiusSize?.includes("small") ?? false
+        setSmallRadiusFilter(!isOn)
+      },
+      isActive: activeFilters.radiusSize?.includes("small") ?? false,
     },
   ]
 
@@ -443,7 +482,7 @@ export default function SiteListClient({
           }}
           onClearFilters={() => {
             setActiveFilters({})
-            pushParams({ status: null, page: "1" })
+            pushParams({ status: null, radius: null, page: "1" })
           }}
           actions={<AdminAddButton label="Add site" onClick={() => setAddOpen(true)} />}
         />
@@ -509,7 +548,7 @@ export default function SiteListClient({
                     >
                       <td>
                         <div style={{ fontWeight: 700, color: COLORS.textDark }}>
-                          {sectionLabelById.get(group.sectionId) ?? group.sectionName}
+                          {group.courseCode}
                         </div>
                       </td>
                       <td>
@@ -614,7 +653,7 @@ export default function SiteListClient({
                       </td>
                       <td>
                         <div style={{ color: COLORS.textDark }}>
-                          {sectionLabelById.get(site.sectionId) ?? site.sectionName}
+                          {site.courseCode}
                         </div>
                       </td>
                       <td>

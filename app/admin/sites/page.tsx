@@ -11,6 +11,7 @@ async function SiteListContent({
 }: {
   searchParams: Promise<{
     status?: string
+    radius?: string
     sectionId?: string
     adviserId?: string
     q?: string
@@ -42,6 +43,7 @@ export default function AdminSitesPage({
 }: {
   searchParams: Promise<{
     status?: string
+    radius?: string
     sectionId?: string
     adviserId?: string
     q?: string
