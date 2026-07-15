@@ -118,7 +118,7 @@ export default function AddAccessUserModal({
 
   if (!open) return null
 
-  const canAdd = !isPending && Boolean(form.fullName.trim() && form.email.trim() && form.roleId)
+  const canAdd = !isPending
 
   return (
     <div

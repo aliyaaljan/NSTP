@@ -150,8 +150,7 @@ export default function EditAccessUserModal({
   const isDirty =
     form && initialForm ? isFormDirty(initialForm, form) : false
 
-  const canSave =
-    !isPending && isDirty && Boolean(form.fullName.trim() && form.email.trim())
+  const canSave = !isPending && isDirty
 
   return (
     <div

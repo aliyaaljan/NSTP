@@ -182,6 +182,9 @@ export default function EditStudentModal({
       studentNumber: form.studentNumber,
       saisId: form.saisId,
     })
+    if (!form.studentNumber?.trim()) {
+      nextErrors.studentNumber = `Please enter the ${STUDENT_NUMBER_LENGTH} digits of the Student ID.`
+    }
     if (!form.sectionId.trim()) {
       setFormError("Class is required.")
     } else {
@@ -203,10 +206,7 @@ export default function EditStudentModal({
 
   if (!open || !student || !form) return null
 
-  const canSave =
-    !isPending &&
-    isDirty &&
-    Boolean(form.fullName.trim() && form.email.trim() && form.sectionId)
+  const canSave = !isPending && isDirty
 
   return (
     <div

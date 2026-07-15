@@ -196,7 +196,7 @@ export function mapAdviserDbRowToListRow(
 ): AdviserListRow {
   const sections = row.section ?? []
   const classLabel = formatClassLabel({
-    // At most one class per (adviser, term); course_code is uniform across it.
+    // A facilitator may advise multiple NSTP types in one term.
     courseCode: sections[0]?.course_code,
     facilitatorName: row.full_name,
     schoolYear: sections[0]?.term?.school_year,

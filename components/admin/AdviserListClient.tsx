@@ -334,11 +334,10 @@ export default function AdviserListClient({
   const [animKey, setAnimKey] = useState(0)
   const pageSize = ADVISER_LIST_PAGE_SIZE
 
-  // Class reassignment (offered after deactivation, or from the hard-delete
-  // blocker list). `reassignSource` decides what "Skip"/success should do.
+  // Class reassignment from the hard-delete blocker list only.
+  // After deactivation, classes show a reassignment notice on the Classes page.
   const [reassignOpen, setReassignOpen] = useState(false)
   const [reassignData, setReassignData] = useState<ClassReassignmentData | null>(null)
-  const [reassignSource, setReassignSource] = useState<"deactivate" | "blocker" | null>(null)
 
   // Hard delete (only ever available for an already-inactive facilitator).
   const [hardDeleteTarget, setHardDeleteTarget] = useState<AdviserListRow | null>(null)
@@ -454,16 +453,6 @@ export default function AdviserListClient({
         setDeleteError(result.error)
         return
       }
-      if (deleteTarget.sectionCount > 0) {
-        const res = await getClassReassignmentDataAction(deleteTarget.id)
-        if (res.ok && res.data.classes.length > 0) {
-          setDeleteTarget(null)
-          setReassignData(res.data)
-          setReassignSource("deactivate")
-          setReassignOpen(true)
-          return // no reload — the reassign modal's Skip/Done reloads instead
-        }
-      }
       setDeleteTarget(null)
       window.location.reload()
     })
@@ -471,20 +460,13 @@ export default function AdviserListClient({
 
   function closeReassignModal() {
     setReassignOpen(false)
-    if (reassignSource === "deactivate") {
-      window.location.reload()
-      return
-    }
-    // Opened from the hard-delete blocker list — just return to that modal.
-    setReassignSource(null)
     setReassignData(null)
   }
 
   function handleReassigned() {
     setReassignOpen(false)
-    if (reassignSource === "blocker" && hardDeleteTarget) {
-      setReassignSource(null)
-      setReassignData(null)
+    setReassignData(null)
+    if (hardDeleteTarget) {
       // Re-check the impact in place so the admin can continue to delete
       // without losing their spot.
       getAdviserDeleteImpactAction(hardDeleteTarget.adviserUserId).then((res) => {
@@ -540,7 +522,6 @@ export default function AdviserListClient({
     getClassReassignmentDataAction(hardDeleteTarget.adviserUserId).then((res) => {
       if (res.ok && res.data.classes.length > 0) {
         setReassignData(res.data)
-        setReassignSource("blocker")
         setReassignOpen(true)
       }
     })
@@ -811,7 +792,7 @@ export default function AdviserListClient({
         subjectName={deleteTarget?.name}
         message={
           deleteTarget && deleteTarget.sectionCount > 0
-            ? `This facilitator still advises ${deleteTarget.sectionCount} section${deleteTarget.sectionCount !== 1 ? "s" : ""}. The account will be deactivated and can no longer sign in; you can move their class to another facilitator in the next step.`
+            ? `This facilitator still advises ${deleteTarget.sectionCount} class${deleteTarget.sectionCount !== 1 ? "es" : ""}. The account will be deactivated and can no longer sign in. Reassign those classes from the Classes page — each affected row will show a notice.`
             : "The account will be deactivated and can no longer sign in. History is kept."
         }
         confirmLabel="Deactivate"
@@ -823,8 +804,7 @@ export default function AdviserListClient({
 
       <ReassignClassModal
         open={reassignOpen}
-        sourceClass={reassignData?.classes[0] ?? null}
-        candidates={reassignData?.candidates ?? []}
+        classes={reassignData?.classes ?? []}
         onClose={closeReassignModal}
         onReassigned={handleReassigned}
       />

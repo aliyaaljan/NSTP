@@ -4,17 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
 import { createForm, updateForm } from "@/lib/admin/form-list-actions"
 import {
+  collectFormFieldErrors,
   emptyFormCreatePayload,
   formRowToEditPayload,
   FORM_GLOBAL_SECTION,
-  validateFormCreatePayload,
-  validateFormEditPayload,
   type FormCreatePayload,
   type FormEditPayload,
+  type FormFieldErrors,
 } from "@/lib/admin/form-edit"
 import type { FormListSectionOption } from "@/lib/admin/form-list"
 import { isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { AdminFormField, AdminTextInput } from "@/components/admin/AdminFormControls"
 
 const COLORS = {
   textDark: "#2C2C2A",
@@ -22,70 +23,6 @@ const COLORS = {
   headerGreen: "#14492E",
   fieldBg: "#EBEBE8",
   error: "#7B1113",
-}
-
-function FormField({
-  label,
-  hint,
-  children,
-}: {
-  label: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <label
-        style={{
-          ...TYPE.bodyBold,
-          color: COLORS.textDark,
-          display: "block",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-      {hint && (
-        <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
-          {hint}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-}: {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  type?: "text" | "date"
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        ...TYPE.body,
-        fontStyle: "normal",
-        color: COLORS.textDark,
-        background: COLORS.fieldBg,
-        border: "none",
-        borderRadius: 6,
-        padding: "12px 14px",
-        outline: "none",
-      }}
-    />
-  )
 }
 
 export default function CreateFormModal({
@@ -108,7 +45,8 @@ export default function CreateFormModal({
     listSectionId: string
     isGlobal: boolean
   } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FormFieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const loadedSessionRef = useRef<string | null>(null)
 
@@ -116,7 +54,8 @@ export default function CreateFormModal({
     setForm(emptyFormCreatePayload())
     setInitialForm(null)
     setEditMeta(null)
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
   }, [])
 
   useEffect(() => {
@@ -142,6 +81,8 @@ export default function CreateFormModal({
         listSectionId: initialEdit.listSectionId,
         isGlobal: initialEdit.isGlobal,
       })
+      setFieldErrors({})
+      setFormError(null)
       return
     }
 
@@ -181,10 +122,22 @@ export default function CreateFormModal({
 
   function patchForm(updates: Partial<FormCreatePayload>) {
     setForm((prev) => ({ ...prev, ...updates }))
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(updates) as (keyof FormCreatePayload)[]) {
+        if (key === "title") delete next.title
+        if (key === "dueDate") delete next.dueDate
+      }
+      return next
+    })
+    setFormError(null)
   }
 
   function handleSubmit() {
-    setError(null)
+    const nextErrors = collectFormFieldErrors(form)
+    setFieldErrors(nextErrors)
+    setFormError(null)
+    if (Object.keys(nextErrors).length > 0) return
 
     if (mode === "edit" && editMeta) {
       const payload: FormEditPayload = {
@@ -193,16 +146,11 @@ export default function CreateFormModal({
         listSectionId: editMeta.listSectionId,
         isGlobal: editMeta.isGlobal,
       }
-      const validationError = validateFormEditPayload(payload)
-      if (validationError) {
-        setError(validationError)
-        return
-      }
 
       startTransition(async () => {
         const result = await updateForm(payload)
         if (!result.ok) {
-          setError(result.error)
+          setFormError(result.error)
           return
         }
         onClose()
@@ -211,16 +159,10 @@ export default function CreateFormModal({
       return
     }
 
-    const validationError = validateFormCreatePayload(form)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-
     startTransition(async () => {
       const result = await createForm(form)
       if (!result.ok) {
-        setError(result.error)
+        setFormError(result.error)
         return
       }
       onClose()
@@ -233,7 +175,7 @@ export default function CreateFormModal({
       ? isFormDirty(initialForm, form)
       : true
 
-  const canSubmit = Boolean(form.title.trim()) && isDirty
+  const canSubmit = !isPending && (mode === "create" || isDirty)
 
   return (
     <div
@@ -303,33 +245,35 @@ export default function CreateFormModal({
         </div>
 
         <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 18 }}>
-          <FormField label="Form Name">
-            <TextInput
+          <AdminFormField label="Form Name" error={fieldErrors.title}>
+            <AdminTextInput
               value={form.title}
               onChange={(title) => patchForm({ title })}
               placeholder="e.g. Daily Time Record"
+              invalid={Boolean(fieldErrors.title)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Description" hint="Optional instructions for students.">
-            <TextInput
+          <AdminFormField label="Description" hint="Optional instructions for students.">
+            <AdminTextInput
               value={form.description ?? ""}
               onChange={(description) =>
                 patchForm({ description: description.trim() || null })
               }
               placeholder="Optional description"
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Due Date" hint="Leave blank for no deadline.">
-            <TextInput
+          <AdminFormField label="Due Date" hint="Leave blank for no deadline." error={fieldErrors.dueDate}>
+            <AdminTextInput
               type="date"
               value={form.dueDate ?? ""}
               onChange={(dueDate) => patchForm({ dueDate: dueDate || null })}
+              invalid={Boolean(fieldErrors.dueDate)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField
+          <AdminFormField
             label="Class"
             hint={
               mode === "edit" && editMeta?.isGlobal
@@ -347,10 +291,10 @@ export default function CreateFormModal({
               toggleAriaLabel="Toggle class list"
               disabled={mode === "edit" && Boolean(editMeta?.isGlobal)}
             />
-          </FormField>
+          </AdminFormField>
 
-          {error && (
-            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{error}</p>
+          {formError && (
+            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{formError}</p>
           )}
         </div>
 
@@ -380,7 +324,7 @@ export default function CreateFormModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!canSubmit || isPending}
+            disabled={!canSubmit}
             style={{
               ...TYPE.bodyBold,
               background: canSubmit ? COLORS.headerGreen : "#A8B5AD",
@@ -388,8 +332,8 @@ export default function CreateFormModal({
               border: "none",
               borderRadius: 8,
               padding: "10px 20px",
-              cursor: !canSubmit || isPending ? "not-allowed" : "pointer",
-              opacity: !canSubmit || isPending ? 1 : 1,
+              cursor: canSubmit ? "pointer" : "not-allowed",
+              opacity: canSubmit ? 1 : 1,
             }}
           >
             {isPending ? "Saving…" : mode === "edit" ? "Save Changes" : "Create Form"}

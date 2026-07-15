@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState, useTransition } from "react"
 import { createHoliday } from "@/lib/admin/settings-actions"
 import {
+  collectHolidayFieldErrors,
   emptyHolidayCreatePayload,
-  validateHolidayCreatePayload,
   type HolidayCreatePayload,
+  type HolidayFieldErrors,
 } from "@/lib/admin/settings-edit"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { AdminFormField, AdminTextInput } from "@/components/admin/AdminFormControls"
 
 const COLORS = {
   textDark: "#2C2C2A",
@@ -15,33 +17,6 @@ const COLORS = {
   headerGreen: "#14492E",
   fieldBg: "#EBEBE8",
   error: "#7B1113",
-}
-
-function FormField({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string
-  htmlFor: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <label
-        htmlFor={htmlFor}
-        style={{
-          ...TYPE.bodyBold,
-          color: COLORS.textDark,
-          display: "block",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-    </div>
-  )
 }
 
 export default function AddHolidayModal({
@@ -54,12 +29,14 @@ export default function AddHolidayModal({
   onClose: () => void
 }) {
   const [form, setForm] = useState<HolidayCreatePayload>(emptyHolidayCreatePayload(termId))
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<HolidayFieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const reset = useCallback(() => {
     setForm(emptyHolidayCreatePayload(termId))
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
   }, [termId])
 
   const close = useCallback(() => {
@@ -70,7 +47,8 @@ export default function AddHolidayModal({
   useEffect(() => {
     if (open) {
       setForm(emptyHolidayCreatePayload(termId))
-      setError(null)
+      setFieldErrors({})
+      setFormError(null)
     }
   }, [open, termId])
 
@@ -91,20 +69,27 @@ export default function AddHolidayModal({
 
   function patchForm(updates: Partial<HolidayCreatePayload>) {
     setForm((prev) => ({ ...prev, ...updates }))
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(updates) as (keyof HolidayCreatePayload)[]) {
+        if (key === "name") delete next.name
+        if (key === "date") delete next.date
+      }
+      return next
+    })
+    setFormError(null)
   }
 
   function handleAdd() {
-    const validationError = validateHolidayCreatePayload(form)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
+    const nextErrors = collectHolidayFieldErrors(form)
+    setFieldErrors(nextErrors)
+    setFormError(null)
+    if (Object.keys(nextErrors).length > 0) return
 
-    setError(null)
     startTransition(async () => {
       const result = await createHoliday(form)
       if (!result.ok) {
-        setError(result.error)
+        setFormError(result.error)
         return
       }
       close()
@@ -114,7 +99,7 @@ export default function AddHolidayModal({
 
   if (!open) return null
 
-  const canAdd = !isPending && Boolean(form.name.trim() && form.date)
+  const canAdd = !isPending
 
   return (
     <div
@@ -192,78 +177,46 @@ export default function AddHolidayModal({
         >
           <input type="hidden" name="term_id" value={form.termId} />
 
-          <FormField label="Holiday Name:" htmlFor="holiday_name">
-            <input
+          <AdminFormField
+            label="Holiday Name:"
+            htmlFor="holiday_name"
+            error={fieldErrors.name}
+          >
+            <AdminTextInput
               id="holiday_name"
               name="holiday_name"
-              type="text"
               value={form.name}
-              onChange={(e) => patchForm({ name: e.target.value })}
+              onChange={(name) => patchForm({ name })}
               placeholder="e.g. National Heroes Day"
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                ...TYPE.body,
-                fontStyle: "normal",
-                color: COLORS.textDark,
-                background: COLORS.fieldBg,
-                border: "none",
-                borderRadius: 6,
-                padding: "12px 14px",
-                outline: "none",
-              }}
+              invalid={Boolean(fieldErrors.name)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Date:" htmlFor="holiday_date">
-            <input
+          <AdminFormField label="Date:" htmlFor="holiday_date" error={fieldErrors.date}>
+            <AdminTextInput
               id="holiday_date"
               name="holiday_date"
               type="date"
               value={form.date}
-              onChange={(e) => patchForm({ date: e.target.value })}
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                ...TYPE.body,
-                fontStyle: "normal",
-                color: COLORS.textDark,
-                background: COLORS.fieldBg,
-                border: "none",
-                borderRadius: 6,
-                padding: "12px 14px",
-                outline: "none",
-              }}
+              onChange={(date) => patchForm({ date })}
+              invalid={Boolean(fieldErrors.date)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Description (optional):" htmlFor="holiday_description">
-            <input
+          <AdminFormField label="Description (optional):" htmlFor="holiday_description">
+            <AdminTextInput
               id="holiday_description"
               name="holiday_description"
-              type="text"
               value={form.description ?? ""}
-              onChange={(e) =>
-                patchForm({ description: e.target.value.trim() || null })
+              onChange={(description) =>
+                patchForm({ description: description.trim() || null })
               }
               placeholder="e.g. Regular holiday"
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                ...TYPE.body,
-                fontStyle: "normal",
-                color: COLORS.textDark,
-                background: COLORS.fieldBg,
-                border: "none",
-                borderRadius: 6,
-                padding: "12px 14px",
-                outline: "none",
-              }}
             />
-          </FormField>
+          </AdminFormField>
 
-          {error && (
-            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{error}</p>
+          {formError && (
+            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{formError}</p>
           )}
 
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
@@ -276,7 +229,7 @@ export default function AddHolidayModal({
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                background: COLORS.headerGreen,
+                background: canAdd ? COLORS.headerGreen : "#A8B5AD",
                 color: "#fff",
                 border: "none",
                 borderRadius: 24,

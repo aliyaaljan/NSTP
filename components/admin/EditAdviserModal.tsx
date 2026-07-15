@@ -190,10 +190,7 @@ export default function EditAdviserModal({
   const sectionsLabel =
     adviser.sectionNames.length > 0 ? adviser.sectionNames.join(", ") : "—"
 
-  const canSave =
-    !isPending &&
-    isDirty &&
-    Boolean(form.fullName.trim() && form.email.trim())
+  const canSave = !isPending && isDirty
 
   return (
     <div

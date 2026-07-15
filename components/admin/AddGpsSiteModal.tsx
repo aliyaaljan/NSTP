@@ -3,14 +3,16 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { createSite } from "@/lib/admin/site-list-actions"
 import {
+  collectSiteFieldErrors,
   emptySiteCreatePayload,
-  validateSiteCreatePayload,
   type SiteCreatePayload,
+  type SiteFieldErrors,
 } from "@/lib/admin/site-edit"
 import type { SiteListSectionOption } from "@/lib/admin/site-list"
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
 import { isFormDirty } from "@/lib/admin/form-dirty"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { AdminFormField, AdminTextInput } from "@/components/admin/AdminFormControls"
 
 //Map
 import dynamic from "next/dynamic"
@@ -22,81 +24,6 @@ const COLORS = {
   headerGreen: "#14492E",
   fieldBg: "#EBEBE8",
   error: "#7B1113",
-}
-
-function FormField({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string
-  htmlFor: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <label
-        htmlFor={htmlFor}
-        style={{
-          ...TYPE.bodyBold,
-          color: COLORS.textDark,
-          display: "block",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-    </div>
-  )
-}
-
-function TextInput({
-  id,
-  name,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  min,
-  max,
-  step,
-}: {
-  id: string
-  name: string
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  type?: "text" | "number" | "range"
-  min?: number
-  max?: number
-  step?: number
-}) {
-  return (
-    <input
-      id={id}
-      name={name}
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      min={min}  
-      max={max}  
-      step={step}
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        ...TYPE.body,
-        fontStyle: "normal",
-        color: COLORS.textDark,
-        background: COLORS.fieldBg,
-        border: "none",
-        borderRadius: 6,
-        padding: "12px 14px",
-        outline: "none",
-      }}
-    />
-  )
 }
 
 /** Loose bounding box around the Philippines — a sanity hint, not a hard rule. */
@@ -117,13 +44,9 @@ export default function AddGpsSiteModal({
   const [form, setForm] = useState<SiteCreatePayload>(initialPayload)
   const [latInput, setLatInput] = useState(String(initialPayload.centerLatitude))
   const [lngInput, setLngInput] = useState(String(initialPayload.centerLongitude))
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<SiteFieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-
-  const selectedSupervisor = useMemo(() => {
-    const section = gpsSections.find((s) => s.sectionId === form.sectionId)
-    return section?.supervisorName ?? ""
-  }, [gpsSections, form.sectionId])
 
   const classOptions = useMemo(
     () =>
@@ -139,7 +62,8 @@ export default function AddGpsSiteModal({
     setForm(empty)
     setLatInput(String(empty.centerLatitude))
     setLngInput(String(empty.centerLongitude))
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
   }, [])
 
   const close = useCallback(() => {
@@ -176,6 +100,36 @@ export default function AddGpsSiteModal({
 
   function patchForm(updates: Partial<SiteCreatePayload>) {
     setForm((prev) => ({ ...prev, ...updates }))
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(updates) as (keyof SiteCreatePayload)[]) {
+        if (key === "siteName") delete next.siteName
+        if (key === "sectionId") delete next.sectionId
+        if (key === "radiusMeters") delete next.radiusMeters
+      }
+      return next
+    })
+    setFormError(null)
+  }
+
+  function handleLatChange(value: string) {
+    setLatInput(value)
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.centerLatitude
+      return next
+    })
+    setFormError(null)
+  }
+
+  function handleLngChange(value: string) {
+    setLngInput(value)
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.centerLongitude
+      return next
+    })
+    setFormError(null)
   }
 
   const parsedLat = Number.parseFloat(latInput)
@@ -198,25 +152,27 @@ export default function AddGpsSiteModal({
     latValid && lngValid && isOutsidePhilippines(parsedLat, parsedLng)
 
   function handleAdd() {
-    if (!latValid) {
-      setError("Latitude must be a number between -90 and 90.")
-      return
-    }
-    if (!lngValid) {
-      setError("Longitude must be a number between -180 and 180.")
-      return
-    }
-    const validationError = validateSiteCreatePayload(form)
-    if (validationError) {
-      setError(validationError)
-      return
+    const nextErrors = collectSiteFieldErrors({
+      siteName: form.siteName,
+      sectionId: form.sectionId,
+      radiusMeters: form.radiusMeters,
+      latInput,
+      lngInput,
+    })
+    setFieldErrors(nextErrors)
+    setFormError(null)
+    if (Object.keys(nextErrors).length > 0) return
+
+    const payload: SiteCreatePayload = {
+      ...form,
+      centerLatitude: parsedLat,
+      centerLongitude: parsedLng,
     }
 
-    setError(null)
     startTransition(async () => {
-      const result = await createSite(form)
+      const result = await createSite(payload)
       if (!result.ok) {
-        setError(result.error)
+        setFormError(result.error)
         return
       }
       close()
@@ -226,11 +182,7 @@ export default function AddGpsSiteModal({
 
   if (!open) return null
 
-  const canAdd =
-    !isPending &&
-    latValid &&
-    lngValid &&
-    Boolean(form.siteName.trim() && form.sectionId && form.radiusMeters > 0)
+  const canAdd = !isPending
 
   return (
     <div
@@ -306,17 +258,22 @@ export default function AddGpsSiteModal({
             gap: 18,
           }}
         >
-          <FormField label="Site Name:" htmlFor="gps_site_name">
-            <TextInput
+          <AdminFormField
+            label="Site Name:"
+            htmlFor="gps_site_name"
+            error={fieldErrors.siteName}
+          >
+            <AdminTextInput
               id="gps_site_name"
               name="site_name"
               value={form.siteName}
               onChange={(siteName) => patchForm({ siteName })}
               placeholder="e.g. Baguio City — Main Campus"
+              invalid={Boolean(fieldErrors.siteName)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Class:" htmlFor="gps_section_id">
+          <AdminFormField label="Class:" error={fieldErrors.sectionId}>
             <SearchableCombobox
               id="gps_section_id"
               name="section_id"
@@ -327,9 +284,13 @@ export default function AddGpsSiteModal({
               emptyMessage="No classes found"
               toggleAriaLabel="Toggle class list"
             />
-          </FormField>
-          
-          <FormField label="Site Radius (meters):" htmlFor="gps_site_radius">
+          </AdminFormField>
+
+          <AdminFormField
+            label="Site Radius (meters):"
+            htmlFor="gps_site_radius"
+            error={fieldErrors.radiusMeters}
+          >
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <input
                 id="gps_site_radius"
@@ -339,7 +300,9 @@ export default function AddGpsSiteModal({
                 max={1000}
                 step={10}
                 value={form.radiusMeters}
-                onChange={(e) => patchForm({ radiusMeters: parseInt(e.target.value, 10) || 0 })}
+                onChange={(e) =>
+                  patchForm({ radiusMeters: parseInt(e.target.value, 10) || 0 })
+                }
                 style={{
                   accentColor: COLORS.headerGreen,
                   width: "100%",
@@ -349,64 +312,66 @@ export default function AddGpsSiteModal({
                   height: "8px",
                   borderRadius: "6px",
                   outline: "none",
-                  background: form.radiusMeters >= 1000 
-                    ? COLORS.headerGreen  
-                    : `linear-gradient(to right, ${COLORS.headerGreen} 0%, ${COLORS.headerGreen} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} 100%)`,
+                  background:
+                    form.radiusMeters >= 1000
+                      ? COLORS.headerGreen
+                      : `linear-gradient(to right, ${COLORS.headerGreen} 0%, ${COLORS.headerGreen} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} 100%)`,
                 }}
               />
-              
-              <div style={{ 
-                display: "flex", 
-                justifyContent: "space-between", 
-                ...TYPE.caption, 
-                color: COLORS.textDark,
-                fontWeight: 600 
-              }}>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  ...TYPE.caption,
+                  color: COLORS.textDark,
+                  fontWeight: 600,
+                }}
+              >
                 <span>Min: 10m</span>
                 <span style={{ color: COLORS.headerGreen, fontSize: "15px" }}>
                   Selected: {form.radiusMeters} meters
                 </span>
                 <span>Max: 1km</span>
               </div>
-
             </div>
-          </FormField>
+          </AdminFormField>
 
           <div className="flex flex-row gap-6 w-full">
             <div className="flex-1">
-              <FormField label="Latitude:" htmlFor="gps_center_latitude">
-              <TextInput
-                id="gps_center_latitude"
-                name="center_latitude"
-                type="number"
-                value={latInput}
-                onChange={setLatInput}
-                placeholder="16.411100"
-              />
-              {!latValid && (
-                <p style={{ ...TYPE.caption, color: COLORS.error, margin: "6px 0 0" }}>
-                  Must be between -90 and 90.
-                </p>
-              )}
-            </FormField>
+              <AdminFormField
+                label="Latitude:"
+                htmlFor="gps_center_latitude"
+                error={fieldErrors.centerLatitude}
+              >
+                <AdminTextInput
+                  id="gps_center_latitude"
+                  name="center_latitude"
+                  type="number"
+                  value={latInput}
+                  onChange={handleLatChange}
+                  placeholder="16.411100"
+                  invalid={Boolean(fieldErrors.centerLatitude)}
+                />
+              </AdminFormField>
             </div>
 
             <div className="flex-1">
-              <FormField label="Longitude:" htmlFor="gps_center_longitude">
-              <TextInput
-                id="gps_center_longitude"
-                name="center_longitude"
-                type="number"
-                value={lngInput}
-                onChange={setLngInput}
-                placeholder="120.596600"
-              />
-              {!lngValid && (
-                <p style={{ ...TYPE.caption, color: COLORS.error, margin: "6px 0 0" }}>
-                  Must be between -180 and 180.
-                </p>
-              )}
-            </FormField>
+              <AdminFormField
+                label="Longitude:"
+                htmlFor="gps_center_longitude"
+                error={fieldErrors.centerLongitude}
+              >
+                <AdminTextInput
+                  id="gps_center_longitude"
+                  name="center_longitude"
+                  type="number"
+                  value={lngInput}
+                  onChange={handleLngChange}
+                  placeholder="120.596600"
+                  invalid={Boolean(fieldErrors.centerLongitude)}
+                />
+              </AdminFormField>
             </div>
           </div>
 
@@ -431,8 +396,8 @@ export default function AddGpsSiteModal({
             </div>
           )}
 
-          {error && (
-            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{error}</p>
+          {formError && (
+            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{formError}</p>
           )}
 
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
@@ -445,7 +410,7 @@ export default function AddGpsSiteModal({
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                background: COLORS.headerGreen,
+                background: canAdd ? COLORS.headerGreen : "#A8B5AD",
                 color: "#fff",
                 border: "none",
                 borderRadius: 24,
@@ -454,7 +419,6 @@ export default function AddGpsSiteModal({
                 opacity: canAdd ? 1 : 0.5,
               }}
             >
-              {/* <i className="ti ti-plus" style={{ fontSize: 16 }} /> */}
               {isPending ? "Adding…" : "Add"}
             </button>
           </div>

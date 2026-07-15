@@ -63,6 +63,50 @@ export function emptySiteCreatePayload(): SiteCreatePayload {
   }
 }
 
+export type SiteFieldKey =
+  | "siteName"
+  | "sectionId"
+  | "radiusMeters"
+  | "centerLatitude"
+  | "centerLongitude"
+
+export type SiteFieldErrors = Partial<Record<SiteFieldKey, string>>
+
+export function collectSiteFieldErrors(input: {
+  siteName: string
+  sectionId: string
+  radiusMeters: number
+  latInput: string
+  lngInput: string
+}): SiteFieldErrors {
+  const errors: SiteFieldErrors = {}
+  if (!input.siteName.trim()) {
+    errors.siteName = "Please enter the site name."
+  }
+  if (!input.sectionId.trim()) {
+    errors.sectionId = "Please select a class."
+  }
+  if (
+    !Number.isFinite(input.radiusMeters) ||
+    input.radiusMeters < 10 ||
+    input.radiusMeters > 1000
+  ) {
+    errors.radiusMeters = "Radius must be between 10 and 1000 meters."
+  }
+
+  const lat = Number.parseFloat(input.latInput)
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    errors.centerLatitude = "Please enter a latitude between -90 and 90."
+  }
+
+  const lng = Number.parseFloat(input.lngInput)
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+    errors.centerLongitude = "Please enter a longitude between -180 and 180."
+  }
+
+  return errors
+}
+
 function validateSiteCoordinatesAndRadius(payload: {
   radiusMeters: number
   centerLatitude: number

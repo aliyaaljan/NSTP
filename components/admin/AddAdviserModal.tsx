@@ -167,8 +167,7 @@ export default function AddAdviserModal({
 
   if (!open) return null
 
-  const canAdd =
-    !isPending && Boolean(form.fullName.trim() && form.email.trim())
+  const canAdd = !isPending
 
   return (
     <div

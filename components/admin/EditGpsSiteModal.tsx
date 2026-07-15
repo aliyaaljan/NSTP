@@ -3,14 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { updateSite } from "@/lib/admin/site-list-actions"
 import {
+  collectSiteFieldErrors,
   siteRowToUpdatePayload,
-  validateSiteUpdatePayload,
+  type SiteFieldErrors,
   type SiteUpdatePayload,
 } from "@/lib/admin/site-edit"
 import type { SiteListRow, SiteListSectionOption } from "@/lib/admin/site-list"
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
 import { clearFormSession, isFormDirty, shouldLoadFormSession, snapshotForm } from "@/lib/admin/form-dirty"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import { AdminFormField, AdminTextInput } from "@/components/admin/AdminFormControls"
 
 //Map
 import dynamic from "next/dynamic"
@@ -22,81 +24,6 @@ const COLORS = {
   headerGreen: "#14492E",
   fieldBg: "#EBEBE8",
   error: "#7B1113",
-}
-
-function FormField({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string
-  htmlFor: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <label
-        htmlFor={htmlFor}
-        style={{
-          ...TYPE.bodyBold,
-          color: COLORS.textDark,
-          display: "block",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-    </div>
-  )
-}
-
-function TextInput({
-  id,
-  name,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  min,
-  max,
-  step,
-}: {
-  id: string
-  name: string
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  type?: "text" | "number" | "range"
-  min?: number
-  max?: number
-  step?: number
-}) {
-  return (
-    <input
-      id={id}
-      name={name}
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      min={min}  
-      max={max}  
-      step={step}
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        ...TYPE.body,
-        fontStyle: "normal",
-        color: COLORS.textDark,
-        background: COLORS.fieldBg,
-        border: "none",
-        borderRadius: 6,
-        padding: "12px 14px",
-        outline: "none",
-      }}
-    />
-  )
 }
 
 /** Loose bounding box around the Philippines — a sanity hint, not a hard rule. */
@@ -119,15 +46,10 @@ export default function EditGpsSiteModal({
   const [initialForm, setInitialForm] = useState<SiteUpdatePayload | null>(null)
   const [latInput, setLatInput] = useState("")
   const [lngInput, setLngInput] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<SiteFieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const loadedSessionRef = useRef<string | null>(null)
-
-  const selectedSupervisor = useMemo(() => {
-    if (!form) return ""
-    const section = gpsSections.find((s) => s.sectionId === form.sectionId)
-    return section?.supervisorName ?? site?.supervisorName ?? ""
-  }, [gpsSections, form, site?.supervisorName])
 
   const classOptions = useMemo(
     () =>
@@ -142,7 +64,8 @@ export default function EditGpsSiteModal({
     clearFormSession(loadedSessionRef)
     setForm(null)
     setInitialForm(null)
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
     onClose()
   }, [onClose])
 
@@ -166,7 +89,8 @@ export default function EditGpsSiteModal({
     setInitialForm(snapshotForm(next))
     setLatInput(String(next.centerLatitude))
     setLngInput(String(next.centerLongitude))
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
   }, [open, site])
 
   useEffect(() => {
@@ -186,6 +110,36 @@ export default function EditGpsSiteModal({
 
   function patchForm(updates: Partial<SiteUpdatePayload>) {
     setForm((prev) => (prev ? { ...prev, ...updates } : prev))
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(updates) as (keyof SiteUpdatePayload)[]) {
+        if (key === "siteName") delete next.siteName
+        if (key === "sectionId") delete next.sectionId
+        if (key === "radiusMeters") delete next.radiusMeters
+      }
+      return next
+    })
+    setFormError(null)
+  }
+
+  function handleLatChange(value: string) {
+    setLatInput(value)
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.centerLatitude
+      return next
+    })
+    setFormError(null)
+  }
+
+  function handleLngChange(value: string) {
+    setLngInput(value)
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.centerLongitude
+      return next
+    })
+    setFormError(null)
   }
 
   const parsedLat = Number.parseFloat(latInput)
@@ -210,26 +164,27 @@ export default function EditGpsSiteModal({
   function handleSave() {
     if (!form) return
 
-    if (!latValid) {
-      setError("Latitude must be a number between -90 and 90.")
-      return
-    }
-    if (!lngValid) {
-      setError("Longitude must be a number between -180 and 180.")
-      return
+    const nextErrors = collectSiteFieldErrors({
+      siteName: form.siteName,
+      sectionId: form.sectionId,
+      radiusMeters: form.radiusMeters,
+      latInput,
+      lngInput,
+    })
+    setFieldErrors(nextErrors)
+    setFormError(null)
+    if (Object.keys(nextErrors).length > 0) return
+
+    const payload: SiteUpdatePayload = {
+      ...form,
+      centerLatitude: parsedLat,
+      centerLongitude: parsedLng,
     }
 
-    const validationError = validateSiteUpdatePayload(form)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-
-    setError(null)
     startTransition(async () => {
-      const result = await updateSite(form)
+      const result = await updateSite(payload)
       if (!result.ok) {
-        setError(result.error)
+        setFormError(result.error)
         return
       }
       close()
@@ -239,12 +194,7 @@ export default function EditGpsSiteModal({
 
   if (!open || !site || !form) return null
 
-  const canSave =
-    !isPending &&
-    isDirty &&
-    latValid &&
-    lngValid &&
-    Boolean(form.siteName.trim() && form.sectionId && form.radiusMeters > 0)
+  const canSave = !isPending && isDirty
 
   return (
     <div
@@ -329,17 +279,22 @@ export default function EditGpsSiteModal({
             }}
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
-              <FormField label="NSTP Site:" htmlFor="edit_gps_site_name">
-                <TextInput
+              <AdminFormField
+                label="NSTP Site:"
+                htmlFor="edit_gps_site_name"
+                error={fieldErrors.siteName}
+              >
+                <AdminTextInput
                   id="edit_gps_site_name"
                   name="site_name"
                   value={form.siteName}
                   onChange={(siteName) => patchForm({ siteName })}
                   placeholder="e.g. Baguio City — Main Campus"
+                  invalid={Boolean(fieldErrors.siteName)}
                 />
-              </FormField>
+              </AdminFormField>
 
-              <FormField label="Class:" htmlFor="edit_gps_section_id">
+              <AdminFormField label="Class:" error={fieldErrors.sectionId}>
                 <SearchableCombobox
                   key={site.geofenceId}
                   id="edit_gps_section_id"
@@ -351,9 +306,13 @@ export default function EditGpsSiteModal({
                   emptyMessage="No classes found"
                   toggleAriaLabel="Toggle class list"
                 />
-              </FormField>
+              </AdminFormField>
 
-              <FormField label="Site Radius (meters):" htmlFor="gps_site_radius">
+              <AdminFormField
+                label="Site Radius (meters):"
+                htmlFor="gps_site_radius"
+                error={fieldErrors.radiusMeters}
+              >
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <input
                     id="gps_site_radius"
@@ -398,43 +357,43 @@ export default function EditGpsSiteModal({
                     <span>Max: 1km</span>
                   </div>
                 </div>
-              </FormField>
+              </AdminFormField>
 
               <div className="flex flex-row gap-6 w-full">
                 <div className="flex-1">
-                  <FormField label="Latitude:" htmlFor="gps_center_latitude">
-                    <TextInput
+                  <AdminFormField
+                    label="Latitude:"
+                    htmlFor="gps_center_latitude"
+                    error={fieldErrors.centerLatitude}
+                  >
+                    <AdminTextInput
                       id="gps_center_latitude"
                       name="center_latitude"
                       type="number"
                       value={latInput}
-                      onChange={setLatInput}
+                      onChange={handleLatChange}
                       placeholder="16.411100"
+                      invalid={Boolean(fieldErrors.centerLatitude)}
                     />
-                    {!latValid && (
-                      <p style={{ ...TYPE.caption, color: COLORS.error, margin: "6px 0 0" }}>
-                        Must be between -90 and 90.
-                      </p>
-                    )}
-                  </FormField>
+                  </AdminFormField>
                 </div>
 
                 <div className="flex-1">
-                  <FormField label="Longitude:" htmlFor="gps_center_longitude">
-                    <TextInput
+                  <AdminFormField
+                    label="Longitude:"
+                    htmlFor="gps_center_longitude"
+                    error={fieldErrors.centerLongitude}
+                  >
+                    <AdminTextInput
                       id="gps_center_longitude"
                       name="center_longitude"
                       type="number"
                       value={lngInput}
-                      onChange={setLngInput}
+                      onChange={handleLngChange}
                       placeholder="120.596600"
+                      invalid={Boolean(fieldErrors.centerLongitude)}
                     />
-                    {!lngValid && (
-                      <p style={{ ...TYPE.caption, color: COLORS.error, margin: "6px 0 0" }}>
-                        Must be between -180 and 180.
-                      </p>
-                    )}
-                  </FormField>
+                  </AdminFormField>
                 </div>
               </div>
 
@@ -492,8 +451,8 @@ export default function EditGpsSiteModal({
             </div>
           </div>
 
-          {error && (
-            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{error}</p>
+          {formError && (
+            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{formError}</p>
           )}
 
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>

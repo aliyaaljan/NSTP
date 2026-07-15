@@ -90,14 +90,31 @@ export function validateAcademicConfigPayload(
   return null
 }
 
+export type HolidayFieldKey = "name" | "date"
+
+export type HolidayFieldErrors = Partial<Record<HolidayFieldKey, string>>
+
+export function collectHolidayFieldErrors(
+  payload: HolidayCreatePayload
+): HolidayFieldErrors {
+  const errors: HolidayFieldErrors = {}
+  if (!payload.name.trim()) {
+    errors.name = "Holiday name is required."
+  }
+  if (!payload.date.trim()) {
+    errors.date = "Holiday date is required."
+  } else if (!isValidIsoDate(payload.date)) {
+    errors.date = "Holiday date must be YYYY-MM-DD."
+  }
+  return errors
+}
+
 export function validateHolidayCreatePayload(
   payload: HolidayCreatePayload
 ): string | null {
   if (!payload.termId.trim()) return "Term ID is required."
-  if (!payload.name.trim()) return "Holiday name is required."
-  if (!payload.date.trim()) return "Holiday date is required."
-  if (!isValidIsoDate(payload.date)) return "Holiday date must be YYYY-MM-DD."
-  return null
+  const errors = collectHolidayFieldErrors(payload)
+  return errors.name ?? errors.date ?? null
 }
 
 export function validateHolidayDelete(holiday: HolidayRow): string | null {
@@ -117,19 +134,46 @@ export type AcademicYearCreatePayload = {
 export function emptyAcademicYearCreatePayload(): AcademicYearCreatePayload {
   return {
     schoolYear: "",
-    semester: "1st Semester",
+    semester: "first",
     startDate: "",
     endDate: "",
   }
 }
 
+export type AcademicYearFieldKey = "schoolYear" | "semester" | "startDate" | "endDate"
+
+export type AcademicYearFieldErrors = Partial<Record<AcademicYearFieldKey, string>>
+
+export function collectAcademicYearFieldErrors(
+  form: AcademicYearCreatePayload
+): AcademicYearFieldErrors {
+  const errors: AcademicYearFieldErrors = {}
+  if (!form.schoolYear.trim()) {
+    errors.schoolYear = "School year is required."
+  }
+  if (!form.semester.trim()) {
+    errors.semester = "Semester is required."
+  }
+  if (!form.startDate) {
+    errors.startDate = "Start date is required."
+  }
+  if (!form.endDate) {
+    errors.endDate = "End date is required."
+  } else if (form.startDate && form.endDate < form.startDate) {
+    errors.endDate = "End date must be after start date."
+  }
+  return errors
+}
+
 export function validateAcademicYearCreatePayload(
   form: AcademicYearCreatePayload
 ): string | null {
-  if (!form.schoolYear.trim()) return "School year is required."
-  if (!form.semester.trim()) return "Semester is required."
-  if (!form.startDate) return "Start date is required."
-  if (!form.endDate) return "End date is required."
-  if (form.endDate < form.startDate) return "End date must be after start date."
-  return null
+  const errors = collectAcademicYearFieldErrors(form)
+  return (
+    errors.schoolYear ??
+    errors.semester ??
+    errors.startDate ??
+    errors.endDate ??
+    null
+  )
 }

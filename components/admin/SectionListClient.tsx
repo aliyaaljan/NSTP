@@ -8,6 +8,7 @@ import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import ConfirmDeleteModal from "@/components/admin/ConfirmDeleteModal"
 import DeleteImpactModal from "@/components/admin/DeleteImpactModal"
+import ReassignClassModal from "@/components/admin/ReassignClassModal"
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import AdminAddButton from "@/components/admin/AdminAddButton"
 import SectionFormModal from "@/components/admin/SectionFormModal"
@@ -17,6 +18,8 @@ import {
   deleteSection,
   getSectionDeleteImpactAction,
 } from "@/lib/admin/section-list-actions"
+import { getClassReassignmentDataAction } from "@/lib/admin/adviser-list-actions"
+import type { ClassReassignmentData } from "@/lib/admin/class-reassign"
 import type { DeleteImpact } from "@/lib/admin/dependent-checks"
 import { sectionRowToEditPayload } from "@/lib/admin/section-edit"
 import {
@@ -46,6 +49,14 @@ import {
 } from "@/lib/admin/filter-utils"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+
+function needsFacilitatorReassignment(section: SectionListRow): boolean {
+  return (
+    !section.adviserIsActive &&
+    section.statusCode !== "completed" &&
+    section.statusCode !== "archived"
+  )
+}
 
 function ProfilePill({ user }: { user: AdminCurrentUser }) {
   return (
@@ -136,6 +147,10 @@ export default function SectionListClient({
   const [isDeleting, startDeleteTransition] = useTransition()
   const [animKey, setAnimKey] = useState(0)
   const [pageSize, setPageSize] = useState(SECTION_LIST_PAGE_SIZE)
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [reassignData, setReassignData] = useState<ClassReassignmentData | null>(null)
+  const [reassignError, setReassignError] = useState<string | null>(null)
+  const [isLoadingReassign, startReassignLoad] = useTransition()
 
   useEffect(() => {
     setSearchInput(query.search)
@@ -336,6 +351,52 @@ export default function SectionListClient({
     })
   }
 
+  function openReassign(section: SectionListRow) {
+    setReassignError(null)
+    startReassignLoad(async () => {
+      const res = await getClassReassignmentDataAction(section.adviserUserId)
+      if (!res.ok) {
+        setReassignError(res.error)
+        return
+      }
+
+      // Prefer the clicked class, then any other current-term classes that
+      // still need a facilitator for this inactive adviser.
+      const needingIds = new Set(
+        sections
+          .filter(
+            (row) =>
+              row.adviserUserId === section.adviserUserId &&
+              needsFacilitatorReassignment(row)
+          )
+          .map((row) => row.sectionId)
+      )
+      const byId = new Map(res.data.classes.map((c) => [c.sectionId, c]))
+      const orderedIds = [
+        section.sectionId,
+        ...[...needingIds].filter((id) => id !== section.sectionId),
+      ]
+      const classes = orderedIds
+        .map((id) => byId.get(id))
+        .filter((c): c is NonNullable<typeof c> => Boolean(c))
+
+      if (classes.length === 0) {
+        setReassignError("No classes left to reassign for this facilitator.")
+        return
+      }
+
+      setDetailSection(null)
+      setReassignData({ classes })
+      setReassignOpen(true)
+    })
+  }
+
+  function closeReassignModal() {
+    setReassignOpen(false)
+    setReassignData(null)
+    setReassignError(null)
+  }
+
   const pctOfTotal = (count: number) =>
     summary.total > 0 ? `${Math.round((count / summary.total) * 100)}%` : "0%"
 
@@ -439,6 +500,20 @@ export default function SectionListClient({
           actions={<AdminAddButton label="Add class" onClick={openCreate} />}
         />
 
+        {reassignError && !detailSection && (
+          <p
+            role="alert"
+            style={{
+              ...TYPE.caption,
+              color: COLORS.maroon,
+              margin: "0 20px 12px",
+              fontWeight: 600,
+            }}
+          >
+            {reassignError}
+          </p>
+        )}
+
         <div className="admin-table-wrapper">
           <table className="admin-table" style={{ minWidth: 880 }}>
             <thead>
@@ -501,6 +576,7 @@ export default function SectionListClient({
               ) : (
                 pageSections.map((section) => {
                   const badge = SECTION_STATUS_BADGE[section.statusCode]
+                  const showReassignNotice = needsFacilitatorReassignment(section)
                   return (
                     <tr
                       key={section.sectionId}
@@ -520,6 +596,57 @@ export default function SectionListClient({
                         <div style={{ color: COLORS.textDark }}>
                           {section.adviserName}
                         </div>
+                        {showReassignNotice && (
+                          <div
+                            role="status"
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "flex-start",
+                              gap: 6,
+                              marginTop: 5,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 5,
+                                color: COLORS.maroon,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              <i
+                                className="ti ti-alert-triangle"
+                                aria-hidden="true"
+                                style={{ fontSize: 14, marginTop: 1, flexShrink: 0 }}
+                              />
+                              <span>Facilitator is inactive — reassign required.</span>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={isLoadingReassign}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openReassign(section)
+                              }}
+                              style={{
+                                ...TYPE.caption,
+                                fontWeight: 700,
+                                color: COLORS.green,
+                                background: "none",
+                                border: "none",
+                                padding: 0,
+                                cursor: isLoadingReassign ? "not-allowed" : "pointer",
+                                textDecoration: "underline",
+                              }}
+                            >
+                              Reassign facilitator
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <div style={{ color: COLORS.textDark }}>
@@ -578,14 +705,37 @@ export default function SectionListClient({
           subtitle={detailSection.adviserName}
           size="md"
           actions={[
-            {
-              label: "Edit",
-              variant: "primary",
-              onClick: () => {
-                openEdit(detailSection)
-                setDetailSection(null)
-              },
-            },
+            ...(needsFacilitatorReassignment(detailSection)
+              ? [
+                  {
+                    label: isLoadingReassign ? "Loading…" : "Reassign facilitator",
+                    variant: "primary" as const,
+                    disabled: isLoadingReassign,
+                    onClick: () => openReassign(detailSection),
+                  },
+                ]
+              : [
+                  {
+                    label: "Edit",
+                    variant: "primary" as const,
+                    onClick: () => {
+                      openEdit(detailSection)
+                      setDetailSection(null)
+                    },
+                  },
+                ]),
+            ...(needsFacilitatorReassignment(detailSection)
+              ? [
+                  {
+                    label: "Edit",
+                    variant: "secondary" as const,
+                    onClick: () => {
+                      openEdit(detailSection)
+                      setDetailSection(null)
+                    },
+                  },
+                ]
+              : []),
             {
               label: detailSection.statusCode === "archived" ? "Delete" : "Archive",
               variant: "danger",
@@ -597,6 +747,38 @@ export default function SectionListClient({
             },
           ]}
         >
+          {needsFacilitatorReassignment(detailSection) && (
+            <div
+              role="status"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                marginBottom: 14,
+                padding: "10px 12px",
+                borderRadius: 8,
+                background: "rgba(123, 29, 29, 0.08)",
+                color: COLORS.maroon,
+                fontSize: 13,
+                fontWeight: 600,
+                lineHeight: 1.4,
+              }}
+            >
+              <i
+                className="ti ti-alert-triangle"
+                aria-hidden="true"
+                style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}
+              />
+              <span>
+                This facilitator is inactive. Reassign a new facilitator for this class.
+              </span>
+            </div>
+          )}
+          {reassignError && (
+            <p style={{ ...TYPE.caption, color: COLORS.maroon, margin: "0 0 12px" }}>
+              {reassignError}
+            </p>
+          )}
           <ModalRow>
             <ModalField label="Adviser" value={detailSection.adviserName} />
             <ModalField label="Students" value={`${detailSection.studentCount} enrolled`} />
@@ -627,6 +809,16 @@ export default function SectionListClient({
           </ModalRow>
         </NstpModal>
       )}
+
+      <ReassignClassModal
+        open={reassignOpen}
+        classes={reassignData?.classes ?? []}
+        onClose={closeReassignModal}
+        onReassigned={() => {
+          closeReassignModal()
+          window.location.reload()
+        }}
+      />
 
       <ConfirmDeleteModal
         open={Boolean(archiveTarget)}

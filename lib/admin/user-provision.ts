@@ -42,10 +42,65 @@ export async function countActiveAdmins(service: ServiceClient): Promise<number>
   return count ?? 0
 }
 
+function isAuthUserNotFound(error: { status?: number; code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  return (
+    error.status === 404 ||
+    error.code === "user_not_found" ||
+    error.message?.toLowerCase().includes("user not found") === true
+  )
+}
+
+/**
+ * Synthetic seed facilitators exist in `app_user` without an `auth.users` row
+ * (zero MAU). Reactivation / email sync need a matching auth row with the same
+ * id so Google OAuth can link later.
+ */
+async function ensureAuthUserExists(
+  service: ServiceClient,
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: appUser, error: lookupError } = await service
+    .from("app_user")
+    .select("email, full_name")
+    .eq("app_user_id", userId)
+    .maybeSingle()
+
+  if (lookupError || !appUser?.email) {
+    console.error("[ensureAuthUserExists] app_user lookup failed", lookupError)
+    return {
+      ok: false,
+      error: "Cannot update sign-in status: this account has no email.",
+    }
+  }
+
+  const { error: createError } = await service.auth.admin.createUser({
+    id: userId,
+    email: appUser.email,
+    email_confirm: true,
+    user_metadata: { full_name: appUser.full_name ?? undefined },
+  })
+
+  if (createError) {
+    // Another auth user may already own this email under a different id.
+    console.error("[ensureAuthUserExists] createUser failed", createError)
+    return {
+      ok: false,
+      error:
+        "This account has no sign-in record, and one could not be created (email may already belong to another login).",
+    }
+  }
+
+  return { ok: true }
+}
+
 /**
  * Keep the Supabase Auth ban state in lockstep with `app_user.is_active`.
  * A banned user cannot log in or refresh their token; an already-issued access
  * token still lives until it expires (≤1h). Idempotent.
+ *
+ * Seed/synthetic users may have no auth row yet — deactivating is a no-op for
+ * sign-in, and reactivating creates the missing auth user first.
  */
 export async function syncAuthBan(
   service: ServiceClient,
@@ -55,8 +110,27 @@ export async function syncAuthBan(
   const { error } = await service.auth.admin.updateUserById(userId, {
     ban_duration: isActive ? "none" : BAN_DURATION,
   })
-  if (error) {
+  if (!error) return { ok: true }
+
+  if (!isAuthUserNotFound(error)) {
     console.error("[syncAuthBan] updateUserById failed", error)
+    return { ok: false, error: "Failed to update the account's sign-in status." }
+  }
+
+  // No auth.users row (common for synthetic seed facilitators).
+  if (!isActive) {
+    // Already unable to sign in — treat deactivate as success.
+    return { ok: true }
+  }
+
+  const ensured = await ensureAuthUserExists(service, userId)
+  if (!ensured.ok) return ensured
+
+  const { error: retryError } = await service.auth.admin.updateUserById(userId, {
+    ban_duration: "none",
+  })
+  if (retryError) {
+    console.error("[syncAuthBan] retry after create failed", retryError)
     return { ok: false, error: "Failed to update the account's sign-in status." }
   }
   return { ok: true }
@@ -75,11 +149,36 @@ export async function syncUserEmail(
     email: newEmail,
     email_confirm: true,
   })
-  if (error) {
-    console.error("[syncUserEmail] auth email sync failed", error)
-    return { ok: false, error: "That email is already in use or invalid." }
+  if (!error) return { ok: true }
+
+  if (isAuthUserNotFound(error)) {
+    // Create the missing auth row, then set the email (create already used
+    // app_user.email; if newEmail differs, update after create).
+    const ensured = await ensureAuthUserExists(service, userId)
+    if (!ensured.ok) return ensured
+
+    const { data: appUser } = await service
+      .from("app_user")
+      .select("email")
+      .eq("app_user_id", userId)
+      .maybeSingle()
+    if ((appUser?.email ?? "").toLowerCase() === newEmail.toLowerCase()) {
+      return { ok: true }
+    }
+
+    const { error: retryError } = await service.auth.admin.updateUserById(userId, {
+      email: newEmail,
+      email_confirm: true,
+    })
+    if (retryError) {
+      console.error("[syncUserEmail] retry after create failed", retryError)
+      return { ok: false, error: "That email is already in use or invalid." }
+    }
+    return { ok: true }
   }
-  return { ok: true }
+
+  console.error("[syncUserEmail] auth email sync failed", error)
+  return { ok: false, error: "That email is already in use or invalid." }
 }
 
 export interface ProvisionUserInput {

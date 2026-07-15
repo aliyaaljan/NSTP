@@ -3,11 +3,19 @@
 import { useCallback, useEffect, useState, useTransition } from "react"
 import { createAcademicYear } from "@/lib/admin/settings-actions"
 import {
+  collectAcademicYearFieldErrors,
   emptyAcademicYearCreatePayload,
-  validateAcademicYearCreatePayload,
   type AcademicYearCreatePayload,
+  type AcademicYearFieldErrors,
 } from "@/lib/admin/settings-edit"
 import { FONT_HEADING, TYPE } from "@/lib/admin-typography"
+import {
+  ADMIN_FIELD_ERROR_STYLE,
+  ADMIN_FIELD_NORMAL_STYLE,
+  AdminFormField,
+  AdminNativeSelect,
+  AdminTextInput,
+} from "@/components/admin/AdminFormControls"
 
 const COLORS = {
   textDark: "#2C2C2A",
@@ -23,61 +31,26 @@ const SEMESTER_OPTIONS = [
   { value: "midyear", label: "Midyear" },
 ]
 
-function FormField({
-  label,
-  htmlFor,
-  children,
+export default function AddAcademicYearModal({
+  open,
+  onClose,
 }: {
-  label: string
-  htmlFor: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <label
-        htmlFor={htmlFor}
-        style={{
-          ...TYPE.bodyBold,
-          color: COLORS.textDark,
-          display: "block",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-    </div>
-  )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  ...TYPE.body,
-  fontStyle: "normal",
-  color: COLORS.textDark,
-  background: COLORS.fieldBg,
-  border: "none",
-  borderRadius: 6,
-  padding: "12px 14px",
-  outline: "none",
-}
-
-export default function AddAcademicYearModal({open, onClose,}: {
   open: boolean
   onClose: () => void
 }) {
   const [form, setForm] = useState<AcademicYearCreatePayload>(emptyAcademicYearCreatePayload())
   const [yearStart, setYearStart] = useState("")
   const [yearEnd, setYearEnd] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<AcademicYearFieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const reset = useCallback(() => {
     setForm(emptyAcademicYearCreatePayload())
     setYearStart("")
     setYearEnd("")
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
   }, [])
 
   const close = useCallback(() => {
@@ -90,7 +63,8 @@ export default function AddAcademicYearModal({open, onClose,}: {
       setForm(emptyAcademicYearCreatePayload())
       setYearStart("")
       setYearEnd("")
-      setError(null)
+      setFieldErrors({})
+      setFormError(null)
     }
   }, [open])
 
@@ -116,26 +90,41 @@ export default function AddAcademicYearModal({open, onClose,}: {
 
   function patchForm(updates: Partial<AcademicYearCreatePayload>) {
     setForm((prev) => ({ ...prev, ...updates }))
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(updates) as (keyof AcademicYearCreatePayload)[]) {
+        if (key === "schoolYear") delete next.schoolYear
+        if (key === "semester") delete next.semester
+        if (key === "startDate") delete next.startDate
+        if (key === "endDate") delete next.endDate
+      }
+      return next
+    })
+    setFormError(null)
   }
 
   function handleYearStartChange(value: string) {
     const digitsOnly = value.replace(/\D/g, "").slice(0, 4)
     setYearStart(digitsOnly)
     setYearEnd(digitsOnly.length === 4 ? String(Number(digitsOnly) + 1) : "")
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      delete next.schoolYear
+      return next
+    })
+    setFormError(null)
   }
 
   function handleAdd() {
-    const validationError = validateAcademicYearCreatePayload(form)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
+    const nextErrors = collectAcademicYearFieldErrors(form)
+    setFieldErrors(nextErrors)
+    setFormError(null)
+    if (Object.keys(nextErrors).length > 0) return
 
-    setError(null)
     startTransition(async () => {
       const result = await createAcademicYear(form)
       if (!result.ok) {
-        setError(result.error)
+        setFormError(result.error)
         return
       }
       close()
@@ -145,14 +134,11 @@ export default function AddAcademicYearModal({open, onClose,}: {
 
   if (!open) return null
 
-  const canAdd =
-    !isPending &&
-    Boolean(
-      yearStart.length === 4 &&
-        form.semester.trim() &&
-        form.startDate &&
-        form.endDate
-    )
+  const canAdd = !isPending
+
+  const yearInputStyle = fieldErrors.schoolYear
+    ? ADMIN_FIELD_ERROR_STYLE
+    : ADMIN_FIELD_NORMAL_STYLE
 
   return (
     <div
@@ -228,7 +214,11 @@ export default function AddAcademicYearModal({open, onClose,}: {
             gap: 18,
           }}
         >
-          <FormField label="School Year:" htmlFor="school_year_start">
+          <AdminFormField
+            label="School Year:"
+            htmlFor="school_year_start"
+            error={fieldErrors.schoolYear}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <input
                 id="school_year_start"
@@ -239,7 +229,18 @@ export default function AddAcademicYearModal({open, onClose,}: {
                 onChange={(e) => handleYearStartChange(e.target.value)}
                 placeholder="2026"
                 maxLength={4}
-                style={inputStyle}
+                aria-invalid={Boolean(fieldErrors.schoolYear) || undefined}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  ...TYPE.body,
+                  fontStyle: "normal",
+                  color: COLORS.textDark,
+                  borderRadius: 6,
+                  padding: "12px 14px",
+                  outline: "none",
+                  ...yearInputStyle,
+                }}
               />
               <span style={{ ...TYPE.bodyBold, color: COLORS.textGray }}>–</span>
               <input
@@ -249,39 +250,36 @@ export default function AddAcademicYearModal({open, onClose,}: {
                 value={yearEnd}
                 disabled
                 placeholder="2027"
-                style={{...inputStyle, cursor: "not-allowed",}}
-              />
-            </div>
-          </FormField>
-
-          <FormField label="Semester:" htmlFor="semester">
-            <div style={{ position: "relative" }}>
-              <select
-                id="semester"
-                name="semester"
-                value={form.semester}
-                onChange={(e) => patchForm({ semester: e.target.value })}
-                style={{ ...inputStyle, appearance: "none", paddingRight: 36 }}
-              >
-                {SEMESTER_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <i
-                className="ti ti-chevron-down"
                 style={{
-                  position: "absolute",
-                  right: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  pointerEvents: "none",
+                  width: "100%",
+                  boxSizing: "border-box",
+                  ...TYPE.body,
+                  fontStyle: "normal",
                   color: COLORS.textGray,
+                  background: "#F5F4F1",
+                  border: "1.5px solid transparent",
+                  borderRadius: 6,
+                  padding: "12px 14px",
+                  outline: "none",
+                  cursor: "not-allowed",
                 }}
               />
             </div>
-          </FormField>
+          </AdminFormField>
+
+          <AdminFormField label="Semester:" error={fieldErrors.semester}>
+            <AdminNativeSelect
+              value={form.semester}
+              onChange={(semester) => patchForm({ semester })}
+              invalid={Boolean(fieldErrors.semester)}
+            >
+              {SEMESTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </AdminNativeSelect>
+          </AdminFormField>
 
           <div
             style={{
@@ -290,30 +288,30 @@ export default function AddAcademicYearModal({open, onClose,}: {
               gap: 12,
             }}
           >
-            <FormField label="Start Date:" htmlFor="start_date">
-              <input
+            <AdminFormField label="Start Date:" htmlFor="start_date" error={fieldErrors.startDate}>
+              <AdminTextInput
                 id="start_date"
                 name="start_date"
                 type="date"
                 value={form.startDate}
-                onChange={(e) => patchForm({ startDate: e.target.value })}
-                style={inputStyle}
+                onChange={(startDate) => patchForm({ startDate })}
+                invalid={Boolean(fieldErrors.startDate)}
               />
-            </FormField>
-            <FormField label="End Date:" htmlFor="end_date">
-              <input
+            </AdminFormField>
+            <AdminFormField label="End Date:" htmlFor="end_date" error={fieldErrors.endDate}>
+              <AdminTextInput
                 id="end_date"
                 name="end_date"
                 type="date"
                 value={form.endDate}
-                onChange={(e) => patchForm({ endDate: e.target.value })}
-                style={inputStyle}
+                onChange={(endDate) => patchForm({ endDate })}
+                invalid={Boolean(fieldErrors.endDate)}
               />
-            </FormField>
+            </AdminFormField>
           </div>
 
-          {error && (
-            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{error}</p>
+          {formError && (
+            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{formError}</p>
           )}
 
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
@@ -326,7 +324,7 @@ export default function AddAcademicYearModal({open, onClose,}: {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                background: COLORS.headerGreen,
+                background: canAdd ? COLORS.headerGreen : "#A8B5AD",
                 color: "#fff",
                 border: "none",
                 borderRadius: 24,

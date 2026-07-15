@@ -25,6 +25,8 @@ export interface SectionListRow {
   adviserUserId: string
   /** `app_user.full_name` via adviser join */
   adviserName: string
+  /** `app_user.is_active` via adviser join; false when the account no longer exists. */
+  adviserIsActive: boolean
   /** `section.section_status_id` */
   sectionStatusId: string
   /** `section_status.code` */
@@ -130,7 +132,7 @@ export const SECTION_LIST_SELECT = `
   updated_at,
   adviser_user_id,
   section_status_id,
-  adviser:adviser_user_id(app_user_id, full_name),
+  adviser:adviser_user_id(app_user_id, full_name, is_active),
   section_status:section_status_id(section_status_id, code, name),
   term:term_id(school_year)
 ` as const
@@ -146,7 +148,7 @@ export interface SectionListDbRow {
   updated_at: string
   adviser_user_id: string
   section_status_id: string
-  adviser: { app_user_id: string; full_name: string } | null
+  adviser: { app_user_id: string; full_name: string; is_active: boolean } | null
   section_status: {
     section_status_id: string
     code: string
@@ -259,6 +261,7 @@ export function mapSectionDbRowToListRow(
     schoolYear: row.term?.school_year ?? null,
     adviserUserId: row.adviser_user_id,
     adviserName: row.adviser?.full_name ?? "Unassigned",
+    adviserIsActive: row.adviser?.is_active === true,
     sectionStatusId: row.section_status_id,
     statusCode,
     statusLabel: status.name,

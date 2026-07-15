@@ -1,5 +1,6 @@
 import "server-only"
 import { lookupId } from "@/lib/lookups"
+import { extractNstpType } from "@/lib/shared/class-label"
 import type { ServiceClient } from "@/lib/admin/user-provision"
 
 const DEFAULT_COMPONENT = "CWTS"
@@ -21,11 +22,12 @@ export type EnsureFacilitatorClassResult =
   | { ok: false; error: string }
 
 /**
- * Get-or-create the facilitator's single class for the active term.
+ * Get-or-create the facilitator's class for their NSTP component in the active term.
  *
- * Idempotent for per-semester re-imports: an existing row is reused; its
- * course_code is refreshed from the facilitator's current component and its
- * status is reset to active (facilitator appointments renew every semester).
+ * Idempotent for per-semester re-imports: an existing row of the same NSTP type
+ * is reused; its course_code is refreshed from the facilitator's current
+ * component and its status is reset to active. Facilitators may also advise
+ * other NSTP types in the same term (see uq_section_adviser_term_nstp_type).
  */
 export async function ensureFacilitatorClass(
   service: ServiceClient,
@@ -51,18 +53,22 @@ export async function ensureFacilitatorClass(
 
   const componentCode = (adviser.nstp_component as { code?: string } | null)?.code
   const courseCode = courseCodeFromComponent(componentCode, term.semester)
+  const nstpType = extractNstpType(courseCode).toUpperCase()
   const activeStatusId = await lookupId("section_status", "active")
 
-  const { data: existing, error: findError } = await service
+  const { data: existingRows, error: findError } = await service
     .from("section")
-    .select("section_id")
+    .select("section_id, course_code")
     .eq("adviser_user_id", adviserUserId)
     .eq("term_id", term.term_id)
-    .maybeSingle()
   if (findError) {
     console.error("[ensureFacilitatorClass] lookup failed", findError)
     return { ok: false, error: "Failed to look up the facilitator's class." }
   }
+
+  const existing = (existingRows ?? []).find(
+    (row) => extractNstpType(row.course_code).toUpperCase() === nstpType
+  )
 
   if (existing) {
     const { error } = await service
@@ -90,12 +96,14 @@ export async function ensureFacilitatorClass(
   if (insertError) {
     // 23505: a concurrent writer created the row between our SELECT and INSERT.
     if (insertError.code === "23505") {
-      const { data: raced } = await service
+      const { data: racedRows } = await service
         .from("section")
-        .select("section_id")
+        .select("section_id, course_code")
         .eq("adviser_user_id", adviserUserId)
         .eq("term_id", term.term_id)
-        .maybeSingle()
+      const raced = (racedRows ?? []).find(
+        (row) => extractNstpType(row.course_code).toUpperCase() === nstpType
+      )
       if (raced) return { ok: true, sectionId: raced.section_id }
     }
     console.error("[ensureFacilitatorClass] insert failed", insertError)

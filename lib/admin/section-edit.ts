@@ -1,10 +1,10 @@
 /**
  * Class create/edit contract for the admin classes page.
  *
- * One class per facilitator per term, a
- * class is identified by its facilitator, not a name. Creating one just
- * picks a facilitator (who must not already have a class this term); the DB
- * enforces the 1:1 rule via `uq_section_adviser_term`.
+ * One class per facilitator per NSTP type per term. A class is identified by
+ * its facilitator and course type (CWTS / LTS / ROTC), not a name. Creating
+ * one just picks a facilitator who must not already have that type this term;
+ * the DB enforces it via `uq_section_adviser_term_nstp_type`.
  *
  * Database mapping:
  * sectionId           → `section.section_id` (edit only)
@@ -81,27 +81,48 @@ export function sectionRowToEditPayload(
   }
 }
 
+export type SectionFieldKey =
+  | "courseCode"
+  | "adviserUserId"
+  | "requiredHourTotal"
+  | "dailyCutoffTime"
+
+export type SectionFieldErrors = Partial<Record<SectionFieldKey, string>>
+
+export function collectSectionFieldErrors(
+  payload: SectionCreatePayload
+): SectionFieldErrors {
+  const errors: SectionFieldErrors = {}
+  if (!payload.courseCode.trim()) {
+    errors.courseCode = "Please select a course."
+  } else if (
+    !SECTION_COURSE_OPTIONS.includes(payload.courseCode as SectionCourseCode)
+  ) {
+    errors.courseCode = "Please select a valid course."
+  }
+  if (!payload.adviserUserId.trim()) {
+    errors.adviserUserId = "Please select a facilitator."
+  }
+  if (payload.requiredHourTotal < 1 || payload.requiredHourTotal > 999) {
+    errors.requiredHourTotal = "Required hours must be between 1 and 999."
+  }
+  if (!/^\d{2}:\d{2}$/.test(payload.dailyCutoffTime)) {
+    errors.dailyCutoffTime = "Please enter a valid daily cutoff time."
+  }
+  return errors
+}
+
 export function validateSectionCreatePayload(
   payload: SectionCreatePayload
 ): string | null {
-  if (!payload.courseCode.trim()) {
-    return "Course is required."
-  }
-  if (
-    !SECTION_COURSE_OPTIONS.includes(payload.courseCode as SectionCourseCode)
-  ) {
-    return "Please select a valid course."
-  }
-  if (!payload.adviserUserId.trim()) {
-    return "An adviser must be assigned."
-  }
-  if (payload.requiredHourTotal < 1 || payload.requiredHourTotal > 999) {
-    return "Required hours must be between 1 and 999."
-  }
-  if (!/^\d{2}:\d{2}$/.test(payload.dailyCutoffTime)) {
-    return "Daily cutoff time must use HH:MM format."
-  }
-  return null
+  const errors = collectSectionFieldErrors(payload)
+  return (
+    errors.courseCode ??
+    errors.adviserUserId ??
+    errors.requiredHourTotal ??
+    errors.dailyCutoffTime ??
+    null
+  )
 }
 
 export function validateSectionEditPayload(

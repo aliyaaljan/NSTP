@@ -2,16 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
+import {
+  AdminFormField,
+  AdminNativeSelect,
+  AdminTextInput,
+} from "@/components/admin/AdminFormControls"
 import { createSection, updateSection } from "@/lib/admin/section-list-actions"
 import {
+  collectSectionFieldErrors,
   emptySectionCreatePayload,
   SECTION_COURSE_OPTIONS,
-  sectionRowToEditPayload,
-  validateSectionCreatePayload,
-  validateSectionEditPayload,
-  type SectionCourseCode,
   type SectionCreatePayload,
   type SectionEditPayload,
+  type SectionFieldErrors,
 } from "@/lib/admin/section-edit"
 import type {
   SectionListAdviserOption,
@@ -28,84 +31,11 @@ const COLORS = {
   error: "#7B1113",
 }
 
-function isSectionCourseCode(value: string): value is SectionCourseCode {
-  return SECTION_COURSE_OPTIONS.includes(value as SectionCourseCode)
-}
-
-function FormField({
-  label,
-  hint,
-  children,
-}: {
-  label: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <label
-        style={{
-          ...TYPE.bodyBold,
-          color: COLORS.textDark,
-          display: "block",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-      {hint && (
-        <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
-          {hint}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function NativeSelect({
-  value,
-  onChange,
-  children,
-}: {
+function isSectionCourseCode(
   value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div style={{ position: "relative" }}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          ...TYPE.body,
-          fontStyle: "normal",
-          color: value ? COLORS.textDark : COLORS.textGray,
-          background: COLORS.fieldBg,
-          border: "none",
-          borderRadius: 6,
-          padding: "12px 40px 12px 14px",
-          appearance: "none",
-          cursor: "pointer",
-          outline: "none",
-        }}
-      >
-        {children}
-      </select>
-      <i
-        className="ti ti-chevron-down"
-        style={{
-          position: "absolute",
-          right: 14,
-          top: "50%",
-          transform: "translateY(-50%)",
-          fontSize: 16,
-          color: COLORS.textGray,
-          pointerEvents: "none",
-        }}
-      />
-    </div>
+): value is (typeof SECTION_COURSE_OPTIONS)[number] {
+  return SECTION_COURSE_OPTIONS.includes(
+    value as (typeof SECTION_COURSE_OPTIONS)[number]
   )
 }
 
@@ -129,7 +59,8 @@ export default function SectionFormModal({
   const [form, setForm] = useState<SectionCreatePayload>(emptySectionCreatePayload())
   const [initialForm, setInitialForm] = useState<SectionCreatePayload | null>(null)
   const [editSectionId, setEditSectionId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<SectionFieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const loadedSessionRef = useRef<string | null>(null)
 
@@ -137,7 +68,8 @@ export default function SectionFormModal({
     setForm(emptySectionCreatePayload())
     setInitialForm(null)
     setEditSectionId(null)
-    setError(null)
+    setFieldErrors({})
+    setFormError(null)
   }, [])
 
   useEffect(() => {
@@ -151,8 +83,15 @@ export default function SectionFormModal({
       if (!shouldLoadFormSession(open, sessionKey, loadedSessionRef)) return
 
       const snapshot = snapshotForm<SectionCreatePayload>({
-        courseCode: isSectionCourseCode(initialEdit.courseCode) ? initialEdit.courseCode : "",
-        adviserUserId: initialEdit.adviserUserId,
+        courseCode: isSectionCourseCode(initialEdit.courseCode)
+          ? initialEdit.courseCode
+          : "",
+        adviserUserId: advisers.some(
+          (adviser) =>
+            adviser.isActive && adviser.adviserUserId === initialEdit.adviserUserId
+        )
+          ? initialEdit.adviserUserId
+          : "",
         statusCode: initialEdit.statusCode,
         requiredHourTotal: initialEdit.requiredHourTotal,
         dailyCutoffTime: initialEdit.dailyCutoffTime,
@@ -160,6 +99,8 @@ export default function SectionFormModal({
       setForm(snapshot)
       setInitialForm(snapshotForm(snapshot))
       setEditSectionId(initialEdit.sectionId)
+      setFieldErrors({})
+      setFormError(null)
       return
     }
 
@@ -167,7 +108,7 @@ export default function SectionFormModal({
       if (!shouldLoadFormSession(open, "create", loadedSessionRef)) return
       reset()
     }
-  }, [open, mode, initialEdit, reset])
+  }, [open, mode, initialEdit, advisers, reset])
 
   const hasUnsavedChanges =
     mode === "edit" && initialForm
@@ -198,20 +139,14 @@ export default function SectionFormModal({
   const adviserOptions = useMemo(
     () =>
       advisers
-        .filter(
-          (adviser) =>
-            adviser.isActive ||
-            (mode === "edit" && adviser.adviserUserId === initialEdit?.adviserUserId)
-        )
+        .filter((adviser) => adviser.isActive)
         .map((adviser) => ({
           value: adviser.adviserUserId,
-          label: adviser.isActive ? adviser.fullName : `${adviser.fullName} (inactive)`,
+          label: adviser.fullName,
         })),
-    [advisers, mode, initialEdit?.adviserUserId]
+    [advisers]
   )
 
-  // A brand-new class must start Active; edit mode keeps the full lifecycle
-  // (Active/Completed/Archived — this is also the unarchive/restore path).
   const statusOptions = useMemo(
     () => (mode === "create" ? statuses.filter((s) => s.code === "active") : statuses),
     [mode, statuses]
@@ -221,26 +156,34 @@ export default function SectionFormModal({
 
   function patchForm(updates: Partial<SectionCreatePayload>) {
     setForm((prev) => ({ ...prev, ...updates }))
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(updates) as (keyof SectionCreatePayload)[]) {
+        if (key === "courseCode") delete next.courseCode
+        if (key === "adviserUserId") delete next.adviserUserId
+        if (key === "requiredHourTotal") delete next.requiredHourTotal
+        if (key === "dailyCutoffTime") delete next.dailyCutoffTime
+      }
+      return next
+    })
+    setFormError(null)
   }
 
   function handleSubmit() {
-    setError(null)
+    const nextErrors = collectSectionFieldErrors(form)
+    setFieldErrors(nextErrors)
+    setFormError(null)
+    if (Object.keys(nextErrors).length > 0) return
 
     if (mode === "edit" && editSectionId) {
       const payload: SectionEditPayload = {
         ...form,
         sectionId: editSectionId,
       }
-      const validationError = validateSectionEditPayload(payload)
-      if (validationError) {
-        setError(validationError)
-        return
-      }
-
       startTransition(async () => {
         const result = await updateSection(payload)
         if (!result.ok) {
-          setError(result.error)
+          setFormError(result.error)
           return
         }
         onClose()
@@ -249,16 +192,10 @@ export default function SectionFormModal({
       return
     }
 
-    const validationError = validateSectionCreatePayload(form)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-
     startTransition(async () => {
       const result = await createSection(form, activeTermId)
       if (!result.ok) {
-        setError(result.error)
+        setFormError(result.error)
         return
       }
       onClose()
@@ -267,17 +204,9 @@ export default function SectionFormModal({
   }
 
   const isDirty =
-    mode === "edit" && initialForm
-      ? isFormDirty(initialForm, form)
-      : true
+    mode === "edit" && initialForm ? isFormDirty(initialForm, form) : true
 
-  const canSubmit =
-    Boolean(form.courseCode.trim()) &&
-    Boolean(form.adviserUserId) &&
-    form.requiredHourTotal >= 1 &&
-    form.requiredHourTotal <= 999 &&
-    /^\d{2}:\d{2}$/.test(form.dailyCutoffTime) &&
-    isDirty
+  const canSubmit = !isPending && (mode === "create" || isDirty)
 
   return (
     <div
@@ -347,10 +276,11 @@ export default function SectionFormModal({
         </div>
 
         <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 18 }}>
-          <FormField label="Course">
-            <NativeSelect
+          <AdminFormField label="Course" error={fieldErrors.courseCode}>
+            <AdminNativeSelect
               value={form.courseCode}
               onChange={(courseCode) => patchForm({ courseCode })}
+              invalid={Boolean(fieldErrors.courseCode)}
             >
               <option value="">Select course</option>
               {SECTION_COURSE_OPTIONS.map((course) => (
@@ -358,26 +288,28 @@ export default function SectionFormModal({
                   {course}
                 </option>
               ))}
-            </NativeSelect>
-          </FormField>
+            </AdminNativeSelect>
+          </AdminFormField>
 
-          <FormField label="Adviser">
+          <AdminFormField label="Facilitator" error={fieldErrors.adviserUserId}>
             <SearchableCombobox
               key={editSectionId ?? "create"}
               value={form.adviserUserId}
               onChange={(adviserUserId) => patchForm({ adviserUserId })}
               options={adviserOptions}
-              placeholder="Select adviser"
-              emptyMessage="No advisers found"
-              toggleAriaLabel="Toggle adviser list"
+              placeholder="Select facilitator"
+              emptyMessage="No facilitators found"
+              toggleAriaLabel="Toggle facilitator list"
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Status">
-            <NativeSelect
+          <AdminFormField label="Status">
+            <AdminNativeSelect
               value={form.statusCode}
               onChange={(statusCode) =>
-                patchForm({ statusCode: statusCode as SectionCreatePayload["statusCode"] })
+                patchForm({
+                  statusCode: statusCode as SectionCreatePayload["statusCode"],
+                })
               }
             >
               {statusOptions.map((status) => (
@@ -385,53 +317,33 @@ export default function SectionFormModal({
                   {status.name}
                 </option>
               ))}
-            </NativeSelect>
-          </FormField>
+            </AdminNativeSelect>
+          </AdminFormField>
 
-          <FormField label="Required Hours">
-            <input
+          <AdminFormField label="Required Hours" error={fieldErrors.requiredHourTotal}>
+            <AdminTextInput
               type="number"
               min={1}
               max={999}
-              value={form.requiredHourTotal}
-              onChange={(e) =>
-                patchForm({ requiredHourTotal: parseInt(e.target.value, 10) || 0 })
+              value={String(form.requiredHourTotal)}
+              onChange={(value) =>
+                patchForm({ requiredHourTotal: parseInt(value, 10) || 0 })
               }
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                ...TYPE.body,
-                color: COLORS.textDark,
-                background: COLORS.fieldBg,
-                border: "none",
-                borderRadius: 6,
-                padding: "12px 14px",
-                outline: "none",
-              }}
+              invalid={Boolean(fieldErrors.requiredHourTotal)}
             />
-          </FormField>
+          </AdminFormField>
 
-          <FormField label="Daily Cutoff">
-            <input
+          <AdminFormField label="Daily Cutoff" error={fieldErrors.dailyCutoffTime}>
+            <AdminTextInput
               type="time"
               value={form.dailyCutoffTime}
-              onChange={(e) => patchForm({ dailyCutoffTime: e.target.value })}
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                ...TYPE.body,
-                color: COLORS.textDark,
-                background: COLORS.fieldBg,
-                border: "none",
-                borderRadius: 6,
-                padding: "12px 14px",
-                outline: "none",
-              }}
+              onChange={(dailyCutoffTime) => patchForm({ dailyCutoffTime })}
+              invalid={Boolean(fieldErrors.dailyCutoffTime)}
             />
-          </FormField>
+          </AdminFormField>
 
-          {error && (
-            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{error}</p>
+          {formError && (
+            <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{formError}</p>
           )}
         </div>
 
@@ -461,7 +373,7 @@ export default function SectionFormModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!canSubmit || isPending}
+            disabled={!canSubmit}
             style={{
               ...TYPE.bodyBold,
               background: canSubmit ? COLORS.headerGreen : "#A8B5AD",
@@ -469,8 +381,7 @@ export default function SectionFormModal({
               border: "none",
               borderRadius: 8,
               padding: "10px 20px",
-              cursor: !canSubmit || isPending ? "not-allowed" : "pointer",
-              opacity: !canSubmit || isPending ? 1 : 1,
+              cursor: canSubmit ? "pointer" : "not-allowed",
             }}
           >
             {isPending ? "Saving…" : mode === "edit" ? "Save Changes" : "Create Class"}

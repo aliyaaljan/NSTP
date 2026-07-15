@@ -64,14 +64,24 @@ export function formRowToEditPayload(row: FormListRow): FormEditPayload {
   }
 }
 
-export function validateFormCreatePayload(payload: FormCreatePayload): string | null {
+export type FormFieldKey = "title" | "dueDate"
+
+export type FormFieldErrors = Partial<Record<FormFieldKey, string>>
+
+export function collectFormFieldErrors(payload: FormCreatePayload): FormFieldErrors {
+  const errors: FormFieldErrors = {}
   if (!payload.title.trim()) {
-    return "Form name is required."
+    errors.title = "Form name is required."
   }
   if (payload.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(payload.dueDate)) {
-    return "Due date must use YYYY-MM-DD format."
+    errors.dueDate = "Due date must use YYYY-MM-DD format."
   }
-  return null
+  return errors
+}
+
+export function validateFormCreatePayload(payload: FormCreatePayload): string | null {
+  const errors = collectFormFieldErrors(payload)
+  return errors.title ?? errors.dueDate ?? null
 }
 
 export function validateFormEditPayload(payload: FormEditPayload): string | null {

@@ -79,6 +79,7 @@ export async function getSectionListData(
       .from("app_user")
       .select("app_user_id, full_name, is_active")
       .eq("role_id", adviserRoleId)
+      .eq("is_active", true)
       .order("full_name"),
   ])
 
@@ -242,7 +243,7 @@ export async function createSection(
 
   if (error) {
     if (error.code === "23505") {
-      return { ok: false, error: "This facilitator already has a class this term." }
+      return { ok: false, error: "This facilitator already has a class of this type this term." }
     }
     console.error("[createSection]", error)
     return { ok: false, error: "Failed to create section." }
@@ -303,7 +304,7 @@ export async function updateSection(
 
   if (error) {
     if (error.code === "23505") {
-      return { ok: false, error: "This facilitator already has a class this term." }
+      return { ok: false, error: "This facilitator already has a class of this type this term." }
     }
     console.error("[updateSection]", error)
     return { ok: false, error: "Failed to update section." }

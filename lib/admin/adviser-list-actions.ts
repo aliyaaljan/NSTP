@@ -40,7 +40,6 @@ import {
   getClassReassignmentData,
   reassignClass,
   type ClassReassignmentData,
-  type ReassignClassMode,
   type ReassignClassOutcome,
 } from "@/lib/admin/class-reassign"
 import {
@@ -450,11 +449,10 @@ export async function getClassReassignmentDataAction(
   return { ok: true, data: await getClassReassignmentData(service, adviserUserId) }
 }
 
-/** Transfer a class to a free facilitator, or merge its students into a busy one's class. */
+/** Transfer a whole class to a facilitator without the same NSTP type this term. */
 export async function reassignClassAction(input: {
   sectionId: string
   targetAdviserUserId: string
-  mode: ReassignClassMode
 }): Promise<ReassignClassOutcome | { ok: false; error: string }> {
   const role = await getAppUserRole()
   if (role !== "admin") return { ok: false, error: "Unauthorized" }

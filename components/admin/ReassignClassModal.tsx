@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
 import { reassignClassAction } from "@/lib/admin/adviser-list-actions"
 import type {
-  ReassignCandidate,
-  ReassignClassMode,
   ReassignClassOutcome,
   ReassignSourceClass,
 } from "@/lib/admin/class-reassign"
@@ -17,38 +15,45 @@ const COLORS = {
   headerGreen: "#14492E",
   fieldBg: "#EBEBE8",
   error: "#7B1113",
-  warnBg: "#FDECEC",
   border: "#ECECEA",
 }
 
+type SuccessOutcome = Extract<ReassignClassOutcome, { ok: true }>
+
 export default function ReassignClassModal({
   open,
-  sourceClass,
-  candidates,
+  classes,
   onClose,
   onReassigned,
 }: {
   open: boolean
-  sourceClass: ReassignSourceClass | null
-  candidates: ReassignCandidate[]
-  /** "Skip for now" / close after success. Defaults to a full page reload. */
+  /** Every class still owned by the inactive facilitator. */
+  classes: ReassignSourceClass[]
+  /** "Skip remaining" / close after success. Defaults to a full page reload. */
   onClose: () => void
   onReassigned?: () => void
 }) {
+  const [classIndex, setClassIndex] = useState(0)
   const [targetAdviserUserId, setTargetAdviserUserId] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [outcome, setOutcome] = useState<Extract<ReassignClassOutcome, { ok: true }> | null>(
-    null
-  )
+  const [outcome, setOutcome] = useState<SuccessOutcome | null>(null)
+  const [completedCount, setCompletedCount] = useState(0)
   const [isPending, startTransition] = useTransition()
+
+  const sourceClass = classes[classIndex] ?? null
+  const totalClasses = classes.length
+  const hasMoreAfterThis = classIndex < totalClasses - 1
+  const isLastClass = classIndex >= totalClasses - 1
 
   useEffect(() => {
     if (open) {
+      setClassIndex(0)
       setTargetAdviserUserId("")
       setError(null)
       setOutcome(null)
+      setCompletedCount(0)
     }
-  }, [open, sourceClass?.sectionId])
+  }, [open, classes])
 
   useEffect(() => {
     if (!open) return
@@ -63,43 +68,72 @@ export default function ReassignClassModal({
     }
   }, [open, isPending, onClose])
 
+  const candidates = sourceClass?.candidates ?? []
+
   const targetOptions = useMemo(
     () =>
       candidates.map((c) => ({
         value: c.adviserUserId,
-        label: c.hasClassThisTerm ? `${c.fullName} — merge into ${c.targetClassLabel}` : c.fullName,
+        label: c.fullName,
       })),
     [candidates]
   )
 
   const target = candidates.find((c) => c.adviserUserId === targetAdviserUserId) ?? null
-  const mode: ReassignClassMode | null = target ? (target.hasClassThisTerm ? "merge" : "transfer") : null
 
-  if (!open || !sourceClass) return null
+  if (!open || !sourceClass || totalClasses === 0) return null
 
-  function handleSkip() {
+  function goToNextClass() {
+    setOutcome(null)
+    setError(null)
+    setTargetAdviserUserId("")
+    setClassIndex((i) => i + 1)
+  }
+
+  function handleSkipThis() {
     if (isPending) return
+    if (hasMoreAfterThis) {
+      goToNextClass()
+      return
+    }
+    if (completedCount > 0 && onReassigned) {
+      onReassigned()
+      return
+    }
+    onClose()
+  }
+
+  function handleSkipRemaining() {
+    if (isPending) return
+    if (completedCount > 0 && onReassigned) {
+      onReassigned()
+      return
+    }
     onClose()
   }
 
   function handleSubmit() {
-    if (!target || !mode || !sourceClass) return
+    if (!target || !sourceClass) return
     setError(null)
     startTransition(async () => {
       const result = await reassignClassAction({
         sectionId: sourceClass.sectionId,
         targetAdviserUserId: target.adviserUserId,
-        mode,
       })
       if (!result.ok) {
         setError(result.error)
         return
       }
+      setCompletedCount((n) => n + 1)
       setOutcome(result)
     })
   }
 
-  function handleDone() {
+  function handleContinueAfterSuccess() {
+    if (hasMoreAfterThis) {
+      goToNextClass()
+      return
+    }
     if (onReassigned) {
       onReassigned()
     } else {
@@ -107,10 +141,15 @@ export default function ReassignClassModal({
     }
   }
 
+  const title =
+    totalClasses > 1
+      ? `Reassign Classes (${classIndex + 1} of ${totalClasses})`
+      : "Reassign Class"
+
   return (
     <div
       role="presentation"
-      onClick={isPending ? undefined : handleSkip}
+      onClick={isPending ? undefined : handleSkipRemaining}
       style={{
         position: "fixed",
         inset: 0,
@@ -132,7 +171,7 @@ export default function ReassignClassModal({
           width: "100%",
           maxWidth: 520,
           borderRadius: 16,
-          overflow: "hidden",
+          overflow: "visible",
           background: "#fff",
           boxShadow: "0 20px 50px rgba(0,0,0,0.18)",
         }}
@@ -144,15 +183,17 @@ export default function ReassignClassModal({
             justifyContent: "space-between",
             padding: "18px 22px",
             background: COLORS.headerGreen,
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
           }}
         >
           <h2 id="reassign-class-title" style={{ ...TYPE.h2, color: "#fff", margin: 0 }}>
-            Reassign Class
+            {title}
           </h2>
           {!outcome && (
             <button
               type="button"
-              onClick={handleSkip}
+              onClick={handleSkipRemaining}
               disabled={isPending}
               aria-label="Close"
               style={{
@@ -172,6 +213,13 @@ export default function ReassignClassModal({
         <div style={{ padding: "24px 22px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
           {!outcome ? (
             <>
+              {totalClasses > 1 && (
+                <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: 0 }}>
+                  This facilitator still has {totalClasses} classes. Reassign each one, or skip
+                  individually.
+                </p>
+              )}
+
               <div
                 style={{
                   ...TYPE.bodyBold,
@@ -186,6 +234,7 @@ export default function ReassignClassModal({
                 <div style={{ ...TYPE.caption, color: COLORS.textGray, fontWeight: 400, marginTop: 4 }}>
                   {sourceClass.totalEnrollmentCount} student
                   {sourceClass.totalEnrollmentCount === 1 ? "" : "s"} total
+                  {sourceClass.schoolYear ? ` · AY ${sourceClass.schoolYear}` : ""}
                 </div>
               </div>
 
@@ -201,49 +250,21 @@ export default function ReassignClassModal({
                   Move to
                 </label>
                 <SearchableCombobox
+                  key={sourceClass.sectionId}
                   value={targetAdviserUserId}
                   onChange={setTargetAdviserUserId}
                   options={targetOptions}
                   placeholder="Select a facilitator"
-                  emptyMessage="No active facilitators found"
+                  emptyMessage="No facilitators available for this class type"
                   toggleAriaLabel="Toggle facilitator list"
                 />
               </div>
 
-              {target && mode === "transfer" && (
+              {target && (
                 <p style={{ ...TYPE.body, color: COLORS.textGray, margin: 0 }}>
-                  The class and all its students keep their data; only the facilitator changes.
+                  This class stays separate. Choose a facilitator who does not already advise the
+                  same NSTP type (CWTS, LTS, or ROTC) this term.
                 </p>
-              )}
-
-              {target && mode === "merge" && (
-                <div
-                  style={{
-                    ...TYPE.body,
-                    color: COLORS.error,
-                    background: COLORS.warnBg,
-                    border: `1px solid ${COLORS.error}33`,
-                    borderRadius: 8,
-                    padding: "10px 12px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                  }}
-                >
-                  <span>
-                    All {sourceClass.totalEnrollmentCount} enrollments — including attendance
-                    history — will move into {target.targetClassLabel}. &quot;{sourceClass.classLabel}
-                    &quot; will be archived.
-                  </span>
-                  {target.targetCourseCode !== sourceClass.courseCode && (
-                    <span>
-                      Note: the course codes differ ({sourceClass.courseCode} → {target.targetCourseCode}).
-                    </span>
-                  )}
-                  <span>
-                    If both classes have a student leader, the incoming leader will lose the leader role.
-                  </span>
-                </div>
               )}
 
               {error && (
@@ -253,34 +274,12 @@ export default function ReassignClassModal({
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <p style={{ ...TYPE.bodyBold, color: COLORS.textDark, margin: 0 }}>
-                {outcome.mode === "transfer"
-                  ? "Class transferred."
-                  : `${outcome.movedStudents} student${outcome.movedStudents === 1 ? "" : "s"} moved.`}
+                Class reassigned.
               </p>
-              {outcome.demotedLeaders.length > 0 && (
-                <p style={{ ...TYPE.body, color: COLORS.textGray, margin: 0 }}>
-                  Leader role removed from: {outcome.demotedLeaders.join(", ")}.
-                </p>
-              )}
-              {outcome.skippedStudents.length > 0 && (
-                <div>
-                  <p style={{ ...TYPE.body, color: COLORS.textGray, margin: "0 0 4px" }}>
-                    Not moved:
-                  </p>
-                  <ul style={{ ...TYPE.caption, color: COLORS.textGray, margin: 0, paddingLeft: 18 }}>
-                    {outcome.skippedStudents.map((s, idx) => (
-                      <li key={idx}>
-                        {s.name} — {s.reason}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {outcome.mode === "merge" && (
-                <p style={{ ...TYPE.body, color: COLORS.textGray, margin: 0 }}>
-                  {outcome.sourceArchived
-                    ? "The source class was archived."
-                    : "The source class could not be archived — check it manually."}
+              {hasMoreAfterThis && (
+                <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: 0 }}>
+                  {totalClasses - classIndex - 1} class
+                  {totalClasses - classIndex - 1 === 1 ? "" : "es"} still need reassignment.
                 </p>
               )}
             </div>
@@ -293,13 +292,14 @@ export default function ReassignClassModal({
             display: "flex",
             justifyContent: "flex-end",
             gap: 10,
+            flexWrap: "wrap",
           }}
         >
           {!outcome ? (
             <>
               <button
                 type="button"
-                onClick={handleSkip}
+                onClick={handleSkipThis}
                 disabled={isPending}
                 style={{
                   ...TYPE.bodyBold,
@@ -312,7 +312,7 @@ export default function ReassignClassModal({
                   opacity: isPending ? 0.6 : 1,
                 }}
               >
-                Skip for now
+                {hasMoreAfterThis ? "Skip this class" : "Skip for now"}
               </button>
               <button
                 type="button"
@@ -328,17 +328,13 @@ export default function ReassignClassModal({
                   cursor: target && !isPending ? "pointer" : "not-allowed",
                 }}
               >
-                {isPending
-                  ? "Working…"
-                  : mode === "merge"
-                    ? "Merge Classes"
-                    : "Transfer Class"}
+                {isPending ? "Working…" : "Reassign Class"}
               </button>
             </>
           ) : (
             <button
               type="button"
-              onClick={handleDone}
+              onClick={handleContinueAfterSuccess}
               style={{
                 ...TYPE.bodyBold,
                 color: "#fff",
@@ -349,7 +345,7 @@ export default function ReassignClassModal({
                 cursor: "pointer",
               }}
             >
-              Done
+              {isLastClass ? "Done" : "Next class"}
             </button>
           )}
         </div>
