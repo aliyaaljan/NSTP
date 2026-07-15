@@ -577,6 +577,32 @@ export default function RequestsView() {
    return status?.trim().toLowerCase()
  }
 
+ function formatTimeValue(value?: string | null): string {
+  if (!value) return ""
+
+  if (value.includes("T") || value.includes("-") && value.length > 8) {
+    const d = new Date(value)
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    }
+  }
+
+  const match = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+  if (match) {
+    const hours = parseInt(match[1], 10)
+    const minutes = match[2]
+    const period = hours >= 12 ? "PM" : "AM"
+    const displayHour = hours % 12 === 0 ? 12 : hours % 12
+    return `${displayHour}:${minutes} ${period}`
+  }
+
+  return value
+}
+
  const requestTypeNames = [...new Set(requestType.map((t) => t.name))].sort()
 
  function handleSort(field: SortField) {
@@ -1732,10 +1758,42 @@ if (loading || contextLoading) {
                     </div>
                 </div>
 
-                    <div className="request-body">{request.body}</div>
+                <div className="request-body">{request.body}</div>
 
+                {request.type === "Hour Adjustment" &&
+                  (request.requestedTimeIn || request.requestedTimeOut) && (
                     <div
-                        className="request-note-box"
+                      style={{
+                        display: "flex",
+                        gap: 14,
+                        flexWrap: "wrap",
+                        marginBottom: 8,
+                        fontSize: 11,
+                        color: "#555",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {request.requestedTimeIn && (
+                            <span>
+                              Requested Time In:{" "}
+                              <span style={{ color: C.textDark }}>
+                                {formatTimeValue(request.requestedTimeIn)}
+                              </span>
+                            </span>
+                          )}
+                          {request.requestedTimeOut && (
+                            <span>
+                              Requested Time Out:{" "}
+                              <span style={{ color: C.textDark }}>
+                                {formatTimeValue(request.requestedTimeOut)}
+                              </span>
+                            </span>
+                          )}
+                    </div>
+                  )}
+
+                <div
+                    className="request-note-box"
                         style={{
                             marginTop: 5,
                             display: "inline-flex",
@@ -1876,21 +1934,19 @@ if (loading || contextLoading) {
            style={{
                background:"#fff",
                borderRadius:20,
-               padding:"32px 24px",
                width:"calc(100% - 32px)",
                maxWidth:480,
                maxHeight:"90vh",
-               overflowY:"auto",
                boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
-               scrollbarWidth: "thin",
-               scrollbarColor: "#CFCFCB transparent",
+               display:"flex",
+               flexDirection:"column",
+               overflow:"hidden",
               }}
          >
            <div
                style={{
                    background: C.green,
                    color: "#fff",
-                   margin: "-32px -24px 24px",
                    padding: "24px 24px",
                    borderTopLeftRadius: 16,
                    borderTopRightRadius: 16,
@@ -1898,6 +1954,7 @@ if (loading || contextLoading) {
                    alignItems: "center",
                    justifyContent: "space-between",
                    fontFamily: "var(--font-montserrat), sans-serif",
+                   flexShrink: 0,
                }}
                >
                <h2
@@ -1935,17 +1992,28 @@ if (loading || contextLoading) {
                <IconX size={20} stroke={2} />
                </button>
                </div>
+
+           <div
+             style={{
+               padding: "24px",
+               overflowY: "auto",
+               flex: 1,
+               scrollbarWidth: "thin",
+               scrollbarColor: "#CFCFCB transparent",
+             }}
+           >
+
            <div style={{ marginBottom: 16 }}>
              <label
-               style={{
-                   fontSize: 11,
-                   fontWeight: 700,
-                   color: "#6B7280",
-                   textTransform: "uppercase",
-                   letterSpacing: "0.6px",
-                   display: "block",
-                   marginBottom: 6,
-                 }}
+                 style={{
+                     fontSize: 11,
+                     fontWeight: 700,
+                     color: "#6B7280",
+                     textTransform: "uppercase",
+                     letterSpacing: "0.6px",
+                     display: "block",
+                     marginBottom: 6,
+                   }}
              >
                Request Category
              </label>
@@ -2021,6 +2089,15 @@ if (loading || contextLoading) {
                {formTitle.length}/50
                </div>
            </div>
+
+           {isTimeRequest && (
+             <TimeCorrectionFields
+               sessions={sessionOptions}
+               value={timeCorrection}
+               onChange={setTimeCorrection}
+               loading={sessionsLoading}
+             />
+           )}
 
            <div style={{ marginBottom: 24 }}>
              <label
@@ -2211,19 +2288,15 @@ if (loading || contextLoading) {
                )}
              </div>
            </div>
-           {isTimeRequest && (
-             <TimeCorrectionFields
-               sessions={sessionOptions}
-               value={timeCorrection}
-               onChange={setTimeCorrection}
-               loading={sessionsLoading}
-             />
-           )}
+           </div>
            <div
            style={{
                display: "flex",
                gap: 10,
                width: "100%",
+               padding: "16px 24px 24px",
+               borderTop: "1px solid #EEEEEE",
+               flexShrink: 0,
            }}
            >
              <button
@@ -2303,22 +2376,20 @@ if (loading || contextLoading) {
            style={{
                background:"#fff",
                borderRadius:20,
-               padding:"32px 24px",
                width:"calc(100% - 32px)",
                maxWidth:480,
                maxHeight:"90vh",
-               overflowY:"auto",
                boxShadow:"0 8px 40px rgba(0,0,0,0.18)",
                fontFamily: "var(--font-montserrat), sans-serif",
-               scrollbarWidth: "thin",
-               scrollbarColor: "#CFCFCB transparent",
+               display:"flex",
+               flexDirection:"column",
+               overflow:"hidden",
               }}
          >
            <div
                style={{
                    background: C.green,
                    color: "#fff",
-                   margin: "-32px -24px 24px",
                    padding: "24px 24px",
                    borderTopLeftRadius: 16,
                    borderTopRightRadius: 16,
@@ -2326,6 +2397,7 @@ if (loading || contextLoading) {
                    alignItems: "center",
                    justifyContent: "space-between",
                    fontFamily: "var(--font-montserrat), sans-serif",
+                   flexShrink: 0,
                }}
                >
                <h2
@@ -2363,6 +2435,16 @@ if (loading || contextLoading) {
                <IconX size={20} stroke={2} />
                </button>
                </div>
+
+           <div
+             style={{
+               padding: "24px",
+               overflowY: "auto",
+               flex: 1,
+               scrollbarWidth: "thin",
+               scrollbarColor: "#CFCFCB transparent",
+             }}
+           >
 
            <label
              style={{
@@ -2449,7 +2531,7 @@ if (loading || contextLoading) {
                }}
                />
 
-               {isEditable && (
+              {isEditable && (
                <div
                    style={{
                    fontSize: 12,
@@ -2462,6 +2544,24 @@ if (loading || contextLoading) {
                    {editTitle.length}/50
                </div>
                )}
+
+           {/* Structured time-correction — editable "Hour Adjustment" requests only */}
+           {editIsTimeRequest && (
+             <div
+               style={
+                 !isEditable
+                   ? { pointerEvents: "none", opacity: 0.6 }
+                   : undefined
+               }
+             >
+               <TimeCorrectionFields
+                 sessions={sessionOptions}
+                 value={editTimeCorrection}
+                 onChange={setEditTimeCorrection}
+                 loading={sessionsLoading}
+               />
+             </div>
+           )}
 
            <label
              style={{
@@ -2500,7 +2600,7 @@ if (loading || contextLoading) {
              }}
            />
 
-           {isEditable && (
+          {isEditable && (
            <div
                style={{
                fontSize: 12,
@@ -2512,16 +2612,6 @@ if (loading || contextLoading) {
            >
                {editBody.length}/500
            </div>
-           )}
-
-           {/* Structured time-correction — editable "Hour Adjustment" requests only */}
-           {isEditable && editIsTimeRequest && (
-             <TimeCorrectionFields
-               sessions={sessionOptions}
-               value={editTimeCorrection}
-               onChange={setEditTimeCorrection}
-               loading={sessionsLoading}
-             />
            )}
 
            {isEditable ? (
@@ -2717,12 +2807,15 @@ if (loading || contextLoading) {
                : "Not edited yet"}
            </div>
 
+           </div>
            <div
            style={{
                display: "flex",
                justifyContent: "flex-end",
                gap: 10,
-               marginTop: 25,
+               padding: "16px 24px 24px",
+               borderTop: "1px solid #EEEEEE",
+               flexShrink: 0,
            }}
            >
              {isEditable && (
