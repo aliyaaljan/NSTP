@@ -1122,7 +1122,8 @@ export default function StudentFilesPage() {
           <ChartStyles />
 
           {/* Stat Cards */}
-          <KpiStatCardGrid columns={2} className="sf-db-kpi-grid">
+        <div className="sf-db-kpi-grid">
+          <KpiStatCardGrid columns={2}>
             {stats.map((stat) => {
               const isHovered = hoveredCard === stat.label
               const isActive = activeFilter === stat.label
@@ -1131,6 +1132,7 @@ export default function StudentFilesPage() {
                   key={stat.label}
                   onClick={() => {
                     setActiveFilter(isActive ? "All" : stat.label)
+                    setHoveredCard(null);
                     setCurrentPage(1)
                   }}
                   onMouseEnter={() => setHoveredCard(stat.label)}
@@ -1164,6 +1166,7 @@ export default function StudentFilesPage() {
               )
             })}
           </KpiStatCardGrid>
+        </div>
 
           {/* Table Card */}
           <div className="sf-adv-table-card">
