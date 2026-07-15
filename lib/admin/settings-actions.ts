@@ -16,15 +16,23 @@ import {
 import {
   validateAcademicConfigPayload,
   validateHolidayCreatePayload,
+  validateAcademicYearCreatePayload,
   type AcademicConfigPayload,
   type HolidayCreatePayload,
   type SettingsMutationResult,
+  type AcademicYearCreatePayload,
 } from "@/lib/admin/settings-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 
 const DEFAULT_NSTP_HOURS = 60
 const DEFAULT_NSTP_HOURS_KEY = "default_nstp_hours"
+
+const SEMESTER_OPTIONS = [
+  { value: "first", label: "1st Semester" },
+  { value: "second", label: "2nd Semester" },
+  { value: "midyear", label: "Midyear" },
+]
 
 /** Coerce a `system_settings.setting_value` jsonb into a positive hour count. */
 function coerceNstpHours(value: unknown): number {
@@ -387,4 +395,31 @@ async function resolveCurrentUser(
     role: isAdmin ? "NSTP Admin" : "Admin",
     avatarUrl: (appUser as any).avatar_url ?? undefined,
   }
+}
+
+export async function createAcademicYear(
+  payload: AcademicYearCreatePayload
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized." }
+
+  const validationError = validateAcademicYearCreatePayload(payload)
+  if (validationError) return { ok: false, error: validationError }
+
+  const service = createSupabaseServiceClient()
+  const { error } = await service.from("term").insert({
+    school_year: payload.schoolYear.trim(),
+    semester: payload.semester,
+    start_date: payload.startDate,
+    end_date: payload.endDate,
+    is_active: false,
+    name: `${SEMESTER_LABELS[payload.semester as keyof typeof SEMESTER_LABELS]} AY ${payload.schoolYear.trim()}`,
+  })
+
+  if (error) {
+    console.error("[createAcademicYear] insert failed", error)
+    return { ok: false, error: "Failed to create academic year." }
+  }
+
+  return { ok: true }
 }
