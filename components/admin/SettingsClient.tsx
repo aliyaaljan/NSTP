@@ -32,6 +32,8 @@ import {
 } from "@/lib/admin/settings"
 import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+import AddAcademicYearModal from "./AddAcademicYearModal"
+import { RiResetLeftLine, RiSave2Fill } from "react-icons/ri";
 
 const FIELD_BG = "#F3F4F6"
 const SETTINGS_LIST_ROW_HEIGHT = 56
@@ -246,11 +248,13 @@ function GreenButton({
   onClick,
   disabled,
   type = "button",
+  fullWidth = false,
 }: {
   children: React.ReactNode
   onClick?: () => void
   disabled?: boolean
   type?: "button" | "submit"
+  fullWidth?: boolean
 }) {
   return (
     <button
@@ -262,7 +266,10 @@ function GreenButton({
         fontFamily: FONT_BODY,
         display: "inline-flex",
         alignItems: "center",
+        justifyContent: "center",
         gap: 6,
+        width: fullWidth ? "100%" : undefined,
+        boxSizing: "border-box",
         background: COLORS.green,
         color: "#fff",
         border: "none",
@@ -309,6 +316,7 @@ export default function SettingsClient({
   const [academicError, setAcademicError] = useState<string | null>(null)
   const [academicSuccess, setAcademicSuccess] = useState(false)
   const [isSavingAcademic, startSaveAcademic] = useTransition()
+  const [addAcadYrOpen, setAddAcadYrOpen] = useState(false)
 
   const [closeoutOpen, setCloseoutOpen] = useState(false)
   const [closeoutSummary, setCloseoutSummary] = useState<TermCloseoutSummary | null>(null)
@@ -339,6 +347,17 @@ export default function SettingsClient({
     setHolidayPageSize(nextSize)
     setHolidayPage(1)
   }
+  const hasAcademicChanges = useMemo(() => {
+    const original = academicConfigToPayload(academic)
+    return (
+      academicForm.termId !== original.termId ||
+      academicForm.schoolYear !== original.schoolYear ||
+      academicForm.semester !== original.semester ||
+      academicForm.requiredNstpHours !== original.requiredNstpHours ||
+      academicForm.schoolYearStartDate !== original.schoolYearStartDate ||
+      academicForm.schoolYearEndDate !== original.schoolYearEndDate
+    )
+  }, [academicForm, academic])
 
   useEffect(() => {
     setAcademicForm(academicConfigToPayload(academic))
@@ -346,6 +365,12 @@ export default function SettingsClient({
 
   function patchAcademic(updates: Partial<AcademicConfigPayload>) {
     setAcademicForm((prev) => ({ ...prev, ...updates }))
+    setAcademicSuccess(false)
+  }
+
+  function handleResetAcademic() {
+    setAcademicForm(academicConfigToPayload(academic))
+    setAcademicError(null)
     setAcademicSuccess(false)
   }
 
@@ -493,7 +518,17 @@ export default function SettingsClient({
           gap: 20,
         }}
       >
-        <SettingsCard title="Academic Configuration">
+
+        <SettingsCard
+          title="Academic Configuration"
+          icon="ti-calendar-event"
+          action={
+            <GreenButton onClick={() => setAddAcadYrOpen(true)}>
+              <i className="ti ti-plus" style={{ fontSize: 14 }} />
+              Add Academic Year
+            </GreenButton>
+          }
+        >
           <form
             id="academic_config_form"
             onSubmit={(e) => {
@@ -627,11 +662,40 @@ export default function SettingsClient({
               </p>
             )}
 
-            <div style={{ marginTop: 4 }}>
-              <GreenButton type="submit" disabled={isSavingAcademic}>
-                <i className="ti ti-device-floppy" style={{ fontSize: 16 }} />
-                {isSavingAcademic ? "Saving…" : "Save Configuration"}
-              </GreenButton>
+            <div style={{ marginTop: 4, display: "flex", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <button
+                  type="button"
+                  onClick={handleResetAcademic}
+                  disabled={isSavingAcademic || !hasAcademicChanges}
+                  style={{
+                    ...TYPE.bodyBold,
+                    fontFamily: FONT_BODY,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    width: "100%",
+                    boxSizing: "border-box",
+                    background: "#fff",
+                    color: COLORS.green,
+                    border: `1px solid ${COLORS.green}`,
+                    borderRadius: 20,
+                    padding: "8px 18px",
+                    cursor: isSavingAcademic || !hasAcademicChanges ? "not-allowed" : "pointer",
+                    opacity: isSavingAcademic || !hasAcademicChanges ? 0.5 : 1,
+                  }}
+                >
+                  <RiResetLeftLine size={19}/>
+                  Reset
+                </button>
+              </div>
+              <div style={{ flex: 1 }}>
+                <GreenButton type="submit" fullWidth disabled={isSavingAcademic || !hasAcademicChanges}>
+                  <RiSave2Fill  size={19}/>
+                  {isSavingAcademic ? "Saving…" : "Save Configuration"}
+                </GreenButton>
+              </div>
             </div>
           </form>
         </SettingsCard>
@@ -758,6 +822,13 @@ export default function SettingsClient({
           setHolidayDeleteError(null)
         }}
       />
+
+      <AddAcademicYearModal
+        open={addAcadYrOpen}
+        onClose={() => setAddAcadYrOpen(false)}
+      />
+
     </div>
+    
   )
 }

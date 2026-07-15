@@ -126,6 +126,22 @@ create policy app_user_read on app_user for select to authenticated
 alter table term enable row level security;
 create policy term_read on term for select to authenticated using (true);
 
+-- ============================================================
+-- Admin can insert, update and delete 
+-- ============================================================
+create policy term_insert on term
+  for insert to authenticated
+  with check (public.app_is_admin());
+
+create policy term_update on term
+  for update to authenticated
+  using (public.app_is_admin())
+  with check (public.app_is_admin());
+
+create policy term_delete on term
+  for delete to authenticated
+  using (public.app_is_admin());
+
 -- Admin settings — readable by any authenticated user; writes go through the
 -- service role (admin-guarded server actions), consistent with the model above.
 alter table holiday enable row level security;

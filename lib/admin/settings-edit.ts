@@ -106,3 +106,30 @@ export function validateHolidayDelete(holiday: HolidayRow): string | null {
   }
   return null
 }
+
+export type AcademicYearCreatePayload = {
+  schoolYear: string
+  semester: string
+  startDate: string
+  endDate: string
+}
+
+export function emptyAcademicYearCreatePayload(): AcademicYearCreatePayload {
+  return {
+    schoolYear: "",
+    semester: "1st Semester",
+    startDate: "",
+    endDate: "",
+  }
+}
+
+export function validateAcademicYearCreatePayload(
+  form: AcademicYearCreatePayload
+): string | null {
+  if (!form.schoolYear.trim()) return "School year is required."
+  if (!form.semester.trim()) return "Semester is required."
+  if (!form.startDate) return "Start date is required."
+  if (!form.endDate) return "End date is required."
+  if (form.endDate < form.startDate) return "End date must be after start date."
+  return null
+}
