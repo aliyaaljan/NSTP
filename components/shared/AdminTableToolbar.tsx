@@ -81,10 +81,7 @@ export function AdminTableToolbar({
               groups={filterGroups}
               activeFilters={activeFilters}
               onChange={onFiltersChange}
-              onClear={() => {
-                onClearFilters()
-                setFilterOpen(false)
-              }}
+              onClear={onClearFilters}
             />
           )}
         </div>

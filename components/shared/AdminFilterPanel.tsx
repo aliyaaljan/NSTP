@@ -115,24 +115,24 @@ export function AdminFilterPanel({
         >
           Filters
         </span>
-        {totalActive > 0 && (
-          <button
-            type="button"
-            onClick={onClear}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 11.5,
-              color: COLORS.maroon,
-              fontWeight: 600,
-              fontFamily: FONT_BODY,
-              padding: 0,
-            }}
-          >
-            Clear all
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={totalActive === 0}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: totalActive > 0 ? "pointer" : "default",
+            fontSize: 11.5,
+            color: totalActive > 0 ? COLORS.maroon : COLORS.muted,
+            fontWeight: 600,
+            fontFamily: FONT_BODY,
+            padding: 0,
+            opacity: totalActive > 0 ? 1 : 0.55,
+          }}
+        >
+          Clear all
+        </button>
       </div>
 
       <div

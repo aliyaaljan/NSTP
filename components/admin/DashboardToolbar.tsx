@@ -145,7 +145,6 @@ export default function DashboardToolbar({
 
   function clearFilters() {
     setActiveFilters({})
-    setFilterOpen(false)
     router.push("/admin/dashboard")
   }
 
