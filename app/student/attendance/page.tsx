@@ -54,10 +54,14 @@ function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false)
   const [isSmallMobile, setIsSmallMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
+  const [isIPad, setIsIPad] = useState(false)
   
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth
+      const isIPadPro = width >= 1024 && width <= 1366 && window.innerHeight >= 1366
+      const isIPadMini = width >= 768 && width <= 1024 && window.innerHeight >= 1024
+      setIsIPad(isIPadPro || isIPadMini)
       setIsMobile(width < 768)
       setIsTablet(width >= 768 && width < 1024)
       setIsSmallMobile(width < 480)
@@ -67,11 +71,11 @@ function useIsMobile() {
     return () => window.removeEventListener("resize", handleResize)
   }, [])
   
-  return { isMobile, isSmallMobile, isTablet }
+  return { isMobile, isSmallMobile, isTablet, isIPad }
 }
 
 export default function QRGenerationPage() {
-  const { isMobile, isSmallMobile, isTablet } = useIsMobile()
+  const { isMobile, isSmallMobile, isTablet, isIPad } = useIsMobile()
   const [isStudentLeader, setIsStudentLeader] = useState(false)
   const [generated, setGenerated] = useState(false)
   const [token, setToken] = useState<string | null>(null)
@@ -464,7 +468,7 @@ export default function QRGenerationPage() {
         paddingBottom: '110px',
       }
     }
-    if (isTablet) {
+    if (isTablet || isIPad) {
       const tabletRailWidth = Math.max(70, COLLAPSED_W * (window.innerWidth / 768))
       return {
         paddingLeft: `${tabletRailWidth + RAIL_MARGIN * 2}px`,
@@ -513,6 +517,7 @@ export default function QRGenerationPage() {
           align-items: center;
           gap: 12px;
           flex-wrap: wrap;
+          margin-bottom: 24px;
         }
 
         .qr-title {
@@ -520,7 +525,7 @@ export default function QRGenerationPage() {
           font-weight: 800;
           color: #6B1A1A;
           margin: 0;
-          letter-spacing: -1px;
+          letter-spacing: -0.01em;
         }
 
         .qr-box{
@@ -740,239 +745,182 @@ export default function QRGenerationPage() {
           to { transform: rotate(360deg); }
         }
 
-
-        @media(max-width: 900px){
-
-          .qr-main {
-            padding: 24px 20px;
-          }
-
-          .qr-title {
-            font-size: 28px;
-          }
-
-          .qr-box {
-            height:auto;
-            min-height:520px;
-            padding: 24px;
-          }
-
-          .qr-card {
-            width: 100%;
-            min-height: 480px;
-            padding: 28px;
-          }
-
+        /* Desktop: 1024px and above */
+        @media (min-width: 1024px) {
+          .qr-main { padding: 34px 40px 34px 130px !important; }
         }
 
+        /* Tablet: 768px to 1023px */
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .qr-main { padding: 28px 20px 28px 125px !important; }
+          .qr-title { font-size: 28px; }
+          .qr-header { margin-bottom: 24px; }
+        }
 
-        @media(max-width: 767px){
-
-          .qr-main {
-            margin-left: 0;
-            padding: 20px 16px;
-            padding-bottom: 110px;
+        @media (min-width: 768px) and (max-width: 1366px) and (min-height: 1024px) {
+          .qr-main { padding: 34px 40px 34px 130px !important; }
+          .qr-title { font-size: 32px; }
+          .qr-header { margin-bottom: 28px; }
+          
+          .attendance-stat-card .db-kpi-value {
+            font-size: 34px !important;
+            line-height: 1.2 !important;
           }
-
-          .qr-header {
-            gap: 12px;
-            align-items: center;
+          
+          .attendance-stat-card .db-kpi-label {
+            font-size: 16px !important;
+            line-height: 1.2 !important;
           }
-
-          .qr-title {
-            font-size: 28px;
-            padding-top: clamp(43px, 0.5vw, 20px);
+          
+          .attendance-stat-card .db-kpi-card {
+            padding: 24px !important;
+            min-height: 100px !important;
           }
-
-          .profile-pill-wrapper {
-            display: none;
+          
+          .attendance-stat-card .db-kpi-icon {
+            font-size: 24px !important;
           }
+        }
 
-          .qr-box{
-            position: relative;
-            overflow: hidden;
-            background: white;
-            border: 2px solid #D9DDD8;
-            border-radius: 28px;
+        /* Mobile: 767px and below */
+        @media (max-width: 767px) {
+          .qr-main { margin-left: 0 !important; padding: 20px 16px 110px 16px !important; }
+          .qr-header { gap: 12px; align-items: center; margin-bottom: 16px; }
+          .qr-title { font-size: 28px; padding-top: clamp(43px, 0.5vw, 20px); }
+          
+          .qr-box {
             min-height: 580px;
             padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            border-radius: 28px;
             margin-top: 30px;
           }
-
-          .qr-box::before{
-            content: "";
-            position: absolute;
-            width: 350px;
-            height: 350px;
-            border-radius: 50%;
-            background: rgba(127, 165, 143, 0.18);
-            filter: blur(80px);
-            top: -120px;
-            left: -120px;
-            z-index: 0;
-          }
-
-          .qr-box::after{
-            content: "";
-            position: absolute;
-            width: 280px;
-            height: 280px;
-            border-radius: 50%;
-            background: rgba(123, 17, 19, 0.12);
-            filter: blur(70px);
-            bottom: -100px;
-            right: -100px;
-            z-index: 0;
-          }
-
+          
           .qr-card {
             width: 100%;
             min-height: 400px;
             padding: 20px;
             border-radius: 22px;
-            position: relative;
-            z-index: 1;
           }
-
+          
           .qr-code {
             width: 280px;
             height: 280px;
           }
-
+          
           .qr-generate-button {
             padding: 14px 28px;
             font-size: 18px;
           }
-
+          
           .qr-button {
             padding: 12px 24px;
             font-size: 14px;
           }
-
+          
           .qr-heading h2 {
             font-size: 18px;
           }
-
+          
           .qr-heading p {
             font-size: 12px;
           }
-
-          .divider {
-            margin-top: 1px;
-            margin-bottom: 13px;
+          
+          .qr-active {
+            font-size: 10px;
+            padding: 4px 12px;
           }
-
-          .db-kpi-grid {
-            gap: 10px !important;
+          
+          .qr-progress-container {
+            width: 180px;
           }
-
-          .db-kpi-value {
-            font-size: 15px !important;
-            line-height: 1.2 !important;
+          
+          .qr-countdown {
+            font-size: 10px;
           }
-
-          .db-kpi-label {
-            font-size: 11.5px !important;
-            line-height: 1.2 !important;
+          
+          .qr-info {
+            font-size: 10px;
+            padding: 8px;
           }
-
-          .db-kpi-icon {
-            font-size: 16px !important;
-          }
+          
+          .profile-pill-wrapper { display: none; }
 
           .attendance-stat-card .db-kpi-card {
             padding: 18px !important;
             height: auto !important;
             min-height: unset !important;
           }
-
+          
+          .attendance-stat-card .db-kpi-value {
+            font-size: 15px !important;
+            line-height: 1.2 !important;
+          }
+          
+          .attendance-stat-card .db-kpi-label {
+            font-size: 15px !important;
+            line-height: 1.2 !important;
+          }
+          
+          .attendance-stat-card .db-kpi-icon {
+            font-size: 16px !important;
+          }
         }
 
-
-        @media(max-width: 480px){
-
-          .qr-main {
-            padding: 20px 16px;
-            padding-bottom: 110px;
-          }
-
-          .qr-title {
-            font-size: 24px;
-          }
-
+        /* Small mobile: 480px and below */
+        @media (max-width: 480px) {
+          .qr-title { font-size: 24px; }
+          .qr-main { padding: 20px 16px 110px 16px !important; }
+          
           .qr-card {
             padding: 16px;
             min-height: 360px;
           }
-
+          
           .qr-code {
             width: 240px;
             height: 240px;
           }
-
+          
           .qr-box {
             min-height: 480px;
             padding: 16px;
             border-radius: 20px;
           }
-
+          
           .qr-generate-button {
             padding: 12px 20px;
             font-size: 16px;
           }
-
+          
           .qr-heading h2 {
             font-size: 16px;
           }
-
+          
           .qr-heading p {
             font-size: 11px;
           }
-
+          
           .qr-button {
             padding: 10px 18px;
             font-size: 12px;
           }
-
+          
           .qr-active {
             font-size: 10px;
             padding: 4px 12px;
           }
-
+          
           .qr-progress-container {
             width: 180px;
           }
-
+          
           .qr-countdown {
             font-size: 10px;
           }
-
+          
           .qr-info {
             font-size: 10px;
             padding: 8px;
-          }
-
-        }
-
-        /* Tablet view */
-        @media (max-width: 820px) and (min-width: 768px) {
-          .qr-main {
-            padding: 28px 20px;
-          }
-
-          .qr-title {
-            font-size: 28px;
-          }
-
-          .qr-box {
-            margin-top: 30px;
-          }
-
-          .db-kpi-grid {
-            gap: 12px !important;
           }
 
           .attendance-stat-card .db-kpi-card {
@@ -980,13 +928,47 @@ export default function QRGenerationPage() {
             height: auto !important;
             min-height: unset !important;
           }
-
-          .db-kpi-value {
-            font-size: inherit !important;
+          
+          .attendance-stat-card .db-kpi-value {
+            font-size: 15px !important;
+            line-height: 1.2 !important;
           }
+          
+          .attendance-stat-card .db-kpi-label {
+            font-size: 15px !important;
+            line-height: 1.2 !important;
+          }
+          
+          .attendance-stat-card .db-kpi-icon {
+            font-size: 16px !important;
+          }
+        }
 
-          .db-kpi-label {
-            font-size: inherit !important;
+        /* Tablet view */
+        @media (min-width: 768px) and (max-width: 1023px) and (max-height: 1023px) {
+          .qr-main { padding: 28px 20px 28px 125px !important; }
+          .qr-title { font-size: 28px; }
+          .qr-box { margin-top: 30px; }
+          .qr-header { margin-bottom: 24px; }
+          
+          .attendance-stat-card .db-kpi-card {
+            padding: 18px !important;
+            height: auto !important;
+            min-height: unset !important;
+          }
+          
+          .attendance-stat-card .db-kpi-value {
+            font-size: 20px !important;
+            line-height: 1.2 !important;
+          }
+          
+          .attendance-stat-card .db-kpi-label {
+            font-size: 14px !important;
+            line-height: 1.2 !important;
+          }
+          
+          .attendance-stat-card .db-kpi-icon {
+            font-size: 18px !important;
           }
         }
 
@@ -1008,6 +990,49 @@ export default function QRGenerationPage() {
         }
         .attendance-stat-card:hover .db-kpi-card {
           transform: none !important;
+        }
+
+        .qr-stats-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          width: 100%;
+          margin-bottom: 24px;
+        }
+
+        @media (max-width: 767px) {
+          .qr-stats-grid {
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .qr-stats-grid {
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .qr-stats-grid {
+            gap: 12px;
+            margin-bottom: 24px;
+          }
+        }
+
+        @media (min-width: 768px) and (max-width: 1366px) and (min-height: 1024px) {
+          .qr-stats-grid {
+            gap: 20px;
+            margin-bottom: 28px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .qr-stats-grid {
+            gap: 16px;
+            margin-bottom: 24px;
+          }
         }
 
       `}</style>
@@ -1040,36 +1065,32 @@ export default function QRGenerationPage() {
             </div>
           </div>
 
-          <div className="divider" />
-
           {isStudentLeader && (
             <>
               <ChartStyles />
-              <div style={{ marginBottom: "1px" }}>
-                <KpiStatCardGrid columns={2}>
-                  {info.map((stat) => {
-                    return (
-                      <div
-                        key={stat.id}
-                        className="attendance-stat-card"
-                        style={{
-                          cursor: "default",
-                          borderRadius: COLORS.radius,
-                          overflow: "hidden",
-                          background: COLORS.cardBg,
-                          color: "#000000",
-                          border: `2px solid ${COLORS.border}`,
-                        }}
-                      >
-                        <KpiStatCard
-                          icon={stat.icon}
-                          label={stat.label}
-                          value={stat.value}
-                        />
-                      </div>
-                    )
-                  })}
-                </KpiStatCardGrid>
+              <div className="qr-stats-grid">
+                {info.map((stat) => {
+                  return (
+                    <div
+                      key={stat.id}
+                      className="attendance-stat-card"
+                      style={{
+                        cursor: "default",
+                        borderRadius: COLORS.radius,
+                        overflow: "hidden",
+                        background: COLORS.cardBg,
+                        color: "#000000",
+                        border: `2px solid ${COLORS.border}`,
+                      }}
+                    >
+                      <KpiStatCard
+                        icon={stat.icon}
+                        label={stat.label}
+                        value={stat.value}
+                      />
+                    </div>
+                  )
+                })}
               </div>
             </>
           )}
