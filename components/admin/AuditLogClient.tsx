@@ -169,10 +169,18 @@ function DetailModal({
           }}
         >
           <div>
-            <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+            <div
+              style={{
+                ...TYPE.sectionLabel,
+                color: COLORS.textGray,
+                marginBottom: 4,
+              }}
+            >
               Event
             </div>
-            <div style={{ ...TYPE.bodyBold, color: COLORS.text }}>{entry.title}</div>
+            <div style={{ ...TYPE.bodyBold, color: COLORS.text }}>
+              {entry.title}
+            </div>
           </div>
 
           <div
@@ -183,25 +191,55 @@ function DetailModal({
             }}
           >
             <div>
-              <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+              <div
+                style={{
+                  ...TYPE.sectionLabel,
+                  color: COLORS.textGray,
+                  marginBottom: 4,
+                }}
+              >
                 Actor
               </div>
-              <div style={{ ...TYPE.body, color: COLORS.text }}>{entry.actorName}</div>
+              <div style={{ ...TYPE.body, color: COLORS.text }}>
+                {entry.actorName}
+              </div>
             </div>
             <div>
-              <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+              <div
+                style={{
+                  ...TYPE.sectionLabel,
+                  color: COLORS.textGray,
+                  marginBottom: 4,
+                }}
+              >
                 Action
               </div>
-              <div style={{ ...TYPE.body, color: COLORS.text }}>{entry.action}</div>
+              <div style={{ ...TYPE.body, color: COLORS.text }}>
+                {entry.action}
+              </div>
             </div>
             <div>
-              <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+              <div
+                style={{
+                  ...TYPE.sectionLabel,
+                  color: COLORS.textGray,
+                  marginBottom: 4,
+                }}
+              >
                 Table
               </div>
-              <div style={{ ...TYPE.body, color: COLORS.text }}>{entry.tableLabel}</div>
+              <div style={{ ...TYPE.body, color: COLORS.text }}>
+                {entry.tableLabel}
+              </div>
             </div>
             <div>
-              <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+              <div
+                style={{
+                  ...TYPE.sectionLabel,
+                  color: COLORS.textGray,
+                  marginBottom: 4,
+                }}
+              >
                 Timestamp
               </div>
               <div style={{ ...TYPE.body, color: COLORS.text }}>
@@ -210,15 +248,29 @@ function DetailModal({
             </div>
             {entry.summary && (
               <div>
-                <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+                <div
+                  style={{
+                    ...TYPE.sectionLabel,
+                    color: COLORS.textGray,
+                    marginBottom: 4,
+                  }}
+                >
                   Summary
                 </div>
-                <div style={{ ...TYPE.body, color: COLORS.text }}>{entry.summary}</div>
+                <div style={{ ...TYPE.body, color: COLORS.text }}>
+                  {entry.summary}
+                </div>
               </div>
             )}
             {entry.changedFields && entry.changedFields.length > 0 && (
               <div style={entry.summary ? undefined : { gridColumn: 2 }}>
-                <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+                <div
+                  style={{
+                    ...TYPE.sectionLabel,
+                    color: COLORS.textGray,
+                    marginBottom: 4,
+                  }}
+                >
                   Changed Fields
                 </div>
                 <div style={{ ...TYPE.body, color: COLORS.text }}>
@@ -239,7 +291,11 @@ function DetailModal({
               {entry.oldData && (
                 <div style={{ minWidth: 0 }}>
                   <div
-                    style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}
+                    style={{
+                      ...TYPE.sectionLabel,
+                      color: COLORS.textGray,
+                      marginBottom: 4,
+                    }}
                   >
                     Previous Values
                   </div>
@@ -262,7 +318,11 @@ function DetailModal({
               {entry.newData && (
                 <div style={{ minWidth: 0 }}>
                   <div
-                    style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}
+                    style={{
+                      ...TYPE.sectionLabel,
+                      color: COLORS.textGray,
+                      marginBottom: 4,
+                    }}
                   >
                     New Values
                   </div>
@@ -286,7 +346,13 @@ function DetailModal({
           )}
 
           <div>
-            <div style={{ ...TYPE.sectionLabel, color: COLORS.textGray, marginBottom: 4 }}>
+            <div
+              style={{
+                ...TYPE.sectionLabel,
+                color: COLORS.textGray,
+                marginBottom: 4,
+              }}
+            >
               Record ID
             </div>
             <div
@@ -343,7 +409,9 @@ function LogEntryRow({
             gap: 12,
           }}
         >
-          <div style={{ ...TYPE.bodyBold, color: COLORS.text }}>{entry.title}</div>
+          <div style={{ ...TYPE.bodyBold, color: COLORS.text }}>
+            {entry.title}
+          </div>
           <span
             style={{
               ...TYPE.caption,
@@ -427,7 +495,14 @@ export default function AuditLogClient({
 
   useEffect(() => {
     setAnimKey((k) => k + 1)
-  }, [query.page, query.search, query.action, query.dateRange, activeFilters, pageSize])
+  }, [
+    query.page,
+    query.search,
+    query.action,
+    query.dateRange,
+    activeFilters,
+    pageSize,
+  ])
 
   const filterGroups: FilterGroupDef[] = useMemo(
     () => [
@@ -465,16 +540,15 @@ export default function AuditLogClient({
     ? activeFilters.dateRange
     : ["7d"]
 
-  const visibleEntries = useMemo(
-    () =>
-      searchFiltered.filter(
-        (entry) =>
-          matchesActiveFilters({ action: entry.action }, activeFilters) &&
-          entryMatchesDateRanges(entry, effectiveDateRanges)
-      ),
-    [searchFiltered, activeFilters, effectiveDateRanges]
-  )
+  const visibleEntries = useMemo(() => {
+    const { dateRange, ...exactMatchFilters } = activeFilters
 
+    return searchFiltered.filter(
+      (entry) =>
+        matchesActiveFilters({ action: entry.action }, exactMatchFilters) &&
+        entryMatchesDateRanges(entry, effectiveDateRanges)
+    )
+  }, [searchFiltered, activeFilters, effectiveDateRanges])
   // While typing, stay on page 1 without touching the URL (avoids remount).
   const listPage =
     searchInput.trim() === (query.search || "").trim() ? query.page : 1
@@ -524,8 +598,16 @@ export default function AuditLogClient({
         }}
       >
         <div>
-          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>Audit Log</h1>
-          <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "6px 0 0" }}>
+          <h1 style={{ ...PAGE_TITLE, color: COLORS.maroon, margin: 0 }}>
+            Audit Log
+          </h1>
+          <p
+            style={{
+              ...TYPE.caption,
+              color: COLORS.textGray,
+              margin: "6px 0 0",
+            }}
+          >
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
         </div>
@@ -535,9 +617,9 @@ export default function AuditLogClient({
       <div className="admin-table-card">
         <AdminTableToolbar
           title="All Events"
-          count={`${filteredCount} event${filteredCount === 1 ? "" : "s"} found${
-            showingSampleOnly ? " (sample preview)" : ""
-          }`}
+          count={`${filteredCount} event${
+            filteredCount === 1 ? "" : "s"
+          } found${showingSampleOnly ? " (sample preview)" : ""}`}
           searchValue={searchInput}
           onSearchChange={setSearchInput}
           searchPlaceholder="Search audit log"
