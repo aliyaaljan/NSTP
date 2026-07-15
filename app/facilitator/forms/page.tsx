@@ -1472,16 +1472,6 @@ export default function FormsPage() {
                       )}
                     </span>
                   </th>
-                  <th>Section</th>
-                  <th>
-                    <span
-                      className="adv-th-sort"
-                      onClick={() => toggleSort("type")}
-                    >
-                      Form Type
-                      {sortField === "type" ? (
-                        sortDirection === "asc" ? (
-                          <IconChevronUp size={13} stroke={2.5} />
                   <th>
                     <span
                       className="adv-th-sort"
