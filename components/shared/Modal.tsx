@@ -184,7 +184,6 @@ const STYLES = `
     gap: 8px;
     padding: 14px 22px 20px;
     flex-shrink: 0;
-    border-top: 1px solid var(--border, #E5E7EB);
   }
   .nstp-modal-btn {
     flex: 0 1 auto;
@@ -202,10 +201,10 @@ const STYLES = `
   .nstp-modal-btn-primary:hover:not(:disabled) { background: var(--green-dark, #0f3d21); }
   .nstp-modal-btn-secondary { background: #F3F4F6; color: var(--text, #111827); }
   .nstp-modal-btn-secondary:hover:not(:disabled) { background: #E5E7EB; }
-  .nstp-modal-btn-approve { background: #D1FAE5; color: #065F46; }
-  .nstp-modal-btn-approve:hover:not(:disabled) { background: #A7F3D0; }
-  .nstp-modal-btn-reject { background: #FEE2E2; color: #991B1B; }
-  .nstp-modal-btn-reject:hover:not(:disabled) { background: #FECACA; }
+  .nstp-modal-btn-approve { background: var(--green, #14532D); color: #fff; }
+  .nstp-modal-btn-approve:hover:not(:disabled) { background: var(--green-dark, #0f3d21); }
+  .nstp-modal-btn-reject { background: var(--maroon, #7B1D1D); color: #fff; }
+  .nstp-modal-btn-reject:hover:not(:disabled) { filter: brightness(0.9); }
   .nstp-modal-btn-danger { background: var(--maroon, #7B1D1D); color: #fff; }
   .nstp-modal-btn-danger:hover:not(:disabled) { filter: brightness(0.9); }
 `
@@ -294,10 +293,11 @@ export function NstpModal({
           )}
 
           {actions && actions.length > 0 && (
-            <div className="nstp-modal-footer">
+            <div className="nstp-modal-footer flex flex-1">
               {actions.map((action, i) => (
                 <button
                   key={i}
+                  style={{ flex: 1 }}
                   className={`nstp-modal-btn nstp-modal-btn-${action.variant ?? "secondary"}`}
                   onClick={action.onClick}
                   disabled={action.disabled}

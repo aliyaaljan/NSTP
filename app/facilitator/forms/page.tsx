@@ -16,6 +16,7 @@ import {
   IconChevronDown,
   IconSelector,
   IconEdit,
+  IconEye,
 } from "@tabler/icons-react"
 import { FaSortAlphaDown, FaSortAlphaUp  } from "react-icons/fa";
 import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
@@ -29,6 +30,7 @@ import LoadingPage from "@/components/shared/LoadingPage"
 import {
   getSubmissionsByForm,
   getFacilitatorSectionId,
+  reviewSubmission,
   type SubmissionByFormEntry,
 } from "@/lib/forms/submission-actions"
 
@@ -62,6 +64,13 @@ const statusConfig: Record<string, { bg: string; color: string }> = {
   submitted: { bg: "#D1FAE5", color: "#065F46" },
   approved: { bg: "#D1FAE5", color: "#065F46" },
   rejected: { bg: "#FEE2E2", color: "#991B1B" },
+}
+
+const statusLabel: Record<string, string> = {
+  missing: "Not Yet Submitted",
+  submitted: "Submitted",
+  approved: "Approved",
+  rejected: "Rejected",
 }
 
 const typeConfig: Record<string, { bg: string; color: string }> = {
@@ -140,11 +149,10 @@ const formsStyles = `
   ${dashboardStyles}
   .fm-body { flex: 1; overflow: auto; padding-top: 16px; }
   .fm-body .stat-cards { margin-bottom: 20px; }
-  .adv-table th:nth-child(1) { width: 28%; }
-  .adv-table th:nth-child(2) { width: 12%; }
-  .adv-table th:nth-child(3) { width: 24%; }
-  .adv-table th:nth-child(4) { width: 18%; }
-  .adv-table th:nth-child(5) { width: 18%; }
+  .adv-table th:nth-child(1) { width: 40%; }
+  .adv-table th:nth-child(2) { width: 22%; }
+  .adv-table th:nth-child(3) { width: 22%; }
+  .adv-table th:nth-child(4) { width: 16%; text-align: center; }
   .adv-th-sort {
     display: flex; align-items: center; gap: 4px;
     cursor: pointer; user-select: none;
@@ -201,7 +209,7 @@ const formsStyles = `
      always the exact same size, whether 0 rows or 50 rows match the
      current filters/search (prevents the resize "jump" entirely). */
   .fm-bin-modal-body {
-    width: 1100px;
+    width: 100%;
     display: flex;
     flex-direction: column;
   }
@@ -211,11 +219,15 @@ const formsStyles = `
     overflow-x: auto;
   }
   .fm-bin-table-wrapper .adv-empty {
-    height: 520px;
     vertical-align: middle;
   }
   .fm-bin-table-wrapper tbody tr:hover {
     background: #F9FAFB;
+  }
+  .fm-bin-table-wrapper .adv-badge {
+    display: inline-block;
+    min-width: 108px;
+    text-align: center;
   }
 `
 
@@ -225,9 +237,6 @@ export default function FormsPage() {
 
   const [userId, setUserId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  // Whether the Submission Bin table (merged into Repository) is visible.
-  // Becomes true once the user clicks a KPI card.
   const [showSubmissionBin, setShowSubmissionBin] = useState(false)
 
   // Filters
@@ -271,8 +280,6 @@ export default function FormsPage() {
     setCurrentPage(1)
   }
 
-  // Closes the Submission Bin modal and clears the active form-type filter
-  // so no card is left visually highlighted once it's dismissed.
   function closeSubmissionBin() {
     setShowSubmissionBin(false)
     setActiveFilters((prev) => {
@@ -303,11 +310,10 @@ export default function FormsPage() {
     }
   }
 
-  // Submission review modal (opens when a row in the Submission Bin
-  // table is clicked). No backend wiring yet — see handleReviewDecision.
   const [selectedEntry, setSelectedEntry] = useState<DisplayEntry | null>(null)
   const [reviewComment, setReviewComment] = useState("")
   const [isReviewing, setIsReviewing] = useState(false)
+  const isAlreadyReviewed = selectedEntry?.status === "approved" || selectedEntry?.status === "rejected"
 
   function openReview(entry: DisplayEntry) {
     setSelectedEntry(entry)
@@ -319,19 +325,23 @@ export default function FormsPage() {
     setReviewComment("")
   }
 
-  // TODO: wire this up to a real backend action once one exists
-  // (e.g. reviewSubmission({ submissionId, status, comment })).
-  // For now this just reflects the decision locally so the UI is
-  // demonstrable end-to-end.
-  async function handleReviewDecision(decision: "approved" | "rejected") {
+  async function handleReviewDecision(submissionId: string, decision: "approved" | "rejected", comment: string | null) {
     if (!selectedEntry) return
     setIsReviewing(true)
     try {
-      await new Promise((r) => setTimeout(r, 300)) // placeholder for the real request
-      setRealEntries((prev) =>
-        prev.map((e) => (e === selectedEntry ? { ...e, status: decision } : e))
-      )
-      closeReview()
+      const res = await reviewSubmission(submissionId, decision, comment)
+      if (res.ok) {
+        setRealEntries((prev) =>
+          prev.map((e) =>
+            e === selectedEntry
+              ? { ...e, status: decision, submission: res.data }
+              : e
+          )
+        )
+        closeReview()
+      } else {
+        alert(`Review failed: ${res.error}`)
+      }
     } finally {
       setIsReviewing(false)
     }
@@ -550,6 +560,8 @@ export default function FormsPage() {
     const dbStatusMap: Record<string, string> = {
       Submitted: "submitted",
       "Not Yet Submitted": "missing",
+      Approved: "approved",
+      Rejected: "rejected",
     }
     const statusSelections = activeFilters.status ?? []
     const matchStatus =
@@ -620,14 +632,13 @@ export default function FormsPage() {
     {
       label: "Status",
       field: "status",
-      values: () => ["Submitted", "Not Yet Submitted"],
+      values: () => ["Submitted", "Not Yet Submitted", "Approved", "Rejected"],
     },
   ]
 
-  const totalActiveFilters = Object.values(activeFilters).reduce(
-    (sum, arr) => sum + (arr?.length ?? 0),
-    0
-  )
+  const totalActiveFilters = Object.entries(activeFilters)
+  .filter(([field]) => field !== "type")
+  .reduce((sum, [, arr]) => sum + (arr?.length ?? 0), 0)
 
   const BoundSidebar = () => (
     <Sidebar
@@ -922,7 +933,7 @@ export default function FormsPage() {
             {
               label: "Cancel",
               onClick: () => setShowUpload(false),
-              variant: "secondary",
+              variant: "reject",
             },
             {
               label: isUploading ? "Uploading..." : "Upload",
@@ -1238,23 +1249,13 @@ export default function FormsPage() {
           <div className="fm-bin-modal-body">
           <div className="adv-table-toolbar" style={{ paddingTop: 0 }}>
             <div>
-              <div className="adv-table-count">
+              <div className="adv-table-count flex flex-col gap-0.5">
                 {(activeFilters.type ?? []).length === 1 && (
-                  <span
-                    style={{
-                      marginRight: 8,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "var(--maroon)",
-                      background: "#FEF2F2",
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                    }}
-                  >
+                  <span className="adv-table-title text-(--text)">
                     {activeFilters.type?.[0]}
                   </span>
                 )}
-                {filteredSubmissions.length} record(s) found
+                {filteredSubmissions.length}  {filteredSubmissions.length === 1 ? "record" : "records"} found
               </div>
             </div>
 
@@ -1266,32 +1267,6 @@ export default function FormsPage() {
                 marginLeft: "auto",
               }}
             >
-              {(activeFilters.type ?? []).length > 0 && (
-                <button
-                  onClick={() => {
-                    setActiveFilters((prev) => {
-                      const next = { ...prev }
-                      delete next.type
-                      return next
-                    })
-                    setCurrentPage(1)
-                  }}
-                  style={{
-                    border: "1.5px solid var(--border)",
-                    borderRadius: 999,
-                    background: "var(--white)",
-                    color: "var(--text)",
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    fontFamily: "var(--font)",
-                    padding: "8px 14px",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Reset Filter
-                </button>
-              )}
               <div className="adv-search-bar">
                 <IconSearch size={16} stroke={1.75} color="var(--muted)" />
                 <input
@@ -1389,7 +1364,11 @@ export default function FormsPage() {
                       {totalActiveFilters > 0 && (
                         <button
                           onClick={() => {
-                            setActiveFilters({})
+                            setActiveFilters((prev) => {
+                              const next = { ...prev }
+                              delete next.status
+                              return next
+                            })
                             setCurrentPage(1)
                           }}
                           style={{
@@ -1493,24 +1472,6 @@ export default function FormsPage() {
                       )}
                     </span>
                   </th>
-                  <th>Section</th>
-                  <th>
-                    <span
-                      className="adv-th-sort"
-                      onClick={() => toggleSort("type")}
-                    >
-                      Form Type
-                      {sortField === "type" ? (
-                        sortDirection === "asc" ? (
-                          <IconChevronUp size={13} stroke={2.5} />
-                        ) : (
-                          <IconChevronDown size={13} stroke={2.5} />
-                        )
-                      ) : (
-                        <IconSelector size={13} stroke={2} />
-                      )}
-                    </span>
-                  </th>
                   <th>
                     <span
                       className="adv-th-sort"
@@ -1545,12 +1506,13 @@ export default function FormsPage() {
                       )}
                     </span>
                   </th>
+                  <th style={{ textAlign: "center" }}>View</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSubmissions.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="adv-empty">
+                    <td colSpan={4} className="adv-empty">
                       No forms match your search.
                     </td>
                   </tr>
@@ -1576,25 +1538,6 @@ export default function FormsPage() {
                             color: "var(--muted)",
                           }}
                         >
-                          NSTP-H
-                        </td>
-                        <td>
-                          <span
-                            className="adv-badge"
-                            style={{
-                              background: tc.bg,
-                              color: tc.color,
-                            }}
-                          >
-                            {f.type}
-                          </span>
-                        </td>
-                        <td
-                          style={{
-                            fontSize: 12.5,
-                            color: "var(--muted)",
-                          }}
-                        >
                           {f.submission
                             ? new Date(
                                 f.submission.submitted_at
@@ -1602,38 +1545,27 @@ export default function FormsPage() {
                             : "—"}
                         </td>
                         <td>
+                          <span className="adv-badge" style={{ background: sc.bg, color: sc.color }}>
+                            {statusLabel[f.status] ?? f.status}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "center" }}>
                           {f.submission ? (
-                            <a
-                              href={
-                                f.submission.storage_path.startsWith("gdrive:")
-                                  ? f.submission.storage_path.replace(
-                                      "gdrive:",
-                                      ""
-                                    )
-                                  : f.submission.storage_path
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="fm-upload-btn"
-                              style={{
-                                padding: "4px 10px",
-                                fontSize: "11px",
-                                display: "inline-flex",
+                            <button
+                              className="fm-icon-btn"
+                              title="View submission"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const url = f.submission!.storage_path.startsWith("gdrive:")
+                                  ? f.submission!.storage_path.replace("gdrive:", "")
+                                  : f.submission!.storage_path
+                                window.open(url, "_blank", "noopener,noreferrer")
                               }}
                             >
-                              View in Drive
-                            </a>
+                              <IconEye size={16} stroke={1.75} />
+                            </button>
                           ) : (
-                            <span
-                              className="adv-badge"
-                              style={{
-                                background: sc.bg,
-                                color: sc.color,
-                              }}
-                            >
-                              Not Yet Submitted
-                            </span>
+                            <span style={{ color: "var(--light)", fontSize: 12 }}>—</span>
                           )}
                         </td>
                       </tr>
@@ -1777,98 +1709,118 @@ export default function FormsPage() {
           actions={[
             {
               label: "Reject",
-              onClick: () => handleReviewDecision("rejected"),
+              onClick: () => {
+                if (!selectedEntry?.submission) return
+                handleReviewDecision(selectedEntry.submission.form_submission_id, "rejected", reviewComment || null)
+              },
               variant: "reject",
-              disabled: isReviewing || !selectedEntry?.submission,
+              disabled: isReviewing || isAlreadyReviewed || !selectedEntry?.submission,
             },
             {
               label: "Accept",
-              onClick: () => handleReviewDecision("approved"),
+              onClick: () => {
+                if (!selectedEntry?.submission) return
+                handleReviewDecision(selectedEntry.submission.form_submission_id, "approved", reviewComment || null)
+              },
               variant: "approve",
-              disabled: isReviewing || !selectedEntry?.submission,
+              disabled: isReviewing || isAlreadyReviewed || !selectedEntry?.submission,
             },
           ]}
         >
           {selectedEntry && (
             <>
-              <ModalRow>
-                <ModalField label="Section" value="NSTP-H" />
-                <ModalField
-                  label="Date Submitted"
-                  value={
-                    selectedEntry.submission
-                      ? new Date(
-                          selectedEntry.submission.submitted_at
-                        ).toLocaleDateString()
-                      : "Not yet submitted"
-                  }
-                />
-              </ModalRow>
-
-              <ModalField label="Form Type" value={selectedEntry.type} />
-
               {selectedEntry.submission ? (
-                <ModalField label="Submitted File">
-                  <a
-                    href={
-                      selectedEntry.submission.storage_path.startsWith(
-                        "gdrive:"
-                      )
-                        ? selectedEntry.submission.storage_path.replace(
-                            "gdrive:",
-                            ""
-                          )
-                        : selectedEntry.submission.storage_path
+                <ModalRow>
+                  <ModalField label="Submitted File">
+                    <a
+                      href={
+                        selectedEntry.submission.storage_path.startsWith(
+                          "gdrive:"
+                        )
+                          ? selectedEntry.submission.storage_path.replace(
+                              "gdrive:",
+                              ""
+                            )
+                          : selectedEntry.submission.storage_path
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="fm-upload-btn"
+                      style={{
+                        padding: "6px 14px",
+                        fontSize: 12,
+                        display: "inline-flex",
+                        marginTop: 4,
+                      }}
+                    >
+                      View in Drive
+                    </a>
+                  </ModalField>
+                  <ModalField
+                    label="Date Submitted"
+                    value={
+                      selectedEntry.submission
+                        ? new Date(
+                            selectedEntry.submission.submitted_at
+                          ).toLocaleDateString()
+                        : "Not yet submitted"
                     }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="fm-upload-btn"
-                    style={{
-                      padding: "6px 14px",
-                      fontSize: 12,
-                      display: "inline-flex",
-                      marginTop: 4,
-                    }}
-                  >
-                    View in Drive
-                  </a>
-                </ModalField>
+                  />
+                </ModalRow>
+                
               ) : (
+                <div style={{ fontSize: 12.5, color: "var(--muted)", background: "#F9FAFB", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
+                  This student hasn&apos;t submitted this form yet, so there&apos;s nothing to accept or reject.
+                </div>
+              )}
+
+              {isAlreadyReviewed && selectedEntry.submission && (
                 <div
                   style={{
                     fontSize: 12.5,
-                    color: "var(--muted)",
-                    background: "#F9FAFB",
+                    background: selectedEntry.status === "approved" ? "#D1FAE5" : "#FEE2E2",
+                    color: selectedEntry.status === "approved" ? "#065F46" : "#991B1B",
                     border: "1px solid var(--border)",
                     borderRadius: 10,
                     padding: "10px 12px",
                   }}
                 >
-                  This student hasn&apos;t submitted this form yet, so there&apos;s
-                  nothing to accept or reject.
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                    {selectedEntry.status === "approved" ? "Approved" : "Rejected"}
+                    {selectedEntry.submission.reviewed_at && ` at ${new Date(selectedEntry.submission.reviewed_at).toLocaleString()}`}
+                  </div>
+                  <div>
+                    {selectedEntry.submission.reviewer_comment
+                      ? selectedEntry.submission.reviewer_comment
+                      : "No comment was left."}
+                  </div>
                 </div>
               )}
 
-              <div>
-                <div className="nstp-modal-label">Adviser Comments</div>
-                <textarea
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder="Add a note for the student (optional)"
-                  rows={4}
-                  style={{
-                    width: "100%",
-                    resize: "vertical",
-                    border: "1.5px solid var(--border)",
-                    borderRadius: 10,
-                    padding: "10px 12px",
-                    fontSize: 13,
-                    fontFamily: "var(--font)",
-                    color: "var(--text)",
-                    boxSizing: "border-box",
-                  }}
-                />
-              </div>
+              {!isAlreadyReviewed && (
+                <div>
+                  <div className="nstp-modal-label">
+                    "Adviser Comments (optional)"
+                  </div>
+                    <textarea
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      placeholder="Add a note for the student..."
+                      rows={4}
+                      style={{
+                        width: "100%",
+                        resize: "vertical",
+                        border: "1.5px solid var(--border)",
+                        borderRadius: 10,
+                        padding: "10px 12px",
+                        fontSize: 13,
+                        fontFamily: "var(--font)",
+                        color: "var(--text)",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                </div>
+              )}
             </>
           )}
         </NstpModal>

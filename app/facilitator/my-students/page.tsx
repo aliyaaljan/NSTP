@@ -1654,7 +1654,7 @@ function MyStudentsContent() {
   const BoundSidebar = () => (
     <Sidebar
       open={sidebarOpen}
-      activeNav="Group Summary"
+      activeNav="My Students"
       onToggle={() => setSidebarOpen((o) => !o)}
       onNavClick={(label) => {
         setSidebarOpen(false)
@@ -3317,7 +3317,7 @@ function MyStudentsContent() {
                     })
                   }
                   className="nstp-modal-btn nstp-modal-btn-danger"
-                  style={{ opacity: isPending ? 0.6 : 1 }}
+                  style={{ opacity: isPending ? 0.6 : 1, flex: 1}}
                 >
                   Reject Request
                 </button>
@@ -3357,7 +3357,7 @@ function MyStudentsContent() {
                     })
                   }
                   className="nstp-modal-btn nstp-modal-btn-primary"
-                  style={{ opacity: isPending ? 0.6 : 1 }}
+                  style={{ opacity: isPending ? 0.6 : 1, flex:1 }}
                 >
                   {applyPlan.isTimeRequest && !applyPlan.isFlagCase
                     ? "Approve & Apply"
