@@ -13,6 +13,7 @@ import {
   notifyAdviserOnSubmission,
   notifyStudentOnSubmissionReviewed,
 } from "@/lib/email/notifications"
+import { notifyAdviserOnSubmissionPush, notifyStudentOnSubmissionReviewedPush } from "../push/notifications"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -194,6 +195,7 @@ export async function submitForm(
     await notifyAdviserOnSubmission(
       (submission as any).form_submission_id
     ).catch(console.error)
+    await notifyAdviserOnSubmissionPush((submission as any).form_submission_id).catch(console.error)
 
     return { ok: true, data: submission as FormSubmission }
   } catch (err) {
@@ -603,6 +605,7 @@ export async function reviewSubmission(
     await notifyStudentOnSubmissionReviewed(submissionId, decision).catch(
       console.error
     )
+    await notifyStudentOnSubmissionReviewedPush(submissionId, decision).catch(console.error)
 
     return { ok: true, data: updated as FormSubmission }
   } catch (err) {
@@ -837,6 +840,7 @@ export async function saveDriveSubmission(
     await notifyAdviserOnSubmission(
       (submission as any).form_submission_id
     ).catch(console.error)
+    await notifyAdviserOnSubmissionPush((submission as any).form_submission_id).catch(console.error)
 
     return { ok: true, data: submission as FormSubmission }
   } catch (err) {

@@ -8,6 +8,7 @@ import {
   deleteFormFile,
   getSignedUrl,
 } from "@/lib/forms/storage"
+import { notifyStudentOnNewFormPush } from "../push/notifications"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -107,6 +108,10 @@ export async function createGlobalRequirement(
       })
       .select()
       .single()
+    
+    notifyStudentOnNewFormPush(data.form_requirement_id).catch((err) =>
+      console.error("[createGlobalRequirement] notify", err)
+    )
 
     if (error) {
       if (templateFields.template_storage_path) {
@@ -245,6 +250,10 @@ export async function createSectionRequirement(
       })
       .select()
       .single()
+    
+    notifyStudentOnNewFormPush(data.form_requirement_id).catch((err) =>
+      console.error("[createSectionRequirement] notify", err)
+    )
 
     if (error) {
       if (templateFields.template_storage_path) {
