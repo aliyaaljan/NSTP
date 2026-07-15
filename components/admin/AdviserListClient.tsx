@@ -594,11 +594,17 @@ export default function AdviserListClient({
       isActive: activeFilters.status?.includes("active") ?? false,
     },
     {
-      icon: "ti-users",
-      label: "Students Supervised",
-      value: summary.studentsSupervised,
-      note: "across all sections",
-      href: "/admin/students",
+      icon: "ti-circle-x",
+      label: "Inactive Advisers",
+      value: summary.inactive,
+      badge: {
+        text: pctOfTotal(summary.inactive),
+        bg: COLORS.maroonBgLight,
+        color: COLORS.maroon,
+      },
+      note: "of all facilitators",
+      onClick: () => setStatusFilter("inactive"),
+      isActive: activeFilters.status?.includes("inactive") ?? false,
     },
     {
       icon: "ti-pencil",
