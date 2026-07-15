@@ -1034,6 +1034,7 @@ function MyStudentsContent() {
   } | null>(null)
   const [editTimeError, setEditTimeError] = useState<string>("")
   const [isPending, startTransition] = useTransition()
+  const isDecisionDisabled = selectedRequest?.status === "Approved" || selectedRequest?.status === "Rejected" || selectedRequest?.status === "Canceled"
 
   const [addingSession, setAddingSession] = useState(false)
   const [newSessionDate, setNewSessionDate] = useState("")
@@ -3301,7 +3302,7 @@ function MyStudentsContent() {
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button
-                  disabled={isPending}
+                  disabled={isPending || isDecisionDisabled}
                   onClick={() =>
                     startTransition(async () => {
                       const res = await resolveStudentRequest(
@@ -3317,12 +3318,12 @@ function MyStudentsContent() {
                     })
                   }
                   className="nstp-modal-btn nstp-modal-btn-danger"
-                  style={{ opacity: isPending ? 0.6 : 1, flex: 1}}
+                  style={{ opacity: isPending || isDecisionDisabled ? 0.6 : 1, flex: 1}}
                 >
                   Reject Request
                 </button>
                 <button
-                  disabled={isPending}
+                  disabled={isPending || isDecisionDisabled}
                   onClick={() =>
                     startTransition(async () => {
                       const res = applyPlan.isTimeRequest
@@ -3357,7 +3358,7 @@ function MyStudentsContent() {
                     })
                   }
                   className="nstp-modal-btn nstp-modal-btn-primary"
-                  style={{ opacity: isPending ? 0.6 : 1, flex:1 }}
+                  style={{ opacity: isPending || isDecisionDisabled ? 0.6 : 1, flex:1 }}
                 >
                   {applyPlan.isTimeRequest && !applyPlan.isFlagCase
                     ? "Approve & Apply"
