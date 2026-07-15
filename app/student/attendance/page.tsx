@@ -95,7 +95,6 @@ export default function QRGenerationPage() {
 
   const [hasOpenSession, setHasOpenSession] = useState(false)
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null)
-  const [sessionLoaded, setSessionLoaded] = useState(false)
   const [justTimedIn, setJustTimedIn] = useState(false)
   const [timeoutPending, setTimeoutPending] = useState(false)
   const [timeoutFeedback, setTimeoutFeedback] = useState<string | undefined>(undefined)
@@ -161,7 +160,6 @@ export default function QRGenerationPage() {
     if (seq !== loadSeqRef.current) return
 
     if (!res.ok) {
-      setSessionLoaded(true)
       initialLoadedRef.current = true
       return
     }
@@ -177,7 +175,6 @@ export default function QRGenerationPage() {
     prevOpenRef.current = nowOpen
     setHasOpenSession(nowOpen)
     setSessionStartedAt(res.session?.startedAt ?? null)
-    setSessionLoaded(true)
     initialLoadedRef.current = true
   }, [])
 
@@ -1021,25 +1018,7 @@ export default function QRGenerationPage() {
             </div>
           )}
 
-          {!sessionLoaded ? (
-            <div className="qr-box">
-              <div className="qr-card">
-                <div className="qr-loading">
-                  <div className="qr-spinner" />
-                  <p
-                    style={{
-                      fontSize: isSmallMobile ? 12 : 14,
-                      fontWeight: 600,
-                      color: C.maroon,
-                      textAlign: "center",
-                    }}
-                  >
-                    Checking your attendance status…
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : hasOpenSession ? (
+          {hasOpenSession ? (
             <AttendanceSessionCard
               mode={isStudentLeader ? "toggle" : "timeoutOnly"}
               isActive={hasOpenSession}
