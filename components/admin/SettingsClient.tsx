@@ -581,11 +581,13 @@ export default function SettingsClient({
                 type="number"
                 min={1}
                 value={academicForm.requiredNstpHours}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+
                   patchAcademic({
-                    requiredNstpHours: parseInt(e.target.value, 10) || 0,
+                    requiredNstpHours: Number.isNaN(value) ? 1 : Math.max(1, value),
                   })
-                }
+                }}
                 style={fieldInputStyle}
               />
             </div>

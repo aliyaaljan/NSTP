@@ -165,6 +165,18 @@ export async function updateAcademicConfig(
     return { ok: false, error: "Failed to save required NSTP hours." }
   }
 
+  const { error: hoursError } = await service
+    .from("section")
+    .update(
+      {required_hour_total: payload.requiredNstpHours },
+    )
+    .eq("term_id", payload.termId)
+
+  if (hoursError) {
+    console.error("[updateRequiredHours] update failed", hoursError)
+    return { ok: false, error: "Failed to save required NSTP hours." }
+  }
+
   return { ok: true }
 }
 
