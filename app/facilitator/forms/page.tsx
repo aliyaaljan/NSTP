@@ -195,6 +195,24 @@ const formsStyles = `
   .fm-upload-zone:hover { border-color: var(--green); background: #F0FDF4; }
   .fm-upload-zone-text { font-size: 13px; color: var(--muted); margin-top: 8px; }
   .fm-upload-zone-sub  { font-size: 11.5px; color: var(--light); margin-top: 4px; }
+
+  /* Submission Bin modal — fixed width + fixed height so the modal is
+     always the exact same size, whether 0 rows or 50 rows match the
+     current filters/search (prevents the resize "jump" entirely). */
+  .fm-bin-modal-body {
+    width: 1100px;
+    display: flex;
+    flex-direction: column;
+  }
+  .fm-bin-table-wrapper {
+    height: 560px;
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+  .fm-bin-table-wrapper .adv-empty {
+    height: 520px;
+    vertical-align: middle;
+  }
 `
 
 export default function FormsPage() {
@@ -1157,6 +1175,7 @@ export default function FormsPage() {
             ]
           }
         >
+          <div className="fm-bin-modal-body">
           <div className="adv-table-toolbar" style={{ paddingTop: 0 }}>
             <div>
               <div className="adv-table-count">
@@ -1393,7 +1412,7 @@ export default function FormsPage() {
             </div>
           </div>
 
-          <div className="adv-table-wrapper">
+          <div className="adv-table-wrapper fm-bin-table-wrapper">
             <table className="adv-table">
               <thead>
                 <tr>
@@ -1665,6 +1684,7 @@ export default function FormsPage() {
                 ))}
               </select>
             </div>
+          </div>
           </div>
         </NstpModal>
       </div>
