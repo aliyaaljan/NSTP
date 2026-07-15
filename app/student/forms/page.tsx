@@ -349,18 +349,14 @@ const studentFilesStyles = `
     .sf-main { padding: 34px 40px 34px 130px !important; }
   }
   
-  /* Tablet: 820px to 1023px */
-  @media (min-width: 820px) and (max-width: 1024px) {
+  /* Tablet: 768px to 1023px */
+  @media (min-width: 768px) and (max-width: 1023px) {
     .sf-main { padding: 28px 20px 28px 125px !important; }
     .sf-header-title { font-size: 34px; }
     .sf-adv-search-bar { min-width: 180px; max-width: 220px; }
     .sf-adv-table thead th { padding: 10px 20px; }
     .sf-adv-table td { padding: 14px 20px; }
     .sf-adv-pagination { padding: 12px 16px; }
-    
-    .sf-db-kpi-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 14px; width: 100%; }
-    .sf-db-kpi-grid > * { width: 100% !important; min-width: 0 !important; }
-    .sf-db-kpi-grid > div { padding: 18px !important; height: auto !important; min-height: unset !important; }
   }
   
   /* Mobile: 767px and below */
@@ -400,11 +396,21 @@ const studentFilesStyles = `
     .sf-dropzone-text { font-size: 12px; }
     .sf-dropzone-sub { font-size: 10px; }
     
-    .sf-db-kpi-grid { display: flex !important; flex-direction: column; gap: 12px; width: 100%; }
-    .sf-db-kpi-grid > * { width: 100% !important; min-width: 0 !important; }
-    .sf-db-kpi-grid > div { padding: 18px !important; height: auto !important; min-height: unset !important; }
-    
     .profile-pill-wrapper { display: none; }
+  }
+
+  /* Small mobile: 480px and below */
+  @media (max-width: 480px) {
+    .sf-header-title { font-size: 24px; }
+    .sf-mobile-card { padding: 8px; }
+    .sf-mobile-card-name { font-size: 10px; }
+    .sf-mobile-card-deadline { font-size: 9px; }
+    .sf-adv-table-toolbar { padding: 8px 10px; }
+    .sf-adv-search-bar { height: 28px; padding: 0 10px; }
+    .sf-adv-search-input { font-size: 11px; }
+    .sf-adv-page-btn { min-width: 18px; height: 18px; font-size: 8px; }
+    .sf-adv-pagination { gap: 1px; padding: 8px 6px; }
+    .sf-adv-pagination-info { font-size: 6px; }
   }
 `
 
@@ -1105,20 +1111,21 @@ export default function StudentFilesPage() {
               <h1 className="sf-header-title">Forms</h1>
             </div>
             {!isMobile && (
-              <ProfilePill
-                name={student.displayName}
-                initials={student.initials}
-                section={student.section}
-                avatarUrl={student.avatarUrl}
-              />
+              <div className="profile-pill-wrapper">
+                <ProfilePill
+                  name={student.displayName}
+                  initials={student.initials}
+                  section={student.section}
+                  avatarUrl={student.avatarUrl}
+                />
+              </div>
             )}
           </div>
 
           <ChartStyles />
 
           {/* Stat Cards */}
-        <div className="sf-db-kpi-grid">
-          <KpiStatCardGrid columns={2}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%', marginBottom: '24px' }}>
             {stats.map((stat) => {
               const isHovered = hoveredCard === stat.label
               const isActive = activeFilter === stat.label
@@ -1136,20 +1143,13 @@ export default function StudentFilesPage() {
                     cursor: "pointer",
                     borderRadius: COLORS.radius,
                     overflow: "hidden",
-                    background: COLORS.cardBg,
-                    color:
-                      isHovered || isActive ? stat.color.icon : "#666666",
-                    border: `2px solid ${
-                      isHovered || isActive ? stat.color.icon : COLORS.border
-                    }`,
-                    transform: isHovered
-                      ? "translateY(-8px)"
-                      : "translateY(0)",
-                    boxShadow: isHovered
-                      ? "0 6px 14px rgba(0,0,0,.07)"
-                      : "0 4px 10px rgba(0,0,0,.05)",
-                    transition:
-                      "transform .2s ease, box-shadow .2s ease, border-color .18s ease, color .18s ease",
+                    background: "transparent",
+                    color: isHovered || isActive ? stat.color.icon : "#666666",
+                    border: `2px solid ${isHovered || isActive ? stat.color.icon : COLORS.border}`,
+                    transform: isHovered ? "translateY(-8px)" : "translateY(0)",
+                    boxShadow: isHovered ? "0 6px 14px rgba(0,0,0,.07)" : "0 4px 10px rgba(0,0,0,.05)",
+                    transition: "transform .2s ease, box-shadow .2s ease, border-color .18s ease, color .18s ease",
+                    width: '100%',
                   }}
                 >
                   <KpiStatCard
@@ -1160,8 +1160,7 @@ export default function StudentFilesPage() {
                 </div>
               )
             })}
-          </KpiStatCardGrid>
-        </div>
+          </div>
 
           {/* Table Card */}
           <div className="sf-adv-table-card">
@@ -1250,13 +1249,13 @@ export default function StudentFilesPage() {
                   <thead>
                     <tr>
                       <th
-                        style={{ width: "55%" }}
+                        style={{ width: "50%" }}
                         onClick={() => handleSort("name")}
                       >
                         File {getSortIcons("name")}
                       </th>
                       <th
-                        style={{ width: "20%", textAlign: "left" }}
+                        style={{ width: "25%", textAlign: "left" }}
                         onClick={() => handleSort("deadline")}
                       >
                         Deadline {getSortIcons("deadline")}
