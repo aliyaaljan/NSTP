@@ -2,13 +2,14 @@
  * Facilitator class reassignment — used when a facilitator is deactivated or
  * deleted while still advising a class. Server-only utility — NOT "use server".
  *
- * Reassignment transfers the whole class to an active facilitator in the same
- * term who does not already advise the same NSTP type (CWTS / LTS / ROTC).
- * Classes and their enrollment history are never merged.
+ * Reassignment transfers the whole class to an active facilitator who has no
+ * class in that term. Classes and their enrollment history are never merged.
+ *
+ * `uq_section_adviser_term` enforces one class per facilitator per term.
  */
 import "server-only"
 import { lookupId } from "@/lib/lookups"
-import { extractNstpType, formatClassLabel } from "@/lib/shared/class-label"
+import { formatClassLabel } from "@/lib/shared/class-label"
 import type { ServiceClient } from "@/lib/admin/user-provision"
 
 export interface ReassignCandidate {
@@ -24,7 +25,7 @@ export interface ReassignSourceClass {
   schoolYear: string | null
   activeStudentCount: number
   totalEnrollmentCount: number
-  /** Active facilitators available for THIS class (same term, different NSTP type). */
+  /** Active facilitators with no class in THIS class's term. */
   candidates: ReassignCandidate[]
 }
 
@@ -32,23 +33,16 @@ export interface ClassReassignmentData {
   classes: ReassignSourceClass[]
 }
 
-function buildCandidatesForClass(
+function buildCandidatesForTerm(
   advisers: Array<{ app_user_id: string; full_name: string | null }>,
   termSections: Array<{
     adviser_user_id: string
-    course_code: string
-  }>,
-  sourceCourseCode: string
+  }>
 ): ReassignCandidate[] {
-  const sourceType = extractNstpType(sourceCourseCode).toUpperCase()
-  const advisersWithSameType = new Set(
-    termSections
-      .filter((s) => extractNstpType(s.course_code).toUpperCase() === sourceType)
-      .map((s) => s.adviser_user_id)
-  )
+  const advisersWithClass = new Set(termSections.map((s) => s.adviser_user_id))
 
   return advisers
-    .filter((a) => !advisersWithSameType.has(a.app_user_id))
+    .filter((a) => !advisersWithClass.has(a.app_user_id))
     .map((a) => ({
       adviserUserId: a.app_user_id,
       fullName: a.full_name ?? "Unknown",
@@ -115,6 +109,14 @@ export async function getClassReassignmentData(
     termSectionsByTerm.set(s.term_id, list)
   }
 
+  const candidatesByTerm = new Map<string, ReassignCandidate[]>()
+  for (const termId of termIds) {
+    candidatesByTerm.set(
+      termId,
+      buildCandidatesForTerm(advisers ?? [], termSectionsByTerm.get(termId) ?? [])
+    )
+  }
+
   const classes: ReassignSourceClass[] = []
   for (const s of sortedSections) {
     const [activeRes, totalRes] = await Promise.all([
@@ -129,7 +131,6 @@ export async function getClassReassignmentData(
         .eq("section_id", s.section_id),
     ])
     const schoolYear = (s.term as { school_year?: string } | null)?.school_year ?? null
-    const termSections = termSectionsByTerm.get(s.term_id) ?? []
     classes.push({
       sectionId: s.section_id,
       termId: s.term_id,
@@ -142,11 +143,7 @@ export async function getClassReassignmentData(
       }),
       activeStudentCount: activeRes.count ?? 0,
       totalEnrollmentCount: totalRes.count ?? 0,
-      candidates: buildCandidatesForClass(
-        advisers ?? [],
-        termSections,
-        s.course_code as string
-      ),
+      candidates: candidatesByTerm.get(s.term_id) ?? [],
     })
   }
 
@@ -163,7 +160,7 @@ export async function reassignClass(
 ): Promise<ReassignClassOutcome> {
   const { data: source } = await service
     .from("section")
-    .select("section_id, term_id, course_code, adviser_user_id")
+    .select("section_id, term_id, adviser_user_id")
     .eq("section_id", input.sectionId)
     .maybeSingle()
   if (!source) return { ok: false, error: "Class not found." }
@@ -184,25 +181,18 @@ export async function reassignClass(
     return { ok: false, error: "Target facilitator's account is deactivated." }
   }
 
-  const sourceType = extractNstpType(source.course_code).toUpperCase()
-  const { data: targetClasses } = await service
+  // One class per facilitator per term (including archived rows, which still
+  // participate in uq_section_adviser_term).
+  const { data: existingTargetClass } = await service
     .from("section")
-    .select("section_id, course_code")
+    .select("section_id")
     .eq("adviser_user_id", input.targetAdviserUserId)
     .eq("term_id", source.term_id)
-
-  const targetTypes = [
-    ...new Set(
-      (targetClasses ?? [])
-        .map((row) => extractNstpType(row.course_code).toUpperCase())
-        .filter(Boolean)
-    ),
-  ]
-
-  if (sourceType && targetTypes.includes(sourceType)) {
+    .maybeSingle()
+  if (existingTargetClass) {
     return {
       ok: false,
-      error: `${target.full_name} already has a ${sourceType} class this term. Choose another facilitator.`,
+      error: `${target.full_name} already has a class this term. Choose another facilitator.`,
     }
   }
 
@@ -212,13 +202,9 @@ export async function reassignClass(
     .eq("section_id", input.sectionId)
   if (error) {
     if ((error as { code?: string }).code === "23505") {
-      // Old DB constraint uq_section_adviser_term blocks ANY second class in the
-      // term. New rule (0010) only blocks the same NSTP type.
-      const owned =
-        targetTypes.length > 0 ? targetTypes.join(", ") : "another class"
       return {
         ok: false,
-        error: `${target.full_name} already advises ${owned} this term. Apply migration 0010_section_adviser_term_nstp_type.sql so facilitators can hold different NSTP types in the same term.`,
+        error: `${target.full_name} already has a class this term. Choose another facilitator.`,
       }
     }
     console.error("[reassignClass] transfer failed", error)

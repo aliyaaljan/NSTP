@@ -145,10 +145,6 @@ create table section (
   updated_at          timestamptz not null default now(),
   constraint uq_section_adviser_term unique (adviser_user_id, term_id)
 );
-
--- Later replaced by uq_section_adviser_term_nstp_type in
--- 0010_section_adviser_term_nstp_type.sql (one class per NSTP type per term).
-
 create table section_geofence (
   section_geofence_id uuid primary key default gen_random_uuid(),
   section_id          uuid not null references section(section_id) on delete cascade,

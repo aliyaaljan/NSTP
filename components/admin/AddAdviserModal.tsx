@@ -269,7 +269,7 @@ export default function AddAdviserModal({
 
           <AdminFormField
             label="NSTP Component"
-            hint="Determines the facilitator's auto-created class (e.g. NSTP 2 LTS)."
+            hint="Optional. When set, auto-creates their class for the active term (e.g. NSTP 2 LTS). Leave blank to add without a class."
           >
             <LookupSelect
               value={form.nstpComponentId}

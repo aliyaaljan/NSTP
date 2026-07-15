@@ -255,15 +255,15 @@ export default function ReassignClassModal({
                   onChange={setTargetAdviserUserId}
                   options={targetOptions}
                   placeholder="Select a facilitator"
-                  emptyMessage="No facilitators available for this class type"
+                  emptyMessage="No available facilitators for this term"
                   toggleAriaLabel="Toggle facilitator list"
                 />
               </div>
 
               {target && (
                 <p style={{ ...TYPE.body, color: COLORS.textGray, margin: 0 }}>
-                  This class stays separate. Choose a facilitator who does not already advise the
-                  same NSTP type (CWTS, LTS, or ROTC) this term.
+                  This class stays separate. Its students and history remain unchanged; only the
+                  facilitator changes. Choose someone who does not already have a class this term.
                 </p>
               )}
 

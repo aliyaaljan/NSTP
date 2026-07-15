@@ -243,7 +243,7 @@ export async function createSection(
 
   if (error) {
     if (error.code === "23505") {
-      return { ok: false, error: "This facilitator already has a class of this type this term." }
+      return { ok: false, error: "This facilitator already has a class this term." }
     }
     console.error("[createSection]", error)
     return { ok: false, error: "Failed to create section." }
@@ -304,7 +304,7 @@ export async function updateSection(
 
   if (error) {
     if (error.code === "23505") {
-      return { ok: false, error: "This facilitator already has a class of this type this term." }
+      return { ok: false, error: "This facilitator already has a class this term." }
     }
     console.error("[updateSection]", error)
     return { ok: false, error: "Failed to update section." }

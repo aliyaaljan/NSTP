@@ -1,10 +1,10 @@
 /**
  * Class create/edit contract for the admin classes page.
  *
- * One class per facilitator per NSTP type per term. A class is identified by
- * its facilitator and course type (CWTS / LTS / ROTC), not a name. Creating
- * one just picks a facilitator who must not already have that type this term;
- * the DB enforces it via `uq_section_adviser_term_nstp_type`.
+ * One class per facilitator per term. A class is identified by its
+ * facilitator, not a name. Creating one just picks a facilitator (who must
+ * not already have a class this term); the DB enforces the 1:1 rule via
+ * `uq_section_adviser_term`.
  *
  * Database mapping:
  * sectionId           → `section.section_id` (edit only)

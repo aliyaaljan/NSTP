@@ -10,11 +10,13 @@
  *   email            → `app_user.email` (must satisfy @up.edu.ph check constraint)
  *   isActive         → `app_user.is_active`
  *   collegeId        → `app_user.college_id`
- *   nstpComponentId  → `app_user.nstp_component_id` — drives the facilitator's
- *                       auto-provisioned class course_code (CWTS/LTS/ROTC)
+ *   nstpComponentId  → `app_user.nstp_component_id` — optional on create; when
+ *                       set, drives the auto-provisioned class course_code
+ *                       (CWTS/LTS/ROTC). Facilitators may exist with no class.
  *   partnershipType  → `app_user.partnership_type`
  *
- * Section assignment is managed on the Section List page (`section.adviser_user_id`).
+ * Class assignment is optional on add. Classes can also be managed on the
+ * Classes page (`section.adviser_user_id`).
  */
 
 import type { AdviserListRow } from "@/lib/admin/adviser-list"

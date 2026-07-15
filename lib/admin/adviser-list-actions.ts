@@ -245,9 +245,10 @@ async function resolveCurrentUser(
  * Backend checklist:
  * 1. Validate admin role (already done below).
  * 2. Create auth user + `app_user` (role = adviser) with full_name, email, is_active.
- * 3. Return `{ ok: true }` on success.
+ * 3. Optionally auto-provision a class when NSTP component is set.
+ * 4. Return `{ ok: true }` on success — a facilitator with no class is allowed.
  *
- * Section assignment is managed on the Section List page.
+ * Class assignment can also be managed later on the Classes page.
  */
 export async function createAdviser(
   payload: AdviserCreatePayload
@@ -289,15 +290,13 @@ export async function createAdviser(
     }
   }
 
-  // One class per facilitator per term: auto-create theirs for the active term.
-  if (payload.isActive !== false) {
+  // Class is optional on add. Only auto-provision when an NSTP component is
+  // chosen (it drives course_code). Failures here must not block the account —
+  // a facilitator with no class yet is a valid state; assign later on Classes.
+  if (payload.isActive !== false && payload.nstpComponentId) {
     const classResult = await ensureFacilitatorClass(service, result.userId)
     if (!classResult.ok) {
       console.error("[createAdviser] class provisioning failed", classResult.error)
-      return {
-        ok: false,
-        error: `Facilitator account created, but their class could not be created: ${classResult.error}`,
-      }
     }
   }
   return { ok: true }
@@ -449,7 +448,7 @@ export async function getClassReassignmentDataAction(
   return { ok: true, data: await getClassReassignmentData(service, adviserUserId) }
 }
 
-/** Transfer a whole class to a facilitator without the same NSTP type this term. */
+/** Transfer a whole class to a facilitator with no class in the same term. */
 export async function reassignClassAction(input: {
   sectionId: string
   targetAdviserUserId: string
