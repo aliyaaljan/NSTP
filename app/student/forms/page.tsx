@@ -50,55 +50,55 @@ const studentFilesStyles = `
   /* Header */
   .sf-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
   .sf-header-left { flex: 1; min-width: 200px; }
-  .sf-header-title { font-size: 34px; font-weight: 800; color: #7B1D1D; font-family: var(--font-montserrat, 'Montserrat', sans-serif); margin: 0; letter-spacing: -0.01em; }
+  .sf-header-title { font-size: 34px; font-weight: 800; color: #6B1A1A; font-family: var(--font-montserrat, 'Montserrat', sans-serif); margin: 0; letter-spacing: -0.01em; }
   
   /* Table Card */
-  .sf-adv-table-card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.07); display: flex; flex-direction: column; overflow: hidden; width: 100%; }
-  .sf-adv-table-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #E5E7EB; background: #FFFFFF; flex-wrap: wrap; gap: 8px; }
+  .sf-adv-table-card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.06); display: flex; flex-direction: column; overflow: hidden; width: 100%; }
+  .sf-adv-table-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #EEEEEE; background: #FFFFFF; flex-wrap: wrap; gap: 8px; }
   .sf-adv-table-title { font-weight: 700; font-size: 15px; color: #111827; }
-  .sf-adv-table-count { font-size: 12px; color: #6B7280; margin-top: 2px; }
-  .sf-adv-search-bar { display: flex; align-items: center; gap: 8px; border: 1.5px solid #1B4332; border-radius: 999px; padding: 8px 18px; min-width: 200px; background: #FFFFFF; transition: border-color 0.15s; flex: 1; max-width: 280px; }
-  .sf-adv-search-bar:focus-within { border-color: #1B4332; }
-  .sf-adv-search-input { border: none; outline: none; font-size: 13px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); color: #111827; width: 100%; background: transparent; }
+  .sf-adv-table-count { font-size: 13px; color: #7A7A7A; font-weight: 500; margin-top: 0; }
+  .sf-adv-search-bar { display: flex; align-items: center; gap: 10px; border: 1.5px solid #1A3C2D; border-radius: 999px; padding: 0 16px; min-width: 200px; height: 38px; background: #FFFFFF; transition: border-color 0.15s; flex: 1; max-width: 260px; }
+  .sf-adv-search-bar:focus-within { border-color: #1A3C2D; }
+  .sf-adv-search-input { border: none; outline: none; font-size: 13px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); color: #2C2C2A; width: 100%; background: transparent; }
   .sf-adv-search-input::placeholder { color: #9CA3AF; }
   
   .sf-adv-table-wrapper { overflow-y: visible; max-height: none; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; overflow-x: auto; }
   .sf-adv-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 400px; }
-  .sf-adv-table thead tr { background: #F9FAFB; border-bottom: 1px solid #E5E7EB; }
-  .sf-adv-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 700; color: #7B1D1D; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
-  .sf-adv-table thead th:last-child { text-align: right; cursor: default; }
+  .sf-adv-table thead tr { background: #F9FAFB; border-top: 1px solid #E7E7E7; border-bottom: 1px solid #EEEEEE; }
+  .sf-adv-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 32px; text-align: left; font-size: 11px; font-weight: 700; color: #6B1A1A; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+  .sf-adv-table thead th:last-child { text-align: center; cursor: default; }
   .sf-adv-table thead th .sf-sort-icons { display: inline-flex; flex-direction: column; align-items: center; margin-left: 4px; vertical-align: middle; line-height: 1; }
   .sf-adv-table thead th .sf-sort-icons .sf-sort-up, .sf-adv-table thead th .sf-sort-icons .sf-sort-down { opacity: 0.5; color: #4A4A4A; }
-  .sf-adv-table thead th .sf-sort-icons .active { opacity: 1 !important; color: #7B1D1D !important; }
-  .sf-adv-table td { padding: 14px 20px; border-bottom: 1px solid #F3F4F6; vertical-align: middle; font-size: 13px; }
+  .sf-adv-table thead th .sf-sort-icons .active { opacity: 1 !important; color: #6B1A1A !important; }
+  .sf-adv-table td { padding: 16px 28px; border-bottom: 1px solid #EEEEEE; vertical-align: middle; font-size: 13px; }
   .sf-adv-table tbody tr:hover td { background: #FAFAFA; }
-  .sf-adv-empty { text-align: center; padding: 48px 0; color: #6B7280; font-size: 13px; }
+  .sf-adv-empty { text-align: center; padding: 48px 0; color: #7A7A7A; font-size: 13px; }
   
-  .sf-form-name { font-weight: 500; color: #111827; }
-  .sf-form-deadline { color: #6B7280; font-size: 13px; }
+  .sf-form-name { font-weight: 500; color: #2C2C2A; font-size: 15px; }
+  .sf-form-deadline { color: #7A7A7A; font-size: 13px; }
   .sf-status-cell { text-align: center; }
-  .sf-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; background: #E8EDE5; color: #1B4332; min-width: 100px; justify-content: center; cursor: pointer; }
+  .sf-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; background: #E8EDE5; color: #1A3C2D; min-width: 100px; justify-content: center; cursor: pointer; }
   .sf-status-badge-submitted { background: #D1FAE5; color: #065F46; }
-  .sf-upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #1B4332; color: #FFFFFF; border: none; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); min-width: 100px; justify-content: center; }
-  .sf-upload-btn:hover { opacity: 0.85; }
+  .sf-upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #1A3C2D; color: #FFFFFF; border: none; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); min-width: 100px; justify-content: center; transition: transform .25s ease, box-shadow .25s ease; }
+  .sf-upload-btn:hover { transform: scale(1.05); }
   .sf-download-template-btn { display: inline-flex; align-items: center; justify-content: center; background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 6px; padding: 4px; cursor: pointer; transition: all 0.2s; color: #6B7280; flex-shrink: 0; margin-left: 6px; }
-  .sf-download-template-btn:hover { background: #E5E7EB; color: #1B4332; }
+  .sf-download-template-btn:hover { background: #E5E7EB; color: #1A3C2D; }
 
-  .sf-adv-pagination { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid #E5E7EB; flex-wrap: nowrap; gap: 8px; }
-  .sf-adv-pagination-info { font-size: 12px; color: #6B7280; flex-shrink: 0; white-space: nowrap; }
-  .sf-adv-pagination-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; justify-content: center; }
-  .sf-adv-page-btn { min-width: 28px; height: 28px; border-radius: 4px; border: 1px solid #E5E7EB; background: #FFFFFF; font-size: 12px; color: #111827; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0 4px; transition: background 0.12s, border-color 0.12s; }
+  .sf-adv-pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-top: 1px solid #E7E7E7; flex-wrap: wrap; gap: 12px; }
+  .sf-adv-pagination-info { font-size: 11px; color: #7A7A7A; font-weight: 500; flex-shrink: 0; white-space: nowrap; }
+  .sf-adv-pagination-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; justify-content: center; }
+  .sf-adv-page-btn { min-width: 28px; height: 28px; border-radius: 8px; border: 1px solid #E5E7EB; background: #FFFFFF; font-size: 11px; color: #2C2C2A; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0 4px; transition: background 0.12s, border-color 0.12s; font-weight: 500; }
   .sf-adv-page-btn:hover:not(.sf-adv-page-btn-active):not(:disabled) { background: #F9FAFB; }
-  .sf-adv-page-btn.sf-adv-page-btn-active { background: #7B1D1D; color: #FFFFFF; border-color: #7B1D1D; font-weight: 700; }
+  .sf-adv-page-btn.sf-adv-page-btn-active { background: #6B1A1A; color: #FFFFFF; border-color: #6B1A1A; font-weight: 700; }
   .sf-adv-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-  .sf-adv-page-size-select-wrapper { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #6B7280; flex-shrink: 0; white-space: nowrap; }
-  .sf-adv-page-size-select { border: 1.5px solid #E5E7EB; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); color: #111827; background: #FFFFFF; cursor: pointer; outline: none; }
+  .sf-adv-page-size-select-wrapper { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #7A7A7A; font-weight: 500; flex-shrink: 0; white-space: nowrap; }
+  .sf-adv-page-size-select { height: 30px; width: 60px; border: 1px solid #D1D5DB; border-radius: 8px; padding: 0 12px; font-size: 11px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); color: #2C2C2A; background: #FFFFFF; cursor: pointer; outline: none; }
   
   /* Mobile card view */
   .sf-mobile-card { background: #FAFAFA; border-radius: 8px; padding: 12px; margin-bottom: 6px; border: 1px solid #E5E7EB; }
   .sf-mobile-card-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .sf-mobile-card-name { font-weight: 600; color: #111827; font-size: 13px; word-break: break-word; flex: 1; }
-  .sf-mobile-card-deadline { font-size: 11px; color: #6B7280; flex-shrink: 0; margin-top: 2px; }
+  .sf-mobile-card-name { font-weight: 600; color: #2C2C2A; font-size: 13px; word-break: break-word; flex: 1; }
+  .sf-mobile-card-deadline { font-size: 11px; color: #7A7A7A; flex-shrink: 0; margin-top: 2px; }
   .sf-mobile-card-status { flex-shrink: 0; }
   
   /* Modal */
@@ -130,19 +130,21 @@ const studentFilesStyles = `
     background: #FFFFFF; 
     border-radius: 20px; 
     overflow: hidden; 
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28); 
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18); 
     display: flex; 
     flex-direction: column; 
     animation: sfSlideUp 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .sf-modal-header { 
     background: #1A3C2D; 
-    padding: 20px 22px; 
+    padding: 24px 24px; 
     display: flex; 
     align-items: center; 
     gap: 14px; 
     justify-content: space-between; 
     flex-shrink: 0; 
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
   }
   .sf-modal-title { 
     font-weight: 700; 
@@ -164,7 +166,7 @@ const studentFilesStyles = `
   }
   .sf-modal-close:hover { background: rgba(255, 255, 255, 0.18); }
   .sf-modal-body { 
-    padding: 22px; 
+    padding: 22px 24px; 
     overflow-y: auto; 
     display: flex; 
     flex-direction: column; 
@@ -179,7 +181,7 @@ const studentFilesStyles = `
     display: flex; 
     flex-direction: column;
     gap: 10px; 
-    padding: 14px 22px 20px; 
+    padding: 14px 24px 24px; 
     flex-shrink: 0; 
     border-top: 1px solid #E5E7EB; 
   }
@@ -189,21 +191,21 @@ const studentFilesStyles = `
   .sf-file-grid::-webkit-scrollbar { width: 5px; }
   .sf-file-grid::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 99px; }
   .sf-file-preview-card { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: #F9FAFB; border-radius: 10px; border: 1px solid #E5E7EB; flex-shrink: 0; }
-  .sf-file-preview-icon-wrapper { width: 40px; height: 40px; border-radius: 8px; background: #E8EDE5; display: flex; align-items: center; justify-content: center; color: #1B4332; flex-shrink: 0; }
+  .sf-file-preview-icon-wrapper { width: 40px; height: 40px; border-radius: 8px; background: #E8EDE5; display: flex; align-items: center; justify-content: center; color: #1A3C2D; flex-shrink: 0; }
   .sf-file-preview-info { flex: 1; min-width: 0; }
   .sf-file-preview-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sf-file-preview-meta { display: flex; align-items: center; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
-  .sf-file-preview-type { font-size: 10px; font-weight: 700; color: #FFFFFF; background: #1B4332; padding: 2px 10px; border-radius: 12px; flex-shrink: 0; }
+  .sf-file-preview-type { font-size: 10px; font-weight: 700; color: #FFFFFF; background: #1A3C2D; padding: 2px 10px; border-radius: 12px; flex-shrink: 0; }
   .sf-file-preview-size { font-size: 11px; color: #6B7280; display: flex; align-items: center; gap: 4px; }
   .sf-file-preview-remove { background: none; border: none; color: #9CA3AF; cursor: pointer; padding: 6px; flex-shrink: 0; }
-  .sf-file-preview-remove:hover { color: #7B1D1D}
+  .sf-file-preview-remove:hover { color: #6B1A1A}
   .sf-empty-state { text-align: center; padding: 60px 20px; color: #9CA3AF; display: flex; flex-direction: column; align-items: center; }
   .sf-empty-sub { font-size: 12px; color: #B0B0B0; margin-top: 4px; }
   
   /* Link Input */
   .sf-link-input-container { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #E8EDE5; border-radius: 10px; border: 1px solid #8AAE8A; margin-bottom: 12px; flex-shrink: 0; width: 100%; flex-wrap: wrap; }
   .sf-link-input { border: none; outline: none; background: transparent; font-size: 13px; width: 100%; min-width: 0; font-family: var(--font-montserrat, 'Montserrat', sans-serif); flex: 1; }
-  .sf-link-add-btn { background: #1B4332; color: #FFF; border: none; padding: 6px 24px; border-radius: 6px; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+  .sf-link-add-btn { background: #1A3C2D; color: #FFF; border: none; padding: 6px 24px; border-radius: 6px; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
   .sf-link-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .sf-link-cancel-btn { background: #FFFFFF; border: 1px solid #B0B0B0; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); font-size: 13px; font-weight: 500; color: #111827; flex-shrink: 0; }
   .sf-link-cancel-btn:hover { background: #F5F5F5; }
@@ -218,9 +220,9 @@ const studentFilesStyles = `
     width: 100%;
     padding: 12px 20px;
     background: transparent;
-    border: 2px solid #1B4332;
+    border: 2px solid #1A3C2D;
     border-radius: 10px;
-    color: #1B4332;
+    color: #1A3C2D;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -235,8 +237,8 @@ const studentFilesStyles = `
     gap: 8px;
     width: 100%;
     padding: 12px 20px;
-    background: #1B4332;
-    border: 2px solid #1B4332;
+    background: #1A3C2D;
+    border: 2px solid #1A3C2D;
     border-radius: 10px;
     color: #FFFFFF;
     font-size: 14px;
@@ -268,16 +270,16 @@ const studentFilesStyles = `
     position: relative;
     transition: all 0.2s ease;
     background: transparent;
-    color: #7B1D1D;
-    border: 2px solid #7B1D1D;
+    color: #6B1A1A;
+    border: 2px solid #6B1A1A;
   }
   .sf-unsubmit-btn:hover:not(.sf-unsubmit-confirming) {
     background: rgba(123, 29, 29, 0.05);
   }
   .sf-unsubmit-btn.sf-unsubmit-confirming {
-    background: #7B1D1D;
+    background: #6B1A1A;
     color: #FFFFFF;
-    border: 2px solid #7B1D1D;
+    border: 2px solid #6B1A1A;
   }
   .sf-unsubmit-btn:disabled {
     opacity: 0.5;
@@ -290,34 +292,9 @@ const studentFilesStyles = `
     margin-left: 4px;
   }
   
-  /* Responsive adjustments */
-  @media (max-width: 767px) {
-    .sf-main { padding: 12px 12px 100px 12px !important; margin-top: 60px !important; }
-    .sf-header { margin-bottom: 16px; }
-    .sf-adv-table-toolbar { padding: 12px 14px; flex-direction: column; align-items: stretch; }
-    .sf-adv-search-bar { min-width: unset; max-width: unset; }
-    .sf-toolbar-right { flex: 1; }
-    .sf-adv-table-wrapper { overflow-x: auto; }
-    .sf-adv-table { min-width: 400px; font-size: 12px; }
-    .sf-adv-table thead th { padding: 8px 12px; font-size: 10px; }
-    .sf-adv-table td { padding: 10px 12px; font-size: 12px; }
-    .sf-status-badge { padding: 4px 12px; font-size: 11px; min-width: 80px; }
-    .sf-upload-btn { padding: 4px 12px; font-size: 11px; min-width: 80px; }
-    .sf-adv-pagination { flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
-    .sf-adv-pagination-info { font-size: 10px; }
-    .sf-adv-page-btn { min-width: 24px; height: 24px; font-size: 10px; }
-    .sf-adv-page-size-select-wrapper { font-size: 10px; }
-    .sf-adv-page-size-select { font-size: 10px; padding: 2px 6px; }
-    .sf-modal { max-width: 95%; margin: 8px; }
-    .sf-modal-body { padding: 16px; }
-    .sf-modal-header { padding: 12px 16px; }
-    .sf-modal-title { font-size: 15px; }
-    .sf-modal-footer { padding: 10px 16px 16px; }
-  }
-
   .sf-dropzone {
     width: 100%;
-    min-height: 150px;
+    min-height: 170px;
     border: 2px dashed #E5E7EB;
     border-radius: 14px;
     display: flex;
@@ -335,7 +312,7 @@ const studentFilesStyles = `
   }
   .sf-dropzone:hover,
   .sf-dropzone.sf-dropzone-active {
-    border-color: #1B4332;
+    border-color: #1A3C2D;
     background: #F0FDF4;
   }
   .sf-dropzone-icon-wrapper {
@@ -346,19 +323,19 @@ const studentFilesStyles = `
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #1B4332;
+    color: #1A3C2D;
     transition: background 0.15s;
   }
   .sf-dropzone.sf-dropzone-active .sf-dropzone-icon-wrapper {
     background: #D1E7C8;
   }
-  .sf-dropzone-text { font-size: 13.5px; color: #111827; margin-top: 10px; font-weight: 700; }
+  .sf-dropzone-text { font-size: 13.5px; color: #2C2C2A; margin-top: 10px; font-weight: 700; }
   .sf-dropzone-sub { font-size: 11.5px; color: #7A7A7A; margin-top: 4px; }
   .sf-dropzone-link-btn {
     margin-top: 12px;
     background: none;
     border: none;
-    color: #1B4332;
+    color: #1A3C2D;
     font-size: 12.5px;
     font-weight: 700;
     cursor: pointer;
@@ -366,17 +343,71 @@ const studentFilesStyles = `
     font-family: inherit;
     padding: 0;
   }
+
+  .sf-divider { background: #D9DDD8; margin-top: 10px; margin-bottom: 24px; height: 1px; border: none; }
   
-  @media (min-width: 768px) and (max-width: 1023px) {
-    .sf-main { padding: 24px 24px 24px 100px !important; }
-    .sf-adv-search-bar { min-width: 180px; max-width: 220px; }
-    .sf-adv-table thead th { padding: 8px 14px; font-size: 10px; }
-    .sf-adv-table td { padding: 12px 14px; font-size: 12px; }
-    .sf-adv-pagination { padding: 12px 16px; }
+  /* Desktop: 1024px and above */
+  @media (min-width: 1024px) {
+    .sf-main { padding: 34px 40px 34px 130px !important; }
   }
   
-  @media (min-width: 1024px) {
-    .sf-main { padding: 28px 32px 28px 120px !important; }
+  /* Tablet: 820px to 1023px */
+  @media (min-width: 820px) and (max-width: 1024px) {
+    .sf-main { padding: 28px 20px 28px 125px !important; }
+    .sf-header-title { font-size: 34px; }
+    .sf-adv-search-bar { min-width: 180px; max-width: 220px; }
+    .sf-adv-table thead th { padding: 10px 20px; }
+    .sf-adv-table td { padding: 14px 20px; }
+    .sf-adv-pagination { padding: 12px 16px; }
+    
+    .sf-db-kpi-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 14px; width: 100%; }
+    .sf-db-kpi-grid > * { width: 100% !important; min-width: 0 !important; }
+    .sf-db-kpi-grid > div { padding: 18px !important; height: auto !important; min-height: unset !important; }
+  }
+  
+  /* Mobile: 767px and below */
+  @media (max-width: 767px) {
+    .sf-root { font-size: 12px; }
+    .sf-main { margin-left: 0 !important; padding: 20px 16px 110px 16px !important; }
+    .sf-header { gap: 12px; align-items: center; margin-bottom: 16px; }
+    .sf-header-title { font-size: 28px; padding-top: clamp(43px, 0.5vw, 20px); }
+    .sf-divider { margin-top: 1px; margin-bottom: 13px; }
+    
+    .sf-adv-table-toolbar { padding: 12px 14px; flex-direction: column; align-items: stretch; }
+    .sf-adv-search-bar { min-width: unset; max-width: unset; flex: 1; height: 30px; }
+    .sf-adv-table-wrapper { overflow-x: auto; }
+    .sf-adv-table { min-width: 400px; font-size: 12px; }
+    .sf-adv-table thead th { padding: 8px 12px; font-size: 10px; }
+    .sf-adv-table td { padding: 20px 18px 20px 28px; font-size: 11px; }
+    .sf-adv-table td:first-child { padding-left: 28px; }
+    .sf-form-name { font-size: 11px; font-weight: 500; }
+    .sf-form-deadline { font-size: 10px; }
+    
+    .sf-status-badge { padding: 3px 8px; font-size: 8px; min-width: 70px; gap: 4px; }
+    .sf-upload-btn { padding: 3px 8px; font-size: 8px; min-width: 70px; gap: 4px; }
+    
+    .sf-adv-pagination { gap: 2px; padding: 12px 10px; flex-wrap: wrap; }
+    .sf-adv-pagination-info { font-size: 7px; }
+    .sf-adv-pagination-controls { gap: 2px; }
+    .sf-adv-page-btn { min-width: 20px; height: 20px; font-size: 9px; border-radius: 5px; font-weight: 100; }
+    .sf-adv-page-size-select-wrapper { font-size: 7px; gap: 4px; }
+    .sf-adv-page-size-select { height: 20px; width: 40px; font-size: 8px; padding: 0 2px; }
+    
+    .sf-modal { max-width: 95%; margin: 8px; }
+    .sf-modal-body { padding: 16px; }
+    .sf-modal-header { padding: 16px 18px; border-top-left-radius: 16px; border-top-right-radius: 16px; }
+    .sf-modal-title { font-size: 15px; }
+    .sf-modal-footer { padding: 10px 16px 16px; }
+    
+    .sf-dropzone { min-height: 130px; padding: 18px 16px; }
+    .sf-dropzone-text { font-size: 12px; }
+    .sf-dropzone-sub { font-size: 10px; }
+    
+    .sf-db-kpi-grid { display: flex !important; flex-direction: column; gap: 12px; width: 100%; }
+    .sf-db-kpi-grid > * { width: 100% !important; min-width: 0 !important; }
+    .sf-db-kpi-grid > div { padding: 18px !important; height: auto !important; min-height: unset !important; }
+    
+    .profile-pill-wrapper { display: none; }
   }
 `
 
@@ -890,7 +921,7 @@ export default function StudentFilesPage() {
       value: uploadedCount,
       icon: "ti-circle-check",
       color: {
-        bg: "#C8D8C0",
+        bg: "#E8F2E3",
         text: "#2D5C3A",
         border: "#8AAE8A",
         icon: "#3A7A4A",
@@ -901,7 +932,7 @@ export default function StudentFilesPage() {
       value: totalCount - uploadedCount,
       icon: "ti-clock",
       color: {
-        bg: "#F5E6C0",
+        bg: "#FFF4D6",
         text: "#8B5E1A",
         border: "#D4A840",
         icon: "#C8882A",
@@ -989,7 +1020,7 @@ export default function StudentFilesPage() {
   const getFileIcon = (file: File) => {
     const name = file.name.toLowerCase()
     if (name.endsWith(".pdf"))
-      return <IconFile size={20} stroke={1.75} style={{ color: "#1B4332" }} />
+      return <IconFile size={20} stroke={1.75} style={{ color: "#1A3C2D" }} />
     if (name.endsWith(".jpg") || name.endsWith(".png"))
       return <IconPhoto size={20} stroke={1.75} />
     if (name.endsWith(".zip") || name.endsWith(".rar"))
@@ -1037,47 +1068,6 @@ export default function StudentFilesPage() {
     ...links.map((link) => ({ type: "link" as const, data: link })),
   ]
 
-  // Responsive padding calculation
-  const getResponsivePadding = () => {
-    if (isMobile) {
-      const bottomPadding = isSmallMobile ? 20 : 70
-      return {
-        paddingLeft: "12px",
-        paddingRight: "12px",
-        paddingTop: isSmallMobile ? "12px" : "14px",
-        paddingBottom: `${bottomPadding}px`,
-        marginTop: isMobile ? "60px" : 0,
-      }
-    }
-
-    if (isTablet) {
-      return {
-        paddingLeft: "24px",
-        paddingRight: "24px",
-        paddingTop: "24px",
-        paddingBottom: "24px",
-        marginTop: 0,
-      }
-    }
-
-    return {
-      paddingLeft: "32px",
-      paddingRight: "32px",
-      paddingTop: "28px",
-      paddingBottom: "28px",
-      marginTop: 0,
-    }
-  }
-
-  const responsivePadding = getResponsivePadding()
-
-  const getTitleSize = () => {
-    if (isSmallMobile) return "24px"
-    if (isMobile) return "28px"
-    if (isTablet) return "30px"
-    return "34px"
-  }
-
   if (loading || contextLoading) {
     return (
       <LoadingPage Sidebar={() => <StudentSidebar isLeader={isLeader} />} />
@@ -1089,16 +1079,7 @@ export default function StudentFilesPage() {
       <style>{studentFilesStyles}</style>
       <div className="sf-root">
         <StudentSidebar isLeader={isLeader} />
-        <main
-          className="sf-main"
-          style={{
-            paddingLeft: responsivePadding.paddingLeft,
-            paddingRight: responsivePadding.paddingRight,
-            paddingTop: responsivePadding.paddingTop,
-            paddingBottom: responsivePadding.paddingBottom,
-            marginTop: responsivePadding.marginTop,
-          }}
-        >
+        <main className="sf-main">
           {/* Toast Container */}
           <div
             style={{
@@ -1124,14 +1105,7 @@ export default function StudentFilesPage() {
           {/* Header */}
           <div className="sf-header">
             <div className="sf-header-left">
-              <h1
-                className="sf-header-title"
-                style={{
-                  fontSize: getTitleSize(),
-                }}
-              >
-                Forms
-              </h1>
+              <h1 className="sf-header-title">Forms</h1>
             </div>
             {!isMobile && (
               <ProfilePill
@@ -1143,10 +1117,12 @@ export default function StudentFilesPage() {
             )}
           </div>
 
+          <hr className="sf-divider" />
+
           <ChartStyles />
 
           {/* Stat Cards */}
-          <KpiStatCardGrid columns={2}>
+          <KpiStatCardGrid columns={2} className="sf-db-kpi-grid">
             {stats.map((stat) => {
               const isHovered = hoveredCard === stat.label
               const isActive = activeFilter === stat.label
@@ -1165,24 +1141,18 @@ export default function StudentFilesPage() {
                     overflow: "hidden",
                     background: COLORS.cardBg,
                     color:
-                      hoveredCard === stat.label || activeFilter === stat.label
-                        ? stat.color.icon
-                        : "#666666",
+                      isHovered || isActive ? stat.color.icon : "#666666",
                     border: `2px solid ${
-                      hoveredCard === stat.label || activeFilter === stat.label
-                        ? stat.color.icon
-                        : COLORS.border
+                      isHovered || isActive ? stat.color.icon : COLORS.border
                     }`,
-                    transform:
-                      hoveredCard === stat.label
-                        ? "translateY(-8px)"
-                        : "translateY(0)",
-                    boxShadow:
-                      hoveredCard === stat.label
-                        ? "0 14px 28px rgba(0,0,0,.12)"
-                        : "0 4px 10px rgba(0,0,0,.05)",
+                    transform: isHovered
+                      ? "translateY(-8px)"
+                      : "translateY(0)",
+                    boxShadow: isHovered
+                      ? "0 6px 14px rgba(0,0,0,.07)"
+                      : "0 4px 10px rgba(0,0,0,.05)",
                     transition:
-                      "transform .25s ease, box-shadow .25s ease, border-color .18s ease, color .18s ease",
+                      "transform .2s ease, box-shadow .2s ease, border-color .18s ease, color .18s ease",
                   }}
                 >
                   <KpiStatCard
@@ -1196,7 +1166,7 @@ export default function StudentFilesPage() {
           </KpiStatCardGrid>
 
           {/* Table Card */}
-          <div className="sf-adv-table-card" style={{ marginTop: 1 }}>
+          <div className="sf-adv-table-card">
             <div className="sf-adv-table-toolbar">
               <div>
                 <div className="sf-adv-table-title">
@@ -1260,37 +1230,15 @@ export default function StudentFilesPage() {
                             <span
                               className="sf-status-badge sf-status-badge-submitted"
                               onClick={() => handleViewClick(form)}
-                              style={{
-                                minWidth: isSmallMobile ? "70px" : "80px",
-                                fontSize: isSmallMobile ? "10px" : "11px",
-                                padding: isSmallMobile
-                                  ? "3px 10px"
-                                  : "4px 12px",
-                              }}
                             >
-                              <IconEye
-                                size={isSmallMobile ? 10 : 12}
-                                stroke={2}
-                              />{" "}
-                              Submitted
+                              <IconEye size={12} stroke={2} /> Submitted
                             </span>
                           ) : (
                             <button
                               className="sf-upload-btn"
                               onClick={() => handleUploadClick(form)}
-                              style={{
-                                minWidth: isSmallMobile ? "70px" : "80px",
-                                fontSize: isSmallMobile ? "10px" : "11px",
-                                padding: isSmallMobile
-                                  ? "3px 10px"
-                                  : "4px 12px",
-                              }}
                             >
-                              <IconUpload
-                                size={isSmallMobile ? 10 : 12}
-                                stroke={2.5}
-                              />{" "}
-                              Upload
+                              <IconUpload size={12} stroke={2.5} /> Upload
                             </button>
                           )}
                         </div>
@@ -1379,7 +1327,7 @@ export default function StudentFilesPage() {
                   disabled={currentPage === 1 || sortedForms.length === 0}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 >
-                  &#8249;
+                  ‹
                 </button>
                 {(() => {
                   const maxVisible = isSmallMobile ? 3 : 5
@@ -1453,11 +1401,6 @@ export default function StudentFilesPage() {
                           p === currentPage ? " sf-adv-page-btn-active" : ""
                         }`}
                         onClick={() => setCurrentPage(p)}
-                        style={{
-                          minWidth: isSmallMobile ? "20px" : "28px",
-                          height: isSmallMobile ? "20px" : "28px",
-                          fontSize: isSmallMobile ? "9px" : "12px",
-                        }}
                       >
                         {p}
                       </button>
@@ -1474,24 +1417,20 @@ export default function StudentFilesPage() {
                     setCurrentPage((p) => Math.min(filteredTotalPages, p + 1))
                   }
                 >
-                  &#8250;
+                  ›
                 </button>
               </div>
               <div className="sf-adv-page-size-select-wrapper">
-                <span style={{ fontSize: isSmallMobile ? 9 : 12 }}>Rows:</span>
+                <span>Rows per page</span>
                 <select
                   className="sf-adv-page-size-select"
-                  style={{
-                    fontSize: isSmallMobile ? 9 : 12,
-                    padding: isSmallMobile ? "2px 4px" : "4px 8px",
-                  }}
                   value={pageSize}
                   onChange={(e) => {
                     setPageSize(Number(e.target.value))
                     setCurrentPage(1)
                   }}
                 >
-                  {[5, 10, 20, 50].map((n) => (
+                  {[5, 10, 15, 20].map((n) => (
                     <option key={n} value={n}>
                       {n}
                     </option>
@@ -1659,7 +1598,7 @@ export default function StudentFilesPage() {
                                   className="sf-file-preview-icon-wrapper"
                                   style={{
                                     background: "#E8EDE5",
-                                    color: "#1B4332",
+                                    color: "#1A3C2D",
                                   }}
                                 >
                                   <IconLink size={20} stroke={1.75} />
@@ -1671,7 +1610,7 @@ export default function StudentFilesPage() {
                                   <div className="sf-file-preview-meta">
                                     <span
                                       className="sf-file-preview-type"
-                                      style={{ background: "#1B4332" }}
+                                      style={{ background: "#1A3C2D" }}
                                     >
                                       LINK
                                     </span>
@@ -1909,7 +1848,7 @@ export default function StudentFilesPage() {
                                 ? "#065F46"
                                 : viewingForm.realStatus === "rejected"
                                 ? "#991B1B"
-                                : "#1B4332",
+                                : "#1A3C2D",
                           }}
                         >
                           {viewingForm.realStatus.toUpperCase()}
@@ -1969,7 +1908,7 @@ export default function StudentFilesPage() {
                             style={{
                               fontSize: 12,
                               fontWeight: 700,
-                              color: "#7B1D1D",
+                              color: "#6B1A1A",
                               display: "block",
                               marginBottom: 6,
                             }}
@@ -2012,7 +1951,7 @@ export default function StudentFilesPage() {
                         >
                           <div
                             className="sf-file-preview-icon-wrapper"
-                            style={{ background: "#E8EDE5", color: "#1B4332" }}
+                            style={{ background: "#E8EDE5", color: "#1A3C2D" }}
                           >
                             <IconLink size={20} stroke={1.75} />
                           </div>
@@ -2021,7 +1960,7 @@ export default function StudentFilesPage() {
                               className="sf-file-preview-name"
                               style={{
                                 cursor: "pointer",
-                                color: "#1B4332",
+                                color: "#1A3C2D",
                                 textDecoration: "underline",
                               }}
                               onClick={() => window.open(link.url, "_blank")}
@@ -2031,7 +1970,7 @@ export default function StudentFilesPage() {
                             <div className="sf-file-preview-meta">
                               <span
                                 className="sf-file-preview-type"
-                                style={{ background: "#1B4332" }}
+                                style={{ background: "#1A3C2D" }}
                               >
                                 DRIVE
                               </span>
@@ -2057,7 +1996,7 @@ export default function StudentFilesPage() {
                               className="sf-file-preview-name"
                               style={{
                                 cursor: "pointer",
-                                color: "#1B4332",
+                                color: "#1A3C2D",
                                 textDecoration: "underline",
                               }}
                             >
@@ -2089,7 +2028,7 @@ export default function StudentFilesPage() {
                   </div>
                 </div>
                 {/* Unsubmit button */}
-                <div className="sf-modal-footer" style={{ padding: "14px 22px 20px" }}>
+                <div className="sf-modal-footer" style={{ padding: "14px 24px 24px" }}>
                   <button
                     className={`sf-unsubmit-btn ${isConfirmingUnsubmit ? 'sf-unsubmit-confirming' : ''}`}
                     onClick={handleUnsubmitClick}
