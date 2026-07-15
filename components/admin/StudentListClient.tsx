@@ -7,6 +7,7 @@ import ListPagination from "@/components/shared/ListPagination"
 import { AdminSortHeader } from "@/components/shared/AdminSortHeader"
 import { AdminTableToolbar } from "@/components/shared/AdminTableToolbar"
 import AdminAddButton from "@/components/admin/AdminAddButton"
+import AdminProfilePill from "@/components/admin/AdminProfilePill"
 import AddChoiceModal from "@/components/admin/AddChoiceModal"
 import AddStudentModal from "@/components/admin/AddStudentModal"
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
@@ -50,7 +51,7 @@ import {
   filterStudentListRows,
   paginateStudentListRows,
 } from "@/lib/admin/student-list"
-import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
+import { FONT_BODY, PAGE_TITLE, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 const STATUS_BADGE: Record<
@@ -115,52 +116,6 @@ function StudentProgressBar({
             borderRadius: 999,
           }}
         />
-      </div>
-    </div>
-  )
-}
-
-interface CurrentUser extends AdminCurrentUser {}
-
-function ProfilePill({ user }: { user: CurrentUser }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: PROFILE_PILL.gap,
-        background: COLORS.maroon,
-        borderRadius: PROFILE_PILL.borderRadius,
-        padding: PROFILE_PILL.padding,
-        color: "#fff",
-        flexShrink: 0,
-      }}
-    >
-      <span
-        style={{
-          width: PROFILE_PILL.avatarSize,
-          height: PROFILE_PILL.avatarSize,
-          borderRadius: "50%",
-          background: user.avatarUrl
-            ? `center/cover no-repeat url(${user.avatarUrl})`
-            : "rgba(255,255,255,0.2)",
-          flexShrink: 0,
-        }}
-      />
-      <div style={{ lineHeight: 1.2 }}>
-        <div style={{ ...PROFILE_PILL.name, fontFamily: FONT_BODY, color: "#fff" }}>
-          {user.name}
-        </div>
-        <div
-          style={{
-            ...PROFILE_PILL.role,
-            fontFamily: FONT_BODY,
-            color: "#fff",
-            marginTop: 1,
-          }}
-        >
-          {user.role}
-        </div>
       </div>
     </div>
   )
@@ -478,7 +433,7 @@ export default function StudentListClient({
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
         </div>
-        <ProfilePill user={currentUser} />
+        <AdminProfilePill user={currentUser} />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>

@@ -16,6 +16,7 @@ import EditAdviserModal from "@/components/admin/EditAdviserModal"
 import ImportAdvisersModal from "@/components/admin/ImportAdvisersModal"
 import { adminClickableCardProps } from "@/components/admin/admin-list-row"
 import { AdviserAvatar } from "@/components/admin/AdviserAvatar"
+import AdminProfilePill from "@/components/admin/AdminProfilePill"
 import {
   deleteAdviser,
   getAdviserDeleteImpactAction,
@@ -44,7 +45,7 @@ import {
   type ActiveFilters,
   type FilterGroupDef,
 } from "@/lib/admin/filter-utils"
-import { FONT_BODY, PAGE_TITLE, PROFILE_PILL, TYPE } from "@/lib/admin-typography"
+import { FONT_BODY, PAGE_TITLE, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 
 const ADVISER_STATUS_FILTER_OPTIONS: ReadonlyArray<{
@@ -106,50 +107,6 @@ function initialFiltersFromQuery(query: AdviserListQuery): ActiveFilters {
     filters.status = [query.status]
   }
   return filters
-}
-
-function ProfilePill({ user }: { user: AdminCurrentUser }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: PROFILE_PILL.gap,
-        background: COLORS.maroon,
-        borderRadius: PROFILE_PILL.borderRadius,
-        padding: PROFILE_PILL.padding,
-        color: "#fff",
-        flexShrink: 0,
-      }}
-    >
-      <span
-        style={{
-          width: PROFILE_PILL.avatarSize,
-          height: PROFILE_PILL.avatarSize,
-          borderRadius: "50%",
-          background: user.avatarUrl
-            ? `center/cover no-repeat url(${user.avatarUrl})`
-            : "rgba(255,255,255,0.2)",
-          flexShrink: 0,
-        }}
-      />
-      <div style={{ lineHeight: 1.2 }}>
-        <div style={{ ...PROFILE_PILL.name, fontFamily: FONT_BODY, color: "#fff" }}>
-          {user.name}
-        </div>
-        <div
-          style={{
-            ...PROFILE_PILL.role,
-            fontFamily: FONT_BODY,
-            color: "#fff",
-            marginTop: 1,
-          }}
-        >
-          {user.role}
-        </div>
-      </div>
-    </div>
-  )
 }
 
 function progressBarColor(pct: number): string {
@@ -623,7 +580,7 @@ export default function AdviserListClient({
             Academic Year {meta.academicYear} | {meta.semester}
           </p>
         </div>
-        <ProfilePill user={currentUser} />
+        <AdminProfilePill user={currentUser} />
       </div>
 
       <div className="admin-list-kpi-sticky" style={{ marginBottom: 16 }}>

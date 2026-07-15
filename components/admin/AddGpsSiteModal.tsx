@@ -207,7 +207,7 @@ export default function AddGpsSiteModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxWidth: 520,
+          maxWidth: 920,
           borderRadius: 16,
           overflow: "hidden",
           background: "#fff",
@@ -258,143 +258,161 @@ export default function AddGpsSiteModal({
             gap: 18,
           }}
         >
-          <AdminFormField
-            label="Site Name:"
-            htmlFor="gps_site_name"
-            error={fieldErrors.siteName}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+              gap: 24,
+              alignItems: "stretch",
+            }}
           >
-            <AdminTextInput
-              id="gps_site_name"
-              name="site_name"
-              value={form.siteName}
-              onChange={(siteName) => patchForm({ siteName })}
-              placeholder="e.g. Baguio City — Main Campus"
-              invalid={Boolean(fieldErrors.siteName)}
-            />
-          </AdminFormField>
-
-          <AdminFormField label="Class:" error={fieldErrors.sectionId}>
-            <SearchableCombobox
-              id="gps_section_id"
-              name="section_id"
-              value={form.sectionId}
-              onChange={(sectionId) => patchForm({ sectionId })}
-              options={classOptions}
-              placeholder="Select class"
-              emptyMessage="No classes found"
-              toggleAriaLabel="Toggle class list"
-            />
-          </AdminFormField>
-
-          <AdminFormField
-            label="Site Radius (meters):"
-            htmlFor="gps_site_radius"
-            error={fieldErrors.radiusMeters}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <input
-                id="gps_site_radius"
-                name="site_radius"
-                type="range"
-                min={10}
-                max={1000}
-                step={10}
-                value={form.radiusMeters}
-                onChange={(e) =>
-                  patchForm({ radiusMeters: parseInt(e.target.value, 10) || 0 })
-                }
-                style={{
-                  accentColor: COLORS.headerGreen,
-                  width: "100%",
-                  cursor: "pointer",
-                  appearance: "none",
-                  WebkitAppearance: "none",
-                  height: "8px",
-                  borderRadius: "6px",
-                  outline: "none",
-                  background:
-                    form.radiusMeters >= 1000
-                      ? COLORS.headerGreen
-                      : `linear-gradient(to right, ${COLORS.headerGreen} 0%, ${COLORS.headerGreen} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} 100%)`,
-                }}
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  ...TYPE.caption,
-                  color: COLORS.textDark,
-                  fontWeight: 600,
-                }}
+            <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+              <AdminFormField
+                label="Site Name:"
+                htmlFor="gps_site_name"
+                error={fieldErrors.siteName}
               >
-                <span>Min: 10m</span>
-                <span style={{ color: COLORS.headerGreen, fontSize: "15px" }}>
-                  Selected: {form.radiusMeters} meters
-                </span>
-                <span>Max: 1km</span>
+                <AdminTextInput
+                  id="gps_site_name"
+                  name="site_name"
+                  value={form.siteName}
+                  onChange={(siteName) => patchForm({ siteName })}
+                  placeholder="e.g. Baguio City — Main Campus"
+                  invalid={Boolean(fieldErrors.siteName)}
+                />
+              </AdminFormField>
+
+              <AdminFormField label="Class:" error={fieldErrors.sectionId}>
+                <SearchableCombobox
+                  id="gps_section_id"
+                  name="section_id"
+                  value={form.sectionId}
+                  onChange={(sectionId) => patchForm({ sectionId })}
+                  options={classOptions}
+                  placeholder="Select class"
+                  emptyMessage="No classes found"
+                  toggleAriaLabel="Toggle class list"
+                />
+              </AdminFormField>
+
+              <AdminFormField
+                label="Site Radius (meters):"
+                htmlFor="gps_site_radius"
+                error={fieldErrors.radiusMeters}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <input
+                    id="gps_site_radius"
+                    name="site_radius"
+                    type="range"
+                    min={10}
+                    max={1000}
+                    step={10}
+                    value={form.radiusMeters}
+                    onChange={(e) =>
+                      patchForm({ radiusMeters: parseInt(e.target.value, 10) || 0 })
+                    }
+                    style={{
+                      accentColor: COLORS.headerGreen,
+                      width: "100%",
+                      cursor: "pointer",
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      height: "8px",
+                      borderRadius: "6px",
+                      outline: "none",
+                      background:
+                        form.radiusMeters >= 1000
+                          ? COLORS.headerGreen
+                          : `linear-gradient(to right, ${COLORS.headerGreen} 0%, ${COLORS.headerGreen} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} ${((form.radiusMeters - 10) / 990) * 100}%, ${COLORS.fieldBg} 100%)`,
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      ...TYPE.caption,
+                      color: COLORS.textDark,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>Min: 10m</span>
+                    <span style={{ color: COLORS.headerGreen, fontSize: "15px" }}>
+                      Selected: {form.radiusMeters} meters
+                    </span>
+                    <span>Max: 1km</span>
+                  </div>
+                </div>
+              </AdminFormField>
+
+              <div className="flex flex-row gap-6 w-full">
+                <div className="flex-1">
+                  <AdminFormField
+                    label="Latitude:"
+                    htmlFor="gps_center_latitude"
+                    error={fieldErrors.centerLatitude}
+                  >
+                    <AdminTextInput
+                      id="gps_center_latitude"
+                      name="center_latitude"
+                      type="number"
+                      value={latInput}
+                      onChange={handleLatChange}
+                      placeholder="16.411100"
+                      invalid={Boolean(fieldErrors.centerLatitude)}
+                    />
+                  </AdminFormField>
+                </div>
+
+                <div className="flex-1">
+                  <AdminFormField
+                    label="Longitude:"
+                    htmlFor="gps_center_longitude"
+                    error={fieldErrors.centerLongitude}
+                  >
+                    <AdminTextInput
+                      id="gps_center_longitude"
+                      name="center_longitude"
+                      type="number"
+                      value={lngInput}
+                      onChange={handleLngChange}
+                      placeholder="120.596600"
+                      invalid={Boolean(fieldErrors.centerLongitude)}
+                    />
+                  </AdminFormField>
+                </div>
               </div>
-            </div>
-          </AdminFormField>
 
-          <div className="flex flex-row gap-6 w-full">
-            <div className="flex-1">
-              <AdminFormField
-                label="Latitude:"
-                htmlFor="gps_center_latitude"
-                error={fieldErrors.centerLatitude}
-              >
-                <AdminTextInput
-                  id="gps_center_latitude"
-                  name="center_latitude"
-                  type="number"
-                  value={latInput}
-                  onChange={handleLatChange}
-                  placeholder="16.411100"
-                  invalid={Boolean(fieldErrors.centerLatitude)}
-                />
-              </AdminFormField>
+              {showOutsidePhWarning && (
+                <p style={{ ...TYPE.caption, color: "#8A6D00", margin: 0 }}>
+                  These coordinates are outside the Philippines — double-check
+                  latitude/longitude aren&apos;t swapped.
+                </p>
+              )}
             </div>
 
-            <div className="flex-1">
-              <AdminFormField
-                label="Longitude:"
-                htmlFor="gps_center_longitude"
-                error={fieldErrors.centerLongitude}
-              >
-                <AdminTextInput
-                  id="gps_center_longitude"
-                  name="center_longitude"
-                  type="number"
-                  value={lngInput}
-                  onChange={handleLngChange}
-                  placeholder="120.596600"
-                  invalid={Boolean(fieldErrors.centerLongitude)}
+            <div
+              style={{
+                minHeight: 420,
+                height: "100%",
+                borderRadius: 8,
+                overflow: "hidden",
+              }}
+            >
+              {latValid && lngValid && (
+                <Map
+                  center={[form.centerLatitude, form.centerLongitude]}
+                  radius={form.radiusMeters}
+                  onCenterChange={(lat, lng) => {
+                    patchForm({ centerLatitude: lat, centerLongitude: lng })
+                    setLatInput(String(lat))
+                    setLngInput(String(lng))
+                  }}
                 />
-              </AdminFormField>
+              )}
             </div>
           </div>
-
-          {showOutsidePhWarning && (
-            <p style={{ ...TYPE.caption, color: "#8A6D00", margin: 0 }}>
-              These coordinates are outside the Philippines — double-check latitude/longitude
-              aren&apos;t swapped.
-            </p>
-          )}
-
-          {latValid && lngValid && (
-            <div style={{ height: 300, borderRadius: 8, overflow: "hidden" }}>
-              <Map
-                center={[form.centerLatitude, form.centerLongitude]}
-                radius={form.radiusMeters}
-                onCenterChange={(lat, lng) => {
-                  patchForm({ centerLatitude: lat, centerLongitude: lng })
-                  setLatInput(String(lat))
-                  setLngInput(String(lng))
-                }}
-              />
-            </div>
-          )}
 
           {formError && (
             <p style={{ ...TYPE.caption, color: COLORS.error, margin: 0 }}>{formError}</p>
