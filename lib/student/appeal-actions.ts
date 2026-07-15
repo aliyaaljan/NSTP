@@ -8,7 +8,7 @@ import {
   notifyAdviserOnAppeal,
   notifyAdviserOnAppealCanceled,
 } from "@/lib/email/notifications"
-import { notifyAdviserOnAppealPush } from "../push/notifications"
+import { notifyAdviserOnAppealPush, notifyAdviserOnAppealCanceledPush } from "../push/notifications"
 import { revalidatePath } from "next/cache"
 
 const MAX_NUM_ATTACHMENT = 1
@@ -333,7 +333,8 @@ export async function cancelStudentRequest(
 
     // trigger email for withdrawn/canceled student request
     await notifyAdviserOnAppealCanceled(appealId).catch(console.error)
-
+    await notifyAdviserOnAppealCanceledPush(appealId).catch(console.error)
+    
     return { ok: true, data: null }
   } catch (err: any) {
     return { ok: false, error: err.message }
