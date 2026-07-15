@@ -16,6 +16,8 @@ export interface DashboardFilterSectionOption {
   adviserName: string
   /** `term.school_year` */
   schoolYear: string | null
+  /** `term.semester` */
+  semester?: string | null
 }
 
 interface FilterProps {
