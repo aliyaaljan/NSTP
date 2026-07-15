@@ -213,6 +213,9 @@ const formsStyles = `
     height: 520px;
     vertical-align: middle;
   }
+  .fm-bin-table-wrapper tbody tr:hover {
+    background: #F9FAFB;
+  }
 `
 
 export default function FormsPage() {
@@ -296,6 +299,40 @@ export default function FormsPage() {
     } else {
       setSortField(field)
       setSortDirection("asc")
+    }
+  }
+
+  // Submission review modal (opens when a row in the Submission Bin
+  // table is clicked). No backend wiring yet — see handleReviewDecision.
+  const [selectedEntry, setSelectedEntry] = useState<DisplayEntry | null>(null)
+  const [reviewComment, setReviewComment] = useState("")
+  const [isReviewing, setIsReviewing] = useState(false)
+
+  function openReview(entry: DisplayEntry) {
+    setSelectedEntry(entry)
+    setReviewComment("")
+  }
+
+  function closeReview() {
+    setSelectedEntry(null)
+    setReviewComment("")
+  }
+
+  // TODO: wire this up to a real backend action once one exists
+  // (e.g. reviewSubmission({ submissionId, status, comment })).
+  // For now this just reflects the decision locally so the UI is
+  // demonstrable end-to-end.
+  async function handleReviewDecision(decision: "approved" | "rejected") {
+    if (!selectedEntry) return
+    setIsReviewing(true)
+    try {
+      await new Promise((r) => setTimeout(r, 300)) // placeholder for the real request
+      setRealEntries((prev) =>
+        prev.map((e) => (e === selectedEntry ? { ...e, status: decision } : e))
+      )
+      closeReview()
+    } finally {
+      setIsReviewing(false)
     }
   }
 
@@ -1499,7 +1536,11 @@ export default function FormsPage() {
                     const tc = typeConfig[f.type] || typeConfig.default
                     const sc = statusConfig[f.status] || statusConfig.missing
                     return (
-                      <tr key={i}>
+                      <tr
+                        key={i}
+                        onClick={() => openReview(f)}
+                        style={{ cursor: "pointer" }}
+                      >
                         <td>
                           <div className="fm-student-name">{f.full_name}</div>
                           <div className="fm-student-no">
@@ -1550,6 +1591,7 @@ export default function FormsPage() {
                               }
                               target="_blank"
                               rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
                               className="fm-upload-btn"
                               style={{
                                 padding: "4px 10px",
@@ -1686,6 +1728,126 @@ export default function FormsPage() {
             </div>
           </div>
           </div>
+        </NstpModal>
+
+        {/* Submission Review modal — opens when a Submission Bin row is clicked */}
+        <NstpModal
+          open={!!selectedEntry}
+          onClose={closeReview}
+          title={selectedEntry?.full_name ?? "Review Submission"}
+          subtitle={
+            selectedEntry
+              ? `${selectedEntry.student_number} • ${selectedEntry.type}`
+              : undefined
+          }
+          initials={
+            selectedEntry
+              ? selectedEntry.full_name
+                  .split(" ")
+                  .map((p) => p[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()
+              : undefined
+          }
+          size="md"
+          actions={[
+            {
+              label: "Reject",
+              onClick: () => handleReviewDecision("rejected"),
+              variant: "reject",
+              disabled: isReviewing || !selectedEntry?.submission,
+            },
+            {
+              label: "Accept",
+              onClick: () => handleReviewDecision("approved"),
+              variant: "approve",
+              disabled: isReviewing || !selectedEntry?.submission,
+            },
+          ]}
+        >
+          {selectedEntry && (
+            <>
+              <ModalRow>
+                <ModalField label="Section" value="NSTP-H" />
+                <ModalField
+                  label="Date Submitted"
+                  value={
+                    selectedEntry.submission
+                      ? new Date(
+                          selectedEntry.submission.submitted_at
+                        ).toLocaleDateString()
+                      : "Not yet submitted"
+                  }
+                />
+              </ModalRow>
+
+              <ModalField label="Form Type" value={selectedEntry.type} />
+
+              {selectedEntry.submission ? (
+                <ModalField label="Submitted File">
+                  <a
+                    href={
+                      selectedEntry.submission.storage_path.startsWith(
+                        "gdrive:"
+                      )
+                        ? selectedEntry.submission.storage_path.replace(
+                            "gdrive:",
+                            ""
+                          )
+                        : selectedEntry.submission.storage_path
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="fm-upload-btn"
+                    style={{
+                      padding: "6px 14px",
+                      fontSize: 12,
+                      display: "inline-flex",
+                      marginTop: 4,
+                    }}
+                  >
+                    View in Drive
+                  </a>
+                </ModalField>
+              ) : (
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    color: "var(--muted)",
+                    background: "#F9FAFB",
+                    border: "1px solid var(--border)",
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                  }}
+                >
+                  This student hasn&apos;t submitted this form yet, so there&apos;s
+                  nothing to accept or reject.
+                </div>
+              )}
+
+              <div>
+                <div className="nstp-modal-label">Adviser Comments</div>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Add a note for the student (optional)"
+                  rows={4}
+                  style={{
+                    width: "100%",
+                    resize: "vertical",
+                    border: "1.5px solid var(--border)",
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    fontSize: 13,
+                    fontFamily: "var(--font)",
+                    color: "var(--text)",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            </>
+          )}
         </NstpModal>
       </div>
     </>
