@@ -102,6 +102,39 @@ export async function notifyStudentOnResolutionPush(
   })
 }
 
+export async function notifyAdviserOnAppealCanceledPush(appealId: string) {
+  const service = createSupabaseServiceClient()
+
+  const { data: appeal, error } = await service
+      .from("appeal")
+      .select(
+        `
+        title,
+        enrollment!inner (
+          app_user!inner (full_name),
+          section!inner (adviser_user_id)
+        )
+        `
+      )
+      .eq("appeal_id", appealId)
+      .single()
+
+  if (error || !appeal) return
+  const studentName = (appeal.enrollment as any).app_user.full_name
+  const adviserId = (appeal.enrollment as any).section.adviser_user_id
+  if (!adviserId) return
+
+  const pushEnabled = await checkNotificationPreference(adviserId, "push")
+  if (!pushEnabled) return
+
+  await sendPushToUser(adviserId, {
+    title: `Request has been Withdrawn`,
+    body: `${studentName} canceled their Request ${appeal.title}`,
+    url: `/facilitator/my-students?tab=pending`,
+  })
+
+}
+
 export async function notifyAdviserOnSubmissionPush(submissionId: string) {
   const service = createSupabaseServiceClient()
 
