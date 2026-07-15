@@ -17,88 +17,22 @@ import {
 import type { ExportSectionOption } from "@/lib/admin/export-analytics"
 import { extractNstpType } from "@/lib/shared/class-label"
 
-function filtersFromParam(currentFilter: string): ActiveFilters {
-  if (currentFilter.startsWith("section:")) {
-    return { section: [currentFilter.slice("section:".length)] }
-  }
-  if (currentFilter.startsWith("adviser:")) {
-    return { adviserUserId: [currentFilter.slice("adviser:".length)] }
-  }
-  if (currentFilter.startsWith("nstp:")) {
-    return { nstpType: [currentFilter.slice("nstp:".length)] }
-  }
-  if (currentFilter.startsWith("year:")) {
-    return { schoolYear: [currentFilter.slice("year:".length)] }
-  }
-  return {}
+export type DashboardFilterParams = {
+  nstpType?: string
+  adviserUserId?: string
+  schoolYear?: string
+  /** Legacy single `filter=` value — still restored into checkboxes when present. */
+  legacyFilter?: string
 }
 
-/**
- * Resolve dimension filters to a single dashboard URL filter param.
- * Prefers a concrete section when dimensions pin one class; otherwise adviser /
- * nstp / year sentinels the page understands.
- */
-function filterToParam(
-  filters: ActiveFilters,
-  sections: DashboardFilterSectionOption[]
-): string | null {
-  const nstp = filters.nstpType?.[0]
-  const adviserId = filters.adviserUserId?.[0]
-  const year = filters.schoolYear?.[0]
-  const legacySection = filters.section?.[0]
-
-  if (legacySection && !nstp && !adviserId && !year) {
-    return `section:${legacySection}`
-  }
-
-  const matched = sections.filter((section) => {
-    if (nstp && extractNstpType(section.courseCode) !== nstp) return false
-    if (adviserId && section.adviserUserId !== adviserId) return false
-    if (year && section.schoolYear !== year) return false
-    return Boolean(nstp || adviserId || year)
-  })
-
-  if (matched.length === 1) {
-    return `section:${matched[0].sectionId}`
-  }
-
-  if (adviserId && !nstp && !year) {
-    const name = sections.find((s) => s.adviserUserId === adviserId)?.adviserName
-    if (name) return `adviser:${name}`
-  }
-
-  if (nstp && !adviserId && !year) {
-    return `nstp:${nstp}`
-  }
-
-  if (year && !nstp && !adviserId) {
-    return `year:${year}`
-  }
-
-  // Multiple dimensions that don't pin a single section: keep the tightest
-  // match the page can apply (prefer section list via nstp/year on the server).
-  if (matched.length > 1 && nstp) {
-    return `nstp:${nstp}`
-  }
-  if (matched.length > 1 && year) {
-    return `year:${year}`
-  }
-  if (adviserId) {
-    const name = sections.find((s) => s.adviserUserId === adviserId)?.adviserName
-    if (name) return `adviser:${name}`
-  }
-
-  return null
-}
-
-function activeFiltersFromSections(
+function filtersFromLegacyParam(
   currentFilter: string,
   sections: DashboardFilterSectionOption[]
 ): ActiveFilters {
   if (currentFilter.startsWith("section:")) {
     const sectionId = currentFilter.slice("section:".length)
     const section = sections.find((s) => s.sectionId === sectionId)
-    if (!section) return filtersFromParam(currentFilter)
+    if (!section) return { section: [sectionId] }
     const next: ActiveFilters = {}
     const nstp = extractNstpType(section.courseCode)
     if (nstp) next.nstpType = [nstp]
@@ -114,16 +48,50 @@ function activeFiltersFromSections(
     }
     return {}
   }
-  return filtersFromParam(currentFilter)
+  if (currentFilter.startsWith("nstp:")) {
+    return { nstpType: [currentFilter.slice("nstp:".length)] }
+  }
+  if (currentFilter.startsWith("year:")) {
+    return { schoolYear: [currentFilter.slice("year:".length)] }
+  }
+  return {}
+}
+
+function activeFiltersFromParams(
+  params: DashboardFilterParams,
+  sections: DashboardFilterSectionOption[]
+): ActiveFilters {
+  const next: ActiveFilters = {}
+  if (params.nstpType) next.nstpType = [params.nstpType]
+  if (params.adviserUserId) next.adviserUserId = [params.adviserUserId]
+  if (params.schoolYear) next.schoolYear = [params.schoolYear]
+
+  if (Object.keys(next).length > 0) return next
+  if (params.legacyFilter) {
+    return filtersFromLegacyParam(params.legacyFilter, sections)
+  }
+  return {}
+}
+
+function buildFilterQuery(filters: ActiveFilters): string {
+  const params = new URLSearchParams()
+  const nstp = filters.nstpType?.[0]
+  const adviserId = filters.adviserUserId?.[0]
+  const year = filters.schoolYear?.[0]
+  if (nstp) params.set("nstp", nstp)
+  if (adviserId) params.set("adviser", adviserId)
+  if (year) params.set("year", year)
+  const qs = params.toString()
+  return qs ? `/admin/dashboard?${qs}` : "/admin/dashboard"
 }
 
 export default function DashboardToolbar({
-  currentFilter,
+  filterParams,
   sections,
   advisers: _advisers,
   exportSections,
 }: {
-  currentFilter: string
+  filterParams: DashboardFilterParams
   sections: DashboardFilterSectionOption[]
   advisers: string[]
   exportSections: ExportSectionOption[]
@@ -133,12 +101,18 @@ export default function DashboardToolbar({
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useFilterPanelDismiss(filterOpen, () => setFilterOpen(false))
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
-    activeFiltersFromSections(currentFilter, sections)
+    activeFiltersFromParams(filterParams, sections)
   )
 
   useEffect(() => {
-    setActiveFilters(activeFiltersFromSections(currentFilter, sections))
-  }, [currentFilter, sections])
+    setActiveFilters(activeFiltersFromParams(filterParams, sections))
+  }, [
+    filterParams.nstpType,
+    filterParams.adviserUserId,
+    filterParams.schoolYear,
+    filterParams.legacyFilter,
+    sections,
+  ])
 
   const searchLower = search.trim().toLowerCase()
 
@@ -164,18 +138,9 @@ export default function DashboardToolbar({
     [filteredSources]
   )
 
-  function pushFilters(filters: ActiveFilters) {
-    const param = filterToParam(filters, sections)
-    if (param) {
-      router.push(`/admin/dashboard?filter=${encodeURIComponent(param)}`)
-    } else {
-      router.push("/admin/dashboard")
-    }
-  }
-
   function handleFiltersChange(next: ActiveFilters) {
     setActiveFilters(next)
-    pushFilters(next)
+    router.push(buildFilterQuery(next))
   }
 
   function clearFilters() {
