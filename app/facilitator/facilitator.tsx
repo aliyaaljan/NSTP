@@ -213,19 +213,26 @@ export function Calendar({ semEndDate, holidays = [], deadlines = []}: { semEndD
               key={i} 
               className={[
                 "cal-cell relative group",
-                d === null ? "cal-empty" : "",
-                cellIsToday ? "cal-today" : "",
-                cellIsSemEnd ? "cal-sem-end": "",
-                cellHoliday && !cellIsToday && !cellIsSemEnd ? "cal-holiday" : "",
-                 cellDeadline && !cellIsToday && !cellIsSemEnd && !cellHoliday ? "cal-sem-end" : "",
-                
-              ].join(" ").trim()}
+                d === null && "cal-empty",
+                cellIsToday && "cal-today",
+                cellHoliday && "cal-holiday",
+                cellDeadline && "cal-deadline",
+                cellIsSemEnd && "cal-sem-end",
+              ]
+              .filter(Boolean)
+              .join(" ")}
             >
               {d !== null ? <span className="cal-day-num">{d}</span> : null}
 
               {hasLabel && (
                 <span className={`capitalize absolute bottom-full ${edgeAlign} mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : cellIsSemEnd || cellDeadline ? "text-[var(--amber)]" : "text-[var(--green)]"}`}>
-                  {cellIsToday ? "Today" : cellIsSemEnd ? "End of Semester" : cellHoliday ? cellHoliday.name : cellDeadline?.name}
+                 <>
+                  {cellIsToday && "Today"}
+                  {cellHoliday && (cellIsToday ? ` • ${cellHoliday.name}` : cellHoliday.name)}
+                  {cellDeadline && `${cellIsToday || cellHoliday ? " • " : ""}${cellDeadline.name}`}
+                  {cellIsSemEnd &&
+                  `${cellIsToday || cellHoliday || cellDeadline ? " • " : ""}End of Semester`}
+                </>
                 </span>
               )}
             </div>
@@ -581,36 +588,53 @@ export const dashboardStyles = `
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.28em; }
   .cal-day-label { display: flex; align-items: center; justify-content: center; font-size: 0.72em; font-weight: 700; color: var(--muted); padding: 0 0 0.2em; text-transform: uppercase; letter-spacing: 0.04em; }
   .cal-cell { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 1.05em; color: var(--text); cursor: default; line-height: 1; }
-  .cal-day-num { position: relative; z-index: 1; }
+  .cal-day-num { position: relative; z-index: 3; }
   .cal-cell.cal-empty { visibility: hidden; }
+  .cal-day-num{position:relative; z-index:3;}
   .cal-cell.cal-today,
-  .cal-cell.cal-sem-end { color: #fff; font-weight: 700; }
-  .cal-cell.cal-today::before,
-  .cal-cell.cal-sem-end::before {
-    content: "";
-    position: absolute;
-    width: 88%;
-    height: 88%;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    z-index: 0;
+  .cal-cell.cal-holiday,
+  .cal-cell.cal-sem-end,
+  .cal-cell.cal-deadline:not(.cal-today):not(.cal-holiday) {
+    color: #fff;
+    font-weight: 700;
   }
-  .cal-cell.cal-today::before { background: var(--maroon); }
-  .cal-cell.cal-sem-end::before { background: var(--amber); }
-  .cal-cell.cal-holiday {color: #fff; font-weight: 700; }
-  .cal-cell.cal-holiday::after {
+  .cal-cell.cal-today::before {
     content: "";
     position: absolute;
-    width: 88%;
-    height: 88%;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    inset: 15%;
     border-radius: 50%;
-    z-index: 0;
+    background: var(--maroon);
+    z-index: 1;
+  }
+  .cal-cell.cal-holiday::before {
+    content: "";
+    position: absolute;
+    inset: 15%;
+    border-radius: 50%;
     background: var(--green);
+    z-index: 2;
+  }
+  .cal-cell.cal-deadline:not(.cal-today):not(.cal-holiday)::before {
+    content: "";
+    position: absolute;
+    inset: 15%;
+    border-radius: 50%;
+    background: var(--amber);
+    z-index: 2;
+  }
+  .cal-cell.cal-deadline.cal-today::after,
+  .cal-cell.cal-deadline.cal-holiday::after {
+    content: "";
+    position: absolute;
+    inset: 10%;
+    border-radius: 50%;
+    border: 3px solid var(--amber);
+    z-index: 3;
+    pointer-events: none;
+  }
+  .cal-cell.cal-sem-end {
+    outline: 3px dashed var(--amber);
+    border-radius: 50%;
   }
   
   /* ── Dashboard layout ── */
