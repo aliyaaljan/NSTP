@@ -77,7 +77,7 @@ const studentFilesStyles = `
   .sf-form-name { font-weight: 500; color: #2C2C2A; font-size: 15px; }
   .sf-form-deadline { color: #7A7A7A; font-size: 13px; }
   .sf-status-cell { text-align: center; }
-  .sf-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; background: #E8EDE5; color: #1A3C2D; min-width: 100px; justify-content: center; cursor: pointer; }
+  .sf-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; min-width: 100px; justify-content: center; cursor: pointer; }
   .sf-status-badge-submitted { background: #D1FAE5; color: #065F46; }
   .sf-status-badge-approved { background: #D1FAE5; color: #065F46; }
   .sf-status-badge-rejected { background: #FEE2E2; color: #991B1B; }
@@ -400,8 +400,8 @@ const studentFilesStyles = `
     .sf-form-name { font-size: 11px; font-weight: 500; }
     .sf-form-deadline { font-size: 10px; }
     
-    .sf-status-badge { padding: 3px 8px; font-size: 8px; min-width: 70px; gap: 4px; }
-    .sf-upload-btn { padding: 3px 8px; font-size: 8px; min-width: 70px; gap: 4px; }
+    .sf-status-badge { padding: 3px 8px; font-size: 8px; min-width: 60px; gap: 4px; }
+    .sf-upload-btn { padding: 3px 8px; font-size: 8px; min-width: 60px; gap: 4px; }
     
     .sf-adv-pagination { gap: 2px; padding: 12px 10px; flex-wrap: wrap; }
     .sf-adv-pagination-info { font-size: 7px; }
@@ -435,6 +435,24 @@ const studentFilesStyles = `
     .sf-adv-page-btn { min-width: 18px; height: 18px; font-size: 8px; }
     .sf-adv-pagination { gap: 1px; padding: 8px 6px; }
     .sf-adv-pagination-info { font-size: 6px; }
+    
+    .sf-action-btn {
+      padding: 3px 8px;
+      font-size: 8px;
+      min-width: 50px;
+      gap: 3px;
+      border-radius: 14px;
+    }
+    .sf-action-btn svg {
+      width: 10px;
+      height: 10px;
+    }
+    .sf-status-badge {
+      padding: 2px 6px;
+      font-size: 7px;
+      min-width: 50px;
+      gap: 3px;
+    }
   }
 `
 
@@ -1048,8 +1066,8 @@ export default function StudentFilesPage() {
     Form["realStatus"],
     { label: string; className: string }
   > = {
-    missing: { label: "Not Yet Submitted", className: "sf-status-badge-missing" },
-    submitted: { label: "Submitted", className: "sf-status-badge-pending" },
+    missing: { label: "Pending", className: "sf-status-badge-pending" },
+    submitted: { label: "Submitted", className: "sf-status-badge-submitted" },
     approved: { label: "Approved", className: "sf-status-badge-approved" },
     rejected: { label: "Rejected", className: "sf-status-badge-rejected" },
   }
@@ -1067,13 +1085,14 @@ export default function StudentFilesPage() {
   }
 
   const renderActionButton = (form: Form, mobile: boolean) => {
-    const iconSize = mobile ? 12 : 14
+    const iconSize = mobile ? 10 : 14
 
     if (form.realStatus === "missing") {
       return (
         <button
           className="sf-action-btn sf-action-btn-upload"
           onClick={() => handleUploadClick(form)}
+          style={mobile ? { padding: "3px 8px", fontSize: "8px", minWidth: "50px", gap: "3px" } : {}}
         >
           <IconUpload size={iconSize} stroke={2.5} /> Upload
         </button>
@@ -1082,16 +1101,18 @@ export default function StudentFilesPage() {
 
     if (form.realStatus === "rejected") {
       return (
-        <div style={{ display: "flex", gap: 6, justifyContent: mobile ? "flex-end" : "center" }}>
+        <div style={{ display: "flex", gap: mobile ? 4 : 6, justifyContent: mobile ? "flex-end" : "center", flexWrap: "wrap" }}>
           <button
             className="sf-action-btn sf-action-btn-view"
             onClick={() => handleViewClick(form)}
+            style={mobile ? { padding: "3px 8px", fontSize: "8px", minWidth: "40px", gap: "3px" } : {}}
           >
             <IconEye size={iconSize} stroke={2} /> View
           </button>
           <button
             className="sf-action-btn sf-action-btn-reupload"
             onClick={() => handleUploadClick(form)}
+            style={mobile ? { padding: "3px 8px", fontSize: "8px", minWidth: "50px", gap: "3px" } : {}}
           >
             <IconUpload size={iconSize} stroke={2.5} /> Reupload
           </button>
@@ -1103,6 +1124,7 @@ export default function StudentFilesPage() {
       <button
         className="sf-action-btn sf-action-btn-view"
         onClick={() => handleViewClick(form)}
+        style={mobile ? { padding: "3px 8px", fontSize: "8px", minWidth: "40px", gap: "3px" } : {}}
       >
         <IconEye size={iconSize} stroke={2} /> View
       </button>
@@ -1291,7 +1313,7 @@ export default function StudentFilesPage() {
                   {filteredPaginatedForms.map((form) => (
                     <div key={form.id} className="sf-mobile-card">
                       <div className="sf-mobile-card-row">
-                        <div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="sf-mobile-card-name">
                             {form.name}
                             {form.hasTemplate && (
@@ -1307,7 +1329,7 @@ export default function StudentFilesPage() {
                           </div>
                           <div className="sf-mobile-card-deadline">Due Date: {form.deadline}</div>
                         </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end", flexShrink: 0 }}>
                           {renderStatusBadge(form, true)}
                           {renderActionButton(form, true)}
                         </div>
@@ -1896,13 +1918,13 @@ export default function StudentFilesPage() {
                                 ? "#D1FAE5"
                                 : viewingForm.realStatus === "rejected"
                                 ? "#FEE2E2"
-                                : "#E8EDE5",
+                                : "#D1FAE5",
                             color:
                               viewingForm.realStatus === "approved"
                                 ? "#065F46"
                                 : viewingForm.realStatus === "rejected"
                                 ? "#991B1B"
-                                : "#1A3C2D",
+                                : "#065F46",
                           }}
                         >
                           {viewingForm.realStatus.toUpperCase()}
