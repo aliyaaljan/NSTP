@@ -50,7 +50,7 @@ const studentFilesStyles = `
   /* Header */
   .sf-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
   .sf-header-left { flex: 1; min-width: 200px; }
-  .sf-header-title { font-size: 34px; font-weight: 800; color: #6B1A1A; font-family: var(--font-montserrat, 'Montserrat', sans-serif); margin: 0; letter-spacing: -0.01em; }
+  .sf-header-title { font-size: 34px; font-weight: 800; color: #7B1113; font-family: var(--font-montserrat, 'Montserrat', sans-serif); margin: 0; letter-spacing: -0.01em; }
   
   /* Table Card */
   .sf-adv-table-card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,.06); display: flex; flex-direction: column; overflow: hidden; width: 100%; }
@@ -65,11 +65,11 @@ const studentFilesStyles = `
   .sf-adv-table-wrapper { overflow-y: visible; max-height: none; scrollbar-width: thin; scrollbar-color: #CFCFCB transparent; overflow-x: auto; }
   .sf-adv-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 400px; }
   .sf-adv-table thead tr { background: #F9FAFB; border-top: 1px solid #E7E7E7; border-bottom: 1px solid #EEEEEE; }
-  .sf-adv-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 32px; text-align: left; font-size: 11px; font-weight: 700; color: #6B1A1A; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+  .sf-adv-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FAFB; padding: 10px 32px; text-align: left; font-size: 11px; font-weight: 700; color: #7B1113; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
   .sf-adv-table thead th:last-child { text-align: center; cursor: default; }
   .sf-adv-table thead th .sf-sort-icons { display: inline-flex; flex-direction: column; align-items: center; margin-left: 4px; vertical-align: middle; line-height: 1; }
   .sf-adv-table thead th .sf-sort-icons .sf-sort-up, .sf-adv-table thead th .sf-sort-icons .sf-sort-down { opacity: 0.5; color: #4A4A4A; }
-  .sf-adv-table thead th .sf-sort-icons .active { opacity: 1 !important; color: #6B1A1A !important; }
+  .sf-adv-table thead th .sf-sort-icons .active { opacity: 1 !important; color: #7B1113 !important; }
   .sf-adv-table td { padding: 16px 28px; border-bottom: 1px solid #EEEEEE; vertical-align: middle; font-size: 13px; }
   .sf-adv-table tbody tr:hover td { background: #FAFAFA; }
   .sf-adv-empty { text-align: center; padding: 48px 0; color: #7A7A7A; font-size: 13px; }
@@ -101,7 +101,7 @@ const studentFilesStyles = `
   .sf-action-btn:hover { transform: scale(1.05); }
   .sf-action-btn-upload   { background: #1A3C2D; color: #fff; }
   .sf-action-btn-view     { background: #F3F4F6; color: #1A3C2D; border: 1px solid #E5E7EB; }
-  .sf-action-btn-reupload { background: #6B1A1A; color: #fff; }
+  .sf-action-btn-reupload { background: #7B1113; color: #fff; }
   .sf-reupload-btn:hover { opacity: .85; }
   .sf-upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #1A3C2D; color: #FFFFFF; border: none; cursor: pointer; font-family: var(--font-montserrat, 'Montserrat', sans-serif); min-width: 100px; justify-content: center; transition: transform .25s ease, box-shadow .25s ease; }
   .sf-upload-btn:hover { transform: scale(1.05); }
@@ -113,7 +113,7 @@ const studentFilesStyles = `
   .sf-adv-pagination-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; justify-content: center; }
   .sf-adv-page-btn { min-width: 28px; height: 28px; border-radius: 8px; border: 1px solid #E5E7EB; background: #FFFFFF; font-size: 11px; color: #2C2C2A; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0 4px; transition: background 0.12s, border-color 0.12s; font-weight: 500; }
   .sf-adv-page-btn:hover:not(.sf-adv-page-btn-active):not(:disabled) { background: #F9FAFB; }
-  .sf-adv-page-btn.sf-adv-page-btn-active { background: #6B1A1A; color: #FFFFFF; border-color: #6B1A1A; font-weight: 700; }
+  .sf-adv-page-btn.sf-adv-page-btn-active { background: #7B1113; color: #FFFFFF; border-color: #7B1113; font-weight: 700; }
   .sf-adv-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .sf-adv-page-size-select-wrapper { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #7A7A7A; font-weight: 500; flex-shrink: 0; white-space: nowrap; }
   .sf-adv-page-size-select { height: 30px; width: 60px; border: 1px solid #D1D5DB; border-radius: 8px; padding: 0 12px; font-size: 11px; font-family: var(--font-montserrat, 'Montserrat', sans-serif); color: #2C2C2A; background: #FFFFFF; cursor: pointer; outline: none; }
@@ -222,7 +222,7 @@ const studentFilesStyles = `
   .sf-file-preview-type { font-size: 10px; font-weight: 700; color: #FFFFFF; background: #1A3C2D; padding: 2px 10px; border-radius: 12px; flex-shrink: 0; }
   .sf-file-preview-size { font-size: 11px; color: #6B7280; display: flex; align-items: center; gap: 4px; }
   .sf-file-preview-remove { background: none; border: none; color: #9CA3AF; cursor: pointer; padding: 6px; flex-shrink: 0; }
-  .sf-file-preview-remove:hover { color: #6B1A1A}
+  .sf-file-preview-remove:hover { color: #7B1113}
   .sf-empty-state { text-align: center; padding: 60px 20px; color: #9CA3AF; display: flex; flex-direction: column; align-items: center; }
   .sf-empty-sub { font-size: 12px; color: #B0B0B0; margin-top: 4px; }
   
@@ -294,16 +294,16 @@ const studentFilesStyles = `
     position: relative;
     transition: all 0.2s ease;
     background: transparent;
-    color: #6B1A1A;
-    border: 2px solid #6B1A1A;
+    color: #7B1113;
+    border: 2px solid #7B1113;
   }
   .sf-unsubmit-btn:hover:not(.sf-unsubmit-confirming) {
     background: rgba(123, 29, 29, 0.05);
   }
   .sf-unsubmit-btn.sf-unsubmit-confirming {
-    background: #6B1A1A;
+    background: #7B1113;
     color: #FFFFFF;
-    border: 2px solid #6B1A1A;
+    border: 2px solid #7B1113;
   }
   .sf-unsubmit-btn:disabled {
     opacity: 0.5;
@@ -1985,7 +1985,7 @@ export default function StudentFilesPage() {
                             style={{
                               fontSize: 12,
                               fontWeight: 700,
-                              color: viewingForm.realStatus === "rejected" ? "#991B1B" : "#6B1A1A",
+                              color: viewingForm.realStatus === "rejected" ? "#991B1B" : "#7B1113",
                               display: "block",
                               marginBottom: 6,
                             }}

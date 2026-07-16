@@ -10,7 +10,7 @@ export const C = {
   green: "#14492E",
   greenLight: "#1A5C3A",
   greenBg: "#E8F5EF",
-  maroon: "#6B1A1A",
+  maroon: "#7B1113",
   maroonLight: "#9E1A1C",
   gold: "#C8A84B",
   pageBg: "#F0F0F0",

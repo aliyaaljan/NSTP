@@ -523,7 +523,7 @@ export default function QRGenerationPage() {
         .qr-title {
           font-size: 34px;
           font-weight: 800;
-          color: #6B1A1A;
+          color: #7B1113;
           margin: 0;
           letter-spacing: -0.01em;
         }

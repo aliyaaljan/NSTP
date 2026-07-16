@@ -78,7 +78,7 @@ const montserrat = Montserrat({
 })
 
 const C = {
-  maroon: "#6B1A1A",
+  maroon: "#7B1113",
   green: "#1A3C2D",
   gold: "#C8963C",
   pageBg: "#F0F0F0",
@@ -102,7 +102,7 @@ const C = {
 
   declined: {
     bg: "#F4E3E3", //to be checked pa po ulit kasi no reference atm
-    text: "#6B1A1A",
+    text: "#7B1113",
     border: "#B08080",
     icon: "#8B3A3A",
   },
