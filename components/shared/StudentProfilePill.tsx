@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 const C = {
-  maroonDark:"#6B0D10",
+  maroon:"#7B1113",
   gold:"#C8A84B",
   goldText:"#4A2C00",
 }
@@ -40,7 +40,7 @@ export default function ProfilePill({
         display:"flex",
         alignItems:"center",
         gap:10,
-        background:C.maroonDark,
+        background:C.maroon,
         borderRadius:40,
         padding:"7px 18px 7px 8px",
         textDecoration:"none"
