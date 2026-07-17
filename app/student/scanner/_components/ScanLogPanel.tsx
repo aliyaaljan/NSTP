@@ -7,6 +7,8 @@ import {
   IconCheck,
   IconQrcode,
   IconX,
+  IconLogout,
+  IconHourglass,
 } from "@tabler/icons-react"
 import type { ScanRecord, ScanStatus } from "@/lib/student/leader/scan-history"
 import { formatDate, groupByDate } from "@/lib/student/leader/scan-history"
@@ -74,6 +76,11 @@ function ScanRow({
     .join("")
     .toUpperCase()
 
+  const formatHours = (hours?: number) => {
+    if (hours === undefined || hours === null || hours === 0) return "—"
+    return hours.toFixed(1)
+  }
+
   return (
     <>
       {showDateHeader && dateHeader && (
@@ -100,7 +107,7 @@ function ScanRow({
               color: C.textGray,
               textTransform: "uppercase",
               letterSpacing: "0.05em",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
             }}
           >
             {dateHeader}
@@ -111,7 +118,7 @@ function ScanRow({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr auto" : "1.5fr 1.5fr 0.8fr",
+          gridTemplateColumns: isMobile ? "1fr auto" : "1fr 1.2fr 0.8fr 0.5fr 0.5fr",
           alignItems: "center",
           padding: isMobile ? "6px 12px" : "clamp(10px, 1.2vw, 14px) clamp(12px, 1.5vw, 24px)",
           borderBottom: isLast ? "none" : `1px solid ${C.border}`,
@@ -148,7 +155,7 @@ function ScanRow({
               fontSize: isMobile ? "7px" : "12px",
               fontWeight: 700,
               flexShrink: 0,
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
             }}
           >
             {initials}
@@ -162,14 +169,14 @@ function ScanRow({
               overflow: "hidden",
               textOverflow: "ellipsis",
               margin: 0,
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
             }}
           >
             {scan.name}
           </p>
         </div>
 
-        {/* Time Column */}
+        {/* QR Code Column */}
         <div
           style={{
             display: "flex",
@@ -186,17 +193,17 @@ function ScanRow({
               display: "flex",
               alignItems: "center",
               gap: "4px",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
               fontWeight: 400,
             }}
           >
-            <IconClock size={12} stroke={1.5} />
+            <IconQrcode size={12} stroke={1.5} />
             <span style={{ fontWeight: 400, color: C.textGray }}>
-              QR Generated:
+              Generated:
             </span>
             <span
               style={{
-                fontFamily: "'Montserrat', sans-serif",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
                 fontWeight: 400,
                 color: C.textDark,
               }}
@@ -211,17 +218,17 @@ function ScanRow({
               display: "flex",
               alignItems: "center",
               gap: "4px",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
               fontWeight: 400,
             }}
           >
             <IconQrcode size={12} stroke={1.5} />
             <span style={{ fontWeight: 400, color: C.textGray }}>
-              QR Scanned:
+              Scanned:
             </span>
             <span
               style={{
-                fontFamily: "'Montserrat', sans-serif",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
                 fontWeight: 400,
                 color: C.textDark,
               }}
@@ -251,11 +258,69 @@ function ScanRow({
               alignItems: "center",
               gap: "4px",
               whiteSpace: "nowrap",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
             }}
           >
             {!isMobile && icon}
             {scan.status}
+          </span>
+        </div>
+
+        {/* Time Out Column */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "2px",
+            minWidth: 0,
+            alignItems: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              color: C.textGray,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              fontWeight: 400,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
+                fontWeight: 400,
+                color: C.textDark,
+              }}
+            >
+              {scan.timeOut || "—"}
+            </span>
+          </span>
+        </div>
+
+        {/* Hours Column */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "2px",
+            minWidth: 0,
+            alignItems: "center",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              color: C.textDark,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              fontWeight: 400,
+            }}
+          >
+              {formatHours(scan.hours)}
           </span>
         </div>
       </div>
@@ -300,7 +365,7 @@ export function ScanLogPanel({
         flex: 1,
         minHeight: isMobile ? "180px" : "300px",
         maxHeight: isMobile ? "calc(100vh - 360px)" : "calc(100vh - 380px)",
-        fontFamily: "'Montserrat', sans-serif",
+        fontFamily: "'Montserrat', 'Fallback Montserrat'",
         paddingBottom: isMobile ? "60px" : "0",
       }}
     >
@@ -328,7 +393,7 @@ export function ScanLogPanel({
               fontSize: "13px",
               fontWeight: 700,
               color: C.textDark,
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
             }}
           >
             Scan Records
@@ -340,7 +405,7 @@ export function ScanLogPanel({
             fontWeight: 400,
             color: C.textGray,
             padding: "2px 8px",
-            fontFamily: "'Montserrat', sans-serif",
+            fontFamily: "'Montserrat', 'Fallback Montserrat'",
           }}
         >
           {totalScans} entries
@@ -352,7 +417,7 @@ export function ScanLogPanel({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1.5fr 1.5fr 0.8fr",
+            gridTemplateColumns: "1fr 1.2fr 0.8fr 0.5fr 0.5fr",
             padding: "clamp(10px, 1.2vw, 14px) clamp(12px, 1.5vw, 24px)",
             background: "#F9FAFB",
             borderBottom: `1px solid ${C.border}`,
@@ -367,7 +432,7 @@ export function ScanLogPanel({
               color: C.maroon,
               textTransform: "uppercase",
               letterSpacing: "0.05em",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
             }}
           >
             Student
@@ -379,11 +444,11 @@ export function ScanLogPanel({
               color: C.maroon,
               textTransform: "uppercase",
               letterSpacing: "0.05em",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
               textAlign: "center",
             }}
           >
-            Time
+            QR Code
           </div>
           <div
             style={{
@@ -392,11 +457,37 @@ export function ScanLogPanel({
               color: C.maroon,
               textTransform: "uppercase",
               letterSpacing: "0.05em",
-              fontFamily: "'Montserrat', sans-serif",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
               textAlign: "center",
             }}
           >
             Status
+          </div>
+          <div
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              color: C.maroon,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              textAlign: "center",
+            }}
+          >
+            Time Out
+          </div>
+          <div
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              color: C.maroon,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              fontFamily: "'Montserrat', 'Fallback Montserrat'",
+              textAlign: "center",
+            }}
+          >
+            Hours
           </div>
         </div>
       )}
@@ -472,7 +563,7 @@ export function ScanLogPanel({
                             color: C.textGray,
                             textTransform: "uppercase",
                             letterSpacing: "0.05em",
-                            fontFamily: "'Montserrat', sans-serif",
+                            fontFamily: "'Montserrat', 'Fallback Montserrat'",
                           }}
                         >
                           {monthKey}
@@ -482,7 +573,7 @@ export function ScanLogPanel({
                             fontSize: "11px",
                             color: C.textGray,
                             fontWeight: 500,
-                            fontFamily: "'Montserrat', sans-serif",
+                            fontFamily: "'Montserrat', 'Fallback Montserrat'",
                           }}
                         >
                           • {scansForMonth.length} entries
@@ -544,7 +635,7 @@ export function ScanLogPanel({
               style={{ 
                 fontSize: "13px",
                 fontWeight: 500,
-                fontFamily: "'Montserrat', sans-serif",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
               }}
             >
               No scan history for this period
@@ -554,7 +645,7 @@ export function ScanLogPanel({
                 fontSize: "11px",
                 color: C.textGray,
                 marginTop: "4px",
-                fontFamily: "'Montserrat', sans-serif",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
               }}
             >
               Scans will appear here once students start checking in
@@ -576,7 +667,7 @@ export function ScanLogPanel({
                 color: C.textGray,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
-                fontFamily: "'Montserrat', sans-serif",
+                fontFamily: "'Montserrat', 'Fallback Montserrat'",
               }}
             >
               Pending / Not Scanned ({notScannedNames.length})
@@ -593,6 +684,8 @@ export function ScanLogPanel({
                   date: "—",
                   generatedTime: "—",
                   scannedTime: "—",
+                  timeOut: "—",
+                  hours: 0,
                   status: "Not Scanned",
                 }}
               />

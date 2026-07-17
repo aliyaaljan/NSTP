@@ -7,6 +7,8 @@ export type ScanRecord = {
   generatedTime: string
   scannedTime: string
   status: ScanStatus
+  timeOut: string | null
+  hours: number
 }
 
 export const LATE_CUTOFF_MINUTES = 8 * 60 + 15
