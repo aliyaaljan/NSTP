@@ -13,6 +13,7 @@ const COLORS = {
 export interface SearchableComboboxOption {
   value: string
   label: string
+  description?: string
 }
 
 export function SearchableCombobox({
@@ -216,7 +217,19 @@ export function SearchableCombobox({
                       cursor: "pointer",
                     }}
                   >
-                    {option.label}
+                    <span style={{ display: "block" }}>{option.label}</span>
+                    {option.description && (
+                      <span
+                        style={{
+                          display: "block",
+                          ...TYPE.caption,
+                          color: COLORS.textGray,
+                          marginTop: 2,
+                        }}
+                      >
+                        {option.description}
+                      </span>
+                    )}
                   </button>
                 </li>
               )

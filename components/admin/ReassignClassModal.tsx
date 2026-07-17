@@ -2,8 +2,12 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox"
-import { reassignClassAction } from "@/lib/admin/adviser-list-actions"
+import {
+  getMergePreviewAction,
+  reassignClassAction,
+} from "@/lib/admin/adviser-list-actions"
 import type {
+  MergePreview,
   ReassignClassOutcome,
   ReassignSourceClass,
 } from "@/lib/admin/class-reassign"
@@ -18,7 +22,10 @@ const COLORS = {
   border: "#ECECEA",
 }
 
+const MAROON = "#7B1113"
+
 type SuccessOutcome = Extract<ReassignClassOutcome, { ok: true }>
+type Step = "pick" | "confirmMerge"
 
 export default function ReassignClassModal({
   open,
@@ -27,7 +34,7 @@ export default function ReassignClassModal({
   onReassigned,
 }: {
   open: boolean
-  /** Every class still owned by the inactive facilitator. */
+  /** Every class still owned by the inactive facilitator, or the single class picked from the Classes page. */
   classes: ReassignSourceClass[]
   /** "Skip remaining" / close after success. Defaults to a full page reload. */
   onClose: () => void
@@ -40,19 +47,33 @@ export default function ReassignClassModal({
   const [completedCount, setCompletedCount] = useState(0)
   const [isPending, startTransition] = useTransition()
 
+  const [step, setStep] = useState<Step>("pick")
+  const [preview, setPreview] = useState<MergePreview | null>(null)
+  const [isPreviewLoading, setPreviewLoading] = useState(false)
+  const [keepLeaderIds, setKeepLeaderIds] = useState<Set<string>>(new Set())
+
   const sourceClass = classes[classIndex] ?? null
   const totalClasses = classes.length
   const hasMoreAfterThis = classIndex < totalClasses - 1
   const isLastClass = classIndex >= totalClasses - 1
 
+  function resetPerClassState() {
+    setStep("pick")
+    setPreview(null)
+    setPreviewLoading(false)
+    setKeepLeaderIds(new Set())
+    setTargetAdviserUserId("")
+    setError(null)
+    setOutcome(null)
+  }
+
   useEffect(() => {
     if (open) {
       setClassIndex(0)
-      setTargetAdviserUserId("")
-      setError(null)
-      setOutcome(null)
       setCompletedCount(0)
+      resetPerClassState()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, classes])
 
   useEffect(() => {
@@ -75,6 +96,12 @@ export default function ReassignClassModal({
       candidates.map((c) => ({
         value: c.adviserUserId,
         label: c.fullName,
+        description:
+          c.mode === "merge"
+            ? `Has ${c.targetCourseCode} · ${c.targetStudentCount} student${
+                c.targetStudentCount === 1 ? "" : "s"
+              } — classes will merge`
+            : "No class this term — class transfers as-is",
       })),
     [candidates]
   )
@@ -84,10 +111,8 @@ export default function ReassignClassModal({
   if (!open || !sourceClass || totalClasses === 0) return null
 
   function goToNextClass() {
-    setOutcome(null)
-    setError(null)
-    setTargetAdviserUserId("")
     setClassIndex((i) => i + 1)
+    resetPerClassState()
   }
 
   function handleSkipThis() {
@@ -112,6 +137,32 @@ export default function ReassignClassModal({
     onClose()
   }
 
+  function handleContinueToMerge() {
+    if (!target || target.mode !== "merge" || !target.targetSectionId || !sourceClass) return
+    setError(null)
+    setPreviewLoading(true)
+    setStep("confirmMerge")
+    startTransition(async () => {
+      const res = await getMergePreviewAction(sourceClass.sectionId, target.targetSectionId!)
+      if (!res.ok) {
+        setError(res.error)
+        setStep("pick")
+        setPreviewLoading(false)
+        return
+      }
+      setPreview(res.preview)
+      setKeepLeaderIds(new Set(res.preview.leaders.map((l) => l.enrollmentId)))
+      setPreviewLoading(false)
+    })
+  }
+
+  function handleBackToPick() {
+    if (isPending) return
+    setStep("pick")
+    setPreview(null)
+    setError(null)
+  }
+
   function handleSubmit() {
     if (!target || !sourceClass) return
     setError(null)
@@ -119,6 +170,9 @@ export default function ReassignClassModal({
       const result = await reassignClassAction({
         sectionId: sourceClass.sectionId,
         targetAdviserUserId: target.adviserUserId,
+        ...(target.mode === "merge"
+          ? { merge: true, keepLeaderEnrollmentIds: [...keepLeaderIds] }
+          : {}),
       })
       if (!result.ok) {
         setError(result.error)
@@ -141,10 +195,16 @@ export default function ReassignClassModal({
     }
   }
 
-  const title =
-    totalClasses > 1
+  const title = (() => {
+    if (step === "confirmMerge" && !outcome) {
+      return totalClasses > 1
+        ? `Merge Classes (${classIndex + 1} of ${totalClasses})`
+        : "Merge Classes"
+    }
+    return totalClasses > 1
       ? `Reassign Classes (${classIndex + 1} of ${totalClasses})`
       : "Reassign Class"
+  })()
 
   return (
     <div
@@ -211,7 +271,7 @@ export default function ReassignClassModal({
         </div>
 
         <div style={{ padding: "24px 22px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {!outcome ? (
+          {!outcome && step === "pick" && (
             <>
               {totalClasses > 1 && (
                 <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: 0 }}>
@@ -255,27 +315,183 @@ export default function ReassignClassModal({
                   onChange={setTargetAdviserUserId}
                   options={targetOptions}
                   placeholder="Select a facilitator"
-                  emptyMessage="No available facilitators for this term"
+                  emptyMessage="No eligible facilitators for this class"
                   toggleAriaLabel="Toggle facilitator list"
                 />
               </div>
 
-              {target && (
+              {target && target.mode === "transfer" && (
                 <p style={{ ...TYPE.body, color: COLORS.textGray, margin: 0 }}>
-                  This class stays separate. Its students and history remain unchanged; only the
-                  facilitator changes. Choose someone who does not already have a class this term.
+                  This class transfers as-is to {target.fullName} — students, history, sites, and
+                  forms are unchanged; only the facilitator changes.
+                </p>
+              )}
+              {target && target.mode === "merge" && (
+                <p style={{ ...TYPE.body, color: COLORS.textGray, margin: 0 }}>
+                  {target.fullName} already has {target.targetCourseCode} this term. Continuing
+                  will merge this class into theirs — you&apos;ll see a full preview before
+                  anything happens.
                 </p>
               )}
 
-              {error && (
-                <p style={{ ...TYPE.body, color: COLORS.error, margin: 0 }}>{error}</p>
-              )}
+              {error && <p style={{ ...TYPE.body, color: COLORS.error, margin: 0 }}>{error}</p>}
             </>
-          ) : (
+          )}
+
+          {!outcome && step === "confirmMerge" && (
+            <>
+              {isPreviewLoading || !preview ? (
+                <p style={{ ...TYPE.body, color: COLORS.textGray, margin: 0 }}>Loading preview…</p>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      ...TYPE.body,
+                      color: COLORS.textDark,
+                      background: "#F9F9F7",
+                      border: `1px solid ${COLORS.border}`,
+                      borderRadius: 8,
+                      padding: "12px 14px",
+                    }}
+                  >
+                    <strong>
+                      {preview.moveStudentCount} student{preview.moveStudentCount === 1 ? "" : "s"}
+                    </strong>{" "}
+                    ({preview.activeStudentCount} active) will move into{" "}
+                    <strong>{preview.targetClassLabel}</strong>.
+                  </div>
+
+                  <div
+                    role="alert"
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "flex-start",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      background: "rgba(123, 17, 19, 0.08)",
+                      color: MAROON,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <i
+                      className="ti ti-alert-triangle"
+                      aria-hidden="true"
+                      style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}
+                    />
+                    <span>
+                      {sourceClass.classLabel} will be removed after the merge.
+                      {preview.siteCount > 0 || preview.requirementCount > 0
+                        ? ` Its ${[
+                            preview.siteCount > 0
+                              ? `${preview.siteCount} site${preview.siteCount === 1 ? "" : "s"}`
+                              : null,
+                            preview.requirementCount > 0
+                              ? `${preview.requirementCount} form requirement${
+                                  preview.requirementCount === 1 ? "" : "s"
+                                }`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" and ")} carry over.`
+                        : " Attendance history moves with the students."}
+                    </span>
+                  </div>
+
+                  {preview.settingsDiffer && (
+                    <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: 0 }}>
+                      The merged class uses {preview.targetClassLabel}&apos;s settings:{" "}
+                      {preview.targetRequiredHourTotal} required hours,{" "}
+                      {preview.targetDailyCutoffTime} daily cutoff.
+                    </p>
+                  )}
+
+                  {preview.leaders.length > 0 && (
+                    <div>
+                      <p style={{ ...TYPE.bodyBold, color: COLORS.textDark, margin: "0 0 6px" }}>
+                        Student leaders in the merged class
+                      </p>
+                      <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: "0 0 8px" }}>
+                        Uncheck anyone who should become a regular student.
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {preview.leaders.map((l) => (
+                          <label
+                            key={l.enrollmentId}
+                            style={{
+                              ...TYPE.body,
+                              color: COLORS.textDark,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={keepLeaderIds.has(l.enrollmentId)}
+                              onChange={(e) => {
+                                setKeepLeaderIds((prev) => {
+                                  const next = new Set(prev)
+                                  if (e.target.checked) next.add(l.enrollmentId)
+                                  else next.delete(l.enrollmentId)
+                                  return next
+                                })
+                              }}
+                            />
+                            {l.fullName}
+                            <span style={{ ...TYPE.caption, color: COLORS.textGray }}>
+                              ({l.side === "source" ? sourceClass.courseCode : "current class"}{" "}
+                              leader)
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {error && <p style={{ ...TYPE.body, color: COLORS.error, margin: 0 }}>{error}</p>}
+            </>
+          )}
+
+          {outcome && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <p style={{ ...TYPE.bodyBold, color: COLORS.textDark, margin: 0 }}>
-                Class reassigned.
+                {outcome.mode === "merged" ? "Classes merged." : "Class reassigned."}
               </p>
+              {outcome.mode === "merged" && (
+                <div
+                  style={{
+                    ...TYPE.caption,
+                    color: COLORS.textGray,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                  }}
+                >
+                  <span>
+                    {outcome.summary.movedStudentCount} student
+                    {outcome.summary.movedStudentCount === 1 ? "" : "s"} moved into{" "}
+                    {outcome.summary.targetClassLabel}.
+                  </span>
+                  {outcome.summary.mergedDuplicateNames.length > 0 && (
+                    <span>
+                      Duplicate enrollments auto-merged for:{" "}
+                      {outcome.summary.mergedDuplicateNames.join(", ")}.
+                    </span>
+                  )}
+                  {outcome.summary.leadersDemoted > 0 && (
+                    <span>
+                      {outcome.summary.leadersKept} leader
+                      {outcome.summary.leadersKept === 1 ? "" : "s"} kept,{" "}
+                      {outcome.summary.leadersDemoted} set to regular student.
+                    </span>
+                  )}
+                </div>
+              )}
               {hasMoreAfterThis && (
                 <p style={{ ...TYPE.caption, color: COLORS.textGray, margin: 0 }}>
                   {totalClasses - classIndex - 1} class
@@ -296,41 +512,83 @@ export default function ReassignClassModal({
           }}
         >
           {!outcome ? (
-            <>
-              <button
-                type="button"
-                onClick={handleSkipThis}
-                disabled={isPending}
-                style={{
-                  ...TYPE.bodyBold,
-                  color: COLORS.textDark,
-                  background: COLORS.fieldBg,
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "10px 24px",
-                  cursor: isPending ? "not-allowed" : "pointer",
-                  opacity: isPending ? 0.6 : 1,
-                }}
-              >
-                {hasMoreAfterThis ? "Skip this class" : "Skip for now"}
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!target || isPending}
-                style={{
-                  ...TYPE.bodyBold,
-                  color: "#fff",
-                  background: target && !isPending ? COLORS.headerGreen : "#A8B5AD",
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "10px 24px",
-                  cursor: target && !isPending ? "pointer" : "not-allowed",
-                }}
-              >
-                {isPending ? "Working…" : "Reassign Class"}
-              </button>
-            </>
+            step === "pick" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleSkipThis}
+                  disabled={isPending}
+                  style={{
+                    ...TYPE.bodyBold,
+                    color: COLORS.textDark,
+                    background: COLORS.fieldBg,
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "10px 24px",
+                    cursor: isPending ? "not-allowed" : "pointer",
+                    opacity: isPending ? 0.6 : 1,
+                  }}
+                >
+                  {hasMoreAfterThis ? "Skip this class" : "Skip for now"}
+                </button>
+                <button
+                  type="button"
+                  onClick={target?.mode === "merge" ? handleContinueToMerge : handleSubmit}
+                  disabled={!target || isPending}
+                  style={{
+                    ...TYPE.bodyBold,
+                    color: "#fff",
+                    background: target && !isPending ? COLORS.headerGreen : "#A8B5AD",
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "10px 24px",
+                    cursor: target && !isPending ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {isPending
+                    ? "Working…"
+                    : target?.mode === "merge"
+                      ? "Continue"
+                      : "Reassign Class"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleBackToPick}
+                  disabled={isPending}
+                  style={{
+                    ...TYPE.bodyBold,
+                    color: COLORS.textDark,
+                    background: COLORS.fieldBg,
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "10px 24px",
+                    cursor: isPending ? "not-allowed" : "pointer",
+                    opacity: isPending ? 0.6 : 1,
+                  }}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isPending || isPreviewLoading || !preview}
+                  style={{
+                    ...TYPE.bodyBold,
+                    color: "#fff",
+                    background: isPending || isPreviewLoading || !preview ? "#B58F90" : MAROON,
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "10px 24px",
+                    cursor: isPending || isPreviewLoading || !preview ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isPending ? "Merging…" : "Merge Classes"}
+                </button>
+              </>
+            )
           ) : (
             <button
               type="button"

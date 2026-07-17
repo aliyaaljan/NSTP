@@ -317,28 +317,36 @@ export default function SectionListClient({
         return
       }
 
-      // Prefer the clicked class, then any other current-term classes that
-      // still need a facilitator for this inactive adviser.
-      const needingIds = new Set(
-        sections
-          .filter(
-            (row) =>
-              row.adviserUserId === section.adviserUserId &&
-              needsFacilitatorReassignment(row)
-          )
-          .map((row) => row.sectionId)
-      )
       const byId = new Map(res.data.classes.map((c) => [c.sectionId, c]))
-      const orderedIds = [
-        section.sectionId,
-        ...[...needingIds].filter((id) => id !== section.sectionId),
-      ]
-      const classes = orderedIds
-        .map((id) => byId.get(id))
-        .filter((c): c is NonNullable<typeof c> => Boolean(c))
+      let classes: (typeof res.data.classes)[number][]
+
+      if (needsFacilitatorReassignment(section)) {
+        // Inactive facilitator: clicked class first, then any other
+        // current-term classes that still need a facilitator for them.
+        const needingIds = new Set(
+          sections
+            .filter(
+              (row) =>
+                row.adviserUserId === section.adviserUserId &&
+                needsFacilitatorReassignment(row)
+            )
+            .map((row) => row.sectionId)
+        )
+        const orderedIds = [
+          section.sectionId,
+          ...[...needingIds].filter((id) => id !== section.sectionId),
+        ]
+        classes = orderedIds
+          .map((id) => byId.get(id))
+          .filter((c): c is NonNullable<typeof c> => Boolean(c))
+      } else {
+        // Active facilitator: reassign just the clicked class.
+        const clicked = byId.get(section.sectionId)
+        classes = clicked ? [clicked] : []
+      }
 
       if (classes.length === 0) {
-        setReassignError("No classes left to reassign for this facilitator.")
+        setReassignError("This class can't be reassigned right now.")
         return
       }
 
@@ -670,6 +678,14 @@ export default function SectionListClient({
                     disabled: isLoadingReassign,
                     onClick: () => openReassign(detailSection),
                   },
+                  {
+                    label: "Edit",
+                    variant: "secondary" as const,
+                    onClick: () => {
+                      openEdit(detailSection)
+                      setDetailSection(null)
+                    },
+                  },
                 ]
               : [
                   {
@@ -680,19 +696,17 @@ export default function SectionListClient({
                       setDetailSection(null)
                     },
                   },
+                  ...(detailSection.statusCode === "active"
+                    ? [
+                        {
+                          label: isLoadingReassign ? "Loading…" : "Reassign facilitator",
+                          variant: "secondary" as const,
+                          disabled: isLoadingReassign,
+                          onClick: () => openReassign(detailSection),
+                        },
+                      ]
+                    : []),
                 ]),
-            ...(needsFacilitatorReassignment(detailSection)
-              ? [
-                  {
-                    label: "Edit",
-                    variant: "secondary" as const,
-                    onClick: () => {
-                      openEdit(detailSection)
-                      setDetailSection(null)
-                    },
-                  },
-                ]
-              : []),
             {
               label: detailSection.statusCode === "archived" ? "Delete" : "Archive",
               variant: "danger",

@@ -38,8 +38,10 @@ import {
 import { ensureFacilitatorClass } from "@/lib/admin/class-provision"
 import {
   getClassReassignmentData,
+  getMergePreview,
   reassignClass,
   type ClassReassignmentData,
+  type MergePreview,
   type ReassignClassOutcome,
 } from "@/lib/admin/class-reassign"
 import {
@@ -448,15 +450,37 @@ export async function getClassReassignmentDataAction(
   return { ok: true, data: await getClassReassignmentData(service, adviserUserId) }
 }
 
-/** Transfer a whole class to a facilitator with no class in the same term. */
-export async function reassignClassAction(input: {
-  sectionId: string
-  targetAdviserUserId: string
-}): Promise<ReassignClassOutcome | { ok: false; error: string }> {
+/** Impact preview shown before confirming a merge (student count, sites, forms, leaders). */
+export async function getMergePreviewAction(
+  sourceSectionId: string,
+  targetSectionId: string
+): Promise<{ ok: true; preview: MergePreview } | { ok: false; error: string }> {
   const role = await getAppUserRole()
   if (role !== "admin") return { ok: false, error: "Unauthorized" }
   const service = createSupabaseServiceClient()
-  return reassignClass(service, input)
+  return getMergePreview(service, sourceSectionId, targetSectionId)
+}
+
+/**
+ * Transfer a class to a facilitator with no class this term, or merge it into
+ * their same-NSTP-component class (requires merge: true and, optionally, which
+ * leaders to keep — see reassignClass in lib/admin/class-reassign.ts).
+ */
+export async function reassignClassAction(input: {
+  sectionId: string
+  targetAdviserUserId: string
+  merge?: boolean
+  keepLeaderEnrollmentIds?: string[]
+}): Promise<ReassignClassOutcome> {
+  const role = await getAppUserRole()
+  if (role !== "admin") return { ok: false, error: "Unauthorized" }
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Unauthorized" }
+  const service = createSupabaseServiceClient()
+  return reassignClass(service, { ...input, actorUserId: user.id })
 }
 
 export async function getAdviserDeleteImpactAction(

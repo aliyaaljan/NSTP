@@ -256,9 +256,21 @@ create unique index attendance_event_qr_nonce_uq
 
 -- attendance_event is append-only: corrections are new inserts (corrects_event_id).
 -- This trigger enforces immutability even for the service-role key.
+-- One narrow exception: merge_class_into() (0010_restore_one_class_per_term.sql)
+-- re-parents a duplicate enrollment's events onto the surviving enrollment when
+-- merging two classes. It sets a transaction-local GUC and the UPDATE may change
+-- enrollment_id ONLY — every other column, including timestamps and nonces, must
+-- be identical. DELETE stays unconditionally blocked. Not client-reachable:
+-- attendance_event has no RLS UPDATE policy, so only service-role/definer code
+-- (already all-powerful) can reach this path.
 create or replace function public.block_attendance_event_mutation()
 returns trigger language plpgsql set search_path = public, pg_temp as $$
 begin
+  if tg_op = 'UPDATE'
+     and current_setting('nstp.merge_reparent', true) = 'on'
+     and (to_jsonb(old) - 'enrollment_id') = (to_jsonb(new) - 'enrollment_id') then
+    return new;
+  end if;
   raise exception 'attendance_event is append-only; insert a correcting row with corrects_event_id instead';
 end;
 $$;
