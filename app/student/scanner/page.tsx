@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { usePathname } from 'next/navigation'
 import Sidebar from "@/components/shared/ResponsiveStudentSidebar"
 import { QrScanner } from "@/components/shared/QrScanner"
 import { fetchLeaderScanHistory } from "@/lib/student/leader/scanner-fetch"
@@ -35,6 +36,7 @@ const getWeekNumber = (date: Date): string => {
 export default function LeaderScannerPage() {
   const { isMobile, isSmallMobile, isTablet } = useIsMobile()
   const { isLeader, isLoading: contextLoading } = useStudent()
+  const pathname = usePathname()
   const [scannerOpen, setScannerOpen] = useState(false)
   const [selectedWeek, setSelectedWeek] = useState<string>("all")
   const [selectedMonth, setSelectedMonth] = useState<string>("")
@@ -44,6 +46,7 @@ export default function LeaderScannerPage() {
   const [classRoster, setClassRoster] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState<'on-time' | 'late' | 'not-scanned' | null>(null) 
   const [loading, setLoading] = useState(true)
+  const [resetKey, setResetKey] = useState(0)
 
   const [profile, setProfile] = useState<{
     name: string
@@ -51,6 +54,15 @@ export default function LeaderScannerPage() {
     section: string
     avatarUrl: string | null
   } | null>(null)
+
+  useEffect(() => {
+    // Reset all filters to General All
+    setSelectedWeek("all")
+    setSelectedMonth("")
+    setStatusFilter(null)
+    setShouldAutoSelect(false) 
+    setResetKey(prev => prev + 1) 
+  }, [pathname])
 
   useEffect(() => {
     let cancelled = false
@@ -343,6 +355,7 @@ export default function LeaderScannerPage() {
         />
 
         <WeekFilter
+          key={resetKey}
           isMobile={isMobile}
           selectedWeek={selectedWeek}
           onSelectWeek={setSelectedWeek}
