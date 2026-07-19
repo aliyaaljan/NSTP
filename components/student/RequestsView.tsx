@@ -250,9 +250,10 @@ export default function RequestsView() {
   const [selectedTypeId, setSelectedTypeId] = useState<string>("")
   const [uploadZoneHover, setUploadZoneHover] = useState(false)
 
-  const isEditable =
+  const isEditable = Boolean(
     selectedRequest &&
-    normalizeStatus(selectedRequest.status) === "pending review"
+      normalizeStatus(selectedRequest.status) === "pending review"
+  )
 
   const [profile, setProfile] = useState({
     enrollmentId: "",

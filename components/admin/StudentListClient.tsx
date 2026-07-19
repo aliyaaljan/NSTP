@@ -150,7 +150,7 @@ export default function StudentListClient({
   lookups: StudentEnrollmentLookups
   summary: StudentListSummary
   meta: StudentListMeta
-  currentUser: CurrentUser
+  currentUser: AdminCurrentUser
   query: StudentListQuery
 }) {
   const router = useRouter()
