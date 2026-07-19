@@ -206,7 +206,6 @@ export function Calendar({ semEndDate, holidays = [], deadlines = []}: { semEndD
           const cellDeadline = d ? getDeadline(d) : undefined;
           const hasLabel = cellIsToday || cellIsSemEnd || cellHoliday || cellDeadline;
           const col = i % 7;
-          const edgeAlign = col === 0 ? "left-0 translate-x-0" : col === 6 ? "left-auto right-0 translate-x-0" : "left-1/2 -translate-x-1/2";
 
           return (
             <div 
@@ -225,13 +224,25 @@ export function Calendar({ semEndDate, holidays = [], deadlines = []}: { semEndD
               {d !== null ? <span className="cal-day-num">{d}</span> : null}
 
               {hasLabel && (
-                <span className={`capitalize absolute bottom-full ${edgeAlign} mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday || cellIsSemEnd ? "text-maroon"  : cellDeadline ? "text-[var(--amber)]" : "text-[var(--green)]"}`}>
-                 <>
-                  {cellIsToday && "Today"}
-                  {cellHoliday && (cellIsToday ? ` • ${cellHoliday.name}` : cellHoliday.name)}
-                  {cellDeadline && `${cellIsToday || cellHoliday ? " • " : ""}${cellDeadline.name}`}
-                  {cellIsSemEnd && `${cellIsToday || cellHoliday || cellDeadline ? " • " : ""}End of Semester`}
-                </>
+                <span className={`capitalize absolute bottom-full ${edgeAlign} mb-1 hidden group-hover:flex flex-col gap-0.5 bg-white text-[12px] rounded px-2 py-1 z-10 pointer-events-none shadow-md max-w-[277px]`}>
+                  {cellIsToday && (
+                    <span className="truncate text-maroon" title="Today">Today</span>
+                  )}
+                  {cellHoliday && (
+                    <span className="truncate text-(--green)" title={cellHoliday.name}>
+                      {cellHoliday.name}
+                    </span>
+                  )}
+                  {cellDeadline && (
+                    <span className="truncate text-(--amber)" title={cellDeadline.name}>
+                      {cellDeadline.name}
+                    </span>
+                  )}
+                  {cellIsSemEnd && (
+                    <span className="truncate text-maroon" title="End of Semester">
+                      End of Semester
+                    </span>
+                  )}
                 </span>
               )}
             </div>
