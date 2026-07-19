@@ -206,6 +206,7 @@ export function Calendar({ semEndDate, holidays = [], deadlines = []}: { semEndD
           const cellDeadline = d ? getDeadline(d) : undefined;
           const hasLabel = cellIsToday || cellIsSemEnd || cellHoliday || cellDeadline;
           const col = i % 7;
+          const edgeAlign = col === 0 ? "left-0 translate-x-0" : col === 5 || col === 6 ? "left-auto right-0 translate-x-0" : "left-1/2 -translate-x-1/2";
 
           return (
             <div 
