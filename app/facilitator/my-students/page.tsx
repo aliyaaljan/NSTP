@@ -95,6 +95,7 @@ interface Student {
   student_name: string
   student_avatar_url: string | null
   student_number: string
+  student_email: string
   is_student_leader: boolean
   sais_id: number
   section_geofence_id: number
@@ -262,12 +263,6 @@ const statusConfig: Record<
   Completed: { bg: "#D1FAE5", color: "#065F46", label: "Completed" },
   "In Progress": { bg: "#FEF3C7", color: "#92400E", label: "In Progress" },
   "Not Started": { bg: "#FEE2E2", color: "#991B1B", label: "Not Started" },
-}
-
-function roleBadgeStyle(isLeader: boolean): { bg: string; color: string } {
-  return isLeader
-    ? { bg: "#EDE9FE", color: "#5B21B6" }
-    : { bg: "#E0F2FE", color: "#075985" }
 }
 
 function progressColor(status: Status): string {
@@ -795,6 +790,7 @@ function MyStudentsContent() {
   const [exportColumns, setExportColumns] = useState<string[]>([
     "student_name",
     "student_number",
+    "student_email",
     "sais_id",
     "section_name",
     "site_location",
@@ -802,7 +798,7 @@ function MyStudentsContent() {
     "classification",
     "status",
     "hours_logged",
-    "total_hours",
+    // "total_hours",
     "completion_percentage",
     "is_student_leader",
   ])
@@ -1605,13 +1601,14 @@ function MyStudentsContent() {
     { key: "student_name", label: "Student Name" },
     { key: "student_number", label: "Student Number" },
     { key: "sais_id", label: "SAIS ID" },
+    { key: "student_email", label: "Email"},
     { key: "site_location", label: "Site Location" },
     { key: "program", label: "Program" },
     { key: "classification", label: "Classification" },
     { key: "is_student_leader", label: "Role" },
     { key: "status", label: "Status" },
     { key: "hours_logged", label: "Hours Logged" },
-    { key: "total_hours", label: "Total Hours" },
+    // { key: "total_hours", label: "Total Hours" },
     { key: "completion_percentage", label: "Completion Percentage" },
   ]
 
@@ -1621,7 +1618,7 @@ function MyStudentsContent() {
     )
   }
 
-  function handleExportCSV() {
+  async function handleExportCSV() {
     const rows = filtered.filter(
       (s) =>
         exportSection === "All Sections" || s.section_name === exportSection
@@ -1644,9 +1641,22 @@ function MyStudentsContent() {
     const csv = `${header}\n${body}`
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
+    const courseCode = students[0]?.section_name ?? null
+    const sectionId = students[0]?.section_id
+    let termYear: number | null = null
+    if (sectionId) {
+      const { data, error } = await supabase.rpc("get_section_term_range", {p_section_id: sectionId,})
+      if (!error && data && data.length > 0) {
+        const { start_date } = data[0]
+        const parsed = parseInt(start_date?.slice(0, 4), 10)
+        if (!Number.isNaN(parsed)) termYear = parsed
+      }
+    }
+    const yearRange = termYear ? `${termYear - 1}-${termYear}` : `${new Date().getFullYear() - 1}-${new Date().getFullYear()}` // fallback
+
     const link = document.createElement("a")
     link.href = url
-    link.download = `NSTP_Students_${exportSection.replace(/\s+/g, "_")}.csv` //_${format(new Date(), "yyyy-MM-dd")}
+    link.download = `${courseCode} Students A.Y.${yearRange}.csv`
     link.click()
     URL.revokeObjectURL(url)
     setExportStudent(false)
@@ -2907,6 +2917,60 @@ function MyStudentsContent() {
                   />
                 </ModalRow>
                 <ModalRow>
+                  <ModalField label="Email" value={selectedStudent.student_email} />
+                  <ModalField label="Role">
+                    <button
+                      id="leader-toggle"
+                      title={selectedStudent.is_student_leader ? "Revert to Student" : "Assign as Leader"}
+                      type="button"
+                      role="switch"
+                      aria-checked={selectedStudent.is_student_leader}
+                      onClick={handleRoleChange}
+                      style={{
+                        position: "relative",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        height: 28,
+                        width: 85,
+                        borderRadius: 999,
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                        background: selectedStudent.is_student_leader ? "#EDE9FE" : "#E0F2FE",
+                        transition: "background 0.2s ease",
+                      }}
+                    >
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: selectedStudent.is_student_leader ? 8 : "auto",
+                          right: selectedStudent.is_student_leader ? "auto" : 8,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: selectedStudent.is_student_leader ? "#5B21B6" : "#075985",
+                          transition: "opacity 0.15s ease",
+                        }}
+                      >
+                        {selectedStudent.is_student_leader ? "Leader" : "Student"}
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          top: 3,
+                          left: selectedStudent.is_student_leader ? 60 : 3,
+                          width: 22,
+                          height: 22,
+                          borderRadius: "50%",
+                          background: "#fff",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                          transition: "left 0.2s ease",
+                        }}
+                      />
+                    </button>
+                  </ModalField>
+                </ModalRow>
+                <ModalRow>
                   <ModalField label="Program" value={selectedStudent.program} />
                   <ModalField
                     label="Classification"
@@ -2932,53 +2996,6 @@ function MyStudentsContent() {
                     >
                       {statusConfig[selectedStudent.status].label}
                     </span>
-                  </ModalField>
-                </ModalRow>
-                <ModalRow>
-                  <ModalField label="Role">
-                    <div
-                      className="ms-role-badge"
-                      style={{
-                        background: roleBadgeStyle(
-                          selectedStudent.is_student_leader
-                        ).bg,
-                        color: roleBadgeStyle(selectedStudent.is_student_leader)
-                          .color,
-                      }}
-                    >
-                      {selectedStudent.is_student_leader
-                        ? "Student Leader"
-                        : "Student"}
-                    </div>
-                  </ModalField>
-                  <ModalField
-                    label={
-                      selectedStudent.is_student_leader
-                        ? "Revert to Student"
-                        : "Assign as Leader"
-                    }
-                  >
-                    <button
-                      id="leader-toggle"
-                      type="button"
-                      role="switch"
-                      aria-checked={selectedStudent.is_student_leader}
-                      onClick={handleRoleChange}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        selectedStudent.is_student_leader
-                          ? "bg-[#a797e4]"
-                          : "bg-[#9fcae7]"
-                      }`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          selectedStudent.is_student_leader
-                            ? "translate-x-5"
-                            : "translate-x-0"
-                        }`}
-                      />
-                    </button>
                   </ModalField>
                 </ModalRow>
                 <ModalField label="Progress">
