@@ -516,6 +516,7 @@ export default function RequestsView() {
       editBody.trim() !== selectedRequest.body.trim() ||
       editTypeId !== originalTypeId ||
       timeChanged ||
+      leaderDateChanged ||
       removedAttachment ||
       editNewFiles.length > 0
     )
