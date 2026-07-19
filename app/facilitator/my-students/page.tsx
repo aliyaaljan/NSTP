@@ -129,6 +129,7 @@ interface PendingRequest {
   date: string
   title: string
   note: string
+  resolution_note: string
   status: string
   statusCode: string
   attachments: Attachment[]
@@ -767,14 +768,10 @@ function MyStudentsContent() {
   const [tableSearch, setTableSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(5)
-  const [sortField, setSortField] = useState<keyof Student | null>(null)
+  const [sortField, setSortField] = useState<keyof Student | null>("student_name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
-  const [pendingSortField, setPendingSortField] = useState<
-    keyof PendingRequest | null
-  >(null)
-  const [pendingSortDirection, setPendingSortDirection] = useState<
-    "asc" | "desc"
-  >("asc")
+  const [pendingSortField, setPendingSortField] = useState<keyof PendingRequest | null>("date")
+  const [pendingSortDirection, setPendingSortDirection] = useState<"asc" | "desc">("asc")
   const [pendingSearch, setPendingSearch] = useState("")
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(
@@ -786,6 +783,7 @@ function MyStudentsContent() {
   const [isPageLoading, setIsPageLoading] = useState(true)
 
   const [exportStudent, setExportStudent] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [exportSection, setExportSection] = useState("All Sections")
   const [exportColumns, setExportColumns] = useState<string[]>([
     "student_name",
@@ -1011,11 +1009,10 @@ function MyStudentsContent() {
   const [selectedStudentKey, setSelectedStudentKey] = useState<string | null>(
     null
   )
-  const [animKey, setAnimKey] = useState(0)
-  const [sectionKey, setSectionKey] = useState(0)
   const [editingSession, setEditingSession] = useState<StudentSession | null>(
     null
   )
+  const [isEditing, setIsEditing] = useState(false)
   const [editDate, setEditDate] = useState("")
   const [editTimeIn, setEditTimeIn] = useState("")
   const [editTimeOut, setEditTimeOut] = useState("")
@@ -1030,13 +1027,15 @@ function MyStudentsContent() {
   } | null>(null)
   const [editTimeError, setEditTimeError] = useState<string>("")
   const [isPending, startTransition] = useTransition()
+  const [isApproving, setIsApproving] = useState(false)
+  const [isRejecting, setIsRejecting] = useState(false)
   const isDecisionDisabled = selectedRequest?.status === "Approved" || selectedRequest?.status === "Rejected" || selectedRequest?.status === "Canceled"
 
   const [addingSession, setAddingSession] = useState(false)
+  const [isAdding, setIsAdding] = useState(false)
   const [newSessionDate, setNewSessionDate] = useState("")
   const [newSessionTimeIn, setNewSessionTimeIn] = useState("")
   const [newSessionTimeOut, setNewSessionTimeOut] = useState("")
-  const [newSessionStatus, setNewSessionStatus] = useState("")
   const [newSessionError, setNewSessionError] = useState("")
 
   const [resolutionNote, setResolutionNote] = useState("")
@@ -1619,6 +1618,7 @@ function MyStudentsContent() {
   }
 
   async function handleExportCSV() {
+    setIsExporting(true)
     const rows = filtered.filter(
       (s) =>
         exportSection === "All Sections" || s.section_name === exportSection
@@ -1659,7 +1659,41 @@ function MyStudentsContent() {
     link.download = `${courseCode} Students A.Y.${yearRange}.csv`
     link.click()
     URL.revokeObjectURL(url)
+    setIsExporting(false)
     setExportStudent(false)
+  }
+
+  function getSortIcons(activeField: string, currentField: string, direction: "asc" | "desc") {
+    const isActive = activeField === currentField
+    const isAsc = isActive && direction === "asc"
+    const isDesc = isActive && direction === "desc"
+
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          flexDirection: "column",
+          marginLeft: 6,
+        }}
+      >
+        <IconChevronUp
+          size={12}
+          stroke={2}
+          style={{
+            color: isAsc ? "var(--maroon)" : "#CFCFCF",
+            marginBottom: -2,
+          }}
+        />
+        <IconChevronDown
+          size={12}
+          stroke={2}
+          style={{
+            color: isDesc ? "var(--maroon)" : "#CFCFCF",
+            marginTop: -2,
+          }}
+        />
+      </span>
+    )
   }
 
   const BoundSidebar = () => (
@@ -1740,7 +1774,7 @@ function MyStudentsContent() {
                 </div>
                 <div>
                   <div className="profile-name">
-                    {lastName ? `${lastName}, ${firstName}` : "Adviser"}
+                    {lastName ? `${lastName}, ${firstName}` : "Facilitator"}
                   </div>
                 </div>
               </Link>
@@ -2130,19 +2164,7 @@ function MyStudentsContent() {
                                   aria-label={`Sort by ${col.label}`}
                                 >
                                   {col.label}
-                                  {sortField === col.field ? (
-                                    sortDirection === "asc" ? (
-                                      <IconChevronUp size={13} stroke={2.5} />
-                                    ) : (
-                                      <IconChevronDown size={13} stroke={2.5} />
-                                    )
-                                  ) : (
-                                    <IconSelector
-                                      size={13}
-                                      stroke={2}
-                                      style={{ opacity: 0.4 }}
-                                    />
-                                  )}
+                                  {getSortIcons(sortField ?? "", col.field, sortDirection)}
                                 </button>
                               </th>
                             ))}
@@ -2291,7 +2313,6 @@ function MyStudentsContent() {
                               key={p}
                               onClick={() => {
                                 setCurrentPage(p)
-                                setAnimKey((k) => k + 1)
                               }}
                               style={{
                                 width: 28,
@@ -2618,19 +2639,7 @@ function MyStudentsContent() {
                               aria-label={`Sort by ${col.label}`}
                             >
                               {col.label}
-                              {pendingSortField === col.field ? (
-                                pendingSortDirection === "asc" ? (
-                                  <IconChevronUp size={12} stroke={2.5} />
-                                ) : (
-                                  <IconChevronDown size={12} stroke={2.5} />
-                                )
-                              ) : (
-                                <IconSelector
-                                  size={12}
-                                  stroke={2}
-                                  style={{ opacity: 0.4 }}
-                                />
-                              )}
+                              {getSortIcons(pendingSortField ?? "", col.field, pendingSortDirection)}
                             </button>
                           ))}
                           <span>Details</span>
@@ -2801,36 +2810,40 @@ function MyStudentsContent() {
                             <button
                               className="adv-page-btn adv-page-btn-nav"
                               disabled={pendingPage === 1}
-                              onClick={() =>
-                                setPendingPage((p) => Math.max(1, p - 1))
-                              }
+                              onClick={() => setPendingPage((p) => Math.max(1, p - 1))}
                             >
                               &#8249;
                             </button>
-                            {Array.from(
-                              { length: totalPendingPages },
-                              (_, i) => i + 1
-                            ).map((p) => (
-                              <button
-                                key={p}
-                                className={`adv-page-btn${
-                                  p === pendingPage
-                                    ? " adv-page-btn-active"
-                                    : ""
-                                }`}
-                                onClick={() => setPendingPage(p)}
-                              >
-                                {p}
-                              </button>
-                            ))}
+                            {getPageNumbers(pendingPage, totalPendingPages).map((p, idx) =>
+                              p === "..." ? (
+                                <span
+                                  key={`ellipsis-${idx}`}
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 12,
+                                    color: "var(--muted)",
+                                  }}
+                                >
+                                  &#8230;
+                                </span>
+                              ) : (
+                                <button
+                                  key={p}
+                                  className={`adv-page-btn${p === pendingPage ? " adv-page-btn-active" : ""}`}
+                                  onClick={() => setPendingPage(p)}
+                                >
+                                  {p}
+                                </button>
+                              )
+                            )}
                             <button
                               className="adv-page-btn adv-page-btn-nav"
                               disabled={pendingPage === totalPendingPages}
-                              onClick={() =>
-                                setPendingPage((p) =>
-                                  Math.min(totalPendingPages, p + 1)
-                                )
-                              }
+                              onClick={() => setPendingPage((p) => Math.min(totalPendingPages, p + 1))}
                             >
                               &#8250;
                             </button>
@@ -2936,8 +2949,9 @@ function MyStudentsContent() {
                         border: "none",
                         cursor: "pointer",
                         padding: 0,
+                        margin: 0,
                         background: selectedStudent.is_student_leader ? "#EDE9FE" : "#E0F2FE",
-                        transition: "background 0.2s ease",
+                        transition: "background 0.4s ease",
                       }}
                     >
                       <span
@@ -3037,7 +3051,6 @@ function MyStudentsContent() {
                       setNewSessionDate("")
                       setNewSessionTimeIn("")
                       setNewSessionTimeOut("")
-                      setNewSessionStatus("")
                       setNewSessionError("")
                       setEditTermRange(null)
                       const { data, error } = await supabase.rpc(
@@ -3168,7 +3181,7 @@ function MyStudentsContent() {
                       <button
                         key={a.storage_path || i}
                         onClick={() => handleViewAttachment(a.storage_path)}
-                        className="ms-req-modal-attachment"
+                        className="ms-req-modal-attachment hover:underline"
                       >
                         <IconPaperclip size={16} stroke={1.75} /> {a.file_name}
                       </button>
@@ -3299,29 +3312,46 @@ function MyStudentsContent() {
                 <label className="nstp-modal-label">
                   Review Comment / Notes
                 </label>
-                <textarea
-                  value={resolutionNote}
-                  onChange={(e) => setResolutionNote(e.target.value)}
-                  placeholder="Provide context or a reason for the student regarding this evaluation..."
-                  rows={3}
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    marginTop: 6,
-                    padding: 10,
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    outline: "none",
-                    resize: "none",
-                    fontSize: 13,
-                  }}
-                />
+                {selectedRequest?.status === "Canceled" ? (
+                  <div className="ms-req-modal-note" style={{ color: "var(--muted)" }}>
+                    Request has been withdrawn.
+                  </div>
+                 ) : isDecisionDisabled ? (
+                  selectedRequest.resolution_note ? (
+                    <div className="ms-req-modal-note">
+                      {selectedRequest.resolution_note}
+                    </div>
+                  ) : (
+                    <div className="ms-req-modal-note" style={{ color: "var(--muted)" }}>
+                      No comment provided.
+                    </div>
+                  )
+                ) : (
+                  <textarea
+                    value={resolutionNote}
+                    onChange={(e) => setResolutionNote(e.target.value)}
+                    placeholder="Provide context or a reason for the student regarding this evaluation..."
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      marginTop: 6,
+                      padding: 10,
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      outline: "none",
+                      resize: "none",
+                      fontSize: 13,
+                    }}
+                  />
+                )}
               </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  disabled={isPending || isDecisionDisabled}
-                  onClick={() =>
-                    startTransition(async () => {
+              {!isDecisionDisabled && (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    disabled={isPending || isDecisionDisabled || isRejecting}
+                    onClick={async () => {
+                      setIsRejecting(true)
                       const res = await resolveStudentRequest(
                         selectedRequest.appeal_id,
                         "rejected",
@@ -3331,18 +3361,20 @@ function MyStudentsContent() {
                         await refreshRequests()
                         setSelectedRequest(null)
                         setResolutionNote("")
-                      } else alert(res.error)
-                    })
-                  }
-                  className="nstp-modal-btn nstp-modal-btn-danger"
-                  style={{ opacity: isPending || isDecisionDisabled ? 0.6 : 1, flex: 1}}
-                >
-                  Reject Request
-                </button>
-                <button
-                  disabled={isPending || isDecisionDisabled}
-                  onClick={() =>
-                    startTransition(async () => {
+                      } else {
+                        alert(res.error)
+                      }
+                      setIsRejecting(false)
+                    }}
+                    className="nstp-modal-btn nstp-modal-btn-danger"
+                    style={{ opacity: isPending || isDecisionDisabled || isRejecting ? 0.6 : 1, flex: 1 }}
+                  >
+                    {isRejecting ? "Rejecting Request..." : "Reject Request"}
+                  </button>
+                  <button
+                    disabled={isPending || isDecisionDisabled || isApproving}
+                    onClick={async () => {
+                      setIsApproving(true)
                       const res = applyPlan.isTimeRequest
                         ? await approveRequestWithCorrection(
                             selectedRequest.appeal_id,
@@ -3371,17 +3403,24 @@ function MyStudentsContent() {
                         await refreshRequests()
                         setSelectedRequest(null)
                         setResolutionNote("")
-                      } else alert(res.error)
-                    })
-                  }
-                  className="nstp-modal-btn nstp-modal-btn-primary"
-                  style={{ opacity: isPending || isDecisionDisabled ? 0.6 : 1, flex:1 }}
-                >
-                  {applyPlan.isTimeRequest && !applyPlan.isFlagCase
-                    ? "Approve & Apply"
-                    : "Approve Request"}
-                </button>
-              </div>
+                      } else {
+                        alert(res.error)
+                      }
+                      setIsApproving(false)
+                    }}
+                    className="nstp-modal-btn nstp-modal-btn-primary"
+                    style={{ opacity: isPending || isDecisionDisabled || isApproving ? 0.6 : 1, flex: 1 }}
+                  >
+                    {isApproving
+                      ? applyPlan.isTimeRequest && !applyPlan.isFlagCase
+                        ? "Applying..."
+                        : "Approving..."
+                      : applyPlan.isTimeRequest && !applyPlan.isFlagCase
+                        ? "Approve & Apply"
+                        : "Approve Request"}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </NstpModal>
@@ -3442,13 +3481,13 @@ function MyStudentsContent() {
             <button
               className="ms-edit-save-btn"
               onClick={handleAddSession}
-              disabled={isAddSaveDisabled}
+              disabled={isAddSaveDisabled || isAdding}
               style={{
-                opacity: isAddSaveDisabled ? 0.4 : 1,
-                cursor: isAddSaveDisabled ? "not-allowed" : "pointer",
+                opacity: isAddSaveDisabled || isAdding ? 0.4 : 1,
+                cursor: isAddSaveDisabled || isAdding? "not-allowed" : "pointer",
               }}
             >
-              Add
+              {isAdding ? "Adding..." : "Add"}
             </button>
           </div>
         </NstpModal>
@@ -3530,13 +3569,13 @@ function MyStudentsContent() {
             <button
               className="ms-edit-save-btn"
               onClick={handleExportCSV}
-              disabled={exportColumns.length === 0}
+              disabled={exportColumns.length === 0 || isExporting}
               style={{
-                opacity: exportColumns.length === 0 ? 0.4 : 1,
-                cursor: exportColumns.length === 0 ? "not-allowed" : "pointer",
+                opacity: exportColumns.length === 0 || isExporting ? 0.4 : 1,
+                cursor: exportColumns.length === 0 || isExporting ? "not-allowed" : "pointer",
               }}
             >
-              Export CSV
+              {isExporting ? "Exporting...": "Export"}
             </button>
           </div>
         </NstpModal>
@@ -3652,13 +3691,13 @@ function MyStudentsContent() {
             <button
               className="ms-edit-save-btn"
               onClick={handleSaveSession}
-              disabled={isSaveDisabled}
+              disabled={isSaveDisabled || isEditing}
               style={{
-                opacity: isSaveDisabled ? 0.4 : 1,
-                cursor: isSaveDisabled ? "not-allowed" : "pointer",
+                opacity: isSaveDisabled || isEditing ? 0.4 : 1,
+                cursor: isSaveDisabled || isEditing ? "not-allowed" : "pointer",
               }}
             >
-              Save
+              {isEditing ? "Saving" : "Save"}
             </button>
           </div>
         </NstpModal>
