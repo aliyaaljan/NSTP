@@ -1451,6 +1451,7 @@ function MyStudentsContent() {
   }
 
   async function handleSaveSession() {
+    setIsEditing(true)
     const validationError = validateEditTimeEdit(
       editDate,
       editTimeIn,
@@ -1505,10 +1506,12 @@ function MyStudentsContent() {
     )
 
     setEditingSession(null)
+    setIsEditing(false)
     await fetchStudents(userId)
   }
 
   async function handleAddSession() {
+    setIsAdding(true)
     const validationError = validateEditTimeEdit(
       newSessionDate,
       newSessionTimeIn,
@@ -1539,6 +1542,7 @@ function MyStudentsContent() {
     }
 
     setAddingSession(false)
+    setIsAdding(false)
     await fetchStudents(userId)
   }
 
