@@ -127,6 +127,7 @@ interface RequestItem {
   attendanceSessionId?: string | null
   requestedTimeIn?: string | null
   requestedTimeOut?: string | null
+  leaderRoleExpiresAt?: string | null
 }
 
 const LEADER_ROLE_TRANSFER_CODE = "leader role transfer"
@@ -216,6 +217,8 @@ export default function RequestsView() {
     []
   )
   const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [leaderValidUntil, setLeaderValidUntil] = useState("")
+  const [editLeaderValidUntil, setEditLeaderValidUntil] = useState("")
   const [timeCorrection, setTimeCorrection] = useState<TimeCorrectionState>(
     EMPTY_TIME_CORRECTION
   )
@@ -401,6 +404,7 @@ export default function RequestsView() {
     )
     const typeName = selectedTypeObj ? selectedTypeObj.name : "Others"
     const isTimeRequest = typeName === "Hour Adjustment"
+    const isLeaderTransfer = selectedTypeObj?.code === LEADER_ROLE_TRANSFER_CODE
 
     let structured: StructuredCorrection | undefined
     if (isTimeRequest) {
@@ -466,7 +470,8 @@ export default function RequestsView() {
         formTitle,
         formBody,
         uploadedAttachments,
-        structured
+        structured,
+        isLeaderTransfer ? (leaderValidUntil || null) : undefined
       )
 
       if (res.ok) {
@@ -475,6 +480,7 @@ export default function RequestsView() {
         setFormBody("")
         setFormFiles([])
         setTimeCorrection(EMPTY_TIME_CORRECTION)
+        setLeaderValidUntil("")
         setShowModal(false)
         addToast("Your request has been submitted successfully.", "success")
       } else {
@@ -489,6 +495,8 @@ export default function RequestsView() {
       (t) => t.name === selectedRequest.type
     )
     const originalTypeId = originalType?.appeal_type_id ?? ""
+
+    const leaderDateChanged = (selectedRequest.leaderRoleExpiresAt ?? "") !== editLeaderValidUntil
 
     // Time-correction dirty: compare the current form against the state inferred
     // from the stored request (the same baseline the edit modal was seeded with).
@@ -518,6 +526,8 @@ export default function RequestsView() {
     const editTypeName =
       requestType.find((t) => t.appeal_type_id === editTypeId)?.name ?? ""
     const editIsTimeRequest = editTypeName === "Hour Adjustment"
+    const editTypeObj = requestType.find((t) => t.appeal_type_id === editTypeId)
+    const editIsLeaderTransfer = editTypeObj?.code === LEADER_ROLE_TRANSFER_CODE
 
     let structured: StructuredCorrection
     if (editIsTimeRequest) {
@@ -601,13 +611,15 @@ export default function RequestsView() {
         editTitle,
         cleanBody,
         structured,
-        { toInsert: uploadedAttachments, removePaths }
+        { toInsert: uploadedAttachments, removePaths },
+        editIsLeaderTransfer ? (editLeaderValidUntil || null) : undefined
       )
       if (res.ok) {
         await loadRequests(profile.enrollmentId)
         setSelectedRequest(null)
         setEditNewFiles([])
         setEditTimeCorrection(EMPTY_TIME_CORRECTION)
+        setEditLeaderValidUntil("")
         addToast("Your request has been updated successfully.", "success")
       } else {
         showError(
@@ -859,24 +871,34 @@ export default function RequestsView() {
   const selectedFormTypeName =
     requestType.find((t) => t.appeal_type_id === formTypeId)?.name ?? ""
   const isTimeRequest = selectedFormTypeName === "Hour Adjustment"
+  const isLeaderRoleTransfer = requestType.find((t) => t.appeal_type_id === formTypeId)?.code === LEADER_ROLE_TRANSFER_CODE
 
   const editSelectedTypeName =
     requestType.find((t) => t.appeal_type_id === editTypeId)?.name ?? ""
   const editIsTimeRequest = editSelectedTypeName === "Hour Adjustment"
+  const editIsLeaderRoleTransfer = requestType.find((t) => t.appeal_type_id === editTypeId)?.code === LEADER_ROLE_TRANSFER_CODE
+
+  function sortWithOthersLast<T extends { name: string }>(types: T[]): T[] {
+    return [...types].sort((a, b) => {
+      if (a.name === "Others") return 1
+      if (b.name === "Others") return -1
+      return 0
+    })
+  }
 
   // "Leader Role Transfer" is only offered to non-leader students. Hide it from
   // the category dropdowns when the current user is actually a section leader.
-  const addRequestTypes = requestType.filter(
+  const addRequestTypes = sortWithOthersLast(requestType.filter(
     (t) => !isCurrentUserLeader || t.code !== LEADER_ROLE_TRANSFER_CODE
-  )
+  ))
   // In the edit modal, keep the request's currently-selected type visible even if
   // it would otherwise be filtered, so editTypeId stays a valid option.
-  const editRequestTypes = requestType.filter(
+  const editRequestTypes = sortWithOthersLast(requestType.filter(
     (t) =>
       !isCurrentUserLeader ||
       t.code !== LEADER_ROLE_TRANSFER_CODE ||
       t.appeal_type_id === editTypeId
-  )
+  ))
 
   const [isMobile, setIsMobile] = useState(false)
 
@@ -1792,6 +1814,7 @@ export default function RequestsView() {
                         setEditTitle(request.title)
                         setEditBody(request.body)
                         setEditFiles(request.attachments ?? [])
+                        setEditLeaderValidUntil(request.leaderRoleExpiresAt ?? "")
 
                         // Find the UUID that matches string name
                         const matchingType = requestType.find(
@@ -2187,6 +2210,49 @@ export default function RequestsView() {
                   {formTitle.length}/50
                 </div>
               </div>
+              
+              {isLeaderRoleTransfer && (
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#6B7280",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.6px",
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Valid Until
+                  </label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={leaderValidUntil}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setLeaderValidUntil(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      border: "1.5px solid #E5E7EB",
+                      fontSize: 14,
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: C.textMuted,
+                      marginTop: 4,
+                    }}
+                  >
+                    Leave blank to request a permanent role transfer.
+                  </div>
+                </div>
+              )}
 
               {isTimeRequest && (
                 <TimeCorrectionFields
@@ -2433,6 +2499,7 @@ export default function RequestsView() {
                   setFormBody("")
                   setFormFiles([])
                   setTimeCorrection(EMPTY_TIME_CORRECTION)
+                  setLeaderValidUntil("")
                   if (requestType.length > 0) {
                     setFormTypeId(requestType[0].appeal_type_id)
                   }
@@ -2677,6 +2744,55 @@ export default function RequestsView() {
                   }}
                 >
                   {editTitle.length}/50
+                </div>
+              )}
+
+              {editIsLeaderRoleTransfer && (
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#6B7280",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.6px",
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Valid Until
+                  </label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={editLeaderValidUntil}
+                    disabled={!isEditable}
+                    min={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setEditLeaderValidUntil(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      background: isEditable ? "#fff" : "#F3F4F6",
+                      border: isEditable ? "1.5px solid #E5E7EB" : "none",
+                      color: "#444",
+                      fontSize: 14,
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                      cursor: isEditable ? "text" : "default",
+                    }}
+                  />
+                  {isEditable && (
+                    <div
+                      style={{
+                        fontSize: 11.5,
+                        color: C.textMuted,
+                        marginTop: 4,
+                      }}
+                    >
+                      Leave blank to request a permanent role transfer.
+                    </div>
+                  )}
                 </div>
               )}
 
