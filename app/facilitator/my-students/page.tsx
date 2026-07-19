@@ -1622,7 +1622,7 @@ function MyStudentsContent() {
   }
 
   function handleExportCSV() {
-    const rows = students.filter(
+    const rows = filtered.filter(
       (s) =>
         exportSection === "All Sections" || s.section_name === exportSection
     )
