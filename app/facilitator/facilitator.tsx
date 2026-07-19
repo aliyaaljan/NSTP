@@ -225,13 +225,12 @@ export function Calendar({ semEndDate, holidays = [], deadlines = []}: { semEndD
               {d !== null ? <span className="cal-day-num">{d}</span> : null}
 
               {hasLabel && (
-                <span className={`capitalize absolute bottom-full ${edgeAlign} mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday ? "text-maroon" : cellIsSemEnd || cellDeadline ? "text-[var(--amber)]" : "text-[var(--green)]"}`}>
+                <span className={`capitalize absolute bottom-full ${edgeAlign} mb-1 hidden group-hover:block bg-white text-[12px] rounded px-2 py-0.5 whitespace-nowrap z-10 pointer-events-none shadow-md ${cellIsToday || cellIsSemEnd ? "text-maroon"  : cellDeadline ? "text-[var(--amber)]" : "text-[var(--green)]"}`}>
                  <>
                   {cellIsToday && "Today"}
                   {cellHoliday && (cellIsToday ? ` • ${cellHoliday.name}` : cellHoliday.name)}
                   {cellDeadline && `${cellIsToday || cellHoliday ? " • " : ""}${cellDeadline.name}`}
-                  {cellIsSemEnd &&
-                  `${cellIsToday || cellHoliday || cellDeadline ? " • " : ""}End of Semester`}
+                  {cellIsSemEnd && `${cellIsToday || cellHoliday || cellDeadline ? " • " : ""}End of Semester`}
                 </>
                 </span>
               )}
@@ -593,8 +592,7 @@ export const dashboardStyles = `
   .cal-day-num{position:relative; z-index:3;}
   .cal-cell.cal-today,
   .cal-cell.cal-holiday,
-  .cal-cell.cal-sem-end,
-  .cal-cell.cal-deadline:not(.cal-today):not(.cal-holiday) {
+  .cal-cell.cal-deadline {
     color: #fff;
     font-weight: 700;
   }
@@ -606,13 +604,22 @@ export const dashboardStyles = `
     background: var(--maroon);
     z-index: 1;
   }
-  .cal-cell.cal-holiday::before {
+  .cal-cell.cal-holiday:not(.cal-today)::before {
     content: "";
     position: absolute;
     inset: 15%;
     border-radius: 50%;
     background: var(--green);
+    z-index: 1;
+  }
+  .cal-cell.cal-holiday.cal-today::after {
+    content: "",
+    position: absolute;
+    inset: 10%;
+    border-radius: 50%;
+    border: 3px solid var(--green);
     z-index: 2;
+    pointer-events: none;
   }
   .cal-cell.cal-deadline:not(.cal-today):not(.cal-holiday)::before {
     content: "";
@@ -635,6 +642,10 @@ export const dashboardStyles = `
   .cal-cell.cal-sem-end {
     outline: 3px dashed var(--maroon);
     border-radius: 50%;
+  }
+  .cal-cell.cal-sem-end:not(.cal-today):not(.cal-holiday):not(.cal-deadline) {
+    color: var(--maroon);
+    font-weight: 700;
   }
   
   /* ── Dashboard layout ── */
