@@ -27,6 +27,7 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
 import { provisionUser, syncUserEmail, findAppUserByEmail } from "@/lib/admin/user-provision"
+import { getFacilitatorPool } from "@/lib/admin/facilitator-pool"
 import {
   getStudentDeleteImpact,
   isForeignKeyViolation,
@@ -581,42 +582,18 @@ async function getFacilitatorTargets(
   service: ReturnType<typeof createSupabaseServiceClient>,
   termId: string
 ): Promise<FacilitatorTarget[]> {
-  const adviserRoleId = await lookupId("role", "adviser")
-  const [advisersRes, sectionsRes] = await Promise.all([
-    service
-      .from("app_user")
-      .select("app_user_id, full_name")
-      .eq("role_id", adviserRoleId)
-      .eq("is_active", true),
-    service
-      .from("section")
-      .select("section_id, course_code, adviser_user_id, adviser:adviser_user_id(full_name)")
-      .eq("term_id", termId),
-  ])
-
-  const targets = new Map<string, FacilitatorTarget>()
-  for (const adviser of advisersRes.data ?? []) {
-    targets.set(adviser.app_user_id, {
-      userId: adviser.app_user_id,
-      fullName: adviser.full_name ?? "",
-      sectionId: null,
-      courseCode: null,
-    })
-  }
-  // Class owners too — covers admins facilitating a class this term.
-  for (const section of sectionsRes.data ?? []) {
-    const existing = targets.get(section.adviser_user_id)
-    const fullName =
-      existing?.fullName ||
-      ((section.adviser as { full_name?: string } | null)?.full_name ?? "")
-    targets.set(section.adviser_user_id, {
-      userId: section.adviser_user_id,
-      fullName,
-      sectionId: section.section_id,
-      courseCode: section.course_code,
-    })
-  }
-  return [...targets.values()]
+  const pool = await getFacilitatorPool(service, termId)
+  // Active advisers (whether or not they own a class yet) + every class owner
+  // this term (covers admins facilitating a class, and inactive advisers who
+  // still own a class).
+  return pool
+    .filter((m) => m.sectionId !== null || (m.roleCode === "adviser" && m.isActive))
+    .map((m) => ({
+      userId: m.userId,
+      fullName: m.fullName,
+      sectionId: m.sectionId,
+      courseCode: m.courseCode,
+    }))
 }
 
 function facilitatorMatchIssue(

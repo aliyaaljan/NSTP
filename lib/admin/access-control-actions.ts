@@ -28,6 +28,7 @@ import {
 } from "@/lib/admin/access-control-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import { userOwnsActiveTermSection } from "@/lib/admin/facilitator-pool"
 import {
   countActiveAdmins,
   deactivateUser,
@@ -52,12 +53,13 @@ export async function getAccessControlData(
 ): Promise<AccessControlPageData> {
   const supabase = await createSupabaseServerClient()
 
-  const [usersRes, rolesRes, { data: authData }] = await Promise.all([
+  const [usersRes, rolesRes, activeTermRes, { data: authData }] = await Promise.all([
     supabase
       .from("app_user")
       .select(ACCESS_CONTROL_USER_SELECT)
       .order("full_name", { ascending: true }),
     supabase.from("role").select("role_id, code, name").order("name"),
+    supabase.from("term").select("term_id").eq("is_active", true).maybeSingle(),
     supabase.auth.getUser(),
   ])
 
@@ -79,9 +81,18 @@ export async function getAccessControlData(
         name: role.name,
       })) ?? []
 
+  let facilitatorOwnerIds = new Set<string>()
+  if (activeTermRes.data?.term_id) {
+    const { data: ownerRows } = await supabase
+      .from("section")
+      .select("adviser_user_id")
+      .eq("term_id", activeTermRes.data.term_id)
+    facilitatorOwnerIds = new Set((ownerRows ?? []).map((r) => r.adviser_user_id as string))
+  }
+
   const dbUsers =
     (usersRes.data as AccessControlDbRow[] | null)
-      ?.map(mapAccessControlDbRow)
+      ?.map((row) => mapAccessControlDbRow(row, facilitatorOwnerIds.has(row.app_user_id)))
       .filter((row): row is NonNullable<typeof row> => row !== null) ?? []
 
   const users =
@@ -193,6 +204,18 @@ export async function updateUserRole(
     const activeAdmins = await countActiveAdmins(service)
     if (activeAdmins <= 1) {
       return { ok: false, error: "Cannot demote the last active administrator." }
+    }
+  }
+
+  // A class must not be stranded under a student account.
+  if (payload.roleCode === "student") {
+    const ownsClass = await userOwnsActiveTermSection(service, payload.appUserId)
+    if (ownsClass) {
+      return {
+        ok: false,
+        error:
+          "This user still facilitates a class this term. Reassign their class on the Classes page first.",
+      }
     }
   }
 

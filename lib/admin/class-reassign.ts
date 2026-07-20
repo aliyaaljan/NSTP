@@ -21,11 +21,14 @@ import "server-only"
 import { lookupId } from "@/lib/lookups"
 import { extractNstpType, formatClassLabel } from "@/lib/shared/class-label"
 import type { ServiceClient } from "@/lib/admin/user-provision"
+import { getAssignableFacilitators, isFacilitatorEligible } from "@/lib/admin/facilitator-pool"
 
 export interface ReassignCandidate {
   adviserUserId: string
   fullName: string
   mode: "transfer" | "merge"
+  /** True when this candidate is an admin facilitating a class, not a role-adviser account. */
+  isAdmin: boolean
   /** Present only when mode === "merge". */
   targetSectionId?: string
   targetCourseCode?: string
@@ -94,7 +97,7 @@ type TermSectionRow = {
 
 /** Candidates for ONE source class — depends on that class's NSTP component. */
 function buildCandidatesForClass(
-  advisers: Array<{ app_user_id: string; full_name: string | null }>,
+  facilitators: Array<{ userId: string; fullName: string; isAdmin: boolean }>,
   termSections: TermSectionRow[],
   sourceCourseCode: string,
   activeCountBySection: Map<string, number>
@@ -103,17 +106,23 @@ function buildCandidatesForClass(
   const sectionByAdviser = new Map(termSections.map((s) => [s.adviser_user_id, s]))
 
   const out: ReassignCandidate[] = []
-  for (const a of advisers) {
-    const owned = sectionByAdviser.get(a.app_user_id)
+  for (const a of facilitators) {
+    const owned = sectionByAdviser.get(a.userId)
     if (!owned) {
-      out.push({ adviserUserId: a.app_user_id, fullName: a.full_name ?? "Unknown", mode: "transfer" })
+      out.push({
+        adviserUserId: a.userId,
+        fullName: a.fullName || "Unknown",
+        mode: "transfer",
+        isAdmin: a.isAdmin,
+      })
       continue
     }
     if (owned.status?.code === "active" && extractNstpType(owned.course_code) === sourceType) {
       out.push({
-        adviserUserId: a.app_user_id,
-        fullName: a.full_name ?? "Unknown",
+        adviserUserId: a.userId,
+        fullName: a.fullName || "Unknown",
         mode: "merge",
+        isAdmin: a.isAdmin,
         targetSectionId: owned.section_id,
         targetCourseCode: owned.course_code,
         targetStudentCount: activeCountBySection.get(owned.section_id) ?? 0,
@@ -130,7 +139,6 @@ export async function getClassReassignmentData(
   sourceAdviserUserId: string
 ): Promise<ClassReassignmentData> {
   const activeEnrollmentStatusId = await lookupId("enrollment_status", "active")
-  const adviserRoleId = await lookupId("role", "adviser")
 
   const { data: sections } = await service
     .from("section")
@@ -153,14 +161,10 @@ export async function getClassReassignmentData(
 
   const termIds = [...new Set(sortedSections.map((s) => s.term_id as string))]
 
-  const [{ data: advisers }, { data: allTermSections }] = await Promise.all([
-    service
-      .from("app_user")
-      .select("app_user_id, full_name")
-      .eq("role_id", adviserRoleId)
-      .eq("is_active", true)
-      .neq("app_user_id", sourceAdviserUserId)
-      .order("full_name"),
+  const [assignableFacilitators, { data: allTermSections }] = await Promise.all([
+    getAssignableFacilitators(service).then((list) =>
+      list.filter((f) => f.userId !== sourceAdviserUserId)
+    ),
     termIds.length > 0
       ? service
           .from("section")
@@ -222,7 +226,7 @@ export async function getClassReassignmentData(
       activeStudentCount: activeRes.count ?? 0,
       totalEnrollmentCount: totalRes.count ?? 0,
       candidates: buildCandidatesForClass(
-        advisers ?? [],
+        assignableFacilitators,
         termSectionsByTerm.get(s.term_id) ?? [],
         s.course_code,
         activeCountBySection
@@ -328,8 +332,8 @@ export async function reassignClass(
     .eq("app_user_id", input.targetAdviserUserId)
     .maybeSingle()
   if (!target) return { ok: false, error: "Target facilitator not found." }
-  if ((target.role as { code?: string } | null)?.code !== "adviser") {
-    return { ok: false, error: "Target user is not a facilitator." }
+  if (!isFacilitatorEligible((target.role as { code?: string } | null)?.code)) {
+    return { ok: false, error: "Target user is not a facilitator or admin." }
   }
   if (!target.is_active) {
     return { ok: false, error: "Target facilitator's account is deactivated." }

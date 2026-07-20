@@ -24,6 +24,7 @@ import {
 import { formatClassLabel, extractNstpType } from "@/lib/shared/class-label"
 import { progressStatusFromPct } from "@/lib/admin/student-progress"
 import { SEMESTER_LABELS, type TermSemesterCode } from "@/lib/admin/settings"
+import { getFacilitatorPool } from "@/lib/admin/facilitator-pool"
 
 export const revalidate = 0
 
@@ -310,21 +311,27 @@ export default async function AdminDashboardPage({
   // Resolve lookup IDs concurrently (distinct tables → parallel on a cold cache)
   const [
     studentRoleId,
-    adviserRoleId,
     activeStatusId,
     completedStatusId,
     openStatusId,
     underReviewStatusId,
     timeInTypeId,
+    facilitatorPool,
   ] = await Promise.all([
     lookupId("role", "student"),
-    lookupId("role", "adviser"),
     lookupId("enrollment_status", "active"),
     lookupId("enrollment_status", "completed"),
     lookupId("appeal_status", "pending"),
     lookupId("appeal_status", "under_review"),
     lookupId("attendance_event_type", "time_in"),
+    getFacilitatorPool(supabase),
   ])
+  const poolIds = facilitatorPool.length
+    ? facilitatorPool.map((m) => m.userId)
+    : ["00000000-0000-0000-0000-000000000000"]
+  const adminFacilitatorIds = new Set(
+    facilitatorPool.filter((m) => m.roleCode === "admin").map((m) => m.userId)
+  )
 
   // Resolve Class / Adviser / School Year to ALL matching section IDs (AND across dimensions).
   let selectedSectionIds: string[] = []
@@ -427,6 +434,7 @@ export default async function AdminDashboardPage({
 
   const workloadSelect = hasSectionScope
     ? `
+          app_user_id,
           full_name,
           section!section_adviser_user_id_fkey!inner(
             section_id,
@@ -439,6 +447,7 @@ export default async function AdminDashboardPage({
           )
         `
     : `
+          app_user_id,
           full_name,
           section!section_adviser_user_id_fkey(
             section_id,
@@ -469,7 +478,7 @@ export default async function AdminDashboardPage({
   let advisersQuery = supabase
     .from("app_user")
     .select(adviserCountSelect, { count: "exact", head: true })
-    .eq("role_id", adviserRoleId)
+    .in("app_user_id", poolIds)
 
   let weeklyActiveCountQuery = supabase
     .from("enrollment")
@@ -497,7 +506,7 @@ export default async function AdminDashboardPage({
   let adviserWorkloadQuery = supabase
     .from("app_user")
     .select(workloadSelect)
-    .eq("role_id", adviserRoleId)
+    .in("app_user_id", poolIds)
 
   let enrollmentQuery = supabase
     .from("enrollment")
@@ -619,7 +628,6 @@ export default async function AdminDashboardPage({
     enrollmentsRes,
     adviserWorkloadRes,
     sectionsFilterRes,
-    advisersFilterRes,
     recentActivityRes,
     appealStatusesRes,
     enrollmentStatusesRes,
@@ -648,12 +656,6 @@ export default async function AdminDashboardPage({
       .select(
         "section_id, course_code, adviser_user_id, term:term_id(school_year, semester), app_user:adviser_user_id(full_name)"
       ),
-    // Filter dropdown for advisers list lookup
-    supabase
-      .from("app_user")
-      .select("full_name")
-      .eq("role_id", adviserRoleId)
-      .order("full_name"),
     // recent activity for audit log
     supabase
       .from("audit_log_readable")
@@ -735,9 +737,6 @@ export default async function AdminDashboardPage({
   )
 
   const exportSections = sectionFilterOptions
-
-  const availableAdvisers =
-    advisersFilterRes.data?.map((a) => a.full_name) || []
 
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
   const rawGpsSessions = gpsComplianceRes?.data || []
@@ -984,7 +983,9 @@ export default async function AdminDashboardPage({
           })
         : "Floating"
       return {
-        name: adv.full_name,
+        name: adminFacilitatorIds.has(adv.app_user_id)
+          ? `${adv.full_name} (Admin)`
+          : adv.full_name,
         section: primarySectionLabel,
         studentCount: totalStudentsCount,
       }
@@ -1141,7 +1142,6 @@ export default async function AdminDashboardPage({
           legacyFilter: hasDimensionParams ? undefined : legacyFilter || undefined,
         }}
         sections={availableSections}
-        advisers={availableAdvisers}
         exportSections={exportSections}
       />
 

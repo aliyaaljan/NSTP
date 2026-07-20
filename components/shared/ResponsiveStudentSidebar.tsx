@@ -6,7 +6,8 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { Goblin_One, Cormorant } from "next/font/google"
-import { useStudent } from "@/app/student/StudentContext" 
+import { useStudent } from "@/app/student/StudentContext"
+import { useViewSwitch } from "@/components/shared/ViewSwitcher"
 
 const goblin = Goblin_One({
   subsets: ["latin"],
@@ -96,6 +97,7 @@ export default function StudentSidebar({
 
   const { isLeader: contextIsLeader, isLoading, studentData } = useStudent()
   const isLeader = propIsLeader !== undefined ? propIsLeader : contextIsLeader
+  const viewSwitch = useViewSwitch()
 
   // Determine navigation items based on role
   const getNavItems = () => {
@@ -1228,9 +1230,73 @@ export default function StudentSidebar({
           style={{
             padding: "8px 8px 8px",
             display: "flex",
+            flexDirection: "column",
+            gap: 4,
             justifyContent: expanded || isMobile ? "flex-start" : "center",
           }}
         >
+          {viewSwitch && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                viewSwitch.onSwitch()
+              }}
+              disabled={viewSwitch.isPending}
+              title={!expanded && !isMobile ? viewSwitch.label : undefined}
+              className="nstp-link"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                height: 46,
+                width: expanded || isMobile ? "100%" : 46,
+                alignSelf: expanded || isMobile ? "auto" : "center",
+                borderRadius: 999,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                overflow: "hidden",
+                padding: 0,
+                fontFamily: "inherit",
+                ...(isMobile ? mobileItemStyles : {}),
+              }}
+            >
+              <span
+                style={{
+                  width: expanded || isMobile ? COLLAPSED_W - 16 : "100%",
+                  flexShrink: 0,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <i
+                  className="ti ti-switch-horizontal"
+                  style={{
+                    fontSize: 20,
+                    color: C.idleText,
+                  }}
+                />
+              </span>
+
+              <span
+                className="nstp-expand"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: C.idleText,
+                  maxWidth: expanded ? 200 : 0,
+                  opacity: expanded ? 1 : 0,
+                  transition: 'max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease 0.1s',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  display: 'inline-block',
+                }}
+              >
+                {viewSwitch.isPending ? "Switching…" : viewSwitch.label}
+              </span>
+            </button>
+          )}
+
           <button
             onClick={(e) => {
               e.stopPropagation()

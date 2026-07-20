@@ -142,7 +142,7 @@ export default function SectionFormModal({
         .filter((adviser) => adviser.isActive)
         .map((adviser) => ({
           value: adviser.adviserUserId,
-          label: adviser.fullName,
+          label: adviser.isAdmin ? `${adviser.fullName} (Admin)` : adviser.fullName,
         })),
     [advisers]
   )

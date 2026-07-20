@@ -88,12 +88,10 @@ function buildFilterQuery(filters: ActiveFilters): string {
 export default function DashboardToolbar({
   filterParams,
   sections,
-  advisers: _advisers,
   exportSections,
 }: {
   filterParams: DashboardFilterParams
   sections: DashboardFilterSectionOption[]
-  advisers: string[]
   exportSections: ExportSectionOption[]
 }) {
   const router = useRouter()

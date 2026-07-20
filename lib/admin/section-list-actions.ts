@@ -28,6 +28,7 @@ import {
   isForeignKeyViolation,
   type DeleteImpact,
 } from "@/lib/admin/dependent-checks"
+import { getAssignableFacilitators, isFacilitatorEligible } from "@/lib/admin/facilitator-pool"
 
 const SEMESTER_LABELS: Record<string, string> = {
   first: "1st Semester",
@@ -47,7 +48,7 @@ export async function getSectionListData(
   const supabase = await createSupabaseServerClient()
   const activeStatusId = await lookupId("enrollment_status", "active")
 
-  const [termsRes, statusesRes, adviserRoleId, { data: authData }] =
+  const [termsRes, statusesRes, { data: authData }] =
     await Promise.all([
       supabase
         .from("term")
@@ -57,14 +58,13 @@ export async function getSectionListData(
         .from("section_status")
         .select("section_status_id, code, name")
         .order("name"),
-      lookupId("role", "adviser"),
       supabase.auth.getUser(),
     ])
 
   const terms = termsRes.data ?? []
   const activeTerm = terms.find((t) => t.is_active) ?? terms[0]
 
-  const [sectionsRes, enrollmentsRes, advisersRes] = await Promise.all([
+  const [sectionsRes, enrollmentsRes, assignableFacilitators] = await Promise.all([
     activeTerm?.term_id
       ? supabase
           .from("section")
@@ -75,12 +75,7 @@ export async function getSectionListData(
       .from("enrollment")
       .select("section_id")
       .eq("enrollment_status_id", activeStatusId),
-    supabase
-      .from("app_user")
-      .select("app_user_id, full_name, is_active")
-      .eq("role_id", adviserRoleId)
-      .eq("is_active", true)
-      .order("full_name"),
+    getAssignableFacilitators(supabase),
   ])
 
   if (sectionsRes.error) {
@@ -103,12 +98,12 @@ export async function getSectionListData(
       )
       .filter((row): row is NonNullable<typeof row> => row !== null) ?? []
 
-  const advisers: SectionListAdviserOption[] =
-    advisersRes.data?.map((row) => ({
-      adviserUserId: row.app_user_id,
-      fullName: row.full_name ?? "Unknown",
-      isActive: row.is_active,
-    })) ?? []
+  const advisers: SectionListAdviserOption[] = assignableFacilitators.map((a) => ({
+    adviserUserId: a.userId,
+    fullName: a.fullName || "Unknown",
+    isActive: true,
+    isAdmin: a.isAdmin,
+  }))
 
   const statuses: SectionListStatusOption[] =
     (statusesRes.data ?? [])
@@ -185,8 +180,8 @@ async function assertActiveAdviser(
     .eq("app_user_id", adviserUserId)
     .maybeSingle()
   if (!data) return "Facilitator not found."
-  if ((data.role as { code?: string } | null)?.code !== "adviser") {
-    return "Selected user is not a facilitator."
+  if (!isFacilitatorEligible((data.role as { code?: string } | null)?.code)) {
+    return "Selected user is not a facilitator or admin."
   }
   if (!data.is_active) {
     return "This facilitator's account is deactivated. Reactivate the account or choose an active facilitator."

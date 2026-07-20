@@ -2,12 +2,21 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import type { AdminCurrentUser } from "@/lib/admin/settings"
-import { FONT_BODY, PROFILE_PILL } from "@/lib/admin-typography"
-import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
+import { useActiveView } from "@/components/shared/ActiveViewContext"
 import { useViewSwitch, ViewSwitchMenuItem } from "@/components/shared/ViewSwitcher"
 
-export default function AdminProfilePill({ user }: { user: AdminCurrentUser }) {
+export interface FacilitatorProfilePillProps {
+  name: string
+  avatarUrl: string | null
+  initials: React.ReactNode
+}
+
+export default function FacilitatorProfilePill({
+  name,
+  avatarUrl,
+  initials,
+}: FacilitatorProfilePillProps) {
+  const activeView = useActiveView()
   const viewSwitch = useViewSwitch()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -21,55 +30,36 @@ export default function AdminProfilePill({ user }: { user: AdminCurrentUser }) {
     return () => document.removeEventListener("mousedown", onDocClick)
   }, [open])
 
-  const pillStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: PROFILE_PILL.gap,
-    background: COLORS.maroon,
-    borderRadius: PROFILE_PILL.borderRadius,
-    padding: PROFILE_PILL.padding,
-    color: "#fff",
-    flexShrink: 0,
-    textDecoration: "none",
-    cursor: "pointer",
-  }
-
-  const pillContent = (
-    <>
-      <span
-        style={{
-          width: PROFILE_PILL.avatarSize,
-          height: PROFILE_PILL.avatarSize,
-          borderRadius: "50%",
-          background: user.avatarUrl
-            ? `center/cover no-repeat url(${user.avatarUrl})`
-            : "rgba(255,255,255,0.2)",
-          flexShrink: 0,
-        }}
-      />
-      <div style={{ lineHeight: 1.2 }}>
-        <div style={{ ...PROFILE_PILL.name, fontFamily: FONT_BODY, color: "#fff" }}>
-          {user.name}
-        </div>
-        <div
-          style={{
-            ...PROFILE_PILL.role,
-            fontFamily: FONT_BODY,
-            color: "#fff",
-            marginTop: 1,
-          }}
-        >
-          {user.role}
-        </div>
-      </div>
-    </>
+  const avatar = (
+    <div className="profile-avatar">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+        />
+      ) : (
+        initials
+      )}
+    </div>
   )
 
-  // No toggle available (admin has no class) → identical to the plain link of before.
+  const nameBlock = (
+    <div>
+      <div className="profile-name">{name}</div>
+      {activeView?.isAdmin && (
+        <div style={{ fontSize: 10, opacity: 0.85, marginTop: 1 }}>Facilitator (Admin)</div>
+      )}
+    </div>
+  )
+
+  // Real adviser (no toggle available) — identical to the original plain link.
   if (!viewSwitch) {
     return (
-      <Link href="/admin/profile" style={pillStyle}>
-        {pillContent}
+      <Link href="/facilitator/profile" className="profile-pill">
+        {avatar}
+        {nameBlock}
       </Link>
     )
   }
@@ -78,12 +68,14 @@ export default function AdminProfilePill({ user }: { user: AdminCurrentUser }) {
     <div ref={rootRef} style={{ position: "relative", flexShrink: 0 }}>
       <button
         type="button"
+        className="profile-pill"
         onClick={() => setOpen((o) => !o)}
-        style={{ ...pillStyle, border: "none", fontFamily: "inherit" }}
+        style={{ border: "none", cursor: "pointer", fontFamily: "inherit" }}
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {pillContent}
+        {avatar}
+        {nameBlock}
       </button>
       {open && (
         <div
@@ -94,7 +86,7 @@ export default function AdminProfilePill({ user }: { user: AdminCurrentUser }) {
             right: 0,
             zIndex: 100,
             background: "#fff",
-            color: COLORS.text,
+            color: "#111827",
             borderRadius: 10,
             boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
             padding: 6,
@@ -102,7 +94,7 @@ export default function AdminProfilePill({ user }: { user: AdminCurrentUser }) {
           }}
         >
           <Link
-            href="/admin/profile"
+            href="/facilitator/profile"
             onClick={() => setOpen(false)}
             style={{
               display: "block",

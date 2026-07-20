@@ -49,6 +49,8 @@ export interface SectionListAdviserOption {
   fullName: string
   /** `app_user.is_active` — inactive advisers cannot be assigned to a class. */
   isActive: boolean
+  /** True when this option is an admin facilitating a class, not a role-adviser account. */
+  isAdmin: boolean
 }
 
 export interface SectionListStatusOption {

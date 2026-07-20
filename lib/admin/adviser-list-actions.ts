@@ -138,7 +138,7 @@ export async function getAdviserListData(
       supabase.from("nstp_component").select("nstp_component_id, code, name").order("name"),
       supabase
         .from("term")
-        .select("school_year, semester, is_active")
+        .select("term_id, school_year, semester, is_active")
         .order("school_year", { ascending: false }),
       supabase.auth.getUser(),
     ])
@@ -152,14 +152,45 @@ export async function getAdviserListData(
     (appealsRes.data as AdviserPendingAppealDbRow[] | null) ?? []
   )
 
-  const advisers =
-    (advisersRes.data as AdviserListDbRow[] | null)?.map((row) =>
+  // Admin-facilitators: active-term class owners not already covered by the
+  // role-adviser query above (mirrors getFacilitatorPool's union, scoped to
+  // this page's own select/filter shape).
+  const adviserRows = (advisersRes.data as AdviserListDbRow[] | null) ?? []
+  const adviserIdSet = new Set(adviserRows.map((r) => r.app_user_id))
+  let adminRows: AdviserListDbRow[] = []
+  if (activeTerm?.term_id) {
+    const { data: ownerRows } = await supabase
+      .from("section")
+      .select("adviser_user_id")
+      .eq("term_id", activeTerm.term_id)
+    const adminOwnerIds = [
+      ...new Set((ownerRows ?? []).map((r) => r.adviser_user_id as string)),
+    ].filter((id) => !adviserIdSet.has(id))
+
+    if (adminOwnerIds.length > 0) {
+      let adminQuery = supabase.from("app_user").select(adviserSelect).in("app_user_id", adminOwnerIds)
+      if (query.sectionId !== ADVISER_LIST_ALL_SECTIONS) {
+        adminQuery = adminQuery.eq("section.section_id", query.sectionId)
+      }
+      const { data, error } = await adminQuery
+      if (error) {
+        console.error("[getAdviserListData] admin-owner query failed", error)
+      }
+      adminRows = (data as AdviserListDbRow[] | null) ?? []
+    }
+  }
+  const adminIdSet = new Set(adminRows.map((r) => r.app_user_id))
+
+  const advisers = [...adviserRows, ...adminRows]
+    .map((row) =>
       mapAdviserDbRowToListRow(
         row,
         activeStatusId,
         pendingCounts.get(row.app_user_id) ?? 0
       )
-    ) ?? []
+    )
+    .map((row) => ({ ...row, isAdmin: adminIdSet.has(row.adviserUserId) }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName))
 
   const sections: AdviserListSectionOption[] = (
     sectionsRes.data as unknown as {
@@ -332,13 +363,18 @@ export async function updateAdviser(
 
   const { data: current, error: currentError } = await service
     .from("app_user")
-    .select("email, is_active, nstp_component_id")
+    .select("email, is_active, nstp_component_id, role:role_id(code)")
     .eq("app_user_id", payload.adviserUserId)
     .maybeSingle()
 
   if (currentError || !current) {
     console.error("[updateAdviser] target lookup failed", currentError)
     return { ok: false, error: "Facilitator not found." }
+  }
+
+  const currentRoleCode = (current.role as { code?: string } | null)?.code
+  if (currentRoleCode === "admin" && current.is_active && !payload.isActive) {
+    return { ok: false, error: "Admin accounts are managed in Access Control." }
   }
 
   const nextEmail = payload.email.trim().toLowerCase()
@@ -437,6 +473,16 @@ export async function deleteAdviser(
   }
 
   const service = createSupabaseServiceClient()
+
+  const { data: target } = await service
+    .from("app_user")
+    .select("role:role_id(code)")
+    .eq("app_user_id", adviserUserId)
+    .maybeSingle()
+  if ((target?.role as { code?: string } | null)?.code === "admin") {
+    return { ok: false, error: "Admin accounts are managed in Access Control." }
+  }
+
   return deactivateUser(service, adviserUserId)
 }
 
@@ -507,6 +553,15 @@ export async function hardDeleteAdviser(
   if (!adviserUserId) return { ok: false, error: "Adviser ID is required." }
 
   const service = createSupabaseServiceClient()
+
+  const { data: target } = await service
+    .from("app_user")
+    .select("role:role_id(code)")
+    .eq("app_user_id", adviserUserId)
+    .maybeSingle()
+  if ((target?.role as { code?: string } | null)?.code === "admin") {
+    return { ok: false, error: "Admin accounts are managed in Access Control." }
+  }
 
   const impact = await getAdviserDeleteImpact(service, adviserUserId)
   if (impact.state === "blocked") {

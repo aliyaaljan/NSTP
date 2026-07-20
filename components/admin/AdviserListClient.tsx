@@ -203,7 +203,32 @@ function AdviserCard({
             size={64}
           />
         </div>
-        <div style={{ ...TYPE.bodyBold, color: COLORS.textDark }}>{adviser.fullName}</div>
+        <div
+          style={{
+            ...TYPE.bodyBold,
+            color: COLORS.textDark,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+          }}
+        >
+          {adviser.fullName}
+          {adviser.isAdmin && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                color: COLORS.textGray,
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 999,
+                padding: "1px 7px",
+              }}
+            >
+              Admin
+            </span>
+          )}
+        </div>
         <div style={{ ...TYPE.caption, color: COLORS.textGray, marginTop: 4 }}>
           {adviser.email}
         </div>
@@ -683,25 +708,30 @@ export default function AdviserListClient({
                 setDetailAdviser(null)
               },
             },
-            detailAdviser.isActive
-              ? {
-                  label: "Deactivate",
-                  variant: "danger",
-                  disabled: isDeleting && deletingId === detailAdviser.adviserUserId,
-                  onClick: () => {
-                    openDeleteConfirm(detailAdviser)
-                    setDetailAdviser(null)
-                  },
-                }
-              : {
-                  label: "Delete Permanently",
-                  variant: "danger",
-                  disabled: isHardDeleting,
-                  onClick: () => {
-                    openHardDeleteConfirm(detailAdviser)
-                    setDetailAdviser(null)
-                  },
-                },
+            // Admin accounts are managed in Access Control — archive/delete hidden here.
+            ...(detailAdviser.isAdmin
+              ? []
+              : [
+                  detailAdviser.isActive
+                    ? {
+                        label: "Deactivate",
+                        variant: "danger" as const,
+                        disabled: isDeleting && deletingId === detailAdviser.adviserUserId,
+                        onClick: () => {
+                          openDeleteConfirm(detailAdviser)
+                          setDetailAdviser(null)
+                        },
+                      }
+                    : {
+                        label: "Delete Permanently",
+                        variant: "danger" as const,
+                        disabled: isHardDeleting,
+                        onClick: () => {
+                          openHardDeleteConfirm(detailAdviser)
+                          setDetailAdviser(null)
+                        },
+                      },
+                ]),
           ]}
         >
           <ModalRow>

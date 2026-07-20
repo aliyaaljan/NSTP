@@ -46,6 +46,8 @@ export interface AccessControlRow {
   updatedAt: string | null
   /** ISO timestamp from `app_user.created_at` */
   createdAt: string | null
+  /** True when this user owns a `section` in the active term — role changes/deactivation may strand it. */
+  facilitatesActiveTermClass: boolean
   /** Preview row — not persisted in the database */
   isSample?: boolean
 }
@@ -177,7 +179,10 @@ function displayIdFromRow(row: {
   return row.app_user_id.slice(0, 8).toUpperCase()
 }
 
-export function mapAccessControlDbRow(row: AccessControlDbRow): AccessControlRow | null {
+export function mapAccessControlDbRow(
+  row: AccessControlDbRow,
+  facilitatesActiveTermClass = false
+): AccessControlRow | null {
   const role = row.role
   if (!role || !isAppRoleCode(role.code)) return null
 
@@ -194,6 +199,7 @@ export function mapAccessControlDbRow(row: AccessControlDbRow): AccessControlRow
     isActive: row.is_active,
     createdAt: row.created_at ?? null,
     updatedAt: row.updated_at ?? null,
+    facilitatesActiveTermClass,
   }
 }
 
@@ -297,6 +303,7 @@ export function buildSampleAccessControlRows(
       isActive: sample.isActive,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      facilitatesActiveTermClass: false,
       isSample: true,
     }
   })

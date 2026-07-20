@@ -1,11 +1,25 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { decodeRoleClaim, roleFromDb } from "@/lib/auth/role"
+import {
+  ACTIVE_VIEW_COOKIE,
+  ACTIVE_VIEW_COOKIE_OPTIONS,
+  adminDestinationForView,
+  type ActiveView,
+} from "@/lib/auth/routes"
 
 const ROLE_PREFIX: Record<string, string> = {
   admin: "/admin",
   adviser: "/facilitator",
   student: "/student",
+}
+
+function isPrefetch(request: NextRequest): boolean {
+  return (
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch" ||
+    (request.headers.get("sec-purpose") ?? "").includes("prefetch")
+  )
 }
 
 export async function proxy(request: NextRequest) {
@@ -51,11 +65,12 @@ export async function proxy(request: NextRequest) {
     return res
   }
 
+  const cookieView = request.cookies.get(ACTIVE_VIEW_COOKIE)?.value
+  const adminHome = adminDestinationForView(cookieView)
+
   if (path === "/" && user) {
-    if (role === "admin" || role === "adviser") {
-      const prefix = ROLE_PREFIX[role]
-      return redirect(`${prefix}/dashboard`)
-    }
+    if (role === "admin") return redirect(adminHome)
+    if (role === "adviser") return redirect("/facilitator/dashboard")
     return supabaseResponse
   }
 
@@ -73,9 +88,29 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && isProtected && role) {
-    const allowedPrefix = ROLE_PREFIX[role]
-    if (allowedPrefix && !path.startsWith(allowedPrefix)) {
-      return redirect(`${allowedPrefix}/dashboard`)
+    const allowedPrefixes =
+      role === "admin"
+        ? ["/admin", "/facilitator"]
+        : ROLE_PREFIX[role]
+          ? [ROLE_PREFIX[role]]
+          : null
+
+    if (allowedPrefixes && !allowedPrefixes.some((p) => path.startsWith(p))) {
+      return redirect(role === "admin" ? adminHome : `${ROLE_PREFIX[role]}/dashboard`)
+    }
+
+    // "Allow + follow": an admin browsing either area updates the remembered view.
+    // Pass-through responses only (the redirect() helper drops cookie attributes),
+    // and never on prefetches (they'd flip the view without a real navigation).
+    if (role === "admin" && !isPrefetch(request)) {
+      const desired: ActiveView | null = path.startsWith("/facilitator")
+        ? "facilitator"
+        : path.startsWith("/admin")
+          ? "admin"
+          : null
+      if (desired && desired !== cookieView) {
+        supabaseResponse.cookies.set(ACTIVE_VIEW_COOKIE, desired, ACTIVE_VIEW_COOKIE_OPTIONS)
+      }
     }
   }
 

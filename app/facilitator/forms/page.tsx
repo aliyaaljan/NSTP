@@ -27,6 +27,7 @@ import { googleAvatarUrl } from "@/lib/auth/avatar"
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
 import LoadingPage from "@/components/shared/LoadingPage"
+import FacilitatorProfilePill from "@/components/facilitator/FacilitatorProfilePill"
 import {
   getSubmissionsByForm,
   getFacilitatorSectionId,
@@ -690,25 +691,11 @@ export default function FormsPage() {
           <main className="main">
             <header className="header">
               <h1 className="header-greeting">Forms</h1>
-              <div className="profile-pill">
-                <div className="profile-avatar">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    initials || "A"
-                  )}
-                </div>
-                <div>
-                  <div className="profile-name">
-                    {lastName ? `${lastName}, ${firstName}` : "Adviser"}
-                  </div>
-                </div>
-              </div>
+              <FacilitatorProfilePill
+                name={lastName ? `${lastName}, ${firstName}` : "Adviser"}
+                avatarUrl={avatarUrl}
+                initials={initials || "A"}
+              />
             </header>
 
             {errorMsg && (

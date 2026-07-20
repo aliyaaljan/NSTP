@@ -95,7 +95,7 @@ export default function ReassignClassModal({
     () =>
       candidates.map((c) => ({
         value: c.adviserUserId,
-        label: c.fullName,
+        label: c.isAdmin ? `${c.fullName} (Admin)` : c.fullName,
         description:
           c.mode === "merge"
             ? `Has ${c.targetCourseCode} · ${c.targetStudentCount} student${

@@ -14,6 +14,7 @@ import {
   type AuditLogDateRange,
 } from "@/lib/admin/audit-log"
 import { formatClassLabel } from "@/lib/shared/class-label"
+import { getFacilitatorPool } from "@/lib/admin/facilitator-pool"
 
 /**
  * jsPDF's built-in Helvetica only covers WinAnsi. Characters like `→` force a
@@ -55,7 +56,6 @@ export async function GET(request: Request) {
     // Use Server Client so RLS and security contexts are maintained
     const supabase = await createSupabaseServerClient()
     const activeStatusId = await lookupId("enrollment_status", "active")
-    const adviserRoleId = await lookupId("role", "adviser")
 
     let headers: string[] = []
     let rows: any[] = []
@@ -145,22 +145,29 @@ export async function GET(request: Request) {
       }
 
       case "advisers": {
-        let advQuery = supabase
+        const pool = await getFacilitatorPool(supabase)
+        const poolIds = pool.length
+          ? pool.map((m) => m.userId)
+          : ["00000000-0000-0000-0000-000000000000"]
+        const roleByUser = new Map(pool.map((m) => [m.userId, m.roleCode]))
+
+        const advQuery = supabase
           .from("app_user")
           .select(
             `
+            app_user_id,
             full_name,
             email,
             section!section_adviser_user_id_fkey(section_id, course_code, term:term_id(school_year))
           `
           )
-          .eq("role_id", adviserRoleId)
+          .in("app_user_id", poolIds)
           .order("full_name")
 
         const { data: advData, error: advError } = await advQuery
         if (advError) throw new Error("Failed to fetch advisers")
 
-        headers = ["Adviser Name", "Email", "Class"]
+        headers = ["Adviser Name", "Email", "Role", "Class"]
 
         advData.forEach((adv: any) => {
           const sections = adv.section || []
@@ -175,6 +182,7 @@ export async function GET(request: Request) {
           rows.push([
             adv.full_name,
             adv.email,
+            roleByUser.get(adv.app_user_id) === "admin" ? "Admin" : "Facilitator",
             sections.length > 0
               ? sections
                   .map((s: any) =>

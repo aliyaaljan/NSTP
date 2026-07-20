@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { ensureAppUser } from "@/lib/auth-actions"
 import { createLoginSession } from "@/lib/auth/session"
-import { roleToDashboard } from "@/lib/auth/routes"
+import { roleToDashboard, ACTIVE_VIEW_COOKIE, adminDestinationForView } from "@/lib/auth/routes"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
@@ -75,7 +75,12 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const destination = roleToDashboard(roleCode)
+  let destination = roleToDashboard(roleCode)
+  if (roleCode === "admin") {
+    destination = adminDestinationForView(
+      request.cookies.get(ACTIVE_VIEW_COOKIE)?.value
+    )
+  }
 
   const response = NextResponse.redirect(new URL(destination, origin))
 

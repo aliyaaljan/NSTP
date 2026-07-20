@@ -95,6 +95,7 @@ export default function AccessControlClient({
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string
     name: string
+    facilitatesClass: boolean
   } | null>(null)
   const [searchInput, setSearchInput] = useState(query.search)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(() =>
@@ -213,9 +214,9 @@ export default function AccessControlClient({
     pushParams({ role, page: "1" })
   }
 
-  function openDeleteConfirm(appUserId: string, name: string) {
+  function openDeleteConfirm(appUserId: string, name: string, facilitatesClass: boolean) {
     setDeleteError(null)
-    setDeleteTarget({ id: appUserId, name })
+    setDeleteTarget({ id: appUserId, name, facilitatesClass })
   }
 
   function closeDeleteConfirm() {
@@ -520,7 +521,11 @@ export default function AccessControlClient({
             setDetailUser(null)
           }}
           onDelete={() => {
-            openDeleteConfirm(detailUser.appUserId, detailUser.fullName)
+            openDeleteConfirm(
+              detailUser.appUserId,
+              detailUser.fullName,
+              detailUser.facilitatesActiveTermClass
+            )
             setDetailUser(null)
           }}
           deleteLabel="Deactivate"
@@ -535,7 +540,11 @@ export default function AccessControlClient({
         open={deleteTarget !== null}
         title="Deactivate User"
         subjectName={deleteTarget?.name}
-        message="Deactivate this user account? They will lose portal access. This action can be reversed by editing the account."
+        message={
+          deleteTarget?.facilitatesClass
+            ? "This user still facilitates a class this term. They will lose portal access, but their class keeps them as facilitator — reassign it from the Classes page. This action can be reversed by editing the account."
+            : "Deactivate this user account? They will lose portal access. This action can be reversed by editing the account."
+        }
         confirmLabel="Deactivate"
         isPending={isDeleting}
         error={deleteError}

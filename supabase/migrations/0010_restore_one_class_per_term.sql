@@ -108,8 +108,8 @@ begin
     from app_user u
     join role r on r.role_id = u.role_id
    where u.app_user_id = v_target.adviser_user_id;
-  if v_target_adviser.role_code is distinct from 'adviser' or not v_target_adviser.is_active then
-    raise exception 'Target facilitator is not an active facilitator account.';
+  if v_target_adviser.role_code not in ('adviser', 'admin') or not v_target_adviser.is_active then
+    raise exception 'Target facilitator is not an active facilitator or admin account.';
   end if;
 
   v_source_type := upper(trim(substring(v_source.course_code from '\S+$')));

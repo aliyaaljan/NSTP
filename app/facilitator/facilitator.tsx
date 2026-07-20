@@ -14,9 +14,11 @@ import {
   IconChevronRight,
   IconUser,
   IconBook,
+  IconSwitchHorizontal,
 } from "@tabler/icons-react";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useViewSwitch } from "@/components/shared/ViewSwitcher";
 
 // ── Sidebar constants ─────────────────────────────────────────────────
 const COLLAPSED_W = 88
@@ -379,6 +381,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, activeNav, onToggle, onNavClick, onSignOut }: SidebarProps) {
+  const viewSwitch = useViewSwitch();
   return (
     <div className="sb-wrap">
       <aside
@@ -422,6 +425,19 @@ export function Sidebar({ open, activeNav, onToggle, onNavClick, onSignOut }: Si
         </nav>
 
         <div className="sb-footer">
+          {viewSwitch && (
+            <button
+              className="sb-logout"
+              title={!open ? viewSwitch.label : undefined}
+              disabled={viewSwitch.isPending}
+              onClick={(e) => { e.stopPropagation(); viewSwitch.onSwitch(); }}
+            >
+              <IconSwitchHorizontal size={20} stroke={1.75} />
+              <span className="sb-logout-label">
+                {viewSwitch.isPending ? "Switching…" : viewSwitch.label}
+              </span>
+            </button>
+          )}
           <button className="sb-logout" title={!open ? "Log Out" : undefined}
             onClick={(e) => {e.stopPropagation();  onSignOut()}}>
             <IconLogout2 size={20} stroke={1.75} />
@@ -502,8 +518,8 @@ export const dashboardStyles = `
   .sb-nav-btn.sb-active .sb-nav-icon { color: var(--green); }
   .sb-nav-label { overflow: hidden; white-space: nowrap; transition: opacity 0.2s ease, max-width 0.25s ease; opacity: 1; max-width: 200px; }
   .sb.sb-closed .sb-nav-label { opacity: 0; max-width: 0; overflow: hidden; pointer-events: none; }
-  .sb-footer { padding: 18px 18px 24px 30px; overflow: hidden; flex-shrink: 0; }
-  .sb.sb-closed .sb-footer { padding: 18px 0 24px; display: flex; justify-content: center; align-items: center; }
+  .sb-footer { padding: 18px 18px 24px 30px; overflow: hidden; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; }
+  .sb.sb-closed .sb-footer { padding: 18px 0 24px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
   .sb-logout { display: flex; align-items: center; gap: 14px; background: transparent; border: none; cursor: pointer; color: #FCA5A5; font-size: 15px; font-family: var(--font); font-weight: 500; padding: 0; opacity: 0.85; transition: opacity 0.13s; white-space: nowrap; overflow: hidden; }
   .sb-logout:hover { opacity: 1; }
   .sb-logout-label { transition: opacity 0.2s ease, max-width 0.25s ease; opacity: 1; max-width: 200px; overflow: hidden; }

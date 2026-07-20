@@ -31,8 +31,8 @@ import { createClient } from "@/lib/client"
 import { googleAvatarUrl } from "@/lib/auth/avatar"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener";
-import Link from "next/link";
 import LoadingPage from "@/components/shared/LoadingPage"
+import FacilitatorProfilePill from "@/components/facilitator/FacilitatorProfilePill"
 
 type DashboardRow = {
   section_id: string | null
@@ -305,25 +305,11 @@ export default function DashboardPage() {
                   aria-label="Search students"
                 />
               </div>
-              <Link href={"/facilitator/profile"} className="profile-pill">
-                <div className="profile-avatar">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    initials
-                  )}
-                </div>
-                <div>
-                  <div className="profile-name">
-                    {lastName ? `${lastName}, ${firstName}` : "Adviser"}
-                  </div>
-                </div>
-              </Link>
+              <FacilitatorProfilePill
+                name={lastName ? `${lastName}, ${firstName}` : "Adviser"}
+                avatarUrl={avatarUrl}
+                initials={initials}
+              />
             </header>
 
             <div className="body">

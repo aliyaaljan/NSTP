@@ -29,6 +29,7 @@ import {
   isForeignKeyViolation,
   type DeleteImpact,
 } from "@/lib/admin/dependent-checks"
+import { getFacilitatorPool } from "@/lib/admin/facilitator-pool"
 
 const SEMESTER_LABELS: Record<string, string> = {
   first: "1st Semester",
@@ -45,13 +46,12 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
 
   const supabase = await createSupabaseServerClient()
 
-  const [termsRes, geofencesRes, adviserRoleId, { data: authData }] = await Promise.all([
+  const [termsRes, geofencesRes, { data: authData }] = await Promise.all([
     supabase
       .from("term")
       .select("term_id, school_year, semester, is_active")
       .order("school_year", { ascending: false }),
     supabase.from("section_geofence").select(SITE_LIST_SELECT).order("label"),
-    lookupId("role", "adviser"),
     supabase.auth.getUser(),
   ])
 
@@ -76,11 +76,7 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
         .neq("status.code", "archived")
     : { data: null, error: null }
 
-  const advisersRes = await supabase
-    .from("app_user")
-    .select("app_user_id, full_name")
-    .eq("role_id", adviserRoleId)
-    .order("full_name")
+  const facilitatorPool = await getFacilitatorPool(supabase, activeTerm?.term_id)
 
   if (sectionsRes.error) {
     console.error("[getSiteListData] section query failed", sectionsRes.error)
@@ -108,11 +104,14 @@ export async function getSiteListData(query: SiteListQuery): Promise<SiteListPag
       }))
       .sort((a, b) => a.label.localeCompare(b.label)) ?? []
 
-  const advisers: SiteListAdviserOption[] =
-    advisersRes.data?.map((row) => ({
-      adviserUserId: row.app_user_id as string,
-      fullName: row.full_name ?? "Unknown",
-    })) ?? []
+  const advisers: SiteListAdviserOption[] = facilitatorPool
+    .filter((m) => m.isActive || m.sectionId !== null)
+    .sort((a, b) => a.fullName.localeCompare(b.fullName))
+    .map((m) => ({
+      adviserUserId: m.userId,
+      fullName: m.fullName || "Unknown",
+      isAdmin: m.roleCode === "admin",
+    }))
 
   const semesterCode = activeTerm?.semester ?? "first"
   const meta: SiteListMeta = {

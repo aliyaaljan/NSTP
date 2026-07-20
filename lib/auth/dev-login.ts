@@ -5,7 +5,12 @@ import { cookies, headers } from "next/headers"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { ensureAppUser } from "@/lib/auth-actions"
 import { createLoginSession } from "@/lib/auth/session"
-import { roleToDashboard, STUDENT_LEADER_DASHBOARD } from "@/lib/auth/routes"
+import {
+  roleToDashboard,
+  STUDENT_LEADER_DASHBOARD,
+  ACTIVE_VIEW_COOKIE,
+  adminDestinationForView,
+} from "@/lib/auth/routes"
 import { getActiveLeaderEnrollment } from "@/lib/auth/leader"
 
 export async function signInWithDevPassword(formData: FormData): Promise<void> {
@@ -51,6 +56,10 @@ export async function signInWithDevPassword(formData: FormData): Promise<void> {
   if (roleCode === "student") {
     const leader = await getActiveLeaderEnrollment(supabase, user.id)
     if (leader) destination = STUDENT_LEADER_DASHBOARD
+  }
+  if (roleCode === "admin") {
+    const jar = await cookies()
+    destination = adminDestinationForView(jar.get(ACTIVE_VIEW_COOKIE)?.value)
   }
 
   redirect(destination)

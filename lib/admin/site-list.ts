@@ -71,6 +71,8 @@ export interface SiteListAdviserOption {
   /** `app_user.app_user_id` */
   adviserUserId: string
   fullName: string
+  /** True when this option is an admin facilitating a class, not a role-adviser account. */
+  isAdmin: boolean
 }
 
 export type SiteListStatusFilter = "all" | "active" | "inactive"

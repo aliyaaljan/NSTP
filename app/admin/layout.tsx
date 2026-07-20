@@ -3,6 +3,10 @@ export const dynamic = "force-dynamic"
 import { redirect } from "next/navigation"
 import { Goblin_One, Cormorant, Montserrat } from "next/font/google"
 import { getAppUserRole } from "@/lib/auth-actions"
+import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import { userOwnsActiveTermSection } from "@/lib/admin/facilitator-pool"
+import { ActiveViewProvider } from "@/components/shared/ActiveViewContext"
 import ResponsiveStudentSidebar, {
   type NavGroup,
 } from "@/components/shared/ResponsiveStudentSidebar"
@@ -77,28 +81,36 @@ export default async function AdminLayout({
   const role = await getAppUserRole()
   if (role !== "admin") redirect("/")
 
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const ownsClass = user
+    ? await userOwnsActiveTermSection(createSupabaseServiceClient(), user.id)
+    : false
+
   return (
-    <div
-      className={`admin-root ${goblinOne.variable} ${cormorant.variable} ${montserrat.variable}`}
-      style={{
-        height: "100vh",
-        overflow: "hidden",
-        ["--font" as string]:
-          "var(--font-content, 'Helvetica Neue', Arial, sans-serif)",
-        ["--font-title" as string]: "var(--font-goblin, Georgia, serif)",
-        ["--font-sub" as string]: "var(--font-cormorant, Georgia, serif)",
-      }}
-    >
-      <style>{ADMIN_THEME_CSS}</style>
-      <ResponsiveStudentSidebar
-        navGroups={adminNav}
-        mainClassName="admin-main-scroll"
-        pageBg={ADMIN_COLORS.bg}
+    <ActiveViewProvider value={{ view: "admin", isAdmin: true, canSwitch: ownsClass }}>
+      <div
+        className={`admin-root ${goblinOne.variable} ${cormorant.variable} ${montserrat.variable}`}
+        style={{
+          height: "100vh",
+          overflow: "hidden",
+          ["--font" as string]:
+            "var(--font-content, 'Helvetica Neue', Arial, sans-serif)",
+          ["--font-title" as string]: "var(--font-goblin, Georgia, serif)",
+          ["--font-sub" as string]: "var(--font-cormorant, Georgia, serif)",
+        }}
       >
-        <div style={{ fontFamily: FONT_BODY, color: ADMIN_COLORS.text }}>
-          {children}
-        </div>
-      </ResponsiveStudentSidebar>
-    </div>
+        <style>{ADMIN_THEME_CSS}</style>
+        <ResponsiveStudentSidebar
+          navGroups={adminNav}
+          mainClassName="admin-main-scroll"
+          pageBg={ADMIN_COLORS.bg}
+        >
+          <div style={{ fontFamily: FONT_BODY, color: ADMIN_COLORS.text }}>
+            {children}
+          </div>
+        </ResponsiveStudentSidebar>
+      </div>
+    </ActiveViewProvider>
   )
 }

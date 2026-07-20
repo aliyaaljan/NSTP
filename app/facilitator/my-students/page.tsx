@@ -43,8 +43,8 @@ import {
   type ApproveCorrection,
 } from "@/lib/facilitator/appeal-actions"
 import { useAdviserBroadcast } from "@/lib/hooks/broadcastListener"
-import Link from "next/link"
 import LoadingPage from "@/components/shared/LoadingPage"
+import FacilitatorProfilePill from "@/components/facilitator/FacilitatorProfilePill"
 import { flagLabel, type FlagReason } from "@/lib/attendance/flag-reasons"
 import { createPortal } from "react-dom"
 
@@ -1758,30 +1758,11 @@ function MyStudentsContent() {
             {/* Header */}
             <header className="header">
               <h1 className="header-greeting">My Students</h1>
-              <Link href={"/facilitator/profile"} className="profile-pill">
-                <div className="profile-avatar">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        borderRadius: "50%",
-                        objectFit: "cover",
-                      }}
-                    />
-                  ) : (
-                    initials
-                  )}
-                </div>
-                <div>
-                  <div className="profile-name">
-                    {lastName ? `${lastName}, ${firstName}` : "Facilitator"}
-                  </div>
-                </div>
-              </Link>
+              <FacilitatorProfilePill
+                name={lastName ? `${lastName}, ${firstName}` : "Facilitator"}
+                avatarUrl={avatarUrl}
+                initials={initials}
+              />
             </header>
 
             <div className="body">

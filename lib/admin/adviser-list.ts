@@ -39,6 +39,8 @@ export interface AdviserListRow {
   nstpComponentName: string | null
   /** `app_user.partnership_type` */
   partnershipType: string | null
+  /** True when this row is an admin facilitating a class, not a role-adviser account. */
+  isAdmin: boolean
 }
 
 /** One row of a lookup table (`college` / `nstp_component`), shaped for a <select>. */
@@ -250,6 +252,8 @@ export function mapAdviserDbRowToListRow(
     nstpComponentId: row.nstp_component_id,
     nstpComponentName: row.nstp_component?.name ?? null,
     partnershipType: row.partnership_type,
+    // Overridden by the caller for rows sourced from the admin-owner union.
+    isAdmin: false,
   }
 }
 
