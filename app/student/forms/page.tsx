@@ -80,7 +80,7 @@ const studentFilesStyles = `
   .sf-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; min-width: 100px; justify-content: center; cursor: pointer; }
   .sf-status-badge-submitted { background: #D1FAE5; color: #065F46; }
   .sf-status-badge-approved { background: #D1FAE5; color: #065F46; }
-  .sf-status-badge-rejected { background: #FEE2E2; color: #991B1B; }
+  .sf-status-badge-rejected { background: #F4E3E3; color: #7B1113; }
   .sf-status-badge-pending  { background: #FEF3C7; color: #92400E; }
   .sf-status-badge-missing  { background: #F3F4F6; color: #6B7280; }
   .sf-action-btn {
@@ -421,6 +421,13 @@ const studentFilesStyles = `
     .sf-dropzone-sub { font-size: 10px; }
     
     .profile-pill-wrapper { display: none; }
+
+    /* Stat cards - 2x2 grid on mobile */
+    .sf-stat-grid {
+      display: grid !important;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 12px !important;
+    }
   }
 
   /* Small mobile: 480px and below */
@@ -452,6 +459,10 @@ const studentFilesStyles = `
       font-size: 7px;
       min-width: 50px;
       gap: 3px;
+    }
+
+    .sf-stat-grid {
+      gap: 8px !important;
     }
   }
 `
@@ -957,13 +968,16 @@ export default function StudentFilesPage() {
 
   // Table & Filter Logic
 
-  const uploadedCount = forms.filter((f) => f.status === "uploaded").length
+  const approvedCount = forms.filter((f) => f.realStatus === "approved").length
+  const rejectedCount = forms.filter((f) => f.realStatus === "rejected").length
+  const submittedCount = forms.filter((f) => f.realStatus === "submitted").length
+  const pendingCount = forms.filter((f) => f.realStatus === "missing").length
   const totalCount = forms.length
 
   const stats = [
     {
-      label: "Submitted",
-      value: uploadedCount,
+      label: "Approved",
+      value: approvedCount,
       icon: "ti-circle-check",
       color: {
         bg: "#E8F2E3",
@@ -973,8 +987,19 @@ export default function StudentFilesPage() {
       },
     },
     {
+      label: "Submitted",
+      value: submittedCount,
+      icon: "ti-file-upload",
+      color: {
+        bg: "#E8F2E3",
+        text: "#2D5C3A",
+        border: "#8AAE8A",
+        icon: "#3A7A4A",
+      },
+    },
+    {
       label: "Pending",
-      value: totalCount - uploadedCount,
+      value: pendingCount,
       icon: "ti-clock",
       color: {
         bg: "#FFF4D6",
@@ -983,14 +1008,27 @@ export default function StudentFilesPage() {
         icon: "#C8882A",
       },
     },
+    {
+      label: "Rejected",
+      value: rejectedCount,
+      icon: "ti-circle-x",
+      color: {
+        bg: "#F4E3E3",
+        text: "#7B1113",
+        border: "#B08080",
+        icon: "#8B3A3A",
+      },
+    },
   ]
 
   const filteredForms = forms.filter((form) => {
-    if (
-      activeFilter !== "All" &&
-      form.status !== (activeFilter === "Submitted" ? "uploaded" : "pending")
-    )
-      return false
+    if (activeFilter === "Approved" && form.realStatus !== "approved") return false
+    if (activeFilter === "Submitted" && form.realStatus !== "submitted") return false
+    if (activeFilter === "Pending" && form.realStatus !== "missing") return false
+    if (activeFilter === "Rejected" && form.realStatus !== "rejected") return false
+    if (activeFilter !== "All" && activeFilter !== "Approved" && activeFilter !== "Submitted" && activeFilter !== "Pending" && activeFilter !== "Rejected") {
+      if (form.status !== (activeFilter === "Submitted" ? "uploaded" : "pending")) return false
+    }
 
     if (searchQuery.trim() !== "")
       return form.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
@@ -1236,7 +1274,13 @@ export default function StudentFilesPage() {
           <ChartStyles />
 
           {/* Stat Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%', marginBottom: '24px' }}>
+          <div className="sf-stat-grid" style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(4, 1fr)', 
+            gap: '16px', 
+            width: '100%', 
+            marginBottom: '24px' 
+          }}>
             {stats.map((stat) => {
               const isHovered = hoveredCard === stat.label
               const isActive = activeFilter === stat.label
@@ -1917,13 +1961,13 @@ export default function StudentFilesPage() {
                               viewingForm.realStatus === "approved"
                                 ? "#D1FAE5"
                                 : viewingForm.realStatus === "rejected"
-                                ? "#FEE2E2"
+                                ? "#F4E3E3"
                                 : "#D1FAE5",
                             color:
                               viewingForm.realStatus === "approved"
                                 ? "#065F46"
                                 : viewingForm.realStatus === "rejected"
-                                ? "#991B1B"
+                                ? "#7B1113"
                                 : "#065F46",
                           }}
                         >
@@ -1985,7 +2029,7 @@ export default function StudentFilesPage() {
                             style={{
                               fontSize: 12,
                               fontWeight: 700,
-                              color: viewingForm.realStatus === "rejected" ? "#991B1B" : "#7B1113",
+                              color: viewingForm.realStatus === "rejected" ? "#7B1113" : "#7B1113",
                               display: "block",
                               marginBottom: 6,
                             }}

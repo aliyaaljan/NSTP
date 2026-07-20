@@ -22,6 +22,9 @@ export function usePushSubscription() {
   const subscribe = useCallback(async () => {
     if (!isSupported) throw new Error('Push not supported on this browser');
 
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidKey) throw new Error('Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY env var');
+
     const registration = await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;
 
@@ -30,9 +33,7 @@ export function usePushSubscription() {
 
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-      ),
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
     });
 
     const json = subscription.toJSON();
@@ -45,7 +46,14 @@ export function usePushSubscription() {
         p256dh: json.keys?.p256dh,
         auth: json.keys?.auth,
         device_type: /Mobi/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-        browser: navigator.userAgent.match(/(Chrome|Firefox|Safari|Edg)/)?.[1] ?? null,
+        browser: (() => {
+          const ua = navigator.userAgent;
+          if (/Edg/.test(ua)) return 'Edge';
+          if (/Chrome/.test(ua)) return 'Chrome';
+          if (/Firefox/.test(ua)) return 'Firefox';
+          if (/Safari/.test(ua)) return 'Safari';
+          return null;
+        })(),
         os: navigator.platform,
         user_agent: navigator.userAgent,
       }),
@@ -61,15 +69,17 @@ export function usePushSubscription() {
     const subscription = await registration?.pushManager.getSubscription();
     if (!subscription) return;
 
-    await fetch('/api/push/unsubscribe', {
+    const res = await fetch('/api/push/unsubscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ endpoint: subscription.endpoint }),
     });
 
+    if (!res.ok) throw new Error('Failed to remove subscription on server');
+
     await subscription.unsubscribe();
     setIsSubscribed(false);
   }, []);
 
-  return { subscribe, unsubscribe, isSubscribed, isSupported };
+  return { subscribe, unsubscribe, isSubscribed, setIsSubscribed, isSupported };
 }

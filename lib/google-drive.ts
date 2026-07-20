@@ -76,6 +76,15 @@ export const uploadToGoogleDrive = async (
     }
     return response.data
   } catch (error: any) {
+    if (error.message && error.message.includes("invalid_grant")) {
+      console.error(
+        "CRITICAL AUTH ERROR: The Google OAuth Refresh Token has expired or been revoked. Generate a new one in the OAuth Playground and check that the GCP App is set to 'In Production'."
+      )
+      throw new Error(
+        "System configuration error: Cloud storage authentication expired. Please contact the NSTP Office."
+      )
+    }
+
     console.error("Google Drive API Error:", error)
     throw new Error(
       `Google Drive API Error: ${error.message || "Failed to upload file"}`

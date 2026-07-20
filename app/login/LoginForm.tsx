@@ -72,7 +72,7 @@ export default function LoginForm() {
               disabled={loading}
             >
               {/* <FcGoogle size={20} /> */}
-              {loading ? "Redirecting…" : "Log in with UP Mail"}
+              {loading ? "Redirecting…" : "Log In with UP Mail"}
             </button>
           </form>
 

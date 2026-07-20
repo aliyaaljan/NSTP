@@ -1,8 +1,4 @@
-import {
-  FONT_BODY,
-  PAGE_TITLE,
-  TYPE,
-} from "@/lib/admin-typography"
+import { FONT_BODY, PAGE_TITLE, TYPE } from "@/lib/admin-typography"
 import { ADMIN_COLORS as COLORS } from "@/lib/admin-theme"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import AdminProfilePill from "@/components/admin/AdminProfilePill"
@@ -346,12 +342,14 @@ export default async function AdminDashboardPage({
       )
     const matched =
       (
-        earlySections as unknown as {
-          section_id: string
-          course_code: string
-          adviser_user_id: string | null
-          term: { school_year: string } | null
-        }[] | null
+        earlySections as unknown as
+          | {
+              section_id: string
+              course_code: string
+              adviser_user_id: string | null
+              term: { school_year: string } | null
+            }[]
+          | null
       )?.filter((s) => {
         if (
           selectedNstpType &&
@@ -521,7 +519,10 @@ export default async function AdminDashboardPage({
 
   // ---  Conditional Filters ---
   if (selectedSection) {
-    gpsComplianceQuery = gpsComplianceQuery.eq("enrollment.section.section_id", selectedSection)
+    gpsComplianceQuery = gpsComplianceQuery.eq(
+      "enrollment.section.section_id",
+      selectedSection
+    )
   } else if (selectedSectionIds.length > 0) {
     gpsComplianceQuery = gpsComplianceQuery.in(
       "enrollment.section.section_id",
@@ -683,7 +684,7 @@ export default async function AdminDashboardPage({
           .eq("app_user_id", user.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
-      
+
     gpsComplianceQuery,
   ])
 
@@ -740,15 +741,29 @@ export default async function AdminDashboardPage({
 
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
   const rawGpsSessions = gpsComplianceRes?.data || []
-  if (gpsComplianceRes?.error) {
-    console.error("GPS compliance query error:", gpsComplianceRes.error)
+  const gpsComplianceError = gpsComplianceRes?.error as
+    | { message?: string; details?: string; hint?: string; code?: string }
+    | null
+    | undefined
+  if (gpsComplianceError?.message) {
+    console.warn("GPS compliance query warning:", {
+      message: gpsComplianceError.message,
+      details: gpsComplianceError.details,
+      hint: gpsComplianceError.hint,
+      code: gpsComplianceError.code,
+    })
   }
   const totalGpsSessions = rawGpsSessions.length
-  const flaggedGpsSessions = rawGpsSessions.filter((s: any) => s.is_flagged).length
-  const computedGpsCompliance = totalGpsSessions > 0
-      ? Math.round(((totalGpsSessions - flaggedGpsSessions) / totalGpsSessions) * 100)
+  const flaggedGpsSessions = rawGpsSessions.filter(
+    (s: any) => s.is_flagged
+  ).length
+  const computedGpsCompliance =
+    totalGpsSessions > 0
+      ? Math.round(
+          ((totalGpsSessions - flaggedGpsSessions) / totalGpsSessions) * 100
+        )
       : 100
-      
+
   // calculating weekly attendance rate
   const totalActiveEnrollments = attendanceRateRes[0]?.count || 0
   const uniqueScansThisWeek = new Set(
@@ -792,7 +807,9 @@ export default async function AdminDashboardPage({
   // When a year spans multiple semesters and none is pinned, prefer active match then first term.
   const pinnedSemester =
     selectedSectionMeta?.semester ??
-    (termsForDisplayYear.length === 1 ? termsForDisplayYear[0]?.semester : null) ??
+    (termsForDisplayYear.length === 1
+      ? termsForDisplayYear[0]?.semester
+      : null) ??
     (displaySchoolYear === activeTerm?.school_year
       ? activeTerm?.semester
       : null) ??
@@ -1139,7 +1156,9 @@ export default async function AdminDashboardPage({
           nstpType: selectedNstpType || undefined,
           adviserUserId: filteredAdviserId || undefined,
           schoolYear: selectedSchoolYear || undefined,
-          legacyFilter: hasDimensionParams ? undefined : legacyFilter || undefined,
+          legacyFilter: hasDimensionParams
+            ? undefined
+            : legacyFilter || undefined,
         }}
         sections={availableSections}
         exportSections={exportSections}

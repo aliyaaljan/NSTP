@@ -13,29 +13,17 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { endpoint, p256dh, auth, device_type, browser, os, user_agent } = body;
+  const { endpoint } = body;
 
-  if (!endpoint || !p256dh || !auth) {
-    return NextResponse.json({ error: 'Missing subscription fields' }, { status: 400 });
+  if (!endpoint) {
+    return NextResponse.json({ error: 'Missing endpoint' }, { status: 400 });
   }
 
   const { error } = await supabase
     .from('push_subscription')
-    .upsert(
-      {
-        app_user_id: user.id,
-        endpoint,
-        p256dh,
-        auth,
-        device_type,
-        browser,
-        os,
-        user_agent,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'endpoint' }
-    );
+    .delete()
+    .eq('endpoint', endpoint)
+    .eq('app_user_id', user.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

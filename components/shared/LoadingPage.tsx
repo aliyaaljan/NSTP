@@ -149,22 +149,21 @@ export default function LoadingPage({
   const loadingContent = (
     <main
       style={{
-        flex: embedded ? undefined : 1,
-        paddingLeft: embedded ? 0 : responsivePadding.paddingLeft,
-        paddingRight: embedded ? 0 : responsivePadding.paddingRight,
-        paddingTop: embedded ? 0 : responsivePadding.paddingTop,
-        paddingBottom: embedded ? 0 : responsivePadding.paddingBottom,
+        flex: 1,
+        paddingLeft: responsivePadding.paddingLeft,
+        paddingRight: responsivePadding.paddingRight,
+        paddingTop: responsivePadding.paddingTop,
+        paddingBottom: responsivePadding.paddingBottom,
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
-        gap: embedded ? getGapSize() : responsivePadding.gap,
+        gap: responsivePadding.gap,
         minWidth: 0,
         width: "100%",
         maxWidth: "100%",
-        minHeight: embedded ? "min(70vh, 640px)" : undefined,
-        transition: embedded ? undefined : "padding 0.3s ease",
-        marginTop: embedded ? 0 : isMobile ? "60px" : 0,
+        transition: "padding 0.3s ease",
+        marginTop: isMobile ? "60px" : 0,
         transform: "translateZ(0)",
         WebkitTransform: "translateZ(0)",
         backfaceVisibility: "hidden",
@@ -336,15 +335,30 @@ export default function LoadingPage({
       `}</style>
   )
 
+  const shellStyle = {
+    fontFamily: "'Montserrat', 'Fallback Montserrat'",
+    background: C.pageBg,
+    height: "100vh",
+    width: "100vw",
+    display: "flex" as const,
+    fontSize: getFontSize(),
+    paddingBottom: isMobile ? "env(safe-area-inset-bottom)" : 0,
+    overflow: "hidden" as const,
+    touchAction: "manipulation" as const,
+    WebkitTextSizeAdjust: "100%" as const,
+    MozTextSizeAdjust: "100%" as const,
+    textSizeAdjust: "100%" as const,
+  }
+
   // Don't render until sizes are calculated
   if (!isReady) {
     return (
       <div
         style={{
-          background: embedded ? "transparent" : C.pageBg,
-          height: embedded ? "min(70vh, 640px)" : "100vh",
-          width: embedded ? "100%" : "100vw",
-          display: "flex",
+          ...shellStyle,
+          ...(embedded
+            ? { position: "fixed" as const, inset: 0, zIndex: 1 }
+            : { position: "relative" as const }),
           alignItems: "center",
           justifyContent: "center",
         }}
@@ -356,7 +370,15 @@ export default function LoadingPage({
 
   if (embedded) {
     return (
-      <div className={montserrat.variable} style={{ width: "100%" }}>
+      <div
+        className={montserrat.variable}
+        style={{
+          ...shellStyle,
+          position: "fixed",
+          inset: 0,
+          zIndex: 1,
+        }}
+      >
         {loadingContent}
         {loadingAnimations}
       </div>
@@ -371,19 +393,8 @@ export default function LoadingPage({
     <div
       className={montserrat.variable}
       style={{
-        fontFamily: "'Montserrat', 'Fallback Montserrat'",
-        background: C.pageBg,
-        height: "100vh",
-        width: "100vw",
-        display: "flex",
-        fontSize: getFontSize(),
-        paddingBottom: isMobile ? "env(safe-area-inset-bottom)" : 0,
-        overflow: "hidden",
+        ...shellStyle,
         position: "relative",
-        touchAction: "manipulation",
-        WebkitTextSizeAdjust: "100%",
-        MozTextSizeAdjust: "100%",
-        textSizeAdjust: "100%",
       }}
     >
       <Sidebar />

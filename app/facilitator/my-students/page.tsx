@@ -27,7 +27,7 @@ import {
 } from "@tabler/icons-react"
 import { FaRegQuestionCircle } from "react-icons/fa"
 import { RiRoadMapLine } from "react-icons/ri"
-import { Sidebar, dashboardStyles, navRoutes } from "../facilitator"
+import { Sidebar, dashboardStyles, navRoutes, InfoCircle } from "../facilitator"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { ChartStyles } from "@/components/shared/ChartModule"
 import { NstpModal, ModalField, ModalRow } from "@/components/shared/Modal"
@@ -144,6 +144,7 @@ interface PendingRequest {
     flagReasons: FlagReason[]
     statusCode: string | null
   } | null
+  leaderRoleExpiresAt: string | null
 }
 
 // ISO instant -> Manila local date / 24h time (for pre-filling the correction).
@@ -168,6 +169,34 @@ function isoToManilaTime(iso: string | null | undefined): string {
     minute: "2-digit",
     hour12: false,
   }).format(d)
+}
+
+function getLeaderValidUntilError(value: string, termRange: { start_date: string; end_date: string } | null, today: string): string {
+  if (!value) return ""
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return "Please enter a valid date."
+
+  const [, yearStr, monthStr, dayStr] = match
+  const year = parseInt(yearStr, 10)
+  const month = parseInt(monthStr, 10)
+  const day = parseInt(dayStr, 10)
+
+  const d = new Date(value)
+  const isRealDate = !isNaN(d.getTime()) && d.getUTCFullYear() === year && d.getUTCMonth() + 1 === month && d.getUTCDate() === day
+  if (!isRealDate) return "Please enter a valid date."
+
+  if (value < today) return "Date can't be in the past."
+
+  if (termRange) {
+    if (value < termRange.start_date || value > termRange.end_date) {
+      return `Date must be within the current term (${termRange.start_date} to ${termRange.end_date}).`
+    }
+  } else if (year < new Date().getFullYear() || year > new Date().getFullYear() + 6) {
+    return `Year must be between ${new Date().getFullYear()} and ${new Date().getFullYear() + 6}.`
+  }
+
+  return ""
 }
 
 type ApplyPlan = {
@@ -771,7 +800,7 @@ function MyStudentsContent() {
   const [sortField, setSortField] = useState<keyof Student | null>("student_name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [pendingSortField, setPendingSortField] = useState<keyof PendingRequest | null>("date")
-  const [pendingSortDirection, setPendingSortDirection] = useState<"asc" | "desc">("asc")
+  const [pendingSortDirection, setPendingSortDirection] = useState<"asc" | "desc">("desc")
   const [pendingSearch, setPendingSearch] = useState("")
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(
@@ -1043,6 +1072,9 @@ function MyStudentsContent() {
   const [applyTimeIn, setApplyTimeIn] = useState("")
   const [applyTimeOut, setApplyTimeOut] = useState("")
   const [clearFlag, setClearFlag] = useState(false)
+  const [leaderValidUntil, setLeaderValidUntil] = useState("")
+  const [leaderValidUntilError, setLeaderValidUntilError] = useState("")
+  const [validUntilTermRange, setValidUntilTermRange] = useState<{start_date: string, end_date: string} | null>(null)
 
   // Pre-fill the correction whenever a (time) request is opened for review.
   useEffect(() => {
@@ -1051,9 +1083,27 @@ function MyStudentsContent() {
     setApplyTimeIn(plan.timeIn)
     setApplyTimeOut(plan.timeOut)
     setClearFlag(false)
+    setLeaderValidUntil(selectedRequest?.leaderRoleExpiresAt ?? "")
+    setLeaderValidUntilError("")
+
+    if (selectedRequest?.appeal_type_name === "Leader Role Transfer") {
+      const requestStudent = students.find((s) => s.enrollment_id === selectedRequest.enrollment_id)
+      if (requestStudent?.section_id) {
+        supabase.rpc("get_section_term_range", {p_section_id: requestStudent.section_id,})
+          .then(({ data, error }) => {
+            if (!error && data && data.length > 0) setValidUntilTermRange(data[0])
+            else setValidUntilTermRange(null)
+          })
+      } else {
+        setValidUntilTermRange(null)
+      }
+    } else {
+      setValidUntilTermRange(null)
+    }
   }, [selectedRequest])
 
   const applyPlan = deriveApplyPlan(selectedRequest)
+  const isLeaderRoleTransfer = selectedRequest?.appeal_type_name === "Leader Role Transfer"
 
   const selectedStatusOption = sessionStatusOptions.find(
     (opt) => opt.attendance_session_status_id === editStatus
@@ -1444,6 +1494,29 @@ function MyStudentsContent() {
     setStudents((prev) =>
       prev.map((s) =>
         s.enrollment_id === selectedStudent.enrollment_id
+          ? { ...s, is_student_leader: !s.is_student_leader }
+          : s
+      )
+    )
+  }
+
+  async function handleRoleChangeFor(student: Student | undefined, validUntil: string | null = null) {
+    if (!student || !userId) return
+
+    const { error } = await supabase.rpc("update_student_role", {
+      p_adviser_user_id: userId,
+      p_enrollment_id: student.enrollment_id,
+      p_leader_role_expires_at: student.is_student_leader ? null : validUntil,
+    })
+
+    if (error) {
+      console.error("update_student_role: ", error.message, error.details)
+      return
+    }
+
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.enrollment_id === student.enrollment_id
           ? { ...s, is_student_leader: !s.is_student_leader }
           : s
       )
@@ -2917,6 +2990,7 @@ function MyStudentsContent() {
                 <ModalRow>
                   <ModalField label="Email" value={selectedStudent.student_email} />
                   <ModalField label="Role">
+                    <div className="flex flex-row gap-1">
                     <button
                       id="leader-toggle"
                       title={selectedStudent.is_student_leader ? "Revert to Student" : "Assign as Leader"}
@@ -2967,6 +3041,8 @@ function MyStudentsContent() {
                         }}
                       />
                     </button>
+                    <InfoCircle tooltip="Please note that Leader role assignments are valid for the duration of the current semester. However, facilitators may manually revert the user to a Student role at any time."/>
+                    </div>
                   </ModalField>
                 </ModalRow>
                 <ModalRow>
@@ -3173,6 +3249,78 @@ function MyStudentsContent() {
                     ))}
                   </ModalField>
                 )}
+             {selectedRequest.appeal_type_name === "Leader Role Transfer" && (() => {
+                const requestStudent = students.find((s) => s.enrollment_id === selectedRequest.enrollment_id)
+                const alreadyLeader = !!requestStudent?.is_student_leader
+
+                if (isDecisionDisabled && selectedRequest.status === "Approved") {
+                  return (
+                    <div>
+                    <label className="nstp-modal-label">
+                      valid until
+                    </label>
+                      <div className="ms-req-modal-note">
+                        {selectedRequest.leaderRoleExpiresAt ? formatDateReadable(selectedRequest.leaderRoleExpiresAt) : "End of Semester"}
+                      </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      border: "1px solid var(--border)",
+                      background: "rgba(0,0,0,0.02)",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>
+                      Leader role transfer
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted, #666)", marginBottom: alreadyLeader ? 0 : 10 }}>
+                      {alreadyLeader
+                        ? "This student is already a student leader. Approving will not change their role."
+                        : "Approving this request will assign the student as student leader."}
+                    </div>
+
+                    {!alreadyLeader && (
+                      <div>
+                        <label className="nstp-modal-label">
+                          Valid Until{" "}
+                          <span style={{ fontWeight: 400, textTransform: "none" }}>
+                            (leave blank for end of semester)
+                          </span>
+                        </label>
+                        <input
+                          type="date"
+                          min={today}
+                          max={validUntilTermRange?.end_date}
+                          value={leaderValidUntil}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            setLeaderValidUntil(value)
+                            setLeaderValidUntilError(getLeaderValidUntilError(value, validUntilTermRange, today))
+                          }}
+                          style={{
+                            width: "100%",
+                            boxSizing: "border-box",
+                            padding: 8,
+                            border: "1px solid var(--border)",
+                            borderRadius: 8,
+                            fontSize: 13,
+                          }}
+                        />
+                        {leaderValidUntilError && (
+                          <div style={{ fontSize: 11.5, color: "#B91C1C", marginTop: 4 }}>
+                            {leaderValidUntilError}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
               {applyPlan.isTimeRequest && (
                 <div
                   style={{
@@ -3357,9 +3505,27 @@ function MyStudentsContent() {
                     {isRejecting ? "Rejecting Request..." : "Reject Request"}
                   </button>
                   <button
-                    disabled={isPending || isDecisionDisabled || isApproving}
+                    disabled={isPending || isDecisionDisabled || isApproving || !!leaderValidUntilError}
                     onClick={async () => {
+                      const requestStudent = students.find((s) => s.enrollment_id === selectedRequest.enrollment_id)
+                      if (isLeaderRoleTransfer) {
+                        if (requestStudent && !requestStudent.is_student_leader) {
+                          const err = getLeaderValidUntilError(leaderValidUntil, validUntilTermRange, today)
+                          if (err) {
+                            setLeaderValidUntilError(err)
+                            return
+                          }
+                        }
+                      }
+
                       setIsApproving(true)
+
+                      if (isLeaderRoleTransfer) {
+                        if (requestStudent && !requestStudent.is_student_leader) {
+                          await handleRoleChangeFor(requestStudent, leaderValidUntil || null)
+                        }
+                      }
+
                       const res = applyPlan.isTimeRequest
                         ? await approveRequestWithCorrection(
                             selectedRequest.appeal_id,
@@ -3394,15 +3560,19 @@ function MyStudentsContent() {
                       setIsApproving(false)
                     }}
                     className="nstp-modal-btn nstp-modal-btn-primary"
-                    style={{ opacity: isPending || isDecisionDisabled || isApproving ? 0.6 : 1, flex: 1 }}
+                    style={{ opacity: isPending || isDecisionDisabled || isApproving  || !!leaderValidUntilError ? 0.6 : 1, flex: 1 }}
                   >
                     {isApproving
                       ? applyPlan.isTimeRequest && !applyPlan.isFlagCase
                         ? "Applying..."
-                        : "Approving..."
+                        : isLeaderRoleTransfer
+                          ? "Assigning..."
+                          : "Approving..."
                       : applyPlan.isTimeRequest && !applyPlan.isFlagCase
                         ? "Approve & Apply"
-                        : "Approve Request"}
+                        : isLeaderRoleTransfer
+                          ? "Approve & Assign Leader"
+                          : "Approve Request"}
                   </button>
                 </div>
               )}
