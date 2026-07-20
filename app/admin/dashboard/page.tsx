@@ -741,8 +741,17 @@ export default async function AdminDashboardPage({
 
   // ── SERVER-SIDE CALCULATIONS & PROCESSING ───────────────────────────────
   const rawGpsSessions = gpsComplianceRes?.data || []
-  if (gpsComplianceRes?.error) {
-    console.error("GPS compliance query error:", gpsComplianceRes.error)
+  const gpsComplianceError = gpsComplianceRes?.error as
+    | { message?: string; details?: string; hint?: string; code?: string }
+    | null
+    | undefined
+  if (gpsComplianceError?.message) {
+    console.warn("GPS compliance query warning:", {
+      message: gpsComplianceError.message,
+      details: gpsComplianceError.details,
+      hint: gpsComplianceError.hint,
+      code: gpsComplianceError.code,
+    })
   }
   const totalGpsSessions = rawGpsSessions.length
   const flaggedGpsSessions = rawGpsSessions.filter((s: any) => s.is_flagged).length
