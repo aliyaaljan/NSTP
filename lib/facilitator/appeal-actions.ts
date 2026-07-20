@@ -56,12 +56,14 @@ export async function getAdviserPendingRequests(): Promise<
           appeal_type_id,
           title,
           details,
+          resolution_note,
           attendance_session_id,
           requested_time_in,
           requested_time_out,
           created_at,
           appeal_status!inner (name, code),
           appeal_type:appeal_type_id (name),
+          leader_role_expires_at,
           appeal_attachment (storage_path, file_name, content_type, file_size_byte),
           attendance_session:attendance_session_id (
               started_at, ended_at, is_flagged, flag_reasons,
@@ -101,6 +103,7 @@ export async function getAdviserPendingRequests(): Promise<
         appeal_type_name: app.appeal_type?.name || "Others",
         title: app.title || "Request",
         note: app.details || "",
+        resolution_note: app.resolution_note || "",
         status: app.appeal_status?.name || "Pending Review",
         statusCode: app.appeal_status?.code || "pending",
         attachments: app.appeal_attachment ?? [],
@@ -124,6 +127,7 @@ export async function getAdviserPendingRequests(): Promise<
               year: "numeric",
             })
           : "—",
+         leaderRoleExpiresAt:app.leader_role_expires_at ?? null,
       }
     })
 

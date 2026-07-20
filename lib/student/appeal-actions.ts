@@ -41,6 +41,7 @@ export async function getStudentRequests(
           attendance_session_id,
           requested_time_in,
           requested_time_out,
+          leader_role_expires_at,
           resolution_note,
           created_at,
           updated_at,
@@ -79,6 +80,7 @@ export async function getStudentRequests(
         attendanceSessionId: app.attendance_session_id ?? null,
         requestedTimeIn: app.requested_time_in ?? null,
         requestedTimeOut: app.requested_time_out ?? null,
+        leaderRoleExpiresAt: app.leader_role_expires_at ?? null,
       }
     })
     return { ok: true, data: mappedRequests }
@@ -94,7 +96,8 @@ export async function submitStudentRequest(
   title: string,
   body: string,
   attachments: RequestAttachment[] = [],
-  structured: StructuredCorrection = {}
+  structured: StructuredCorrection = {},
+  leaderRoleExpiresAt?: string | null
 ): Promise<ActionResult<any>> {
   try {
     const supabase = await createSupabaseServerClient()
@@ -123,6 +126,7 @@ export async function submitStudentRequest(
         attendance_session_id: structured.attendanceSessionId ?? null,
         requested_time_in: structured.requestedTimeIn ?? null,
         requested_time_out: structured.requestedTimeOut ?? null,
+        leader_role_expires_at: leaderRoleExpiresAt ?? null,
       })
       .select("appeal_id")
       .single()
@@ -170,7 +174,8 @@ export async function updateStudentRequest(
   title: string,
   body: string,
   structured?: StructuredCorrection,
-  attachments?: { toInsert: RequestAttachment[]; removePaths: string[] }
+  attachments?: { toInsert: RequestAttachment[]; removePaths: string[] },
+  leaderRoleExpiresAt?: string | null
 ): Promise<ActionResult<any>> {
   try {
     const supabase = await createSupabaseServerClient()
@@ -216,6 +221,9 @@ export async function updateStudentRequest(
         structured.attendanceSessionId ?? null
       updatePayload.requested_time_in = structured.requestedTimeIn ?? null
       updatePayload.requested_time_out = structured.requestedTimeOut ?? null
+    }
+    if (leaderRoleExpiresAt !== undefined) {
+      updatePayload.leader_role_expires_at = leaderRoleExpiresAt
     }
 
     const { error: updateError } = await service

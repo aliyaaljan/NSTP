@@ -48,6 +48,7 @@ import {
 import LoadingPage from "@/components/shared/LoadingPage"
 import { useStudent } from "@/app/student/StudentContext"
 import { IconUpload } from "@tabler/icons-react"
+import { format, formatDate } from "date-fns"
 
 const MAX_NUM_ATTACHMENT = 1
 
@@ -127,9 +128,39 @@ interface RequestItem {
   attendanceSessionId?: string | null
   requestedTimeIn?: string | null
   requestedTimeOut?: string | null
+  leaderRoleExpiresAt?: string | null
 }
 
 const LEADER_ROLE_TRANSFER_CODE = "leader role transfer"
+
+function getLeaderValidUntilError(value: string, termRange: { start_date: string; end_date: string } | null): string {
+  if (!value) return ""
+
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return "Please enter a valid date."
+
+  const [, yearStr, monthStr, dayStr] = match
+  const year = parseInt(yearStr, 10)
+  const month = parseInt(monthStr, 10)
+  const day = parseInt(dayStr, 10)
+
+  const d = new Date(value)
+  const isRealDate = !isNaN(d.getTime()) && d.getUTCFullYear() === year && d.getUTCMonth() + 1 === month && d.getUTCDate() === day
+  if (!isRealDate) return "Please enter a valid date."
+
+  const today = format(new Date(), "yyyy-MM-dd")
+  if (value < today) return "Date can't be in the past."
+
+  if (termRange) {
+    if (value < termRange.start_date || value > termRange.end_date) {
+      return `Date must be within the current term (${formatDate(termRange.start_date, "MMM dd, yyyy")} to ${formatDate(termRange.end_date, "MMM dd, yyyy")}).`
+    }
+  } else if (year < new Date().getFullYear() || year >  new Date().getFullYear() + 1) {
+    return `Year must be between ${new Date().getFullYear()} and ${new Date().getFullYear() + 1}.`
+  }
+
+  return ""
+}
 
 function StatusBadge({ status }: { status: RequestItem["status"] }) {
   const map = {
@@ -216,6 +247,11 @@ export default function RequestsView() {
     []
   )
   const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [termRange, setTermRange] = useState<{start_date: string, end_date: string} | null>(null)
+  const [leaderValidUntil, setLeaderValidUntil] = useState("")
+  const [leaderValidUntilError, setLeaderValidUntilError] = useState("")
+  const [editLeaderValidUntil, setEditLeaderValidUntil] = useState("")
+  const [editLeaderValidUntilError, setEditLeaderValidUntilError] = useState("")
   const [timeCorrection, setTimeCorrection] = useState<TimeCorrectionState>(
     EMPTY_TIME_CORRECTION
   )
@@ -250,9 +286,10 @@ export default function RequestsView() {
   const [selectedTypeId, setSelectedTypeId] = useState<string>("")
   const [uploadZoneHover, setUploadZoneHover] = useState(false)
 
-  const isEditable =
+  const isEditable = Boolean(
     selectedRequest &&
-    normalizeStatus(selectedRequest.status) === "pending review"
+      normalizeStatus(selectedRequest.status) === "pending review"
+  )
 
   const [profile, setProfile] = useState({
     enrollmentId: "",
@@ -319,6 +356,41 @@ export default function RequestsView() {
       setSessionsLoading(false)
     })
   }, [showModal, selectedRequest])
+
+  useEffect(() => {
+    if (!showModal && !selectedRequest) return
+    if (!profile.enrollmentId) return
+
+    let cancelled = false
+    ;(async () => {
+      const { data: enrollmentData, error: enrollmentError } = await supabase
+        .from("enrollment")
+        .select("section_id")
+        .eq("enrollment_id", profile.enrollmentId)
+        .single()
+
+      if (cancelled) return
+      if (enrollmentError || !enrollmentData?.section_id) {
+        setTermRange(null)
+        return
+      }
+
+      const { data, error } = await supabase.rpc("get_section_term_range", {
+        p_section_id: enrollmentData.section_id,
+      })
+
+      if (cancelled) return
+      if (!error && data && data.length > 0) {
+        setTermRange(data[0])
+      } else {
+        setTermRange(null)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [showModal, selectedRequest, profile.enrollmentId])
 
   // real-time hook for
   useEffect(() => {
@@ -400,6 +472,15 @@ export default function RequestsView() {
     )
     const typeName = selectedTypeObj ? selectedTypeObj.name : "Others"
     const isTimeRequest = typeName === "Hour Adjustment"
+    const isLeaderTransfer = selectedTypeObj?.code === LEADER_ROLE_TRANSFER_CODE
+
+    if (isLeaderTransfer) {
+      const err = getLeaderValidUntilError(leaderValidUntil, termRange)
+      if (err) {
+        showError(err)
+        return
+      }
+    }
 
     let structured: StructuredCorrection | undefined
     if (isTimeRequest) {
@@ -465,7 +546,8 @@ export default function RequestsView() {
         formTitle,
         formBody,
         uploadedAttachments,
-        structured
+        structured,
+        isLeaderTransfer ? (leaderValidUntil || null) : undefined
       )
 
       if (res.ok) {
@@ -474,6 +556,8 @@ export default function RequestsView() {
         setFormBody("")
         setFormFiles([])
         setTimeCorrection(EMPTY_TIME_CORRECTION)
+        setLeaderValidUntil("")
+        setLeaderValidUntilError("")
         setShowModal(false)
         addToast("Your request has been submitted successfully.", "success")
       } else {
@@ -488,6 +572,8 @@ export default function RequestsView() {
       (t) => t.name === selectedRequest.type
     )
     const originalTypeId = originalType?.appeal_type_id ?? ""
+
+    const leaderDateChanged = (selectedRequest.leaderRoleExpiresAt ?? "") !== editLeaderValidUntil
 
     // Time-correction dirty: compare the current form against the state inferred
     // from the stored request (the same baseline the edit modal was seeded with).
@@ -507,6 +593,7 @@ export default function RequestsView() {
       editBody.trim() !== selectedRequest.body.trim() ||
       editTypeId !== originalTypeId ||
       timeChanged ||
+      leaderDateChanged ||
       removedAttachment ||
       editNewFiles.length > 0
     )
@@ -517,6 +604,16 @@ export default function RequestsView() {
     const editTypeName =
       requestType.find((t) => t.appeal_type_id === editTypeId)?.name ?? ""
     const editIsTimeRequest = editTypeName === "Hour Adjustment"
+    const editTypeObj = requestType.find((t) => t.appeal_type_id === editTypeId)
+    const editIsLeaderTransfer = editTypeObj?.code === LEADER_ROLE_TRANSFER_CODE
+
+    if (editIsLeaderTransfer) {
+      const err = getLeaderValidUntilError(editLeaderValidUntil, termRange)
+      if (err) {
+        showError(err)
+        return
+      }
+    }
 
     let structured: StructuredCorrection
     if (editIsTimeRequest) {
@@ -600,13 +697,16 @@ export default function RequestsView() {
         editTitle,
         cleanBody,
         structured,
-        { toInsert: uploadedAttachments, removePaths }
+        { toInsert: uploadedAttachments, removePaths },
+        editIsLeaderTransfer ? (editLeaderValidUntil || null) : undefined
       )
       if (res.ok) {
         await loadRequests(profile.enrollmentId)
         setSelectedRequest(null)
         setEditNewFiles([])
         setEditTimeCorrection(EMPTY_TIME_CORRECTION)
+        setEditLeaderValidUntil("")
+        setEditLeaderValidUntilError("")
         addToast("Your request has been updated successfully.", "success")
       } else {
         showError(
@@ -858,24 +958,34 @@ export default function RequestsView() {
   const selectedFormTypeName =
     requestType.find((t) => t.appeal_type_id === formTypeId)?.name ?? ""
   const isTimeRequest = selectedFormTypeName === "Hour Adjustment"
+  const isLeaderRoleTransfer = requestType.find((t) => t.appeal_type_id === formTypeId)?.code === LEADER_ROLE_TRANSFER_CODE
 
   const editSelectedTypeName =
     requestType.find((t) => t.appeal_type_id === editTypeId)?.name ?? ""
   const editIsTimeRequest = editSelectedTypeName === "Hour Adjustment"
+  const editIsLeaderRoleTransfer = requestType.find((t) => t.appeal_type_id === editTypeId)?.code === LEADER_ROLE_TRANSFER_CODE
+
+  function sortWithOthersLast<T extends { name: string }>(types: T[]): T[] {
+    return [...types].sort((a, b) => {
+      if (a.name === "Others") return 1
+      if (b.name === "Others") return -1
+      return 0
+    })
+  }
 
   // "Leader Role Transfer" is only offered to non-leader students. Hide it from
   // the category dropdowns when the current user is actually a section leader.
-  const addRequestTypes = requestType.filter(
+  const addRequestTypes = sortWithOthersLast(requestType.filter(
     (t) => !isCurrentUserLeader || t.code !== LEADER_ROLE_TRANSFER_CODE
-  )
+  ))
   // In the edit modal, keep the request's currently-selected type visible even if
   // it would otherwise be filtered, so editTypeId stays a valid option.
-  const editRequestTypes = requestType.filter(
+  const editRequestTypes = sortWithOthersLast(requestType.filter(
     (t) =>
       !isCurrentUserLeader ||
       t.code !== LEADER_ROLE_TRANSFER_CODE ||
       t.appeal_type_id === editTypeId
-  )
+  ))
 
   const [isMobile, setIsMobile] = useState(false)
 
@@ -1791,6 +1901,8 @@ export default function RequestsView() {
                         setEditTitle(request.title)
                         setEditBody(request.body)
                         setEditFiles(request.attachments ?? [])
+                        setEditLeaderValidUntil(request.leaderRoleExpiresAt ?? "")
+                        setEditLeaderValidUntilError("")
 
                         // Find the UUID that matches string name
                         const matchingType = requestType.find(
@@ -2186,6 +2298,51 @@ export default function RequestsView() {
                   {formTitle.length}/50
                 </div>
               </div>
+              
+              {isLeaderRoleTransfer && (
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#6B7280",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.6px",
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Valid Until{" "}
+                    <span style={{ fontWeight: 400, textTransform: "none" }}>(leave blank for end of semester)</span>
+                  </label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={leaderValidUntil}
+                    min={new Date().toISOString().split("T")[0]}
+                    max={termRange?.end_date ?? `${new Date().getFullYear() + 1}-12-31`}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setLeaderValidUntil(value)
+                      setLeaderValidUntilError(getLeaderValidUntilError(value, termRange))
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      border: `1.5px solid ${leaderValidUntilError ? "#B91C1C" : "#E5E7EB"}`,
+                      fontSize: 14,
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  {leaderValidUntilError && (
+                    <div style={{ fontSize: 11.5, color: "#B91C1C", marginTop: 4 }}>
+                      {leaderValidUntilError}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {isTimeRequest && (
                 <TimeCorrectionFields
@@ -2432,6 +2589,8 @@ export default function RequestsView() {
                   setFormBody("")
                   setFormFiles([])
                   setTimeCorrection(EMPTY_TIME_CORRECTION)
+                  setLeaderValidUntil("")
+                  setLeaderValidUntilError("")
                   if (requestType.length > 0) {
                     setFormTypeId(requestType[0].appeal_type_id)
                   }
@@ -2454,7 +2613,7 @@ export default function RequestsView() {
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={isPending || !formTitle.trim() || !formBody.trim()}
+                disabled={isPending || !formTitle.trim() || !formBody.trim() || (isLeaderRoleTransfer && !!leaderValidUntilError)}
                 style={{
                   padding: "10px 24px",
                   borderRadius: 12,
@@ -2465,11 +2624,11 @@ export default function RequestsView() {
                   fontWeight: 700,
                   fontFamily: "inherit",
                   cursor:
-                    !formTitle.trim() || !formBody.trim()
+                    !formTitle.trim() || !formBody.trim() || (isLeaderRoleTransfer && !!leaderValidUntilError)
                       ? "not-allowed"
                       : "pointer",
                   transition: "background 0.13s, opacity 0.13s",
-                  opacity: !formTitle.trim() || !formBody.trim() ? 0.45 : 1,
+                  opacity: !formTitle.trim() || !formBody.trim() || (isLeaderRoleTransfer && !!leaderValidUntilError) ? 0.45 : 1,
                   flex: 1,
                 }}
               >
@@ -2676,6 +2835,57 @@ export default function RequestsView() {
                   }}
                 >
                   {editTitle.length}/50
+                </div>
+              )}
+
+              {editIsLeaderRoleTransfer && (
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#6B7280",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.6px",
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Valid Until{" "}
+                    <span style={{ fontWeight: 400, textTransform: "none" }}>(leave blank for end of semester)</span>
+                  </label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={editLeaderValidUntil}
+                    disabled={!isEditable}
+                    min={new Date().toISOString().split("T")[0]}
+                    max={termRange?.end_date ?? `${new Date().getFullYear()}-12-31`}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setEditLeaderValidUntil(value)
+                      setEditLeaderValidUntilError(getLeaderValidUntilError(value, termRange))
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      background: isEditable ? "#fff" : "#F3F4F6",
+                      border: isEditable
+                        ? `1.5px solid ${editLeaderValidUntilError ? "#B91C1C" : "#E5E7EB"}`
+                        : "none",
+                      color: "#444",
+                      fontSize: 14,
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                      cursor: isEditable ? "text" : "default",
+                    }}
+                  />
+                  {isEditable && editLeaderValidUntilError && (
+                    <div style={{ fontSize: 11.5, color: "#B91C1C", marginTop: 4, marginBottom: 8 }}>
+                      {editLeaderValidUntilError}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3137,7 +3347,7 @@ export default function RequestsView() {
                   {isEditable && (
                     <button
                       onClick={handleEditSave}
-                      disabled={isPending || !hasChanges()}
+                      disabled={isPending || !hasChanges() || (editIsLeaderRoleTransfer && !!editLeaderValidUntilError)}
                       style={{
                         background: C.green,
                         color: "white",
@@ -3147,8 +3357,8 @@ export default function RequestsView() {
                         fontFamily: "inherit",
                         fontSize: 13.5,
                         fontWeight: 600,
-                        cursor: hasChanges() ? "pointer" : "not-allowed",
-                        opacity: hasChanges() ? 1 : 0.45,
+                        cursor:  hasChanges() && !(editIsLeaderRoleTransfer && !!editLeaderValidUntilError) ? "pointer" : "not-allowed",
+                        opacity:  hasChanges() && !(editIsLeaderRoleTransfer && !!editLeaderValidUntilError) ? 1 : 0.45,
                         flex: 1,
                       }}
                     >
