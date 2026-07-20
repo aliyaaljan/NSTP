@@ -157,7 +157,7 @@ function StudentEmailNotification({ isSmallMobile }: { isSmallMobile: boolean })
 }
 
 function StudentPushNotification({ isSmallMobile }: { isSmallMobile: boolean }) {
-  const { subscribe, unsubscribe, isSubscribed, isSupported } = usePushSubscription()
+  const { subscribe, unsubscribe, isSubscribed, setIsSubscribed, isSupported } = usePushSubscription()
   const [enabled, setEnabled] = useState(true)
   const [loading, setLoading] = useState(true)
   const [needsInstall, setNeedsInstall] = useState(false)
@@ -168,11 +168,29 @@ function StudentPushNotification({ isSmallMobile }: { isSmallMobile: boolean }) 
   }, [])
 
   useEffect(() => {
+    if (!isSupported) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const registration = await navigator.serviceWorker.ready
+        const sub = await registration.pushManager.getSubscription()
+        if (!cancelled) setIsSubscribed(!!sub)
+      } catch (err) {
+        console.error("Failed to check push subscription:", err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isSupported])
+
+  useEffect(() => {
     getNotificationPreferences().then((res) => {
-      if (res.ok) setEnabled(res.data.email_notifications_enabled)
+      if (res.ok) setEnabled(res.data.push_notifications_enabled)
       setLoading(false)
     })
   }, [])
+
 
   async function toggle() {
     setBusy(true)

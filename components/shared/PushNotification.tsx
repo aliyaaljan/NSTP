@@ -12,7 +12,7 @@ function isIosSafariNotInstalled() {
 }
 
 export function PushNotification() {
-  const { subscribe, unsubscribe, isSubscribed, isSupported } = usePushSubscription()
+  const { subscribe, unsubscribe, isSubscribed, setIsSubscribed, isSupported } = usePushSubscription()
   const [needsInstall, setNeedsInstall] = useState(false)
   const [enabled, setEnabled] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -23,8 +23,28 @@ export function PushNotification() {
   }, [])
 
   useEffect(() => {
+    if (!isSupported) return
+    let cancelled = false;
+    (async () => {
+  console.log('[push-check] starting, isSupported =', isSupported)
+  try {
+    const registration = await navigator.serviceWorker.ready
+    console.log('[push-check] registration ready', registration)
+    const sub = await registration.pushManager.getSubscription()
+    console.log('[push-check] sub result', sub)
+    if (!cancelled) setIsSubscribed(!!sub)
+  } catch (err) {
+    console.error("Failed to check push subscription:", err)
+  }
+})()
+    return () => {
+      cancelled = true
+    }
+  }, [isSupported])
+
+  useEffect(() => {
     getNotificationPreferences().then((res) => {
-      if (res.ok) setEnabled(res.data.email_notifications_enabled)
+      if (res.ok) setEnabled(res.data.push_notifications_enabled)
       setLoading(false)
     })
   }, [])
@@ -79,7 +99,7 @@ export function PushNotification() {
       ) : (
         <button
           role="switch"
-          aria-checked={isSubscribed && enabled}
+          aria-checked={isSubscribed}
           onClick={toggle}
           disabled={busy}
           style={{
@@ -89,7 +109,7 @@ export function PushNotification() {
             borderRadius: 999,
             border: "none",
             cursor: busy ? "not-allowed" : "pointer",
-            background: isSubscribed && enabled ? "var(--green)" : "#D1D5DB",
+            background: isSubscribed ? "var(--green)" : "#D1D5DB",
             flexShrink: 0,
             padding: 0,
             opacity: busy ? 0.6 : 1,
@@ -99,7 +119,7 @@ export function PushNotification() {
             style={{
               position: "absolute",
               top: 2,
-              left: isSubscribed && enabled ? 18 : 2,
+              left: isSubscribed ? 18 : 2,
               width: 16,
               height: 16,
               background: "#fff",
