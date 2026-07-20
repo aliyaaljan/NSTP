@@ -1339,7 +1339,8 @@ function MyStudentsContent() {
     const matchSearch =
       q === "" ||
       (s.student_name ?? "").toLowerCase().includes(q) ||
-      (s.student_number ?? "").includes(q)
+      (s.student_number ?? "").includes(q) ||
+      (s.student_email ?? "").toLowerCase().includes(q)
     const matchSection =
       selectedSection === "All Sections" || s.section_name === selectedSection
     const matchFilters = (
@@ -1361,9 +1362,11 @@ function MyStudentsContent() {
   })
 
   const filteredPending = pendingRequests.filter((r) => {
+    const q = pendingSearch.trim().toLowerCase()
     const matchSearch =
-      pendingSearch.trim() === "" ||
-      r.student_name.toLowerCase().includes(pendingSearch.toLowerCase())
+      q === "" ||
+      r.student_name.toLowerCase().includes(q) ||
+      (r.title ?? "").toLowerCase().includes(q)
     const matchSection =
       selectedSection === "All Sections" || r.section_name === selectedSection
     const matchFilters = (
@@ -2473,7 +2476,7 @@ function MyStudentsContent() {
                               setPendingSearch(e.target.value)
                               setPendingPage(1)
                             }}
-                            placeholder="Search student name..."
+                            placeholder="Search..."
                           />
                         </div>
 

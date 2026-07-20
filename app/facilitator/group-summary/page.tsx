@@ -34,7 +34,7 @@ interface SectionSummary {
   editRequests: number;
   gpsCompliance: number;
   avgAttendanceRate: number;
-  students: { name: string; hoursLogged: number; totalHours: number; status: "Completed" | "In Progress" | "Not Started" }[];
+  students: { name: string; hoursLogged: number; totalHours: number; status: "Completed" | "In Progress" | "Not Started"; isAtRisk: boolean; }[];
 }
 
 const statusColor: Record<string, { bg: string; color: string }> = {
@@ -244,14 +244,7 @@ function AttendanceDonut({ pct, present, total }: { pct: number; present: number
 
 const summaryStyles = `
   ${dashboardStyles}
-
-  .gs-stat-cards .db-kpi-card--interactive:hover {
-    transform: none !important;
-    box-shadow: none !important;
-    border-color: var(--border) !important;
-  }
   .gs-kpi-completed .db-kpi-value { color: var(--text, #111827) !important; }
-
   .gs-body { flex: 1; overflow: auto; padding-top: 16px; display: flex; flex-direction: column; gap: 16px; }
 
   /* Section cards */
@@ -316,6 +309,16 @@ const summaryStyles = `
 
 type SummaryFilter = "all" | "completed" | "atRisk" | "progress";
 
+function getVisibleStudents(
+  section: SectionSummary,
+  filter: SummaryFilter
+) {
+  if (filter === "completed") return section.students.filter(st => st.status === "Completed");
+  if (filter === "atRisk") return section.students.filter(st => st.isAtRisk);
+  if (filter === "progress") return section.students.filter(st => st.status === "In Progress");
+  return section.students;
+}
+
 export default function GroupSummaryPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -379,14 +382,14 @@ export default function GroupSummaryPage() {
     { label: "Overall Progress", value: `${overallPct}%`, Icon: IconChartBar,      filter: "progress" as const },
   ];
 
-  const filteredSections = sections.filter(s => {
-    const matchSearch = !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.students.some(st => st.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredSections = sections
+  .map(s => ({ ...s, visibleStudents: getVisibleStudents(s, summaryFilter) }))
+  .filter(s => {
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q || s.name.toLowerCase().includes(q) ||
+      s.visibleStudents.some(st => st.name.toLowerCase().includes(q));
     if (!matchSearch) return false;
-    if (summaryFilter === "completed") return s.completed > 0;
-    if (summaryFilter === "atRisk") return s.atRisk > 0;
-    if (summaryFilter === "progress") return s.completionPct > 0;
-    return true;
+    return summaryFilter === "all" || s.visibleStudents.length > 0;
   });
 
   const BoundSidebar = () => (
@@ -455,8 +458,8 @@ export default function GroupSummaryPage() {
                     key={label}
                     className={`db-kpi-card db-kpi-card--interactive${
                       label === "Completed" ? " gs-kpi-completed" : ""
-                    }`}
-                    onClick={() => setSummaryFilter(filter)}
+                    }${summaryFilter === filter ? " gs-kpi-active" : ""}`}
+                    onClick={() => setSummaryFilter(prev => (prev === filter ? "all" : filter))}
                     aria-label={`${label}: ${value}`}
                     aria-pressed={summaryFilter === filter}
                   >
@@ -560,17 +563,34 @@ export default function GroupSummaryPage() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {section.students.map((st) => (
-                                    <tr key={st.name}>
-                                      <td><div className="gs-student-name">{st.name}</div></td>
-                                      <td style={{ fontSize: 12, color: "var(--muted)" }}>{st.hoursLogged}/{st.totalHours} hrs</td>
-                                      <td>
-                                        <span className="gs-status-badge" style={{ background: statusColor[st.status].bg, color: statusColor[st.status].color }}>
-                                          {st.status}
-                                        </span>
+                                  {section.visibleStudents.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={3} style={{ textAlign: "center", color: "var(--muted)", padding: "24px 0" }}>
+                                        No students match this filter.
                                       </td>
                                     </tr>
-                                  ))}
+                                  ) : (
+                                    section.visibleStudents.map((st) => (
+                                      <tr key={st.name} style={st.isAtRisk ? { background: "#FEF2F2" } : undefined}>
+                                        <td>
+                                          <div className="gs-student-name">{st.name}</div>
+                                        </td>
+                                        <td style={{ fontSize: 12, color: "var(--muted)" }}>
+                                          {st.hoursLogged}/{st.totalHours} hrs
+                                        </td>
+                                        <td>
+                                          <span className="gs-status-badge" style={{ background: statusColor[st.status].bg, color: statusColor[st.status].color }}>
+                                            {st.status}
+                                          </span>
+                                          {st.isAtRisk && (
+                                            <span className="gs-status-badge" style={{ background: "#FEE2E2", color: "#991B1B", marginRight: 8 }}>
+                                              At Risk
+                                            </span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))
+                                  )}
                                 </tbody>
                               </table>
                             </div>
