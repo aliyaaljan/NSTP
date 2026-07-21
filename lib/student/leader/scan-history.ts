@@ -103,16 +103,21 @@ export function filterScansByMonthAndWeek(
   monthString: string,
   weekOption: string
 ): ScanRecord[] {
-  if (!scans || scans.length === 0 || !monthString) return []
+  if (!scans || scans.length === 0) return []
 
+  // return full array if no month is selecte . default to "all" upon page landing
+  if (!monthString) {
+    return weekOption === "all" ? scans : []
+  }
+
+  // apply normal filtering to selected month
   const targetDate = new Date(`${monthString} 1`)
-  if (isNaN(targetDate.getTime())) return scans
 
   const targetMonth = targetDate.getMonth()
   const targetYear = targetDate.getFullYear()
 
+  // check not scanned entries
   return scans.filter((scan) => {
-    // Handle "Not Scanned" entries cleanly (they usually don't have a valid date string)
     if (!scan.date || scan.date.trim() === "") return weekOption === "all"
 
     const [yearStr, monthStr, dayStr] = scan.date.split("-")
@@ -123,10 +128,10 @@ export function filterScansByMonthAndWeek(
     // Filter by the selected Month & Year first
     if (scanYear !== targetYear || scanMonth !== targetMonth) return false
 
-    // If "All" weeks is selected, return all days in this specific month
+    // If "all" weeks is selected, return all days in this specific month
     if (weekOption === "all") return true
 
-    // Otherwise, filter by the specific week of the month
+    // filter specficic week of the month
     const targetWeek = parseInt(weekOption.replace("week-", ""), 10)
     const weekOfMonth = Math.ceil(scanDay / 7)
 
