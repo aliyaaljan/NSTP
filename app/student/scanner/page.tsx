@@ -31,8 +31,15 @@ export default function LeaderScannerPage() {
   const pathname = usePathname()
 
   const [scannerOpen, setScannerOpen] = useState(false)
-  const [selectedWeek, setSelectedWeek] = useState<string>("all")
-  const [selectedMonth, setSelectedMonth] = useState<string>("")
+  const [selectedWeek, setSelectedWeek] = useState<string>(() => {
+    return `week-${Math.ceil(new Date().getDate() / 7)}`
+  })
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    return new Date().toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    })
+  })
   const [shouldAutoSelect, setShouldAutoSelect] = useState(true)
   const [scans, setScans] = useState<ScanRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -51,11 +58,13 @@ export default function LeaderScannerPage() {
   } | null>(null)
 
   useEffect(() => {
-    // Reset all filters to General All
-    setSelectedWeek("all")
-    setSelectedMonth("")
+    // reset back to "Today" when navigating back to page
+    const today = new Date()
+    setSelectedWeek(`week-${Math.ceil(today.getDate() / 7)}`)
+    setSelectedMonth(
+      today.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    )
     setStatusFilter(null)
-    setShouldAutoSelect(false)
     setResetKey((prev) => prev + 1)
   }, [pathname])
 
@@ -107,6 +116,7 @@ export default function LeaderScannerPage() {
     loadDatabaseScans()
   }, [])
 
+  /*
   useEffect(() => {
     if (shouldAutoSelect && !selectedMonth && scans.length > 0) {
       const months = Array.from(
@@ -133,7 +143,7 @@ export default function LeaderScannerPage() {
       }
     }
   }, [scans, selectedMonth, shouldAutoSelect])
-
+*/
   // Handle General All
   const handleGeneralAllClick = () => {
     setSelectedMonth("")
