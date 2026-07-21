@@ -1,44 +1,44 @@
 "use client"
 
 import { useState } from "react"
-import { IconClock, IconClockPause, IconUserX } from "@tabler/icons-react"
+import { IconClock, IconCheck, IconUserX } from "@tabler/icons-react"
 import { C } from "./theme"
 
 export function StatsCards({
   isMobile,
   totalScans,
-  onTimeCount,
-  lateCount,
+  presentCount,
+  averageHours,
   notScannedCount,
   selectedMonth,
   selectedWeek,
-  onCardClick, 
-  activeFilter, 
+  onCardClick,
+  activeFilter,
 }: {
   isMobile: boolean
   totalScans: number
-  onTimeCount: number
-  lateCount: number
+  presentCount: number
+  totalHours: number
   notScannedCount: number
   selectedMonth?: string
   selectedWeek?: string
-  onCardClick?: (filterType: 'on-time' | 'late' | 'not-scanned') => void 
-  activeFilter?: 'on-time' | 'late' | 'not-scanned' | null 
+  onCardClick?: (filterType: "present" | "not-scanned") => void
+  activeFilter?: "present" | "not-scanned" | null
 }) {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null)
 
-  const onTimeColor = {
+  const presentColor = {
     bg: "#C8D8C0",
     text: "#2D5C3A",
     border: "#8AAE8A",
     icon: "#3A7A4A",
   }
 
-  const lateColor = {
-    bg: "#F5E6C0",
-    text: "#8B5E1A",
-    border: "#D4A840",
-    icon: "#C8882A",
+  const hoursColor = {
+    bg: "#E8F4F8",
+    text: "#1E4B5E",
+    border: "#90C2D5",
+    icon: "#2A6B85",
   }
 
   const notScannedColor = {
@@ -50,25 +50,31 @@ export function StatsCards({
 
   const stats = [
     {
-      label: "On Time",
-      value: onTimeCount,
-      color: onTimeColor,
+      label: "Present",
+      value: presentCount,
+      color: presentColor,
       icon: "ti-circle-check",
-      filterType: 'on-time' as const,
+      filterType: "present" as const,
+      clickable: true,
     },
     {
-      label: "Late",
-      value: lateCount,
-      color: lateColor,
-      icon: "ti-circle-check",
-      filterType: 'late' as const,
+      label: "Avg Hours", // Updated Label
+      // Formats nicely: 2.5 hrs vs 0 hrs
+      value: `${
+        averageHours % 1 !== 0 ? averageHours.toFixed(1) : averageHours
+      } hrs`,
+      color: hoursColor,
+      icon: "ti-clock",
+      filterType: null,
+      clickable: false,
     },
     {
       label: "Not Scanned",
       value: notScannedCount,
       color: notScannedColor,
       icon: "ti-user-x",
-      filterType: 'not-scanned' as const,
+      filterType: "not-scanned" as const,
+      clickable: true,
     },
   ]
 
@@ -90,7 +96,7 @@ export function StatsCards({
       case "ti-circle-check":
         return <IconClock size={size} stroke={2} color={color} />
       case "ti-clock":
-        return <IconClockPause size={size} stroke={2} color={color} />
+        return <IconCheck size={size} stroke={2} color={color} />
       case "ti-user-x":
         return <IconUserX size={size} stroke={2} color={color} />
       default:
@@ -100,7 +106,8 @@ export function StatsCards({
 
   const defaultColor = "#666666"
 
-  const isFilterActive = (filterType: 'on-time' | 'late' | 'not-scanned') => {
+  const isFilterActive = (filterType: "present" | "not-scanned" | null) => {
+    if (!filterType) return false
     return activeFilter === filterType
   }
 
@@ -125,7 +132,6 @@ export function StatsCards({
         {getTimeContext()}
       </div>
 
-      {/* Stats */}
       <div
         style={{
           display: "grid",
@@ -136,15 +142,19 @@ export function StatsCards({
       >
         {stats.map((stat) => {
           const isHovered = hoveredCard === stat.label
-          const isNotScanned = stat.filterType === 'not-scanned'
+          const isNotScanned = stat.filterType === "not-scanned"
           const isActive = isFilterActive(stat.filterType)
 
           return (
             <div
               key={stat.label}
-              onMouseEnter={() => setHoveredCard(stat.label)}
-              onMouseLeave={() => setHoveredCard(null)}
-              onClick={() => onCardClick?.(stat.filterType)}
+              onMouseEnter={() => stat.clickable && setHoveredCard(stat.label)}
+              onMouseLeave={() => stat.clickable && setHoveredCard(null)}
+              onClick={() =>
+                stat.clickable &&
+                stat.filterType &&
+                onCardClick?.(stat.filterType as any)
+              }
               style={{
                 position: "relative",
                 flex: 1,
@@ -152,49 +162,55 @@ export function StatsCards({
                 width: "100%",
                 textAlign: "left",
                 background: "#FFFFFF",
-                backgroundImage: "linear-gradient(to bottom right, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0))",
+                backgroundImage:
+                  "linear-gradient(to bottom right, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0))",
                 border: `2px solid ${
-                  isActive 
-                    ? stat.color.icon 
-                    : isHovered 
-                      ? stat.color.icon 
-                      : "#ECECEA"
+                  isActive
+                    ? stat.color.icon
+                    : isHovered
+                    ? stat.color.icon
+                    : "#ECECEA"
                 }`,
                 borderRadius: "14px",
-                padding: isMobile ? "12px 16px" : "16px 18px",
-                boxShadow: isActive 
+                padding: isMobile ? "10px 14px" : "16px 18px",
+                boxShadow: isActive
                   ? "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
-                  : isHovered 
-                    ? "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
-                    : "0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04)",
-                cursor: "pointer",
+                  : isHovered
+                  ? "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
+                  : "0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04)",
+                cursor: stat.clickable ? "pointer" : "default",
                 transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                 overflow: "hidden",
-                textDecoration: "none",
                 color: "inherit",
-                transform: isActive || isHovered ? "translateY(-2px)" : "translateY(0)",
+                transform:
+                  (isActive || isHovered) && stat.clickable
+                    ? "translateY(-2px)"
+                    : "translateY(0)",
               }}
             >
-              {/* Header with label */}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  marginBottom: isMobile ? "6px" : "10px",
+                  marginBottom: isMobile ? "4px" : "10px",
                   position: "relative",
                   zIndex: 1,
                 }}
               >
                 <span
                   style={{
-                    fontSize: isMobile ? "10px" : "11.5px",
+                    fontSize: isMobile ? "9px" : "11.5px",
                     fontWeight: 600,
-                    color: isActive 
-                      ? (isNotScanned ? "#000000" : stat.color.icon)
-                      : isHovered 
-                        ? (isNotScanned ? "#000000" : stat.color.icon) 
-                        : defaultColor,
+                    color: isActive
+                      ? isNotScanned
+                        ? "#000000"
+                        : stat.color.icon
+                      : isHovered
+                      ? isNotScanned
+                        ? "#000000"
+                        : stat.color.icon
+                      : defaultColor,
                     textTransform: "uppercase",
                     letterSpacing: "0.5px",
                     transition: "color .25s ease",
@@ -204,19 +220,21 @@ export function StatsCards({
                   {stat.label}
                 </span>
               </div>
-
-              {/* Value */}
               <div
                 style={{
-                  fontSize: isMobile ? "26px" : "34px",
+                  fontSize: isMobile ? "22px" : "34px",
                   fontWeight: 800,
                   lineHeight: 1.1,
                   fontFamily: "'Montserrat', 'Fallback Montserrat'",
-                  color: isActive 
-                    ? (isNotScanned ? "#000000" : stat.color.icon)
-                    : isHovered 
-                      ? (isNotScanned ? "#000000" : stat.color.icon) 
-                      : defaultColor,
+                  color: isActive
+                    ? isNotScanned
+                      ? "#000000"
+                      : stat.color.icon
+                    : isHovered
+                    ? isNotScanned
+                      ? "#000000"
+                      : stat.color.icon
+                    : defaultColor,
                   position: "relative",
                   zIndex: 1,
                   display: "flex",
@@ -227,8 +245,6 @@ export function StatsCards({
               >
                 {stat.value}
               </div>
-
-              {/* Icon */}
               <div
                 style={{
                   position: "absolute",
@@ -238,18 +254,37 @@ export function StatsCards({
                   alignItems: "center",
                   justifyContent: "center",
                   opacity: isActive ? 0.2 : isHovered ? 0.2 : 0.08,
-                  color: isActive 
-                    ? (isNotScanned ? "#000000" : stat.color.icon)
-                    : isHovered 
-                      ? (isNotScanned ? "#000000" : stat.color.icon) 
-                      : defaultColor,
+                  color: isActive
+                    ? isNotScanned
+                      ? "#000000"
+                      : stat.color.icon
+                    : isHovered
+                    ? isNotScanned
+                      ? "#000000"
+                      : stat.color.icon
+                    : defaultColor,
                   pointerEvents: "none",
                   zIndex: 0,
                   transition: "all 0.3s ease",
-                  transform: isActive || isHovered ? "rotate(0deg) scale(1.08)" : "rotate(0deg) scale(1)",
+                  transform:
+                    (isActive || isHovered) && stat.clickable
+                      ? "rotate(0deg) scale(1.08)"
+                      : "rotate(0deg) scale(1)",
                 }}
               >
-                {getIcon(stat.icon, isMobile ? 80 : 110, isActive ? (isNotScanned ? "#000000" : stat.color.icon) : isHovered ? (isNotScanned ? "#000000" : stat.color.icon) : defaultColor)}
+                {getIcon(
+                  stat.icon,
+                  isMobile ? 70 : 110,
+                  isActive
+                    ? isNotScanned
+                      ? "#000000"
+                      : stat.color.icon
+                    : isHovered
+                    ? isNotScanned
+                      ? "#000000"
+                      : stat.color.icon
+                    : defaultColor
+                )}
               </div>
             </div>
           )

@@ -1,4 +1,4 @@
-export type ScanStatus = "On Time" | "Late" | "Not Scanned"
+export type ScanStatus = "Present" | "Not Scanned"
 
 export type ScanRecord = {
   id: string
@@ -6,12 +6,10 @@ export type ScanRecord = {
   date: string
   generatedTime: string
   scannedTime: string
+  timeOut?: string
+  hours?: number
   status: ScanStatus
-  timeOut: string | null
-  hours: number
 }
-
-export const LATE_CUTOFF_MINUTES = 8 * 60 + 15
 
 const manilaDateFmt = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Manila",
@@ -25,13 +23,6 @@ const manilaClockFmt = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
   minute: "2-digit",
   hour12: true,
-})
-
-const manilaPartsFmt = new Intl.DateTimeFormat("en-US", {
-  timeZone: "Asia/Manila",
-  hour: "numeric",
-  minute: "numeric",
-  hour12: false,
 })
 
 function safeParse(iso: string | null | undefined): Date | null {
@@ -52,24 +43,12 @@ export function manilaClock(iso: string | null | undefined): string {
   return manilaClockFmt.format(d)
 }
 
-export function manilaMinutesPastMidnight(
-  iso: string | null | undefined
-): number {
-  const d = safeParse(iso)
-  if (!d) return -1
-  const parts = manilaPartsFmt.formatToParts(d)
-  const hour = Number(parts.find((p) => p.type === "hour")?.value)
-  const minute = Number(parts.find((p) => p.type === "minute")?.value)
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return -1
-  return hour * 60 + minute
-}
-
 export function todayManilaKey(): string {
   return manilaDateFmt.format(new Date())
 }
 
 export function formatDate(dateStr: string) {
-  if (dateStr === "—") return "—"
+  if (!dateStr || dateStr.trim() === "") return "—"
 
   const todayKey = todayManilaKey()
   if (dateStr === todayKey) return "Today"
@@ -96,7 +75,7 @@ export function groupByMonth(
   scans: ScanRecord[]
 ): Record<string, ScanRecord[]> {
   return scans.reduce((acc, scan) => {
-    if (scan.date === "—") return acc
+    if (!scan.date || scan.date.trim() === "") return acc
     const [y, m, d] = scan.date.split("-").map(Number)
     const dateObj = new Date(y, m - 1, d)
 
@@ -124,12 +103,8 @@ export function filterScansByMonthAndWeek(
   monthString: string,
   weekOption: string
 ): ScanRecord[] {
-  if (!scans || scans.length === 0) return []
+  if (!scans || scans.length === 0 || !monthString) return []
 
-  // if "all" is selected, return everything so the dashboard can group by month
-  if (weekOption === "all") return scans
-
-  // parse Month Year
   const targetDate = new Date(`${monthString} 1`)
   if (isNaN(targetDate.getTime())) return scans
 
@@ -137,19 +112,21 @@ export function filterScansByMonthAndWeek(
   const targetYear = targetDate.getFullYear()
 
   return scans.filter((scan) => {
+    // Handle "Not Scanned" entries cleanly (they usually don't have a valid date string)
+    if (!scan.date || scan.date.trim() === "") return weekOption === "all"
+
     const [yearStr, monthStr, dayStr] = scan.date.split("-")
     const scanYear = parseInt(yearStr, 10)
     const scanMonth = parseInt(monthStr, 10) - 1
     const scanDay = parseInt(dayStr, 10)
 
-    // check if scan matches the month and year in dropdown
+    // Filter by the selected Month & Year first
     if (scanYear !== targetYear || scanMonth !== targetMonth) return false
 
-    // If "All" weeks is selected, return all days in T
+    // If "All" weeks is selected, return all days in this specific month
     if (weekOption === "all") return true
 
-    // Calculate Week of the Month (Days 1-7 = Week 1, 8-14 = Week 2, etc.)
-    // Otherwise, filter by the specific week
+    // Otherwise, filter by the specific week of the month
     const targetWeek = parseInt(weekOption.replace("week-", ""), 10)
     const weekOfMonth = Math.ceil(scanDay / 7)
 

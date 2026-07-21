@@ -7,8 +7,6 @@ import {
   type ScanRecord,
   manilaDateKey,
   manilaClock,
-  manilaMinutesPastMidnight,
-  LATE_CUTOFF_MINUTES,
 } from "@/lib/student/leader/scan-history"
 
 export async function fetchLeaderScanHistory(): Promise<ScanRecord[]> {
@@ -29,8 +27,7 @@ export async function fetchLeaderScanHistory(): Promise<ScanRecord[]> {
       attendance_event_id,
       effective_at,
       generated_at,
-      attendance_session!left (
-        started_at,
+      attendance_session:attendance_session_id (
         ended_at,
         duration_minute
       ),
@@ -57,19 +54,15 @@ export async function fetchLeaderScanHistory(): Promise<ScanRecord[]> {
     const appUser = Array.isArray(appUserRaw) ? appUserRaw[0] : appUserRaw
     const fullName: string = appUser?.full_name ?? "Unknown Student"
 
-    const session = row.attendance_session
-    let timeOut: string | null = null
-    let hours: number = 0
+    const sessionRaw = row.attendance_session
+    const session = Array.isArray(sessionRaw) ? sessionRaw[0] : sessionRaw
 
-    if (session) {
-      if (session.ended_at) {
-        timeOut = manilaClock(session.ended_at)
-      }
-      
-      if (session.duration_minute) {
-        hours = parseFloat((session.duration_minute / 60).toFixed(1))
-      }
-    }
+    const hours = session?.duration_minute
+      ? Number((session.duration_minute / 60).toFixed(2))
+      : 0
+    const timeOut = session?.ended_at
+      ? manilaClock(session.ended_at)
+      : "Ongoing"
 
     return {
       id: row.attendance_event_id,
@@ -79,10 +72,7 @@ export async function fetchLeaderScanHistory(): Promise<ScanRecord[]> {
       scannedTime: manilaClock(row.effective_at),
       timeOut: timeOut,
       hours: hours,
-      status:
-        manilaMinutesPastMidnight(row.effective_at) > LATE_CUTOFF_MINUTES
-          ? ("Late" as const)
-          : ("On Time" as const),
+      status: "Present",
     }
   })
 }
