@@ -18,7 +18,7 @@ export function StatsCards({
   isMobile: boolean
   totalScans: number
   presentCount: number
-  totalHours: number
+  averageHours: number
   notScannedCount: number
   selectedMonth?: string
   selectedWeek?: string
