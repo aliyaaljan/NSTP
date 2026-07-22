@@ -13,6 +13,7 @@ import {
   type AuditLogQuery,
 } from "@/lib/admin/audit-log"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
+import { getActiveTermMeta } from "@/lib/admin/active-term"
 
 /**
  * Fetches everything the admin audit log page needs.
@@ -76,17 +77,11 @@ export async function getAuditLogData(
     { data: appealStatus },
     { data: enrollmentStatus },
     { data: roles },
-    { data: activeTerm },
     { data: attendanceStatus },
   ] = await Promise.all([
     supabase.from("appeal_status").select("appeal_status_id, name"),
     supabase.from("enrollment_status").select("enrollment_status_id, name"),
     supabase.from("role").select("role_id, code"),
-    supabase
-      .from("term")
-      .select("academic_year, semester")
-      .eq("is_active", true)
-      .maybeSingle(),
     supabase
       .from("attendance_session_status")
       .select("attendance_session_status_id, name"),
@@ -146,10 +141,7 @@ export async function getAuditLogData(
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
-  const meta: AuditLogMeta = {
-    academicYear: activeTerm?.academic_year || "2025-2026",
-    semester: activeTerm?.semester || "2nd Semester",
-  }
+  const meta: AuditLogMeta = await getActiveTermMeta(supabase)
 
   return {
     entries,

@@ -7,9 +7,6 @@ import {
   IconClipboardText,
   IconChartBar,
   IconLogout2,
-  IconUsers,
-  IconClock,
-  IconCircleCheck,
   IconChevronLeft,
   IconChevronRight,
   IconUser,
@@ -46,23 +43,6 @@ export const navRoutes: Record<string, string> = {
   "Forms":         "/facilitator/forms",
   "Group Summary": "/facilitator/group-summary",
 };
-
-// ── Dashboard data ────────────────────────────────────────────────────
-export const dashboardStudents = [
-  { name: "Rhona Shayne Lopez",      pct: 72  },
-  { name: "Jaerish Kyle Rabang",     pct: 48  },
-  { name: "Saffi Limbaro",           pct: 90  },
-  { name: "Aliya Aljan Mendoza",     pct: 70  },
-  { name: "Charles Ansbert Joaquin", pct: 100 },
-  { name: "Axel Xandrei Valido",     pct: 50  },
-  { name: "Janine Irish Tulic",      pct: 0   },
-];
-
-export const dashboardStatCards = [
-  { label: "Total Students", value: 40, Icon: IconUsers       },
-  { label: "Pending Review", value: 10, Icon: IconClock       },
-  { label: "Completed",      value: 3,  Icon: IconCircleCheck },
-];
 
 const DAYS   = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [

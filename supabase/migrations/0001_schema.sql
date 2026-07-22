@@ -579,7 +579,7 @@ insert into appeal_status (code, name) values
   ('under_review', 'Under Review'),
   ('approved',     'Approved'),
   ('rejected',     'Rejected'),
-  ('Canceled', 'canceled')
+  ('canceled',     'Canceled')
 on conflict (code) do nothing;
 
 insert into section_status (code, name) values

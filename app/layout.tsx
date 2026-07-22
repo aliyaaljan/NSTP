@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { Goblin_One, Cormorant, Montserrat } from "next/font/google"
 import "./globals.css"
-import { StudentProvider } from "@/app/student/StudentContext"
 
 const goblinOne = Goblin_One({
   weight: "400",
@@ -58,9 +57,10 @@ export default function RootLayout({
           ["--font-content" as string]: "var(--font-montserrat, 'Helvetica Neue', Arial, sans-serif)",
         }}
       >
-        <StudentProvider>
-          {children}
-        </StudentProvider>
+        {/* StudentProvider lives in app/student/layout.tsx so its
+            getStudentDashboard() fetch only runs for student pages, not for
+            admin/facilitator/login routes. */}
+        {children}
       </body>
     </html>
   )

@@ -28,6 +28,7 @@ import {
 } from "@/lib/admin/form-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import { getActiveTermMeta } from "@/lib/admin/active-term"
 import { uploadFormFile, deleteFormFile, getSignedUrl } from "@/lib/forms/storage"
 import { formatClassLabel } from "@/lib/shared/class-label"
 import {
@@ -123,11 +124,7 @@ export async function getFormListData(query: FormListQuery): Promise<FormListPag
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
-  const meta: FormListMeta = {
-    // TODO(backend): read from `term` where is_active = true
-    academicYear: "2025-2026",
-    semester: "2nd Semester",
-  }
+  const meta: FormListMeta = await getActiveTermMeta(supabase)
 
   return {
     forms,
@@ -144,7 +141,7 @@ async function resolveCurrentUser(
   userId?: string
 ): Promise<AdminCurrentUser> {
   if (!userId) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const { data: appUser } = await supabase
@@ -154,13 +151,13 @@ async function resolveCurrentUser(
     .maybeSingle()
 
   if (!appUser?.full_name) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const isAdmin = (appUser.role as { code?: string } | null)?.code === "admin"
 
   return {
-    name: isAdmin ? "Admin Test Account" : appUser.full_name,
+    name: appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
     avatarUrl: (appUser as any).avatar_url ?? undefined,
   }

@@ -181,43 +181,6 @@ export function mapTermToAcademicConfig(
   }
 }
 
-export function buildSampleHolidays(termId: string): HolidayRow[] {
-  return [
-    {
-      holidayId: "sample-holiday-001",
-      termId,
-      name: "National Heroes Day",
-      date: "2025-08-25",
-      description: "Regular holiday",
-      isSample: true,
-    },
-    {
-      holidayId: "sample-holiday-002",
-      termId,
-      name: "All Saints' Day",
-      date: "2025-11-01",
-      description: "Regular holiday",
-      isSample: true,
-    },
-    {
-      holidayId: "sample-holiday-003",
-      termId,
-      name: "Christmas Day",
-      date: "2025-12-25",
-      description: "Regular holiday",
-      isSample: true,
-    },
-    {
-      holidayId: "sample-holiday-004",
-      termId,
-      name: "University Foundation Day",
-      date: "2025-10-15",
-      description: "UP Baguio institutional holiday",
-      isSample: true,
-    },
-  ]
-}
-
 export function paginateSettingsList<T>(
   rows: T[],
   page: number,

@@ -14,7 +14,11 @@ import {
 import { getActiveLeaderEnrollment } from "@/lib/auth/leader"
 
 export async function signInWithDevPassword(formData: FormData): Promise<void> {
-  if (process.env.NODE_ENV === "production" || process.env.DEV_AUTH_ENABLED !== "true") {
+  // Gate on the same NEXT_PUBLIC_DEV_AUTH_ENABLED flag the client login form
+  // checks (app/login/LoginForm.tsx) so the documented single var controls both
+  // sides — previously this read a separate DEV_AUTH_ENABLED, so the form would
+  // render but every submit redirected to "Dev login unavailable".
+  if (process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_DEV_AUTH_ENABLED !== "true") {
     redirect("/?error=Dev+login+unavailable+in+this+environment.")
   }
 
