@@ -930,6 +930,14 @@ revoke execute on function public.record_self_time_out(uuid, uuid, text, jsonb) 
 -- ============================================================
 
 -- get_adviser_dashboard_data — roster + completion stats per section
+--
+-- ⚠️ SUPERSEDED BY 0008_appeal_status_pending.sql: that later migration drops
+-- and recreates this function with a different signature (adds `is_active` and
+-- `term_start_date`, and removes the synthetic "All Active Classes" row). The
+-- definition below is the ORIGINAL and is intentionally left as-is for history,
+-- but the LIVE/effective shape is the 0008 one — `app/facilitator/dashboard`
+-- reads `is_active` / `term_start_date`. Do not reason about this function from
+-- the body below; edit the 0008 copy instead.
 create or replace function public.get_adviser_dashboard_data(p_adviser_user_id uuid)
 returns table(
   section_id uuid, section_name text, total integer, pending integer,
@@ -1971,6 +1979,202 @@ revoke execute on function public.broadcast_form_changes() from public;
 revoke execute on function public.broadcast_form_changes() from anon, authenticated;
 revoke execute on function public.broadcast_section_reassignment() from public;
 revoke execute on function public.broadcast_section_reassignment() from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- get_summary: facilitator Group Summary aggregation, grouped per
+-- section_geofence "group". Captured from the live DB on 2026-07-22 — this
+-- function had existed ONLY on the live project (schema drift). The migration
+-- previously just granted/revoked it, so a from-migrations build (a) broke the
+-- Group Summary page (PGRST202 function does not exist) and (b) errored on the
+-- revoke lines below. Defined here so migrations match live. Keep in sync with
+-- live; do not hand-edit the body without re-checking the live definition.
+-- ---------------------------------------------------------------------------
+create or replace function public.get_summary(p_adviser_user_id uuid)
+ returns table(id uuid, name text, "totalStudents" integer, completed integer, "inProgress" integer, "notStarted" integer, "avgHours" integer, "totalHours" integer, "completionPct" integer, "atRisk" integer, "filesSubmitted" integer, "formsCompletionRate" integer, "editRequests" integer, "gpsCompliance" integer, "avgAttendanceRate" integer, students jsonb)
+ language plpgsql
+ stable security definer
+ set search_path to 'public', 'pg_temp'
+as $function$begin
+  if not (p_adviser_user_id = auth.uid() or public.app_is_admin()) then
+    raise exception 'not authorized to read this adviser''s dashboard';
+  end if;
+
+  return query
+  with student_minutes as (
+    select
+      e.enrollment_id,
+      e.section_id,
+      e.assigned_geofence_id,
+      coalesce(sum(att.duration_minute), 0) as total_minutes
+    from enrollment e
+    left join attendance_session att
+      on att.enrollment_id = e.enrollment_id
+      and att.attendance_session_status_id not in (
+            select attendance_session_status_id
+            from attendance_session_status
+            where code in ('open', 'voided')
+          )
+    where e.enrollment_status_id in (
+            select enrollment_status_id
+            from enrollment_status
+            where code in ('active', 'completed')
+          )
+    group by e.enrollment_id, e.section_id, e.assigned_geofence_id
+  ),
+  student_forms as (
+    select
+      fs.enrollment_id,
+      count(*) filter (
+        where fss.code = 'approved'   -- TODO: confirm actual "completed" status code
+      )::integer as forms_completed,
+      count(fr.form_requirement_id)::integer as forms_required
+    from enrollment e
+    join section s on s.section_id = e.section_id
+    join form_requirement fr
+      on fr.section_id = s.section_id
+      and fr.is_active = true
+      and not exists (
+        select 1 from form_requirement_exclusion fre
+        where fre.section_id = s.section_id
+          and fre.form_requirement_id = fr.form_requirement_id
+      )
+    left join form_submission fs
+      on fs.enrollment_id = e.enrollment_id
+      and fs.form_requirement_id = fr.form_requirement_id
+    left join form_submission_status fss
+      on fss.form_submission_status_id = fs.form_submission_status_id
+    group by fs.enrollment_id, e.enrollment_id
+  ),
+  student_files as (
+    select
+      fs.enrollment_id,
+      count(*)::integer as files_submitted
+    from form_submission fs
+    group by fs.enrollment_id
+  ),
+  student_gps as (
+    select
+      att.enrollment_id,
+      count(*)::integer as total_sessions,
+      count(*) filter (where att.is_flagged = false)::integer as compliant_sessions
+    from attendance_session att
+    group by att.enrollment_id
+  ),
+  student_appeals as (
+    select
+      appe.enrollment_id,
+      count(*)::integer as edit_requests
+    from appeal appe
+    where appe.appeal_status_id in (
+            select appeal_status_id from appeal_status where code in ('pending', 'under_review')
+          )
+      -- TODO: filter by appeal_type_id if edit requests are a distinct type
+    group by appe.enrollment_id
+  ),
+  student_weekly_scan as (
+    select distinct ae.enrollment_id
+    from attendance_event ae
+    where ae.effective_at >= date_trunc('week', now())
+      and ae.effective_at < date_trunc('week', now()) + interval '7 days'
+  ),
+  group_students as (
+    select
+      sm.assigned_geofence_id,
+      s.required_hour_total,
+      u.full_name,
+      sm.total_minutes,
+      s.term_id,
+      e.enrollment_id,
+      coalesce(sf.forms_completed, 0) as forms_completed,
+      coalesce(sf.forms_required, 0) as forms_required,
+      coalesce(sfi.files_submitted, 0) as files_submitted,
+      coalesce(sg.total_sessions, 0) as total_sessions,
+      coalesce(sg.compliant_sessions, 0) as compliant_sessions,
+      coalesce(sa.edit_requests, 0) as edit_requests,
+      (sws.enrollment_id is not null) as scanned_this_week,
+      case
+        when sm.total_minutes::numeric >= s.required_hour_total * 60 then 'Completed'
+        when sm.total_minutes = 0 then 'Not Started'
+        else 'In Progress'
+      end as status,
+      (
+        ((now()::date - t.start_date)::numeric / nullif((t.end_date - t.start_date), 0) * 100)
+        - (sm.total_minutes::numeric / nullif(s.required_hour_total * 60, 0) * 100)
+      ) > 20 as is_at_risk
+    from student_minutes sm
+    join section s on s.section_id = sm.section_id
+    join enrollment e on e.enrollment_id = sm.enrollment_id
+    join app_user u on u.app_user_id = e.student_user_id
+    join term t on t.term_id = s.term_id
+    left join student_forms sf on sf.enrollment_id = e.enrollment_id
+    left join student_files sfi on sfi.enrollment_id = e.enrollment_id
+    left join student_gps sg on sg.enrollment_id = e.enrollment_id
+    left join student_appeals sa on sa.enrollment_id = e.enrollment_id
+    left join student_weekly_scan sws on sws.enrollment_id = e.enrollment_id
+    where s.adviser_user_id = p_adviser_user_id
+  ),
+  group_stats as (
+    select
+      gs.assigned_geofence_id,
+      g.label as group_name,
+      count(gs.full_name)::integer as total,
+      count(gs.full_name) filter (where gs.status = 'Completed')::integer as completed,
+      count(gs.full_name) filter (where gs.status = 'In Progress')::integer as in_progress,
+      count(gs.full_name) filter (where gs.status = 'Not Started')::integer as not_started,
+      count(gs.full_name) filter (where gs.is_at_risk)::integer as at_risk,
+      round(avg(gs.total_minutes) / 60.0)::integer as avg_hours,
+      max(gs.required_hour_total) as total_hours,
+      round(
+        count(gs.full_name) filter (where gs.status = 'Completed')::numeric
+        / nullif(count(gs.full_name), 0) * 100
+      )::integer as completion_pct,
+      sum(gs.files_submitted)::integer as files_submitted,
+      round(
+        sum(gs.forms_completed)::numeric / nullif(sum(gs.forms_required), 0) * 100
+      )::integer as forms_completion_rate,
+      sum(gs.edit_requests)::integer as edit_requests,
+      round(
+        avg(
+          case when gs.total_sessions > 0
+               then gs.compliant_sessions::numeric / gs.total_sessions * 100
+               else null
+          end
+        )
+      )::integer as gps_compliance,
+      round(
+        count(gs.enrollment_id) filter (where gs.scanned_this_week)::numeric
+        / nullif(count(gs.enrollment_id), 0) * 100
+      )::integer as avg_attendance_rate,
+      jsonb_agg(json_build_object(
+        'name', gs.full_name,
+        'hoursLogged', round(gs.total_minutes / 60.0),
+        'totalHours', gs.required_hour_total,
+        'status', gs.status,
+        'isAtRisk', gs.is_at_risk
+      )) as students
+    from group_students gs
+    join section_geofence g on g.section_geofence_id = gs.assigned_geofence_id
+    group by gs.assigned_geofence_id, g.label
+  )
+  select
+    gst.assigned_geofence_id as id,
+    gst.group_name as name,
+    gst.total as "totalStudents",
+    gst.completed as completed,
+    gst.in_progress as "inProgress",
+    gst.not_started as "notStarted",
+    gst.avg_hours as "avgHours",
+    gst.total_hours as "totalHours",
+    coalesce(gst.completion_pct, 0) as "completionPct",
+    gst.at_risk as "atRisk",
+    gst.files_submitted as "filesSubmitted",
+    coalesce(gst.forms_completion_rate, 0) as "formsCompletionRate",
+    gst.edit_requests as "editRequests",
+    gst.gps_compliance as "gpsCompliance",
+    gst.avg_attendance_rate as "avgAttendanceRate",
+    gst.students as students
+  from group_stats gst;
+end;$function$;
 
 -- get_summary: authenticated-only (self-guards via auth.uid()), matching the
 -- pattern already used for the other adviser RPCs above.

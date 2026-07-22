@@ -329,7 +329,6 @@ export async function cancelStudentRequest(
       .from("appeal")
       .update({
         appeal_status_id: canceledStatusId,
-        updated_at: new Date().toISOString(),
       })
       .eq("appeal_id", appealId)
 

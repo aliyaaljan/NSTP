@@ -1040,13 +1040,71 @@ export default async function AdminDashboardPage({
       }
     })
 
+  // --- Active Students term-over-term delta (computed, previously hardcoded "↑ 4%") ---
+  // Compares this term's active roster with the previous term's roster. Only
+  // shown on the unscoped, current-term view — a "v.s. last sem" figure is
+  // meaningless next to a section/year-filtered count, so we omit the badge then.
+  let activeStudentsBadge: KpiStatCardProps["badge"] | undefined
+  let activeStudentsNote: string | undefined
+  if (activeTerm?.term_id && !hasClassScope && !includeCompletedEnrollments) {
+    const allTerms = (termsRes?.data ?? []) as {
+      term_id: string
+      end_date: string | null
+    }[]
+    const activeEnd = activeTerm.end_date
+    const previousTerm =
+      allTerms
+        .filter(
+          (t) =>
+            t.term_id !== activeTerm.term_id &&
+            t.end_date != null &&
+            (activeEnd == null || t.end_date < activeEnd)
+        )
+        .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0] ?? null
+
+    if (previousTerm) {
+      const [currentCountRes, previousCountRes] = await Promise.all([
+        supabase
+          .from("enrollment")
+          .select("enrollment_id, section!inner(term_id)", {
+            count: "exact",
+            head: true,
+          })
+          .eq("section.term_id", activeTerm.term_id)
+          .eq("enrollment_status_id", activeStatusId),
+        supabase
+          .from("enrollment")
+          .select("enrollment_id, section!inner(term_id)", {
+            count: "exact",
+            head: true,
+          })
+          .eq("section.term_id", previousTerm.term_id)
+          .in("enrollment_status_id", [activeStatusId, completedStatusId]),
+      ])
+      const currentCount = currentCountRes.count ?? 0
+      const previousCount = previousCountRes.count ?? 0
+      if (previousCount > 0) {
+        const deltaPct = Math.round(
+          ((currentCount - previousCount) / previousCount) * 100
+        )
+        const up = deltaPct >= 0
+        activeStudentsBadge = {
+          text: `${up ? "↑" : "↓"} ${Math.abs(deltaPct)}%`,
+          bg: up ? COLORS.greenBgLight : COLORS.maroonDarkBgLight,
+          color: up ? COLORS.green : COLORS.maroonDark,
+        }
+        activeStudentsNote = "v.s. last sem"
+      }
+    }
+  }
+
   const statCards: KpiStatCardProps[] = [
     {
       icon: "ti-users",
       label: "Active Students",
       value: rawEnrollments.length,
-      badge: { text: `↑ 4%`, bg: COLORS.greenBgLight, color: COLORS.green },
-      note: "v.s. last sem",
+      badge: activeStudentsBadge,
+      note: activeStudentsNote,
       href: "/admin/students",
     },
     {

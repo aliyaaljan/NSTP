@@ -4,7 +4,6 @@ import { getAppUserRole } from "@/lib/auth-actions"
 import {
   ACCESS_CONTROL_USER_SELECT,
   buildAccessControlSummary,
-  buildSampleAccessControlRows,
   mapAccessControlDbRow,
   type AccessControlDbRow,
   type AccessControlMeta,
@@ -28,6 +27,7 @@ import {
 } from "@/lib/admin/access-control-edit"
 import { createSupabaseServerClient } from "@/lib/supabase/server-client"
 import { createSupabaseServiceClient } from "@/lib/supabase/service-client"
+import { getActiveTermMeta } from "@/lib/admin/active-term"
 import { userOwnsActiveTermSection } from "@/lib/admin/facilitator-pool"
 import {
   countActiveAdmins,
@@ -45,8 +45,6 @@ import {
  * 1. Keep returning `AccessControlPageData` — no UI changes required.
  * 2. Move `filterAccessControlRows()` logic into SQL when the list grows large.
  * 3. Add server-side search (`ilike` on full_name, email, student_number) when needed.
- * 4. Replace hardcoded `meta` with a `term` table lookup.
- * 5. Remove `buildSampleAccessControlRows()` merge once production data exists.
  */
 export async function getAccessControlData(
   query: AccessControlQuery
@@ -95,16 +93,13 @@ export async function getAccessControlData(
       ?.map((row) => mapAccessControlDbRow(row, facilitatorOwnerIds.has(row.app_user_id)))
       .filter((row): row is NonNullable<typeof row> => row !== null) ?? []
 
-  const users =
-    dbUsers.length > 0 ? dbUsers : buildSampleAccessControlRows(roles)
+  // Real users only — an empty roster shows the "no users" empty state in the
+  // UI rather than fabricated sample rows.
+  const users = dbUsers
 
   const currentUser = await resolveCurrentUser(supabase, authData.user?.id)
 
-  const meta: AccessControlMeta = {
-    // TODO(backend): read from `term` where is_active = true
-    academicYear: "2025-2026",
-    semester: "2nd Semester",
-  }
+  const meta: AccessControlMeta = await getActiveTermMeta(supabase)
 
   return {
     users,
@@ -121,7 +116,7 @@ async function resolveCurrentUser(
   userId?: string
 ): Promise<AdminCurrentUser> {
   if (!userId) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const { data: appUser } = await supabase
@@ -131,13 +126,13 @@ async function resolveCurrentUser(
     .maybeSingle()
 
   if (!appUser?.full_name) {
-    return { name: "Admin Test Account", role: "NSTP Admin" }
+    return { name: "Admin", role: "NSTP Admin" }
   }
 
   const isAdmin = (appUser.role as { code?: string } | null)?.code === "admin"
 
   return {
-    name: isAdmin ? "Admin Test Account" : appUser.full_name,
+    name: appUser.full_name,
     role: isAdmin ? "NSTP Admin" : "Admin",
     avatarUrl: (appUser as any).avatar_url ?? undefined,
   }

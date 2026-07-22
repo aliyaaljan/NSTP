@@ -416,18 +416,6 @@ export default function AccessControlClient({
                       <td>
                         <div style={{ fontWeight: 700, color: COLORS.textDark }}>
                           {user.fullName}
-                          {user.isSample && (
-                            <span
-                              style={{
-                                fontSize: 12,
-                                color: COLORS.textGray,
-                                fontWeight: 400,
-                                marginLeft: 8,
-                              }}
-                            >
-                              (preview)
-                            </span>
-                          )}
                         </div>
                         <div style={{ fontSize: 12, color: COLORS.textGray, marginTop: 2 }}>
                           {user.email}
@@ -529,10 +517,7 @@ export default function AccessControlClient({
             setDetailUser(null)
           }}
           deleteLabel="Deactivate"
-          editDisabled={detailUser.isSample}
-          deleteDisabled={
-            detailUser.isSample || (isDeleting && deletingId === detailUser.appUserId)
-          }
+          deleteDisabled={isDeleting && deletingId === detailUser.appUserId}
         />
       )}
 
