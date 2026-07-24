@@ -78,11 +78,12 @@ function cellToString(value: ExcelJS.CellValue): string {
     if ("richText" in value) return value.richText.map((part) => part.text).join("")
     if ("text" in value) return String(value.text)
     if ("result" in value) {
+      // Formula `result` is string | number | Date | { error } — not full CellValue.
       const result = value.result
       if (result == null) return ""
-      // Formula results may be `{ error: CellErrorValue }`, which is not CellValue.
-      if (typeof result === "object" && !(result instanceof Date) && "error" in result) return ""
-      return cellToString(result)
+      if (result instanceof Date) return result.toISOString()
+      if (typeof result === "object") return ""
+      return String(result)
     }
     if ("error" in value) return ""
   }
