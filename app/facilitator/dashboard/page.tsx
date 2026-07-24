@@ -172,15 +172,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      const full: string = user?.user_metadata?.full_name ?? ""
-      const parts = full.trim().split(" ")
-      setFirstName(parts[0] ?? "")
-      setLastName(parts.at(-1) ?? "")
-      setInitials(((parts[0] ?? "")[0] ?? "") + ((parts.at(-1) ?? "")[0] ?? ""))
-      setAvatarUrl(googleAvatarUrl(user))
-      setUserId(user?.id ?? null)
-      if (user?.id) await fetchDashboardBundle(user.id)
-      setIsPageLoading(false)
+      try {
+        const full: string = user?.user_metadata?.full_name ?? ""
+        const parts = full.trim().split(" ")
+        setFirstName(parts[0] ?? "")
+        setLastName(parts.at(-1) ?? "")
+        setInitials(((parts[0] ?? "")[0] ?? "") + ((parts.at(-1) ?? "")[0] ?? ""))
+        setAvatarUrl(googleAvatarUrl(user))
+        setUserId(user?.id ?? null)
+        if (user?.id) await fetchDashboardBundle(user.id)
+      } catch (err) {
+        console.error("[facilitator/dashboard] load failed", err)
+      } finally {
+        setIsPageLoading(false)
+      }
     })
   }, [supabase, fetchDashboardBundle])
 
@@ -233,14 +238,38 @@ export default function DashboardPage() {
             .sort((a, b) => new Date(a.sem_end_date).getTime() - new Date(b.sem_end_date).getTime())[0]
         : activeSemData.find((r) => r.section_name === selectedSection)
 
-  const currentData = dashboardData.find((r) => r.section_name === selectedSection)
+  const currentData =
+    dashboardData.find((r) => r.section_name === selectedSection) ??
+    dashboardData[0] ??
+    null
 
-  if (isPageLoading || !currentData) {
+  if (isPageLoading) {
     return (
       <>
         <style>{dashboardStyles}</style>
         <ChartStyles />
         <LoadingPage Sidebar={BoundSidebar} />
+      </>
+    )
+  }
+
+  if (!currentData) {
+    return (
+      <>
+        <style>{dashboardStyles}</style>
+        <ChartStyles />
+        <div className="db-root">
+          <BoundSidebar />
+          <main className="db-main" style={{ padding: 40 }}>
+            <h1 style={{ color: "#7B1113", fontSize: 28, fontWeight: 800, margin: 0 }}>
+              Dashboard
+            </h1>
+            <p style={{ color: "#7A7A7A", marginTop: 12 }}>
+              No class data is available yet. If you were just assigned a section,
+              refresh in a moment or contact an admin.
+            </p>
+          </main>
+        </div>
       </>
     )
   }

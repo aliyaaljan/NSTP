@@ -581,138 +581,140 @@ export default function StudentFilesPage() {
   }
 
   const loadData = async () => {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (user) {
-      const parts = (user.user_metadata?.full_name || "").split(" ")
-      setStudent((prev) => ({
-        ...prev,
-        initials: (parts[0]?.[0] || "") + (parts.at(-1)?.[0] || ""),
-        displayName: user.user_metadata?.full_name || "Student",
-      }))
-    }
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        const parts = (user.user_metadata?.full_name || "").split(" ")
+        setStudent((prev) => ({
+          ...prev,
+          initials: (parts[0]?.[0] || "") + (parts.at(-1)?.[0] || ""),
+          displayName: user.user_metadata?.full_name || "Student",
+        }))
+      }
 
-    const dashboardRes = await getStudentDashboard()
-    if (dashboardRes.ok) {
-      setStudent((prev) => ({
-        ...prev,
-        section: dashboardRes.data.sectionName ?? "",
-        avatarUrl: dashboardRes.data.avatarUrl ?? null,
-      }))
-    }
+      const dashboardRes = await getStudentDashboard()
+      if (dashboardRes.ok) {
+        setStudent((prev) => ({
+          ...prev,
+          section: dashboardRes.data.sectionName ?? "",
+          avatarUrl: dashboardRes.data.avatarUrl ?? null,
+        }))
+      }
 
-    const enrollRes = await getStudentActiveEnrollmentId()
-    if (!enrollRes.ok) {
-      setLoading(false)
-      return
-    }
-    setEnrollmentId(enrollRes.data)
+      const enrollRes = await getStudentActiveEnrollmentId()
+      if (!enrollRes.ok) return
+      setEnrollmentId(enrollRes.data)
 
-    const formsRes = await getMyForms(enrollRes.data)
-    if (formsRes.ok) {
-      const mappedForms: Form[] = formsRes.data.map((req) => {
-        // Evaluate links and files if submission exists
-        const submittedFiles = []
-        const submittedLinks = []
-        if (req.submission) {
-          const path = req.submission.storage_path
-          if (path.startsWith("gdrive:")) {
-            const url = path.replace("gdrive:", "")
-            const fileName = req.submission.file_name || "Google Drive File"
-            submittedLinks.push({
-              url: url,
-              fileName: fileName,
-              submissionId: req.submission.form_submission_id,
-            })
-          } else {
-            submittedFiles.push({
-              name: req.submission.file_name || "Submission",
-              type:
-                req.submission.content_type?.split("/")?.pop()?.toUpperCase() ||
-                "FILE",
-              size: req.submission.file_size_byte
-                ? formatFileSize(req.submission.file_size_byte)
-                : "0 KB",
-              url: path,
-              submissionId: req.submission.form_submission_id,
-            })
+      const formsRes = await getMyForms(enrollRes.data)
+      if (formsRes.ok) {
+        const mappedForms: Form[] = formsRes.data.map((req) => {
+          // Evaluate links and files if submission exists
+          const submittedFiles = []
+          const submittedLinks = []
+          if (req.submission) {
+            const path = req.submission.storage_path ?? ""
+            if (path.startsWith("gdrive:")) {
+              const url = path.replace("gdrive:", "")
+              const fileName = req.submission.file_name || "Google Drive File"
+              submittedLinks.push({
+                url: url,
+                fileName: fileName,
+                submissionId: req.submission.form_submission_id,
+              })
+            } else if (path) {
+              submittedFiles.push({
+                name: req.submission.file_name || "Submission",
+                type:
+                  req.submission.content_type?.split("/")?.pop()?.toUpperCase() ||
+                  "FILE",
+                size: req.submission.file_size_byte
+                  ? formatFileSize(req.submission.file_size_byte)
+                  : "0 KB",
+                url: path,
+                submissionId: req.submission.form_submission_id,
+              })
+            }
           }
-        }
 
-        // Parse date for sorting
-        let sortDate: Date | null = null
-        let formattedDeadline = "—"
-        if (req.due_date) {
-          const dateObj = new Date(req.due_date)
-          if (!isNaN(dateObj.getTime())) {
-            sortDate = dateObj
-            formattedDeadline = dateObj.toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })
-          }
-        }
-
-        return {
-          id: req.form_requirement_id,
-          name: req.title,
-          deadline: formattedDeadline,
-          sortDate: sortDate,
-          status:
-            req.status === "missing" || req.status === "rejected"
-              ? "pending"
-              : "uploaded",
-          realStatus: req.status,
-          hasTemplate: req.has_template,
-          submittedFiles,
-          submittedLinks,
-          reviewerComment: req.submission?.reviewer_comment,
-          submissionDate: req.submission?.submitted_at
-            ? new Date(req.submission.submitted_at).toLocaleDateString("en-US", {
-                month: "short",
+          // Parse date for sorting
+          let sortDate: Date | null = null
+          let formattedDeadline = "—"
+          if (req.due_date) {
+            const dateObj = new Date(req.due_date)
+            if (!isNaN(dateObj.getTime())) {
+              sortDate = dateObj
+              formattedDeadline = dateObj.toLocaleDateString("en-US", {
+                month: "long",
                 day: "numeric",
                 year: "numeric",
               })
-            : undefined,
-          submissionTime: req.submission?.submitted_at
-            ? new Date(req.submission.submitted_at).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
-            : undefined,
-        }
-      })
-      setForms(mappedForms)
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search)
-        const targetId = params.get("formId")
-        if (targetId) {
-          const targetForm = mappedForms.find((f) => f.id === targetId)
-          if (targetForm) {
-            if (targetForm.status === "uploaded") {
-              setViewingForm(targetForm)
-              setShowViewModal(true)
-            } else {
-              setSelectedForm(targetForm)
-              setShowModal(true)
-              // Reset upload modal states
-              setSelectedFiles([])
-              setLinks([])
-              setLinkInput("")
-              setShowLinkInput(false)
-              setIsDropdownOpen(false)
             }
-            // Clean up the URL so refresh doesn't re-trigger the modal
-            window.history.replaceState(null, "", "/student/forms")
+          }
+
+          return {
+            id: req.form_requirement_id,
+            name: req.title,
+            deadline: formattedDeadline,
+            sortDate: sortDate,
+            status:
+              req.status === "missing" || req.status === "rejected"
+                ? "pending"
+                : "uploaded",
+            realStatus: req.status,
+            hasTemplate: req.has_template,
+            submittedFiles,
+            submittedLinks,
+            reviewerComment: req.submission?.reviewer_comment,
+            submissionDate: req.submission?.submitted_at
+              ? new Date(req.submission.submitted_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : undefined,
+            submissionTime: req.submission?.submitted_at
+              ? new Date(req.submission.submitted_at).toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })
+              : undefined,
+          }
+        })
+        setForms(mappedForms)
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search)
+          const targetId = params.get("formId")
+          if (targetId) {
+            const targetForm = mappedForms.find((f) => f.id === targetId)
+            if (targetForm) {
+              if (targetForm.status === "uploaded") {
+                setViewingForm(targetForm)
+                setShowViewModal(true)
+              } else {
+                setSelectedForm(targetForm)
+                setShowModal(true)
+                // Reset upload modal states
+                setSelectedFiles([])
+                setLinks([])
+                setLinkInput("")
+                setShowLinkInput(false)
+                setIsDropdownOpen(false)
+              }
+              // Clean up the URL so refresh doesn't re-trigger the modal
+              window.history.replaceState(null, "", "/student/forms")
+            }
           }
         }
       }
+    } catch (err) {
+      console.error("[student/forms] load failed", err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {

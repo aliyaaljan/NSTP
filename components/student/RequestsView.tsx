@@ -330,17 +330,25 @@ export default function RequestsView() {
         }
       })
 
-    getStudentDashboard().then((res) => {
-      if (cancelled || !res.ok) return
-      setProfile({
-        enrollmentId: res.data.enrollmentId ?? "",
-        fullName: res.data.fullName,
-        sectionName: res.data.sectionName ?? "",
-        avatarUrl: res.data.avatarUrl ?? null,
+    getStudentDashboard()
+      .then((res) => {
+        if (cancelled) return
+        if (res.ok) {
+          setProfile({
+            enrollmentId: res.data.enrollmentId ?? "",
+            fullName: res.data.fullName,
+            sectionName: res.data.sectionName ?? "",
+            avatarUrl: res.data.avatarUrl ?? null,
+          })
+          if (res.data.enrollmentId) loadRequests(res.data.enrollmentId)
+        }
       })
-      if (res.data.enrollmentId) loadRequests(res.data.enrollmentId)
-      setLoading(false)
-    })
+      .catch((err) => {
+        console.error("[RequestsView] getStudentDashboard failed", err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => {
       cancelled = true
     }
