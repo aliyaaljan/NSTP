@@ -383,31 +383,37 @@ export default function FormsPage() {
   const [editFile, setEditFile] = useState<File | null>(null)
 
   const loadData = async () => {
-    const secRes = await getFacilitatorSectionId()
-    if (!secRes.ok) {
-      setErrorMsg(secRes.error)
-      return
+    try {
+      const secRes = await getFacilitatorSectionId()
+      if (!secRes.ok) {
+        setErrorMsg(secRes.error)
+        return
+      }
+      setSectionId(secRes.data)
+
+      const [subRes, reqRes] = await Promise.all([
+        getSubmissionsByForm(secRes.data),
+        getRequirementsForSection(secRes.data),
+      ])
+
+      if (subRes.ok) {
+        const flattened: DisplayEntry[] = subRes.data.flatMap((group) =>
+          group.entries.map((entry) => ({
+            ...entry,
+            type: group.requirement.title,
+            dueDate: group.requirement.due_date,
+          }))
+        )
+        setRealEntries(flattened)
+      }
+
+      if (reqRes.ok) setRepoForms(reqRes.data)
+    } catch (err) {
+      console.error("[facilitator/forms] load failed", err)
+      setErrorMsg("Failed to load forms. Please try again.")
+    } finally {
+      setIsPageLoading(false)
     }
-    setSectionId(secRes.data)
-
-    const [subRes, reqRes] = await Promise.all([
-      getSubmissionsByForm(secRes.data),
-      getRequirementsForSection(secRes.data),
-    ])
-
-    if (subRes.ok) {
-      const flattened: DisplayEntry[] = subRes.data.flatMap((group) =>
-        group.entries.map((entry) => ({
-          ...entry,
-          type: group.requirement.title,
-          dueDate: group.requirement.due_date,
-        }))
-      )
-      setRealEntries(flattened)
-    }
-
-    if (reqRes.ok) setRepoForms(reqRes.data)
-    setIsPageLoading(false)
   }
 
   useEffect(() => {

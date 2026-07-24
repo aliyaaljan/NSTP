@@ -211,44 +211,46 @@ export default function StudentDashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const res = await getStudentDashboard()
-      if (!res.ok) {
-        setLoading(false)
-        return
-      }
-      setDashboard(res.data)
-      
-      if (res.data.enrollmentId) {
-        const formsRes = await getMyForms(res.data.enrollmentId)
-        if (formsRes.ok) setFormViews(formsRes.data)
+      try {
+        const res = await getStudentDashboard()
+        if (!res.ok) return
+        setDashboard(res.data)
 
-        const requestsRes = await getStudentRequests(res.data.enrollmentId)
-        if (requestsRes.ok) {
-          setRecentRequests(
-            requestsRes.data
-              .slice(0, 3)
-              .map((r) => ({ title: r.title, status: r.status, time: r.date }))
-          )
+        if (res.data.enrollmentId) {
+          const formsRes = await getMyForms(res.data.enrollmentId)
+          if (formsRes.ok) setFormViews(formsRes.data)
+
+          const requestsRes = await getStudentRequests(res.data.enrollmentId)
+          if (requestsRes.ok) {
+            setRecentRequests(
+              requestsRes.data
+                .slice(0, 3)
+                .map((r) => ({ title: r.title, status: r.status, time: r.date }))
+            )
+          }
         }
-      }
 
-      const supabase = createClient()
-      const { data: rosterData } = await supabase.rpc("get_leader_section_dashboard")
-      if (rosterData && rosterData.length > 0) {
-        const row = rosterData[0]
-        const students: GeneratedStudent[] = ((row.students as any[]) ?? []).map(
-          (s: any, i: number) => ({
-            id: s.enrollment_id ?? String(i),
-            name: s.name ?? "",
-            studentId: s.student_number ?? "",
-            generatedAt: s.generated_at ? manilaClock(s.generated_at) : "",
-            scanned: !!s.has_open_session,
-            scannedAt: s.scanned_at ? manilaClock(s.scanned_at) : undefined,
-          })
-        )
-        setRosterStudents(students)
+        const supabase = createClient()
+        const { data: rosterData } = await supabase.rpc("get_leader_section_dashboard")
+        if (rosterData && rosterData.length > 0) {
+          const row = rosterData[0]
+          const students: GeneratedStudent[] = ((row.students as any[]) ?? []).map(
+            (s: any, i: number) => ({
+              id: s.enrollment_id ?? String(i),
+              name: s.name ?? "",
+              studentId: s.student_number ?? "",
+              generatedAt: s.generated_at ? manilaClock(s.generated_at) : "",
+              scanned: !!s.has_open_session,
+              scannedAt: s.scanned_at ? manilaClock(s.scanned_at) : undefined,
+            })
+          )
+          setRosterStudents(students)
+        }
+      } catch (err) {
+        console.error("[student/dashboard] load failed", err)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     load()
   }, [])
