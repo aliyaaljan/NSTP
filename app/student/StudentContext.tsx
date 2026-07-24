@@ -75,3 +75,8 @@ export function useStudent() {
   }
   return context
 }
+
+/** Safe outside StudentProvider (e.g. admin layout reusing the shared sidebar). */
+export function useOptionalStudent() {
+  return useContext(StudentContext)
+}

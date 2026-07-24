@@ -6,7 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { signOutWithAudit } from "@/lib/auth-actions"
 import { Goblin_One, Cormorant } from "next/font/google"
-import { useStudent } from "@/app/student/StudentContext"
+import { useOptionalStudent } from "@/app/student/StudentContext"
 import { useViewSwitch } from "@/components/shared/ViewSwitcher"
 
 const goblin = Goblin_One({
@@ -95,7 +95,10 @@ export default function StudentSidebar({
   const [windowWidth, setWindowWidth] = useState(0)
   const [windowHeight, setWindowHeight] = useState(0)
 
-  const { isLeader: contextIsLeader, isLoading, studentData } = useStudent()
+  const student = useOptionalStudent()
+  const contextIsLeader = student?.isLeader ?? false
+  const isLoading = student?.isLoading ?? false
+  const studentData = student?.studentData
   const isLeader = propIsLeader !== undefined ? propIsLeader : contextIsLeader
   const viewSwitch = useViewSwitch()
 
