@@ -459,8 +459,8 @@ export default async function AdminDashboardPage({
         `
 
   const enrollmentSelect = hasClassScope
-    ? `student_user_id, app_user(full_name, student_number), section!inner(section_id, course_code, required_hour_total, term:term_id(school_year, semester), app_user!inner(full_name)), attendance_session(duration_minute)`
-    : `student_user_id, app_user(full_name, student_number), section(section_id, course_code, required_hour_total, term:term_id(school_year, semester), app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
+    ? `enrollment_id, student_user_id, app_user(full_name, student_number), section!inner(section_id, course_code, required_hour_total, term:term_id(school_year, semester), app_user!inner(full_name)), attendance_session(duration_minute)`
+    : `enrollment_id, student_user_id, app_user(full_name, student_number), section(section_id, course_code, required_hour_total, term:term_id(school_year, semester), app_user(full_name)),attendance_session!attendance_session_enrollment_id_fkey(duration_minute)`
 
   const gpsComplianceSelect = hasClassScope
     ? "attendance_session_id, is_flagged, enrollment!inner(enrollment_status_id, section!inner(section_id, app_user!section_adviser_user_id_fkey!inner(full_name)))"
@@ -946,16 +946,16 @@ export default async function AdminDashboardPage({
           ) || 0
         const studentHours = studentMinutes / 60
         return {
-          id: en.student_user_id,
+          id: en.enrollment_id,
           section: en.app_user?.full_name || "Unknown Student",
           pct: Math.min(100, Math.round((studentHours / targetHours) * 100)),
         }
       })
       .sort((a, b) => b.pct - a.pct)
   } else {
-    processedSectionProgress = Object.values(sectionAggregationMap)
-      .map((sect: any) => ({
-        id: sect.name,
+    processedSectionProgress = Object.entries(sectionAggregationMap)
+      .map(([sectionId, sect]: [string, any]) => ({
+        id: sectionId,
         section: sect.name,
         pct:
           sect.studentCount > 0
