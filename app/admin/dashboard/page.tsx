@@ -954,7 +954,7 @@ export default async function AdminDashboardPage({
       .sort((a, b) => b.pct - a.pct)
   } else {
     processedSectionProgress = Object.entries(sectionAggregationMap)
-      .map(([sectionId, sect]: [string, any]) => ({
+      .map(([sectionId, sect]) => ({
         id: sectionId,
         section: sect.name,
         pct:
